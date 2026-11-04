@@ -1,0 +1,634 @@
+// Generated from the live database with `npm run db:pull` (see docs/database/README.md). Do not edit by hand.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model application_status_history {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  application_id String              @db.Uuid
+  org_id         String              @db.Uuid
+  from_status    application_status?
+  to_status      application_status
+  changed_by     String?             @db.Uuid
+  created_at     DateTime            @default(now()) @db.Timestamptz(6)
+  applications   applications        @relation(fields: [application_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([application_id, org_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model applications {
+  id                         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_id                     String                       @db.Uuid
+  org_id                     String                       @db.Uuid
+  candidate_id               String                       @db.Uuid
+  status                     application_status           @default(submitted)
+  cover_note                 String?
+  created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  application_status_history application_status_history[]
+  users                      users                        @relation(fields: [candidate_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  jobs                       jobs                         @relation(fields: [job_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  organizations              organizations                @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assessment_attempts        assessment_attempts[]
+
+  @@unique([id, org_id])
+  @@unique([job_id, candidate_id])
+  @@index([candidate_id])
+  @@index([job_id, org_id])
+  @@index([org_id, status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model assessment_attempts {
+  id                                            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  application_id                                String              @db.Uuid
+  version_id                                    String              @db.Uuid
+  org_id                                        String              @db.Uuid
+  candidate_id                                  String              @db.Uuid
+  status                                        attempt_status      @default(invited)
+  invited_by                                    String?             @db.Uuid
+  started_at                                    DateTime?           @db.Timestamptz(6)
+  submitted_at                                  DateTime?           @db.Timestamptz(6)
+  created_at                                    DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                                    DateTime            @default(now()) @db.Timestamptz(6)
+  applications                                  applications        @relation(fields: [application_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  users_assessment_attempts_candidate_idTousers users               @relation("assessment_attempts_candidate_idTousers", fields: [candidate_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_assessment_attempts_invited_byTousers   users?              @relation("assessment_attempts_invited_byTousers", fields: [invited_by], references: [id], onUpdate: NoAction)
+  organizations                                 organizations       @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assessment_versions                           assessment_versions @relation(fields: [version_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  evaluation_results                            evaluation_results?
+  evidence_files                                evidence_files[]
+  task_responses                                task_responses[]
+
+  @@unique([application_id, version_id])
+  @@unique([id, org_id])
+  @@index([application_id, org_id])
+  @@index([candidate_id])
+  @@index([invited_by])
+  @@index([org_id])
+  @@index([version_id, org_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model assessment_tasks {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version_id          String                @db.Uuid
+  org_id              String                @db.Uuid
+  position            Int
+  task_type           task_type
+  title_ar            String
+  title_en            String
+  instructions_ar     String
+  instructions_en     String
+  weight              Decimal               @default(1) @db.Decimal(6, 3)
+  config              Json                  @default("{}")
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  organizations       organizations         @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assessment_versions assessment_versions   @relation(fields: [version_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+  evidence_files      evidence_files[]
+  rubric_criteria     rubric_criteria[]
+  task_responses      task_responses[]
+  task_skill_mappings task_skill_mappings[]
+
+  @@unique([id, org_id])
+  @@unique([version_id, position])
+  @@index([org_id])
+  @@index([version_id, org_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model assessment_versions {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assessment_id       String                @db.Uuid
+  org_id              String                @db.Uuid
+  version_number      Int
+  status              version_status        @default(draft)
+  duration_minutes    Int?
+  instructions_ar     String?
+  instructions_en     String?
+  published_by        String?               @db.Uuid
+  published_at        DateTime?             @db.Timestamptz(6)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  assessment_attempts assessment_attempts[]
+  assessment_tasks    assessment_tasks[]
+  assessments         assessments           @relation(fields: [assessment_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+  organizations       organizations         @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users               users?                @relation(fields: [published_by], references: [id], onUpdate: NoAction)
+
+  @@unique([assessment_id, version_number])
+  @@unique([id, org_id])
+  @@index([assessment_id, org_id])
+  @@index([org_id])
+  @@index([published_by])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model assessments {
+  id                           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id                       String                @db.Uuid
+  job_id                       String                @db.Uuid
+  title_ar                     String
+  title_en                     String
+  results_visible_to_candidate Boolean               @default(false)
+  created_at                   DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime              @default(now()) @db.Timestamptz(6)
+  assessment_versions          assessment_versions[]
+  jobs                         jobs                  @relation(fields: [job_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  organizations                organizations         @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([id, org_id])
+  @@index([job_id, org_id])
+  @@index([org_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model audit_logs {
+  id         BigInt   @id @default(autoincrement())
+  org_id     String?  @db.Uuid
+  actor_id   String?  @db.Uuid
+  action     String
+  entity     String
+  entity_id  String?
+  details    Json     @default("{}")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([org_id, created_at(sort: Desc)])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model candidate_profiles {
+  user_id               String    @id @db.Uuid
+  full_name             String
+  headline              String?
+  city                  String?
+  summary               String?
+  cv_path               String?
+  years_experience      Decimal?  @db.Decimal(4, 1)
+  education             Json      @default("[]")
+  experience            Json      @default("[]")
+  share_profile_consent Boolean   @default(false)
+  consent_updated_at    DateTime? @db.Timestamptz(6)
+  created_at            DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime  @default(now()) @db.Timestamptz(6)
+  users                 users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model candidate_skills {
+  candidate_id String   @db.Uuid
+  skill_id     String   @db.Uuid
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  users        users    @relation(fields: [candidate_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  skills       skills   @relation(fields: [skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([candidate_id, skill_id])
+  @@index([skill_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model criterion_scores {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  result_id          String             @db.Uuid
+  criterion_id       String             @db.Uuid
+  org_id             String             @db.Uuid
+  score              Decimal            @db.Decimal(6, 2)
+  source             score_source
+  evidence_ref       String?
+  explanation        String?
+  confidence         Decimal?           @db.Decimal(3, 2)
+  model_version      String?
+  prompt_version     String?
+  rubric_version     Int?
+  created_by         String?            @db.Uuid
+  created_at         DateTime           @default(now()) @db.Timestamptz(6)
+  users              users?             @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  rubric_criteria    rubric_criteria    @relation(fields: [criterion_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  organizations      organizations      @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  evaluation_results evaluation_results @relation(fields: [result_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([result_id, criterion_id, source])
+  @@index([created_by])
+  @@index([criterion_id, org_id])
+  @@index([org_id])
+  @@index([result_id, org_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model evaluation_results {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attempt_id            String               @unique @db.Uuid
+  org_id                String               @db.Uuid
+  status                evaluation_status    @default(pending)
+  overall_score         Decimal?             @db.Decimal(6, 2)
+  summary_ar            String?
+  summary_en            String?
+  released_to_candidate Boolean              @default(false)
+  released_at           DateTime?            @db.Timestamptz(6)
+  created_at            DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime             @default(now()) @db.Timestamptz(6)
+  criterion_scores      criterion_scores[]
+  assessment_attempts   assessment_attempts  @relation(fields: [attempt_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  organizations         organizations        @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  evaluation_reviews    evaluation_reviews[]
+  skill_scores          skill_scores[]
+
+  @@unique([attempt_id, org_id])
+  @@unique([id, org_id])
+  @@index([attempt_id, org_id])
+  @@index([org_id, status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model evaluation_reviews {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  result_id          String             @db.Uuid
+  org_id             String             @db.Uuid
+  reviewer_id        String             @db.Uuid
+  notes              String?
+  created_at         DateTime           @default(now()) @db.Timestamptz(6)
+  organizations      organizations      @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  evaluation_results evaluation_results @relation(fields: [result_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+  users              users              @relation(fields: [reviewer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([org_id])
+  @@index([result_id, org_id])
+  @@index([reviewer_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model evidence_files {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attempt_id          String              @db.Uuid
+  task_id             String              @db.Uuid
+  org_id              String              @db.Uuid
+  candidate_id        String              @db.Uuid
+  storage_path        String              @unique
+  file_name           String
+  mime_type           String
+  size_bytes          BigInt
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  assessment_attempts assessment_attempts @relation(fields: [attempt_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+  users               users               @relation(fields: [candidate_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organizations       organizations       @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assessment_tasks    assessment_tasks    @relation(fields: [task_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([attempt_id, org_id])
+  @@index([candidate_id])
+  @@index([org_id])
+  @@index([task_id, org_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model job_skills {
+  job_id         String        @db.Uuid
+  org_id         String        @db.Uuid
+  skill_id       String        @db.Uuid
+  required_level Int           @default(2) @db.SmallInt
+  jobs           jobs          @relation(fields: [job_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+  organizations  organizations @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  skills         skills        @relation(fields: [skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([job_id, skill_id])
+  @@index([job_id, org_id])
+  @@index([org_id])
+  @@index([skill_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model jobs {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id         String         @db.Uuid
+  slug           String
+  title_ar       String
+  title_en       String
+  description_ar String?
+  description_en String?
+  location       String?
+  status         job_status     @default(draft)
+  is_demo        Boolean        @default(false)
+  published_at   DateTime?      @db.Timestamptz(6)
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime       @default(now()) @db.Timestamptz(6)
+  applications   applications[]
+  assessments    assessments[]
+  job_skills     job_skills[]
+  organizations  organizations  @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([id, org_id])
+  @@unique([org_id, slug])
+  @@index([status])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model organization_branding {
+  org_id        String        @id @db.Uuid
+  logo_path     String?
+  primary_color String?
+  accent_color  String?
+  welcome_ar    String?
+  welcome_en    String?
+  updated_at    DateTime      @default(now()) @db.Timestamptz(6)
+  organizations organizations @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model organization_invitations {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id        String        @db.Uuid
+  email         String
+  role          org_role
+  token_hash    String        @unique
+  invited_by    String?       @db.Uuid
+  expires_at    DateTime      @db.Timestamptz(6)
+  accepted_at   DateTime?     @db.Timestamptz(6)
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  users         users?        @relation(fields: [invited_by], references: [id], onUpdate: NoAction)
+  organizations organizations @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([invited_by])
+  @@index([org_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model organization_members {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id        String        @db.Uuid
+  user_id       String        @db.Uuid
+  role          org_role
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime      @default(now()) @db.Timestamptz(6)
+  organizations organizations @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users         users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([org_id, user_id])
+  @@index([user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model organizations {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                     String                     @unique
+  name_ar                  String
+  name_en                  String
+  description              String?
+  is_demo                  Boolean                    @default(false)
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  applications             applications[]
+  assessment_attempts      assessment_attempts[]
+  assessment_tasks         assessment_tasks[]
+  assessment_versions      assessment_versions[]
+  assessments              assessments[]
+  criterion_scores         criterion_scores[]
+  evaluation_results       evaluation_results[]
+  evaluation_reviews       evaluation_reviews[]
+  evidence_files           evidence_files[]
+  job_skills               job_skills[]
+  jobs                     jobs[]
+  organization_branding    organization_branding?
+  organization_invitations organization_invitations[]
+  organization_members     organization_members[]
+  rubric_criteria          rubric_criteria[]
+  skill_scores             skill_scores[]
+  task_responses           task_responses[]
+  task_skill_mappings      task_skill_mappings[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model rubric_criteria {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id          String             @db.Uuid
+  org_id           String             @db.Uuid
+  code             String
+  description_ar   String
+  description_en   String
+  max_score        Decimal            @db.Decimal(6, 2)
+  weight           Decimal            @default(1) @db.Decimal(6, 3)
+  answer_key       Json?
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  criterion_scores criterion_scores[]
+  organizations    organizations      @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assessment_tasks assessment_tasks   @relation(fields: [task_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([id, org_id])
+  @@unique([task_id, code])
+  @@index([org_id])
+  @@index([task_id, org_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model skill_categories {
+  id      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug    String   @unique
+  name_ar String
+  name_en String
+  skills  skills[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model skill_levels {
+  skill_id      String @db.Uuid
+  level         Int    @db.SmallInt
+  descriptor_ar String
+  descriptor_en String
+  skills        skills @relation(fields: [skill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([skill_id, level])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model skill_scores {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  result_id          String             @db.Uuid
+  skill_id           String             @db.Uuid
+  org_id             String             @db.Uuid
+  level              Int                @db.SmallInt
+  source             score_source
+  explanation        String?
+  created_at         DateTime           @default(now()) @db.Timestamptz(6)
+  organizations      organizations      @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  evaluation_results evaluation_results @relation(fields: [result_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+  skills             skills             @relation(fields: [skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([result_id, skill_id])
+  @@index([org_id])
+  @@index([result_id, org_id])
+  @@index([skill_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model skills {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category_id         String                @db.Uuid
+  slug                String                @unique
+  name_ar             String
+  name_en             String
+  synonyms            String[]              @default([])
+  definition_ar       String?
+  definition_en       String?
+  source              String
+  review_status       content_review_status @default(draft)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  candidate_skills    candidate_skills[]
+  job_skills          job_skills[]
+  skill_levels        skill_levels[]
+  skill_scores        skill_scores[]
+  skill_categories    skill_categories      @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task_skill_mappings task_skill_mappings[]
+
+  @@index([category_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model task_responses {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attempt_id          String              @db.Uuid
+  task_id             String              @db.Uuid
+  org_id              String              @db.Uuid
+  candidate_id        String              @db.Uuid
+  answer              Json                @default("{}")
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @default(now()) @db.Timestamptz(6)
+  assessment_attempts assessment_attempts @relation(fields: [attempt_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+  users               users               @relation(fields: [candidate_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organizations       organizations       @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assessment_tasks    assessment_tasks    @relation(fields: [task_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([attempt_id, task_id])
+  @@index([attempt_id, org_id])
+  @@index([candidate_id])
+  @@index([org_id])
+  @@index([task_id, org_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model task_skill_mappings {
+  task_id          String           @db.Uuid
+  org_id           String           @db.Uuid
+  skill_id         String           @db.Uuid
+  weight           Decimal          @default(1) @db.Decimal(6, 3)
+  organizations    organizations    @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  skills           skills           @relation(fields: [skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assessment_tasks assessment_tasks @relation(fields: [task_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([task_id, skill_id])
+  @@index([org_id])
+  @@index([skill_id])
+  @@index([task_id, org_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id                                                          String                     @id @db.Uuid
+  email                                                       String
+  display_name                                                String?
+  preferred_locale                                            String                     @default("ar")
+  created_at                                                  DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                                  DateTime                   @default(now()) @db.Timestamptz(6)
+  applications                                                applications[]
+  assessment_attempts_assessment_attempts_candidate_idTousers assessment_attempts[]      @relation("assessment_attempts_candidate_idTousers")
+  assessment_attempts_assessment_attempts_invited_byTousers   assessment_attempts[]      @relation("assessment_attempts_invited_byTousers")
+  assessment_versions                                         assessment_versions[]
+  candidate_profiles                                          candidate_profiles?
+  candidate_skills                                            candidate_skills[]
+  criterion_scores                                            criterion_scores[]
+  evaluation_reviews                                          evaluation_reviews[]
+  evidence_files                                              evidence_files[]
+  organization_invitations                                    organization_invitations[]
+  organization_members                                        organization_members[]
+  task_responses                                              task_responses[]
+}
+
+enum application_status {
+  submitted
+  under_review
+  assessment_invited
+  assessment_in_progress
+  assessment_submitted
+  evaluated
+  shortlisted
+  rejected
+  hired
+  withdrawn
+}
+
+enum attempt_status {
+  invited
+  in_progress
+  submitted
+  expired
+}
+
+enum content_review_status {
+  draft
+  reviewed
+  approved
+}
+
+enum evaluation_status {
+  pending
+  ai_proposed
+  needs_human_review
+  reviewed
+}
+
+enum job_status {
+  draft
+  published
+  closed
+}
+
+enum org_role {
+  owner
+  admin
+  recruiter
+  reviewer
+}
+
+enum score_source {
+  deterministic
+  ai_assisted
+  human_reviewed
+}
+
+enum task_type {
+  written_case_study
+  data_analysis
+  objective_questions
+  file_submission
+}
+
+enum version_status {
+  draft
+  in_review
+  published
+  archived
+}

@@ -2,16 +2,16 @@
 
 AI-assisted talent assessment and development through practical work simulations. Bilingual (Arabic first), B2B2C.
 
-Current state: **Milestone 1 (brand and foundation)**. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for what is and isn't built.
+Current state: **Milestones 1 and 2 (brand, public site, database foundation)**. There is no sign-up or product UI yet. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for what is and isn't built.
 
 ## Layout
 
 | Path | What | Stack |
 | --- | --- | --- |
 | `apps/web` | Public site and, later, the product UI | Next.js 16, React 19, Tailwind 4, next-intl, next-themes, Motion |
-| `apps/api` | Core API (health endpoint only so far) | NestJS 11, Swagger |
+| `apps/api` | Core API: auth, profile, organizations, jobs, applications | NestJS 11, Prisma 6, Swagger |
 | `services/ai` | AI service (health endpoint and a LangGraph wiring check) | Python 3.12, FastAPI, LangGraph |
-| `supabase/migrations` | Database migrations (none yet) | Supabase Postgres |
+| `supabase/migrations` | Database migrations ([docs](docs/database/README.md)) | Supabase Postgres, Auth, Storage |
 
 ## Run
 
@@ -25,13 +25,13 @@ npm install
 npm run dev:web
 ```
 
-Web runs on http://localhost:3000. The default locale routes are `/ar` and `/en`.
+Web runs on http://localhost:3100. The default locale routes are `/ar` and `/en`.
 
 ```bash
 npm run dev:api
 ```
 
-API runs on http://localhost:4000: `/v1/health`, with Swagger at `/docs`.
+API runs on http://localhost:4000: `/v1/health`, `/v1/health/db`, with Swagger at `/docs`. It needs a `.env`: see [docs/database/README.md](docs/database/README.md).
 
 ```bash
 cd services/ai && uv sync && uv run uvicorn midan_ai.main:app --port 8000
@@ -45,6 +45,12 @@ npm test && npm run lint
 
 ```bash
 cd services/ai && uv run pytest
+```
+
+Against the live database (see the database docs first):
+
+```bash
+npm run test:e2e -w @midan/api
 ```
 
 ## Design tokens

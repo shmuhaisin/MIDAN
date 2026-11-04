@@ -1,0 +1,1 @@
+{ "preset": "ts-jest", "testEnvironment": "node", "rootDir": "src", "testRegex": "\\.e2e-spec\\.ts$", "testTimeout": 60000 }

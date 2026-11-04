@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2022", "module": "commonjs", "moduleResolution": "node10", "ignoreDeprecations": "6.0",
+    "target": "ES2022", "module": "node16", "moduleResolution": "node16",
     "outDir": "dist", "rootDir": "src", "strict": true, "esModuleInterop": true,
     "experimentalDecorators": true, "emitDecoratorMetadata": true, "skipLibCheck": true,
     "types": ["node", "jest"]
