@@ -1,0 +1,20 @@
+{
+  "name": "midan",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:web": "npm run dev -w @midan/web",
+    "dev:api": "npm run start:dev -w @midan/api",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "overrides": {
+    "multer": "2.5.0"
+  }
+}
