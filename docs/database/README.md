@@ -20,7 +20,7 @@ Browser -> NestJS -> Postgres as midan_api -> SET LOCAL ROLE authenticated/anon 
 | --- | --- | --- | --- | --- |
 | Published jobs, their organizations | Yes | Yes | Yes | Yes |
 | Draft jobs | No | Yes | No | No |
-| Candidate profile, CV | Own | Only if they applied here | No | No |
+| Candidate profile, CV | Own | Only while they have an active application here | No | No |
 | Applications | Own | Own organization | No | No |
 | Tasks | After invitation | Yes | No | No |
 | Rubric, answer keys | Never | Yes | No | No |

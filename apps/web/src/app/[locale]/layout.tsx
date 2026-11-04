@@ -7,6 +7,8 @@ import { Parapet } from '@/components/brand';
 import { Header, Providers } from '@/components/chrome';
 import { Link } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
+import { signOut } from '@/lib/auth-actions';
+import { getSession } from '@/lib/session';
 import '../globals.css';
 
 const plexArabic = IBM_Plex_Sans_Arabic({ subsets: ['arabic'], weight: ['400', '500', '600', '700'], variable: '--font-plex-arabic', display: 'swap' });
@@ -29,12 +31,13 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 function Footer() {
   const t = useTranslations();
   const links = [
+    ['/opportunities', 'opportunities'],
     ['/how-it-works', 'how'],
     ['/for-candidates', 'candidates'],
     ['/for-organizations', 'organizations'],
     ['/about', 'about'],
     ['/faq', 'faq'],
-    ['/get-started', 'getStarted'],
+    ['/register', 'getStarted'],
   ] as const;
   return (
     <footer className="on-deep bg-deep text-deep-foreground">
@@ -60,6 +63,7 @@ export default async function LocaleLayout({ children, params }: Params & { chil
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
+  const session = await getSession();
   return (
     <html
       lang={locale}
@@ -70,7 +74,7 @@ export default async function LocaleLayout({ children, params }: Params & { chil
       <body className="flex min-h-dvh flex-col">
         <NextIntlClientProvider>
           <Providers>
-            <Header />
+            <Header signedIn={Boolean(session)} signOut={signOut} />
             <main id="main" className="flex-1">{children}</main>
             <Parapet className="text-deep" />
             <Footer />

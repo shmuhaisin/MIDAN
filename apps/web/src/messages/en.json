@@ -3,7 +3,10 @@
     "title": "Al-Midan Ya Hamidan | Talent assessment through real work",
     "description": "A Saudi platform that assesses and develops talent through job-specific work simulations, clear evidence and explainable evaluation."
   },
-  "brand": { "name": "Midan", "full": "Al-Midan Ya Hamidan" },
+  "brand": {
+    "name": "Midan",
+    "full": "Al-Midan Ya Hamidan"
+  },
   "nav": {
     "home": "Home",
     "how": "How it works",
@@ -15,11 +18,27 @@
     "menu": "Open menu",
     "closeMenu": "Close menu",
     "skip": "Skip to content",
-    "primary": "Main navigation"
+    "primary": "Main navigation",
+    "opportunities": "Opportunities",
+    "dashboard": "My dashboard",
+    "login": "Sign in",
+    "signOut": "Sign out"
   },
-  "theme": { "label": "Appearance", "light": "Light", "dark": "Dark", "system": "System" },
-  "locale": { "switch": "العربية", "label": "التبديل إلى العربية" },
-  "cta": { "candidate": "Start your journey", "organization": "Join as an organization", "how": "See how it works" },
+  "theme": {
+    "label": "Appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "locale": {
+    "switch": "العربية",
+    "label": "التبديل إلى العربية"
+  },
+  "cta": {
+    "candidate": "Start your journey",
+    "organization": "Join as an organization",
+    "how": "See how it works"
+  },
   "humaidanAlt": {
     "original": "Humaidan, Midan's character, in a thobe and shemagh",
     "tech": "Humaidan with a headset and laptop",
@@ -50,11 +69,26 @@
     "storyEyebrow": "The idea in five steps",
     "storyTitle": "From the CV to the evidence",
     "story": [
-      { "title": "Hiring should measure what people can do", "body": "CVs, degrees and interviews say a lot about what people report about themselves, and little about how they work." },
-      { "title": "Job responsibilities become simulations", "body": "Tasks are built from the responsibilities of the role, and each one is linked to the skills it measures." },
-      { "title": "Candidates demonstrate their ability", "body": "They analyze, write, decide and upload their work in an experience carrying the organization's brand, powered by Midan." },
-      { "title": "Organizations evaluate evidence against clear criteria", "body": "AI proposes and cites the evidence, a human reviewer decides, and the criteria are the same for everyone." },
-      { "title": "Both sides leave with something actionable", "body": "A report candidates understand, with practical development steps, and a consistent view that helps organizations decide better." }
+      {
+        "title": "Hiring should measure what people can do",
+        "body": "CVs, degrees and interviews say a lot about what people report about themselves, and little about how they work."
+      },
+      {
+        "title": "Job responsibilities become simulations",
+        "body": "Tasks are built from the responsibilities of the role, and each one is linked to the skills it measures."
+      },
+      {
+        "title": "Candidates demonstrate their ability",
+        "body": "They analyze, write, decide and upload their work in an experience carrying the organization's brand, powered by Midan."
+      },
+      {
+        "title": "Organizations evaluate evidence against clear criteria",
+        "body": "AI proposes and cites the evidence, a human reviewer decides, and the criteria are the same for everyone."
+      },
+      {
+        "title": "Both sides leave with something actionable",
+        "body": "A report candidates understand, with practical development steps, and a consistent view that helps organizations decide better."
+      }
     ],
     "audienceEyebrow": "One place for two sides",
     "candidateTitle": "For those who want their work to be seen",
@@ -76,54 +110,114 @@
         "jobLine": "Monitor cybersecurity alerts and respond to incidents.",
         "task": "You have one hour of system logs and two alerts. Decide which is a real incident, what happens next, and why.",
         "deliverable": "A short incident report backed by log lines",
-        "skills": ["Log analysis", "Prioritization", "Technical documentation"],
+        "skills": [
+          "Log analysis",
+          "Prioritization",
+          "Technical documentation"
+        ],
         "skill": "Log analysis",
-        "levels": ["No valid evidence in the submission.", "Reads logs and spots obvious errors with guidance.", "Connects events but misses some patterns.", "Identifies the likely cause and supports it with the right lines.", "Rules out alternatives and proposes monitoring to prevent a repeat."]
+        "levels": [
+          "No valid evidence in the submission.",
+          "Reads logs and spots obvious errors with guidance.",
+          "Connects events but misses some patterns.",
+          "Identifies the likely cause and supports it with the right lines.",
+          "Rules out alternatives and proposes monitoring to prevent a repeat."
+        ]
       },
       "finance": {
         "label": "Finance",
         "jobLine": "Prepare monthly reports and analyze budget variances.",
         "task": "Here are a store branch's quarterly figures. Explain the three largest variances and what you recommend to management.",
         "deliverable": "A one-page memo and a variance table",
-        "skills": ["Variance analysis", "Critical thinking", "Writing for management"],
+        "skills": [
+          "Variance analysis",
+          "Critical thinking",
+          "Writing for management"
+        ],
         "skill": "Variance analysis",
-        "levels": ["No valid evidence in the submission.", "Calculates variances without explaining them.", "Explains the major variances in general terms.", "Separates price and volume effects and ties them to an operational cause.", "Estimates the coming impact and proposes a measurable action."]
+        "levels": [
+          "No valid evidence in the submission.",
+          "Calculates variances without explaining them.",
+          "Explains the major variances in general terms.",
+          "Separates price and volume effects and ties them to an operational cause.",
+          "Estimates the coming impact and proposes a measurable action."
+        ]
       },
       "legal": {
         "label": "Legal",
         "jobLine": "Review commercial contracts and identify risks.",
         "task": "Review a four-page supply contract. Pull out the main risks and propose alternative wording for two clauses.",
         "deliverable": "A ranked risk list and proposed wording",
-        "skills": ["Contract review", "Risk assessment", "Drafting"],
+        "skills": [
+          "Contract review",
+          "Risk assessment",
+          "Drafting"
+        ],
         "skill": "Contract review",
-        "levels": ["No valid evidence in the submission.", "Summarizes clauses without assessing them.", "Spots clear risks but misses how they combine.", "Ranks risks by impact and cites the right clause.", "Balances protection with business interest and proposes negotiable wording."]
+        "levels": [
+          "No valid evidence in the submission.",
+          "Summarizes clauses without assessing them.",
+          "Spots clear risks but misses how they combine.",
+          "Ranks risks by impact and cites the right clause.",
+          "Balances protection with business interest and proposes negotiable wording."
+        ]
       },
       "engineering": {
         "label": "Engineering",
         "jobLine": "Follow project execution and review drawings on site.",
         "task": "A conflict between a drawing and a site report is delaying a whole phase. Identify the conflict and sequence a resolution plan.",
         "deliverable": "A request for information and a timed resolution plan",
-        "skills": ["Reading drawings", "Problem solving", "Site coordination"],
+        "skills": [
+          "Reading drawings",
+          "Problem solving",
+          "Site coordination"
+        ],
         "skill": "Reading drawings",
-        "levels": ["No valid evidence in the submission.", "Recognizes the basic elements of a drawing.", "Notices the visible conflict without estimating its impact.", "Pinpoints the conflict and its effect on the schedule.", "Anticipates later conflicts and proposes a fix that reduces rework."]
+        "levels": [
+          "No valid evidence in the submission.",
+          "Recognizes the basic elements of a drawing.",
+          "Notices the visible conflict without estimating its impact.",
+          "Pinpoints the conflict and its effect on the schedule.",
+          "Anticipates later conflicts and proposes a fix that reduces rework."
+        ]
       },
       "events": {
         "label": "Events",
         "jobLine": "Run daily event operations and staff teams.",
         "task": "Two hours before opening, a key supplier is missing and the entry route has changed. Reassign the team and decide what comes first.",
         "deliverable": "An updated operating plan and a message to the team",
-        "skills": ["Deciding under pressure", "Team management", "Communication"],
+        "skills": [
+          "Deciding under pressure",
+          "Team management",
+          "Communication"
+        ],
         "skill": "Deciding under pressure",
-        "levels": ["No valid evidence in the submission.", "Lists problems without ordering them.", "Sets priorities but offers no alternatives.", "Decides clearly and shows the effect on visitors and staff.", "Builds a fallback plan and decision points for what may come next."]
+        "levels": [
+          "No valid evidence in the submission.",
+          "Lists problems without ordering them.",
+          "Sets priorities but offers no alternatives.",
+          "Decides clearly and shows the effect on visitors and staff.",
+          "Builds a fallback plan and decision points for what may come next."
+        ]
       },
       "healthcare": {
         "label": "Healthcare",
         "jobLine": "Coordinate patient care and improve the patient journey.",
         "task": "An outpatient clinic gets repeated complaints about waiting times. Analyze a week of data and propose an improvement that doesn't affect patient safety.",
         "deliverable": "A brief analysis and an improvement proposal",
-        "skills": ["Data analysis", "Patient safety awareness", "Communication"],
+        "skills": [
+          "Data analysis",
+          "Patient safety awareness",
+          "Communication"
+        ],
         "skill": "Data analysis",
-        "levels": ["No valid evidence in the submission.", "Reads and summarizes the numbers.", "Identifies peak times without explaining them.", "Links waiting to a specific cause and backs it with data.", "Balances efficiency with safety and sets a metric to track improvement."]
+        "levels": [
+          "No valid evidence in the submission.",
+          "Reads and summarizes the numbers.",
+          "Identifies peak times without explaining them.",
+          "Links waiting to a specific cause and backs it with data.",
+          "Balances efficiency with safety and sets a metric to track improvement."
+        ]
       }
     }
   },
@@ -132,22 +226,60 @@
     "title": "One journey, from the job to the evidence",
     "lead": "Midan builds the assessment from the work itself, preserves the exact version each candidate was assessed on, and keeps the decision with people.",
     "steps": [
-      { "title": "Define the job", "body": "The organization sets responsibilities and required skills, and maps them to a central skills taxonomy." },
-      { "title": "Build the assessment", "body": "AI helps propose tasks and rubrics. The team reviews and edits everything." },
-      { "title": "Approve and publish", "body": "Nothing is published without human approval, and every published version is immutable." },
-      { "title": "Take the assessment", "body": "The candidate completes tasks and uploads evidence in an experience carrying the organization's brand." },
-      { "title": "Evaluate", "body": "Objective questions are graded automatically, AI proposes evidence-backed scores, and uncertain cases go to a human reviewer." },
-      { "title": "Report and develop", "body": "The organization sees every criterion. Candidates see what the organization releases, with steps to develop." }
+      {
+        "title": "Define the job",
+        "body": "The organization sets responsibilities and required skills, and maps them to a central skills taxonomy."
+      },
+      {
+        "title": "Build the assessment",
+        "body": "AI helps propose tasks and rubrics. The team reviews and edits everything."
+      },
+      {
+        "title": "Approve and publish",
+        "body": "Nothing is published without human approval, and every published version is immutable."
+      },
+      {
+        "title": "Take the assessment",
+        "body": "The candidate completes tasks and uploads evidence in an experience carrying the organization's brand."
+      },
+      {
+        "title": "Evaluate",
+        "body": "Objective questions are graded automatically, AI proposes evidence-backed scores, and uncertain cases go to a human reviewer."
+      },
+      {
+        "title": "Report and develop",
+        "body": "The organization sees every criterion. Candidates see what the organization releases, with steps to develop."
+      }
     ],
     "scaleEyebrow": "The skill scale",
     "scaleTitle": "Five levels describing observable behavior",
     "scaleLead": "No numbers without meaning. Every level describes what was actually seen in the candidate's work.",
     "scale": [
-      { "code": "L0", "name": "No valid evidence", "body": "The submission isn't enough to judge the skill." },
-      { "code": "L1", "name": "Basic", "body": "Applies the fundamentals in simple situations, with guidance." },
-      { "code": "L2", "name": "Developing", "body": "Completes most of what's needed, lacking some depth or reasoning." },
-      { "code": "L3", "name": "Proficient", "body": "Works independently and supports decisions with evidence." },
-      { "code": "L4", "name": "Advanced", "body": "Handles complexity, anticipates consequences and raises the quality of the solution." }
+      {
+        "code": "L0",
+        "name": "No valid evidence",
+        "body": "The submission isn't enough to judge the skill."
+      },
+      {
+        "code": "L1",
+        "name": "Basic",
+        "body": "Applies the fundamentals in simple situations, with guidance."
+      },
+      {
+        "code": "L2",
+        "name": "Developing",
+        "body": "Completes most of what's needed, lacking some depth or reasoning."
+      },
+      {
+        "code": "L3",
+        "name": "Proficient",
+        "body": "Works independently and supports decisions with evidence."
+      },
+      {
+        "code": "L4",
+        "name": "Advanced",
+        "body": "Handles complexity, anticipates consequences and raises the quality of the solution."
+      }
     ]
   },
   "candidates": {
@@ -155,10 +287,22 @@
     "title": "Let your work speak",
     "lead": "Whether you're a student, a fresh graduate or experienced, Midan gives you a way to prove your ability and see what to develop next.",
     "points": [
-      { "title": "One account for every organization", "body": "One professional profile to apply to many organizations. Your data isn't shared between them without your consent." },
-      { "title": "Tasks that resemble real work", "body": "Clear instructions, progress tracking and file uploads, with no questions disconnected from the job." },
-      { "title": "Results you can understand", "body": "When an organization releases results, you see what was evaluated and what supports it, not an unexplained number." },
-      { "title": "A next step for development", "body": "Recommendations linked to the skills shown in your work, to build into a practical plan." }
+      {
+        "title": "One account for every organization",
+        "body": "One professional profile to apply to many organizations. Your data isn't shared between them without your consent."
+      },
+      {
+        "title": "Tasks that resemble real work",
+        "body": "Clear instructions, progress tracking and file uploads, with no questions disconnected from the job."
+      },
+      {
+        "title": "Results you can understand",
+        "body": "When an organization releases results, you see what was evaluated and what supports it, not an unexplained number."
+      },
+      {
+        "title": "A next step for development",
+        "body": "Recommendations linked to the skills shown in your work, to build into a practical plan."
+      }
     ],
     "humaidanTitle": "Humaidan is with you along the way",
     "humaidanBody": "Midan's assistant explains requirements, steps and results. It won't complete an assessment for you, because the work here is yours.",
@@ -169,57 +313,264 @@
     "title": "See the work before you decide",
     "lead": "Turn job responsibilities into a practical assessment under your brand, and review candidates with evidence and shared criteria.",
     "points": [
-      { "title": "Assessments from the heart of the job", "body": "AI helps build drafts. Your team edits and approves them." },
-      { "title": "Shared, recorded criteria", "body": "Every candidate is assessed on a fixed version of the assessment and rubric, and the record is preserved." },
-      { "title": "Human review where it matters", "body": "Uncertain cases go to a reviewer, and every score shows its source and evidence." },
-      { "title": "Your brand and your data", "body": "An experience with your logo and colors, data isolated from other organizations, and role-based permissions." }
+      {
+        "title": "Assessments from the heart of the job",
+        "body": "AI helps build drafts. Your team edits and approves them."
+      },
+      {
+        "title": "Shared, recorded criteria",
+        "body": "Every candidate is assessed on a fixed version of the assessment and rubric, and the record is preserved."
+      },
+      {
+        "title": "Human review where it matters",
+        "body": "Uncertain cases go to a reviewer, and every score shows its source and evidence."
+      },
+      {
+        "title": "Your brand and your data",
+        "body": "An experience with your logo and colors, data isolated from other organizations, and role-based permissions."
+      }
     ],
     "notTitle": "What Midan is not",
-    "not": ["Not a general job board", "Not a conventional applicant tracking system", "Not a chatbot that decides who gets hired"]
+    "not": [
+      "Not a general job board",
+      "Not a conventional applicant tracking system",
+      "Not a chatbot that decides who gets hired"
+    ]
   },
   "about": {
     "eyebrow": "About Midan",
     "title": "Why “Al-Midan Ya Hamidan”?",
     "lead": "The name comes from a saying Saudis know well: talk is one thing, the field is another. That is the idea: prove your ability where the work shows.",
     "sections": [
-      { "title": "The idea", "body": "A platform that assesses people by what they can do, and helps them understand and develop their skills." },
-      { "title": "The model", "body": "One central platform serving candidates and organizations, with each organization's data isolated from the others." },
-      { "title": "The principles", "body": "Evidence before impressions, explanation before scores, consent before sharing, and people before decisions." },
-      { "title": "Humaidan", "body": "Midan's face and guide. One character in different professional outfits, because the field isn't for one profession." }
+      {
+        "title": "The idea",
+        "body": "A platform that assesses people by what they can do, and helps them understand and develop their skills."
+      },
+      {
+        "title": "The model",
+        "body": "One central platform serving candidates and organizations, with each organization's data isolated from the others."
+      },
+      {
+        "title": "The principles",
+        "body": "Evidence before impressions, explanation before scores, consent before sharing, and people before decisions."
+      },
+      {
+        "title": "Humaidan",
+        "body": "Midan's face and guide. One character in different professional outfits, because the field isn't for one profession."
+      }
     ],
     "statusTitle": "Where we are now",
-    "statusBody": "Midan is under development. These pages explain the product. Accounts, assessments and the assistant arrive in coming phases."
+    "statusBody": "Midan is under development. Accounts, opportunities and applications work now with demo data. Practical assessments and the assistant arrive in coming phases."
   },
   "faq": {
     "eyebrow": "FAQ",
     "title": "Questions you may have",
     "items": [
-      { "q": "Is Midan a job board?", "a": "No. You can browse and apply to opportunities, but Midan's core is practical simulation and evidence-based assessment." },
-      { "q": "Does AI decide who gets hired?", "a": "No. It proposes scores and cites evidence. The final decision always belongs to people at the organization." },
-      { "q": "Can organizations see all my data?", "a": "No. Each organization sees only what relates to your application with them. Sharing beyond that needs your explicit consent." },
-      { "q": "Do I need an account for each organization?", "a": "No. One Midan account lets you apply to many organizations." },
-      { "q": "Will I see my results?", "a": "That depends on the organization's settings. When released, you see skills, strengths, areas to improve and what supports them." },
-      { "q": "Will Humaidan complete the assessment for me?", "a": "No. It explains instructions and how to submit, but it doesn't give answers or reveal confidential criteria." },
-      { "q": "Is the platform available now?", "a": "Not yet. Midan is under development, and the Get started page explains the current state." }
+      {
+        "q": "Is Midan a job board?",
+        "a": "No. You can browse and apply to opportunities, but Midan's core is practical simulation and evidence-based assessment."
+      },
+      {
+        "q": "Does AI decide who gets hired?",
+        "a": "No. It proposes scores and cites evidence. The final decision always belongs to people at the organization."
+      },
+      {
+        "q": "Can organizations see all my data?",
+        "a": "No. Each organization sees only what relates to your application with them. Sharing beyond that needs your explicit consent."
+      },
+      {
+        "q": "Do I need an account for each organization?",
+        "a": "No. One Midan account lets you apply to many organizations."
+      },
+      {
+        "q": "Will I see my results?",
+        "a": "That depends on the organization's settings. When released, you see skills, strengths, areas to improve and what supports them."
+      },
+      {
+        "q": "Will Humaidan complete the assessment for me?",
+        "a": "No. It explains instructions and how to submit, but it doesn't give answers or reveal confidential criteria."
+      },
+      {
+        "q": "Is the platform available now?",
+        "a": "You can create an account, browse the demo opportunities and apply. Practical assessments and the Humaidan assistant arrive in coming phases."
+      }
     ]
-  },
-  "start": {
-    "eyebrow": "Get started",
-    "title": "Registration isn't open yet",
-    "lead": "We're building Midan step by step, and we won't show a sign-up form before it actually works.",
-    "tabsLabel": "Account type",
-    "candidateTab": "Candidate",
-    "organizationTab": "Organization",
-    "candidateTitle": "When candidate registration opens, you'll be able to:",
-    "candidateItems": ["Create one account and a professional profile", "Apply to opportunities and track your applications", "Complete assessments and see your released results"],
-    "organizationTitle": "When organization registration opens, you'll be able to:",
-    "organizationItems": ["Create your organization's profile and brand", "Invite your team and set permissions", "Build assessments and review candidates"],
-    "back": "Read how Midan works"
   },
   "footer": {
     "tagline": "A Saudi product for assessing and developing talent through real work.",
     "status": "Under development. Examples on this site are illustrative.",
     "explore": "Explore"
   },
-  "notFound": { "title": "This field is empty", "body": "The page you're looking for doesn't exist.", "home": "Back to home" }
+  "notFound": {
+    "title": "This field is empty",
+    "body": "The page you're looking for doesn't exist.",
+    "home": "Back to home"
+  },
+  "auth": {
+    "loginTitle": "Welcome back",
+    "loginLead": "Sign in to your Midan account.",
+    "registerTitle": "Let's get started",
+    "registerLead": "One account is all you need on Midan.",
+    "accountType": "Account type",
+    "candidate": "Candidate",
+    "organization": "Organization",
+    "displayName": "Name",
+    "email": "Email",
+    "password": "Password",
+    "passwordHint": "At least 8 characters",
+    "loginSubmit": "Sign in",
+    "registerSubmit": "Create account",
+    "noAccount": "No account yet?",
+    "haveAccount": "Already have an account?",
+    "checkTitle": "Check your email",
+    "checkBody": "We sent a confirmation link to your email. Open it, then sign in.",
+    "checkNote": "If it doesn't arrive within a few minutes, check your spam folder. Email sending is limited at this early stage."
+  },
+  "errors": {
+    "invalid_credentials": "Incorrect email or password.",
+    "email_not_confirmed": "Confirm your email first, using the link we sent you.",
+    "weak_password": "That password is weak. Choose a stronger one with at least 8 characters.",
+    "user_already_exists": "This email is already registered. Try signing in.",
+    "email_address_invalid": "Enter a valid email address.",
+    "email_address_not_authorized": "We can't send email to this address at this early stage.",
+    "over_email_send_rate_limit": "We've sent too many emails in a short time. Try again soon.",
+    "over_request_rate_limit": "Too many attempts. Try again soon.",
+    "required": "Complete the required fields.",
+    "invalid_slug": "The link can only use lowercase English letters, numbers and hyphens.",
+    "duplicate": "This already exists.",
+    "forbidden": "You don't have permission to do this.",
+    "not_found": "We couldn't find that.",
+    "not_allowed": "This change isn't allowed.",
+    "session": "Your session ended. Sign in again.",
+    "unavailable": "The service isn't available right now. Try again soon.",
+    "generic": "Something went wrong. Try again."
+  },
+  "applicationStatus": {
+    "submitted": "Submitted",
+    "under_review": "Under review",
+    "assessment_invited": "Invited to assessment",
+    "assessment_in_progress": "Assessment in progress",
+    "assessment_submitted": "Assessment submitted",
+    "evaluated": "Evaluated",
+    "shortlisted": "Shortlisted",
+    "rejected": "Not selected",
+    "hired": "Hired",
+    "withdrawn": "Withdrawn"
+  },
+  "jobs": {
+    "eyebrow": "Opportunities",
+    "title": "Opportunities to prove your work",
+    "lead": "Each opportunity is built on the real responsibilities of the role. What's listed now is demo data for demonstration.",
+    "search": "Search a job or organization",
+    "location": "City",
+    "allLocations": "All cities",
+    "demo": "Demo",
+    "count": "{count, plural, =0 {No results} one {{shown} result} other {{shown} results}}",
+    "emptyTitle": "Nothing matches that search",
+    "emptyBody": "Try another word or choose all cities.",
+    "clear": "Clear search",
+    "noneTitle": "No opportunities published right now",
+    "noneBody": "New opportunities appear here as soon as they're published.",
+    "demoNote": "This is a fictional job for demonstration, not a real opportunity.",
+    "about": "About the job",
+    "noDescription": "The organization hasn't added a description yet.",
+    "apply": "Apply for this job",
+    "applied": "Your application was sent",
+    "viewApplications": "Track your applications",
+    "signInToApply": "Sign in to apply",
+    "back": "All opportunities"
+  },
+  "dashboard": {
+    "hello": "Welcome, {name}",
+    "nextEyebrow": "Your next step",
+    "nextProfileTitle": "Complete your professional profile",
+    "nextProfileBody": "A name and headline are enough to start. Organizations only see your profile if you apply to them.",
+    "nextProfileCta": "Complete your profile",
+    "nextBrowseTitle": "Choose your first opportunity",
+    "nextBrowseBody": "Your profile is ready. Browse opportunities and apply to what fits.",
+    "nextBrowseCta": "Browse opportunities",
+    "nextInvitedTitle": "You have an assessment invitation",
+    "nextInvitedBody": "An organization invited you to a practical assessment. The assessment screen arrives in a coming phase.",
+    "nextTrackTitle": "Your applications are being followed",
+    "nextTrackBody": "Any change to your applications' status appears here.",
+    "nextTrackCta": "Browse more opportunities",
+    "applications": "My applications",
+    "noApplications": "You haven't applied to anything yet.",
+    "withdraw": "Withdraw",
+    "withdrawConfirm": "Withdraw? You won't be able to apply to this job again, and the organization loses access to your profile.",
+    "cancel": "Keep it",
+    "profile": "My profile",
+    "editProfile": "Edit profile",
+    "organizations": "My organizations",
+    "openOrganization": "Open organization dashboard",
+    "createOrganization": "Create an organization",
+    "createOrganizationBody": "Hiring or running a team? Create your organization's profile and publish opportunities.",
+    "role": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "recruiter": "Recruiter",
+      "reviewer": "Reviewer"
+    },
+    "nextOrgTitle": "Your organization is ready",
+    "nextOrgBody": "Follow your jobs and applicants from the organization dashboard."
+  },
+  "profile": {
+    "title": "Your professional profile",
+    "lead": "Only organizations you apply to can see this.",
+    "fullName": "Full name",
+    "headline": "Professional headline",
+    "headlineHint": "For example: Recent graduate data analyst",
+    "city": "City",
+    "consent": "I agree to share my profile with organizations on Midan beyond my applications",
+    "consentHint": "Optional, and you can turn it off anytime. This sharing isn't built yet, so nothing is shared until it is.",
+    "save": "Save profile",
+    "saved": "Saved",
+    "back": "Back to my dashboard"
+  },
+  "org": {
+    "newTitle": "Create your organization",
+    "newLead": "A name in Arabic and English is enough. You can add branding and your team later.",
+    "nameAr": "Name in Arabic",
+    "nameEn": "Name in English",
+    "slug": "Organization link",
+    "slugHint": "Lowercase English letters, numbers and hyphens",
+    "create": "Create organization",
+    "eyebrow": "Organization dashboard",
+    "yourRole": "Your role: {role}",
+    "metrics": {
+      "open": "Published jobs",
+      "draft": "Drafts",
+      "new": "New applications",
+      "review": "Under review"
+    },
+    "jobs": "Jobs",
+    "noJobs": "No jobs yet. Add your first and publish it when it's ready.",
+    "addJob": "New job",
+    "titleAr": "Title in Arabic",
+    "titleEn": "Title in English",
+    "jobSlug": "Job link",
+    "createJob": "Save as draft",
+    "publish": "Publish",
+    "unpublish": "Back to draft",
+    "close": "Close",
+    "jobStatus": {
+      "draft": "Draft",
+      "published": "Published",
+      "closed": "Closed"
+    },
+    "applicants": "Applicants",
+    "noApplicants": "No applicants yet. They appear here as soon as someone applies to a published job.",
+    "candidate": "Candidate",
+    "job": "Job",
+    "status": "Status",
+    "changeStatus": "Change status of {name}'s application",
+    "noProfile": "Profile incomplete",
+    "readOnly": "Your role can't change status.",
+    "humanNote": "Status decisions here belong to you and your team. AI doesn't accept or reject anyone."
+  },
+  "errorPage": {
+    "title": "Something broke on our side",
+    "body": "This page couldn't load. The service is probably unavailable for a moment.",
+    "retry": "Try again"
+  }
 }

@@ -9,10 +9,10 @@ import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { Arrow, Mark } from './brand';
 
 const NAV = [
+  ['/opportunities', 'opportunities'],
   ['/how-it-works', 'how'],
   ['/for-candidates', 'candidates'],
   ['/for-organizations', 'organizations'],
-  ['/about', 'about'],
   ['/faq', 'faq'],
 ] as const;
 
@@ -88,7 +88,7 @@ function LocaleSwitch() {
   );
 }
 
-export function Header() {
+export function Header({ signedIn, signOut }: { signedIn: boolean; signOut: () => Promise<void> }) {
   const t = useTranslations();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -147,12 +147,25 @@ export function Header() {
             <ThemeSwitch />
             <LocaleSwitch />
           </div>
-          <Link
-            href="/get-started"
-            className="hidden h-9 items-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-px active:translate-y-0 lg:inline-flex"
-          >
-            {t('nav.getStarted')}
-          </Link>
+          {signedIn ? (
+            <>
+              <Link href="/dashboard" className="hidden h-9 items-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-px active:translate-y-0 lg:inline-flex">
+                {t('nav.dashboard')}
+              </Link>
+              <form action={signOut} className="hidden lg:block">
+                <button type="submit" className="h-9 rounded-full px-3 text-sm text-muted transition-colors hover:text-foreground">{t('nav.signOut')}</button>
+              </form>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="hidden h-9 items-center rounded-full px-3 text-sm font-medium transition-colors hover:bg-surface-2 lg:inline-flex">
+                {t('nav.login')}
+              </Link>
+              <Link href="/register" className="hidden h-9 items-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-px active:translate-y-0 lg:inline-flex">
+                {t('nav.getStarted')}
+              </Link>
+            </>
+          )}
           <button
             type="button"
             aria-expanded={open}
@@ -190,9 +203,19 @@ export function Header() {
                   <Arrow className="text-muted" />
                 </Link>
               ))}
-              <Link href="/get-started" className="mt-2 rounded-full bg-primary px-4 py-3 text-center font-semibold text-primary-foreground">
-                {t('nav.getStarted')}
-              </Link>
+              {signedIn ? (
+                <>
+                  <Link href="/dashboard" className="mt-2 rounded-full bg-primary px-4 py-3 text-center font-semibold text-primary-foreground">{t('nav.dashboard')}</Link>
+                  <form action={signOut}>
+                    <button type="submit" className="w-full rounded-full px-4 py-3 font-medium text-muted">{t('nav.signOut')}</button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <Link href="/register" className="mt-2 rounded-full bg-primary px-4 py-3 text-center font-semibold text-primary-foreground">{t('nav.getStarted')}</Link>
+                  <Link href="/login" className="rounded-full px-4 py-3 text-center font-medium">{t('nav.login')}</Link>
+                </>
+              )}
               <div className="mt-3 flex items-center justify-between sm:hidden">
                 <ThemeSwitch />
                 <LocaleSwitch />

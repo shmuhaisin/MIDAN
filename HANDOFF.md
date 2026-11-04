@@ -3,8 +3,8 @@
 **Branch:** `main`. **Remote:** https://github.com/shmuhaisin/MIDAN (public).
 
 ## What exists
-- `apps/web`: 7 public page types in 2 languages, on port 3100. Not yet connected to the API or Supabase Auth.
-- `apps/api`: Prisma on the live database as restricted role `midan_api`. Endpoints: `/v1/health`, `/v1/health/db`, `/v1/me`, `/v1/me/candidate-profile`, `/v1/me/applications`, `/v1/jobs`, `/v1/jobs/:id`, `/v1/jobs/:id/applications`, `/v1/organizations`, `/v1/organizations/:id/jobs`, `/v1/organizations/:id/applications`, `/v1/applications/:id/status`. Swagger at `/docs`. No rate limiting yet.
+- `apps/web` (port 3100): public pages, sign-in, registration, opportunities, job details, candidate dashboard, profile, organization creation and dashboard. Talks only to the API and, on the server, to Supabase Auth.
+- `apps/api` (port 4000): Prisma on the live database as restricted role `midan_api`, rate limited. Endpoints for health, `me`, profile, jobs, applications, organizations and job status. Swagger at `/docs`.
 - `services/ai`: `GET /health` and a LangGraph wiring check only. **Not** Graph A or B, and its in-memory checkpointer must not be reused for them.
 
 ## Supabase
@@ -12,21 +12,21 @@ Project `al-midan-ya-hamidan`, ref `squpszwbrqkflezfltoj`, region `eu-central-1`
 
 27 tables, all with RLS. 3 buckets. 5 test accounts (`midan.test.*@example.com`) whose passwords exist only in the local `.env.test.local`. `.env` and `.env.test.local` are git-ignored and exist only on this machine: a new checkout must regenerate them with `scripts/provision-db-credentials.mjs`.
 
-Not reachable with the available tools; needs the dashboard: custom SMTP (required before real sign-up), leaked password protection, Auth redirect URLs.
+Not reachable with the available tools; needs the dashboard: custom SMTP, leaked password protection, Auth Site URL and redirect URLs. The owner chose to continue without SMTP for now, so confirmation email is limited to what Supabase's built-in sender allows. The default Site URL points at localhost:3000, which is a different app on this machine, so confirmation links land there until it's changed to port 3100.
 
 ## Tests that were run
-- API, live database: 31 end-to-end tests, passing on 3 consecutive runs.
-- API: real server boot, `/v1/health/db`, `/v1/jobs`, 401 on `/v1/me` without a token, Swagger 200.
-- API unit: 1. Web: type check, message parity (3). AI: pytest (2).
-- Browser: `/ar/how-it-works` rendered; all 14 locale routes return 200 from the dev server.
-- Supabase security advisor: no RLS findings. 4 expected warnings for deliberate RPCs, 1 for leaked password protection.
+- API, live database: 33 end-to-end tests. API unit: 2, including rate limiting. Real server boot.
+- Browser (Playwright, live database): 7 journeys, including the full organization and candidate journey, cross-tenant refusal, and product screens in all 4 language and theme combinations at desktop and phone width with no console errors.
+- Web: type check, production build, message parity (3). AI: pytest (2).
+- By eye: dashboard, organization and job screens; the error page with the API stopped.
 
 ## Not checked
-- Not every page was inspected by eye in all four combinations; the home page was.
-- No automated accessibility audit or end-to-end suite. Arabic copy has not been reviewed by a native editor.
+- **Signing in through the form with a real account, sign-up, and email confirmation.** Automation sets session cookies instead. Wrong-password and validation errors were tested.
+- Session renewal in `proxy.ts` has not been exercised with a truly expired token.
+- No automated accessibility audit. Arabic copy has not been reviewed by a native editor.
 
 ## Known gaps
-Sign-up with email confirmation is untested. `npm audit` reports a high-severity finding in the Prisma CLI's `deepmerge-ts` (see docs/DECISIONS.md). Candidate account deletion is blocked once they've applied, pending a PDPL erasure design. An evaluation result can currently be created before the attempt is submitted, within the same organization. Section reveals start at opacity 0, so that content needs JavaScript to appear; fix before launch. No ESLint (`lint` runs `tsc`), no CI, no `packages/*`, no docker-compose. See PROJECT_STATUS.md.
+`npm audit` reports a high-severity finding in the Prisma CLI's `deepmerge-ts` (see docs/DECISIONS.md). Candidate account deletion is blocked once they've applied, pending a PDPL erasure design. Jobs have titles only in the UI. Section reveals start at opacity 0, so that content needs JavaScript to appear; fix before launch. No ESLint (`lint` runs `tsc`), no CI, no `packages/*`, no docker-compose. See PROJECT_STATUS.md.
 
 ## Next
-Milestone 3: connect the web app to Supabase Auth and replace `/get-started` with real registration. See NEXT_SESSION_PROMPT.md.
+Finish the profile and organization details, then Milestone 5, the assessment engine. See NEXT_SESSION_PROMPT.md.

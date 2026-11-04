@@ -1,5 +1,13 @@
 # Decisions
 
+**2026-11-05: Sessions live in httpOnly cookies, and the browser never calls Supabase or the API directly.** Next.js server actions talk to Supabase Auth and the Core API, which keeps tokens out of browser JavaScript and matches the Browser -> Next.js -> NestJS architecture. Expiring sessions are renewed in `proxy.ts`.
+
+**2026-11-05: The API must be hosted in the same region as the database.** Each transaction makes about 4 round trips. From a local machine to Frankfurt that's 1 to 1.5 seconds; next to the database it should be negligible. Saves feel slow in local development for this reason.
+
+**2026-11-05: Withdrawing ends an organization's access to the candidate.** Their profile, CV and identity stop being visible, and the withdrawn application leaves the applicant list. The history rows stay. A candidate can't reapply to the same job after withdrawing, which may need revisiting.
+
+**2026-11-05: Browser tests sign in by setting session cookies from a token.** The sign-in form with a real password is not exercised by automation; a person checks it.
+
 **2026-11-05: Supabase region is eu-central-1 (Frankfurt).** The tool used to create the project offers no Middle East region. Frankfurt was chosen for its strong data protection regime. This does **not** satisfy any Saudi data residency requirement, and PDPL cross-border transfer rules need legal review before real candidate data is stored. Moving regions later means migrating the project.
 
 **2026-11-05: The backend uses a restricted database role, not the service-role key.** `midan_api` can't bypass RLS and must assume `authenticated` or `anon` per transaction. This keeps the database as the real tenant boundary even if a controller check is missed. The password was generated locally; only a SCRAM verifier reached Supabase. Background jobs that must act without a user (for example AI evaluation) will need their own narrowly scoped path, decided in Milestone 7.

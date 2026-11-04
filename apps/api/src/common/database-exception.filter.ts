@@ -10,8 +10,8 @@ function map(error: Prisma.PrismaClientKnownRequestError | Prisma.PrismaClientUn
   if (code === 'P2002') return { status: 409, message: 'This already exists' };
   if (code === 'P2025') return { status: 404, message: 'Not found' };
   if (code === 'P2003') return { status: 400, message: 'A referenced record does not exist' };
-  if (/row-level security|permission denied|42501/i.test(text)) return { status: 403, message: 'Not allowed' };
-  if (/23514|check constraint|not open for|immutable/i.test(text)) return { status: 422, message: 'This change is not allowed' };
+  if (/row-level security|permission denied|42501|not available/i.test(text)) return { status: 403, message: 'Not allowed' };
+  if (/23514|check constraint|not open for|immutable|cannot be changed/i.test(text)) return { status: 422, message: 'This change is not allowed' };
   return { status: 500, message: 'Internal server error' };
 }
 

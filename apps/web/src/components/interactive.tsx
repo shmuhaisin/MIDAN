@@ -64,14 +64,14 @@ export function Hero() {
         <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">{t('home.heroLead')}</p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <Link
-            href="/get-started?as=candidate"
+            href="/register?as=candidate"
             className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 active:translate-y-0"
           >
             {t('cta.candidate')}
             <Arrow className="transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />
           </Link>
           <Link
-            href="/get-started?as=organization"
+            href="/register?as=organization"
             className="inline-flex items-center justify-center rounded-full border border-foreground/30 px-6 py-3.5 font-semibold transition-colors hover:bg-surface-2"
           >
             {t('cta.organization')}
@@ -298,8 +298,8 @@ export function Story() {
 export function Audience() {
   const t = useTranslations();
   const panels = [
-    { title: 'home.candidateTitle', body: 'home.candidateBody', cta: 'cta.candidate', href: '/get-started?as=candidate', more: '/for-candidates', moreLabel: 'nav.candidates', outfit: 'finance' as const, deep: false },
-    { title: 'home.organizationTitle', body: 'home.organizationBody', cta: 'cta.organization', href: '/get-started?as=organization', more: '/for-organizations', moreLabel: 'nav.organizations', outfit: 'legal' as const, deep: true },
+    { title: 'home.candidateTitle', body: 'home.candidateBody', cta: 'cta.candidate', href: '/register?as=candidate', more: '/for-candidates', moreLabel: 'nav.candidates', outfit: 'finance' as const, deep: false },
+    { title: 'home.organizationTitle', body: 'home.organizationBody', cta: 'cta.organization', href: '/register?as=organization', more: '/for-organizations', moreLabel: 'nav.organizations', outfit: 'legal' as const, deep: true },
   ];
   return (
     <section aria-label={t('home.audienceEyebrow')} className="flex flex-col lg:flex-row">

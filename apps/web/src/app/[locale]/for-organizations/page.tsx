@@ -19,7 +19,7 @@ export default function Page({ params }: { params: Promise<{ locale: string }> }
         <ul className="mt-5 space-y-2 text-xl text-muted">
           {(t.raw('organizations.not') as string[]).map((line) => <li key={line}>{line}</li>)}
         </ul>
-        <Link href="/get-started?as=organization" className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground">
+        <Link href="/register?as=organization" className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground">
           {t('cta.organization')}<Arrow />
         </Link>
       </section>

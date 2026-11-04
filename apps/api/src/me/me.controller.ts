@@ -25,7 +25,9 @@ export class MeController {
         where: { id: user.id },
         include: {
           candidate_profiles: true,
-          organization_members: { select: { org_id: true, role: true } },
+          organization_members: {
+            select: { org_id: true, role: true, organizations: { select: { name_ar: true, name_en: true, is_demo: true } } },
+          },
         },
       }),
     );
@@ -49,7 +51,14 @@ export class MeController {
       tx.applications.findMany({
         where: { candidate_id: user.id },
         orderBy: { created_at: 'desc' },
-        include: { jobs: { select: { title_ar: true, title_en: true, org_id: true } } },
+        include: {
+          jobs: {
+            select: {
+              id: true, title_ar: true, title_en: true, is_demo: true,
+              organizations: { select: { name_ar: true, name_en: true } },
+            },
+          },
+        },
       }),
     );
   }

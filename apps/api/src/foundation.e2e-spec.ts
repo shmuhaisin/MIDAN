@@ -372,6 +372,36 @@ describe('Midan database foundation', () => {
       expect((await sign(ownerB)).ok).toBe(false);
     });
 
+    it('refuses an evaluation for work that was not submitted', async () => {
+      const job = await api().post(`/organizations/${orgB}/jobs`).set(bearer(ownerB))
+        .send({ slug: 'early-eval', title_ar: 'x', title_en: 'x', status: 'published' }).expect(201);
+      const application = await api().post(`/jobs/${job.body.id}/applications`).set(bearer(candidateOne)).send({}).expect(201);
+      const s = (await rest(ownerB, 'POST', 'assessments', { org_id: orgB, job_id: job.body.id, title_ar: 'x', title_en: 'x' })).body[0].id;
+      const v = (await rest(ownerB, 'POST', 'assessment_versions', { assessment_id: s, org_id: orgB, version_number: 1 })).body[0].id;
+      const t = (await rest(ownerB, 'POST', 'assessment_tasks', {
+        version_id: v, org_id: orgB, position: 1, task_type: 'written_case_study', title_ar: 'x', title_en: 'x', instructions_ar: 'x', instructions_en: 'x',
+      })).body[0].id;
+      await rest(ownerB, 'POST', 'rubric_criteria', { task_id: t, org_id: orgB, code: 'C', description_ar: 'x', description_en: 'x', max_score: 1 });
+      await rest(ownerB, 'PATCH', `assessment_versions?id=eq.${v}`, { status: 'published' });
+      const open = (await rest(ownerB, 'POST', 'assessment_attempts', { application_id: application.body.id, version_id: v, org_id: orgB, candidate_id: candidateOne.id })).body[0].id;
+      const early = await rest(ownerB, 'POST', 'evaluation_results', { attempt_id: open, org_id: orgB });
+      expect(early.status).toBe(400);
+    });
+
+    it('lets only the candidate withdraw, once', async () => {
+      const job = await api().post(`/organizations/${orgB}/jobs`).set(bearer(ownerB))
+        .send({ slug: 'withdrawable', title_ar: 'x', title_en: 'x', status: 'published' }).expect(201);
+      const application = await api().post(`/jobs/${job.body.id}/applications`).set(bearer(candidateTwo)).send({}).expect(201);
+      await api().post(`/applications/${application.body.id}/withdraw`).set(bearer(ownerB)).expect(403);
+      await api().post(`/applications/${application.body.id}/withdraw`).set(bearer(candidateOne)).expect(403);
+      expect((await rest(ownerB, 'GET', `candidate_profiles?user_id=eq.${candidateTwo.id}`)).body).toHaveLength(1);
+      await api().post(`/applications/${application.body.id}/withdraw`).set(bearer(candidateTwo)).expect(201);
+      expect((await rest(ownerB, 'GET', `candidate_profiles?user_id=eq.${candidateTwo.id}`)).body).toEqual([]);
+      const left = await api().get(`/organizations/${orgB}/applications`).set(bearer(ownerB)).expect(200);
+      expect(left.body.map((a: { id: string }) => a.id)).not.toContain(application.body.id);
+      await api().patch(`/applications/${application.body.id}/status`).set(bearer(ownerB)).send({ status: 'under_review' }).expect(422);
+    });
+
     it('requires provenance on AI scores and review before release', async () => {
       result = (await rest(ownerA, 'POST', 'evaluation_results', { attempt_id: attempt, org_id: orgA, status: 'ai_proposed' })).body[0].id;
 

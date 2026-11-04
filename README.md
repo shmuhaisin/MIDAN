@@ -2,7 +2,7 @@
 
 AI-assisted talent assessment and development through practical work simulations. Bilingual (Arabic first), B2B2C.
 
-Current state: **Milestones 1 and 2 (brand, public site, database foundation)**. There is no sign-up or product UI yet. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for what is and isn't built.
+Current state: **Milestones 1 to 3 in part: public site, database, accounts, job browsing and applications**. Assessments, reports and the Humaidan assistant aren't built yet. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for what is and isn't built.
 
 ## Layout
 
@@ -25,7 +25,7 @@ npm install
 npm run dev:web
 ```
 
-Web runs on http://localhost:3100. The default locale routes are `/ar` and `/en`.
+Web runs on http://localhost:3100, with routes under `/ar` and `/en`. Job and account pages need the API running too.
 
 ```bash
 npm run dev:api
@@ -51,6 +51,12 @@ Against the live database (see the database docs first):
 
 ```bash
 npm run test:e2e -w @midan/api
+```
+
+Browser journeys, with the web app and API running:
+
+```bash
+npm run test:e2e -w @midan/web
 ```
 
 ## Design tokens

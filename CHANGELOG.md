@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-05: Milestone 3 and part of 4, accounts and first product screens
+- Sign-in, registration and sign-out with httpOnly session cookies and automatic renewal.
+- Opportunities list with search and city filter, job details, apply.
+- Candidate dashboard with a next step, application tracking, withdraw, and profile.
+- Organization creation and dashboard: real counts, jobs with draft and publish, applicants with status changes.
+- API rate limiting per signed-in user, or per IP when signed out.
+- Evaluations now require a submitted attempt.
+- Fixed: an organization could still read a candidate's profile and CV after they withdrew. Found by the tests.
+- Browser journey suite with Playwright, including the four language and theme combinations.
+
 ## 2026-11-05: Milestone 2, database foundation
 - 27 tables with RLS, 72 policies, triggers and versioned migrations in `supabase/migrations`.
 - Private storage buckets for CVs and evidence, with path-based policies.

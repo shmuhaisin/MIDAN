@@ -65,6 +65,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-gold: var(--gold);
   --color-border: var(--border);
+  --color-error: var(--error);
   --color-deep: var(--deep);
   --color-deep-2: var(--deep-2);
   --color-deep-foreground: var(--deep-foreground);

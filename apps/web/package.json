@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 3100",
     "lint": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types src/messages/messages.test.ts"
+    "test": "node --test --experimental-strip-types src/messages/messages.test.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -16,9 +17,11 @@
     "next-intl": "^4.14.9",
     "next-themes": "^0.4.6",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.4",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",

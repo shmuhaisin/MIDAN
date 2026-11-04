@@ -1,4 +1,4 @@
-import { Body, Controller, NotFoundException, Param, ParseUUIDPipe, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, NotFoundException, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
 import { application_status } from '@prisma/client';
@@ -15,6 +15,15 @@ class UpdateStatusDto {
 @Controller('applications')
 export class ApplicationsController {
   constructor(private readonly db: DbService) {}
+
+  @Post(':id/withdraw')
+  withdraw(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.db.asUser(user, async (tx) => {
+      const [application] = await tx.$queryRaw<{ id: string; status: string }[]>`
+        select id, status from public.withdraw_application(${id}::uuid)`;
+      return application;
+    });
+  }
 
   @Patch(':id/status')
   updateStatus(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateStatusDto) {

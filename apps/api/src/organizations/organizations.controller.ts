@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 import { job_status, org_role } from '@prisma/client';
@@ -18,6 +18,10 @@ class CreateJobDto {
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(200) title_ar!: string;
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(200) title_en!: string;
   @ApiPropertyOptional({ enum: job_status }) @IsOptional() @IsEnum(job_status) status?: job_status;
+}
+
+class JobStatusDto {
+  @ApiProperty({ enum: job_status }) @IsEnum(job_status) status!: job_status;
 }
 
 /** Backend check on top of RLS, so a non-member gets a clear refusal instead of an empty list. */
@@ -45,6 +49,18 @@ export class OrganizationsController {
     return organization;
   }
 
+  @Get(':orgId')
+  get(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId);
+      const [organization, member] = await Promise.all([
+        tx.organizations.findUniqueOrThrow({ where: { id: orgId } }),
+        tx.organization_members.findFirstOrThrow({ where: { org_id: orgId, user_id: user.id }, select: { role: true } }),
+      ]);
+      return { ...organization, my_role: member.role };
+    });
+  }
+
   @Get(':orgId/jobs')
   listJobs(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string) {
     return this.db.asUser(user, async (tx) => {
@@ -63,12 +79,31 @@ export class OrganizationsController {
     });
   }
 
+  @Patch(':orgId/jobs/:jobId/status')
+  setJobStatus(
+    @CurrentUser() user: AuthUser,
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+    @Body() body: JobStatusDto,
+  ) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, ['owner', 'admin', 'recruiter']);
+      const { count } = await tx.jobs.updateMany({
+        where: { id: jobId, org_id: orgId },
+        data: { status: body.status, ...(body.status === 'published' && { published_at: new Date() }) },
+      });
+      if (count === 0) throw new NotFoundException();
+      return tx.jobs.findUniqueOrThrow({ where: { id: jobId } });
+    });
+  }
+
   @Get(':orgId/applications')
   listApplications(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string) {
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId);
+      // A withdrawn candidate's details are no longer visible to the organization.
       return tx.applications.findMany({
-        where: { org_id: orgId },
+        where: { org_id: orgId, status: { not: 'withdrawn' } },
         orderBy: { created_at: 'desc' },
         include: {
           jobs: { select: { id: true, title_ar: true, title_en: true } },
