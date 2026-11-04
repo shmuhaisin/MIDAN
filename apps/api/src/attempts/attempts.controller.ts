@@ -56,7 +56,7 @@ export class AttemptsController {
     return this.db.asUser(user, async (tx) => {
       const version = await tx.assessment_versions.findFirst({
         where: { version_number: versionNumber, assessments: { jobs: { slug: jobSlug, organizations: { slug: orgSlug } } } },
-        include: { assessment_tasks: { orderBy: { position: 'asc' } } },
+        include: { assessment_tasks: { orderBy: { position: 'asc' } }, assessments: { select: { professional_field: true } } },
       });
       if (!version) throw new NotFoundException();
       const [organization, branding, job, attempt] = await Promise.all([

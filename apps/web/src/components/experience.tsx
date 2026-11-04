@@ -6,7 +6,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { saveAnswer, startAttempt, submitAttempt, uploadEvidence } from '@/lib/actions';
-import { list, number, pick } from '@/lib/format';
+import { list, number, pick, readableOnWhite } from '@/lib/format';
+import { resolveHumaidan } from '@/lib/humaidan';
 import { Arrow, Humaidan } from './brand';
 import { ErrorText, PRIMARY, useAction } from './forms';
 
@@ -19,9 +20,9 @@ type Answer = { text?: string; choices?: Record<string, string> };
 export type ExperienceData = {
   mode: 'attempt' | 'preview';
   organization: { name_ar: string; name_en: string };
-  branding: { primary_color: string | null; logo_path: string | null } | null;
+  branding: { primary_color: string | null; industry: string | null; welcome_ar: string | null; welcome_en: string | null } | null;
   job: { title_ar: string; title_en: string };
-  version: { duration_minutes: number | null; instructions_ar: string | null; instructions_en: string | null; assessment_tasks: Task[] };
+  version: { assessments: { professional_field: string | null }; duration_minutes: number | null; instructions_ar: string | null; instructions_en: string | null; assessment_tasks: Task[] };
   attempt: {
     id: string; status: string; started_at: string | null;
     task_responses: { task_id: string; answer: Answer }[];
@@ -64,8 +65,9 @@ function Elapsed({ startedAt }: { startedAt: string }) {
   return <span className="text-sm text-muted">{t('elapsed', { minutes: number(locale, minutes) })}</span>;
 }
 
-export function Experience({ data }: { data: ExperienceData }) {
+export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: string | null }) {
   const t = useTranslations('experience');
+  const tf = useTranslations('fields');
   const locale = useLocale();
   const router = useRouter();
   const tasks = data.version.assessment_tasks;
@@ -82,6 +84,11 @@ export function Experience({ data }: { data: ExperienceData }) {
   const [uploading, startUpload] = useTransition();
   const [uploadError, setUploadError] = useState<string>();
   const orgName = pick(locale, data.organization.name_ar, data.organization.name_en);
+  // One saved answer for this whole assessment, so he never changes during navigation.
+  const field = data.version.assessments.professional_field ?? data.branding?.industry ?? null;
+  const variant = resolveHumaidan(data.version.assessments.professional_field, data.branding?.industry);
+  const brand = data.branding?.primary_color;
+  const welcome = pick(locale, data.branding?.welcome_ar ?? '', data.branding?.welcome_en ?? '');
 
   const begin = useAction(async () => {
     const result = await startAttempt((attempt as NonNullable<typeof attempt>).id);
@@ -124,11 +131,17 @@ export function Experience({ data }: { data: ExperienceData }) {
 
 
   const header = (
-    <header className="border-b-4 bg-surface" style={{ borderColor: data.branding?.primary_color ?? 'var(--primary)' }}>
+    <header className="border-b-4 bg-surface" style={{ borderColor: brand ?? 'var(--primary)' }}>
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-1 px-4 py-4 sm:px-6">
-        <div>
-          <p className="font-display text-lg font-bold">{orgName}</p>
-          <p className="text-sm text-muted">{pick(locale, data.job.title_ar, data.job.title_en)}</p>
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {logoUrl && <img src={logoUrl} alt="" className="h-11 w-auto max-w-32 rounded object-contain" />}
+          <div>
+            <p className="font-display text-lg font-bold">{orgName}</p>
+            <p className="text-sm text-muted">
+              {pick(locale, data.job.title_ar, data.job.title_en)}{field && field !== 'general' && ` · ${t('fieldLabel', { field: tf(field) })}`}
+            </p>
+          </div>
         </div>
         <p className="text-xs text-muted">{t('poweredBy')}</p>
       </div>
@@ -141,7 +154,7 @@ export function Experience({ data }: { data: ExperienceData }) {
       <>
         {header}
         <section className="mx-auto flex max-w-xl flex-col items-center px-4 py-14 text-center">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-36"><Humaidan sizes="144px" /></motion.div>
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-36"><Humaidan outfit={variant} sizes="144px" /></motion.div>
           <h1 className="mt-6 font-display text-3xl font-bold">{t('doneTitle')}</h1>
           <p className="mt-3 text-lg text-muted">{t('doneBody', { org: orgName })}</p>
           <Link href="/dashboard" className={clsx(PRIMARY, 'mt-6')}>{t('toDashboard')}<Arrow /></Link>
@@ -151,29 +164,35 @@ export function Experience({ data }: { data: ExperienceData }) {
   }
 
   if (view === 'intro') {
+    const bandColor = brand && readableOnWhite(brand) ? brand : 'var(--deep)';
     return (
       <>
         {header}{banner}
-        <section className="mx-auto grid max-w-5xl items-center gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1fr_auto]">
-          <div>
-            <h1 className="font-display text-3xl leading-tight font-bold sm:text-4xl">{t('introTitle', { job: pick(locale, data.job.title_ar, data.job.title_en) })}</h1>
-            <p className="mt-3 text-lg leading-relaxed text-muted">{pick(locale, data.version.instructions_ar ?? '', data.version.instructions_en ?? '')}</p>
-            <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-1 font-medium">
-              {data.version.duration_minutes && <li>{t('estimated', { minutes: number(locale, data.version.duration_minutes) })}</li>}
-              <li>{t('tasksCount', { count: number(locale, tasks.length) })}</li>
-            </ul>
-            <h2 className="mt-7 font-display text-xl font-semibold">{t('rulesTitle')}</h2>
-            <ul className="mt-2 space-y-1.5 text-muted">{(t.raw('rules') as string[]).map((r) => <li key={r}>{r}</li>)}</ul>
-            <div className="mt-7">
-              {preview ? (
-                <button type="button" onClick={() => setView(0)} className={PRIMARY}>{t('start')}<Arrow /></button>
-              ) : (
-                <button type="button" onClick={begin.fire} disabled={begin.pending} aria-busy={begin.pending} className={PRIMARY}>{t('start')}<Arrow /></button>
-              )}
-              <div className="mt-2"><ErrorText code={begin.error} /></div>
+        <section className="on-deep text-white" style={{ background: bandColor }}>
+          <div className="mx-auto grid max-w-5xl items-end gap-6 px-4 pt-10 sm:px-6 md:grid-cols-[1fr_auto]">
+            <div className="pb-10">
+              <h1 className="font-display text-3xl leading-tight font-bold sm:text-4xl">{t('introTitle', { job: pick(locale, data.job.title_ar, data.job.title_en) })}</h1>
+              {welcome && <p className="mt-3 text-lg leading-relaxed opacity-90">{welcome}</p>}
             </div>
+            <div className="mx-auto w-40 sm:w-44"><Humaidan outfit={variant} sizes="176px" priority idle /></div>
           </div>
-          <div className="mx-auto w-40"><Humaidan sizes="160px" /></div>
+        </section>
+        <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+          <p className="text-lg leading-relaxed text-muted">{pick(locale, data.version.instructions_ar ?? '', data.version.instructions_en ?? '')}</p>
+          <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-1 font-medium">
+            {data.version.duration_minutes && <li>{t('estimated', { minutes: number(locale, data.version.duration_minutes) })}</li>}
+            <li>{t('tasksCount', { count: number(locale, tasks.length) })}</li>
+          </ul>
+          <h2 className="mt-7 font-display text-xl font-semibold">{t('rulesTitle')}</h2>
+          <ul className="mt-2 space-y-1.5 text-muted">{(t.raw('rules') as string[]).map((r) => <li key={r}>{r}</li>)}</ul>
+          <div className="mt-7">
+            {preview ? (
+              <button type="button" onClick={() => setView(0)} className={PRIMARY}>{t('start')}<Arrow /></button>
+            ) : (
+              <button type="button" onClick={begin.fire} disabled={begin.pending} aria-busy={begin.pending} className={PRIMARY}>{t('start')}<Arrow /></button>
+            )}
+            <div className="mt-2"><ErrorText code={begin.error} /></div>
+          </div>
         </section>
       </>
     );

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Arrow, Eyebrow, Humaidan } from '@/components/brand';
+import { Arrow, Eyebrow } from '@/components/brand';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { number, pick } from '@/lib/format';
@@ -86,7 +86,6 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           )}
         </section>
       </div>
-      <div className="mx-auto mt-12 w-24"><Humaidan sizes="96px" /></div>
     </article>
   );
 }

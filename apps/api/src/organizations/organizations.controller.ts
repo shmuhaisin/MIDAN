@@ -1,9 +1,11 @@
-import { Body, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Patch, Post, ServiceUnavailableException, UnprocessableEntityException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { job_status } from '@prisma/client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
+import { PROFESSIONAL_FIELDS } from '../common/fields';
 import { requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
 
@@ -20,6 +22,14 @@ class CreateJobDto {
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(200) title_ar!: string;
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(200) title_en!: string;
   @ApiPropertyOptional({ enum: job_status }) @IsOptional() @IsEnum(job_status) status?: job_status;
+}
+
+class BrandingDto {
+  @ApiPropertyOptional({ enum: PROFESSIONAL_FIELDS }) @IsOptional() @IsIn(PROFESSIONAL_FIELDS) industry?: string;
+  @ApiPropertyOptional() @IsOptional() @Matches(/^#[0-9A-Fa-f]{6}$/) primary_color?: string;
+  @ApiPropertyOptional() @IsOptional() @Matches(/^#[0-9A-Fa-f]{6}$/) accent_color?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(600) welcome_ar?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(600) welcome_en?: string;
 }
 
 class JobSkillDto {
@@ -66,8 +76,40 @@ export class OrganizationsController {
         tx.organizations.findUniqueOrThrow({ where: { id: orgId } }),
         tx.organization_members.findFirstOrThrow({ where: { org_id: orgId, user_id: user.id }, select: { role: true } }),
       ]);
-      return { ...organization, my_role: member.role };
+      const branding = await tx.organization_branding.findUnique({ where: { org_id: orgId } });
+      return { ...organization, my_role: member.role, branding };
     });
+  }
+
+  @Patch(':orgId/branding')
+  updateBranding(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Body() body: BrandingDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, ['owner', 'admin']);
+      const { count } = await tx.organization_branding.updateMany({ where: { org_id: orgId }, data: body });
+      if (count === 0) throw new NotFoundException();
+      return tx.organization_branding.findUniqueOrThrow({ where: { org_id: orgId } });
+    });
+  }
+
+  @Post(':orgId/branding/logo')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }))
+  async uploadLogo(
+    @CurrentUser() user: AuthUser,
+    @Headers('authorization') token: string,
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const extension = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[file?.mimetype ?? ''];
+    if (!file || !extension) throw new UnprocessableEntityException('Upload a PNG, JPEG or WebP image');
+    await this.db.asUser(user, (tx) => requireRole(tx, user, orgId, ['owner', 'admin']));
+    const path = `${orgId}/logo-${Date.now()}.${extension}`;
+    const upload = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/organization-assets/${path}`, {
+      method: 'POST',
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', authorization: token, 'content-type': file.mimetype },
+      body: new Uint8Array(file.buffer),
+    });
+    if (!upload.ok) throw new ServiceUnavailableException('Upload failed');
+    return this.db.asUser(user, (tx) => tx.organization_branding.update({ where: { org_id: orgId }, data: { logo_path: path } }));
   }
 
   @Get(':orgId/jobs')

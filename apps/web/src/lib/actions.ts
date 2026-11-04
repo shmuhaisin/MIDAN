@@ -213,3 +213,25 @@ export async function evidenceLink(id: string): Promise<{ url?: string; error?: 
     return { error: errorCode(error) };
   }
 }
+
+export async function setAssessmentField(orgId: string, assessmentId: string, field: string | null) {
+  return result(() => api(`/organizations/${orgId}/assessments/${assessmentId}/field`, { method: 'PATCH', body: { professional_field: field } }));
+}
+
+export async function saveBranding(orgId: string, _: FormState, form: FormData): Promise<FormState> {
+  const color = (name: string) => text(form, name) || undefined;
+  return result(() =>
+    api(`/organizations/${orgId}/branding`, {
+      method: 'PATCH',
+      body: {
+        ...(text(form, 'industry') && { industry: text(form, 'industry') }),
+        primary_color: color('primary_color'), accent_color: color('accent_color'),
+        welcome_ar: text(form, 'welcome_ar'), welcome_en: text(form, 'welcome_en'),
+      },
+    }),
+  );
+}
+
+export async function uploadLogo(orgId: string, form: FormData) {
+  return result(() => api(`/organizations/${orgId}/branding/logo`, { method: 'POST', form }));
+}

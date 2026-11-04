@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Al-Midan Ya Hamidan | Talent assessment through real work",
+    "title": "Al-Midan Ya Hamidan | Skill proves itself",
     "description": "A Saudi platform that assesses and develops talent through job-specific work simulations, clear evidence and explainable evaluation."
   },
   "brand": {
@@ -49,11 +49,11 @@
     "healthcare": "Humaidan in a healthcare uniform"
   },
   "home": {
-    "eyebrow": "Talent assessment through real work",
+    "eyebrow": "Skill proves itself",
     "heroStrike": "what you know.",
     "heroLine1": "We won't ask",
     "heroLine2": "Show us how you work.",
-    "heroLead": "Midan turns real job responsibilities into practical simulations. Candidates prove their ability through their work, organizations evaluate the evidence against clear criteria, and both leave with something they can act on.",
+    "heroLead": "A Saudi platform where organizations define what a job requires, candidates demonstrate their ability in realistic work simulations, and Midan evaluates real performance with structured evidence. The final decision stays with a human reviewer.",
     "bubble": "Welcome to the Midan!",
     "explorerEyebrow": "From job description to the field",
     "explorerTitle": "Pick a field and watch a line from a job description become work you can prove",
@@ -66,30 +66,6 @@
     "levelsHint": "Choose a level to read the behavior behind it",
     "levelButton": "Level {level}",
     "fieldsLabel": "Fields",
-    "storyEyebrow": "The idea in five steps",
-    "storyTitle": "From the CV to the evidence",
-    "story": [
-      {
-        "title": "Hiring should measure what people can do",
-        "body": "CVs, degrees and interviews say a lot about what people report about themselves, and little about how they work."
-      },
-      {
-        "title": "Job responsibilities become simulations",
-        "body": "Tasks are built from the responsibilities of the role, and each one is linked to the skills it measures."
-      },
-      {
-        "title": "Candidates demonstrate their ability",
-        "body": "They analyze, write, decide and upload their work in an experience carrying the organization's brand, powered by Midan."
-      },
-      {
-        "title": "Organizations evaluate evidence against clear criteria",
-        "body": "AI proposes and cites the evidence, a human reviewer decides, and the criteria are the same for everyone."
-      },
-      {
-        "title": "Both sides leave with something actionable",
-        "body": "A report candidates understand, with practical development steps, and a consistent view that helps organizations decide better."
-      }
-    ],
     "audienceEyebrow": "One place for two sides",
     "candidateTitle": "For those who want their work to be seen",
     "candidateBody": "One account to apply to many organizations. Learn your strengths from your work rather than from claims about it, and what to develop next.",
@@ -219,6 +195,33 @@
           "Balances efficiency with safety and sets a metric to track improvement."
         ]
       }
+    },
+    "flow": {
+      "eyebrow": "How the two journeys meet",
+      "title": "Organizations define. Candidates demonstrate. Midan evaluates with evidence.",
+      "orgTitle": "The organization's journey",
+      "candidateTitle": "The candidate's journey",
+      "org": [
+        "Create the job",
+        "Define the skills",
+        "Generate a practical assessment",
+        "Review the rubrics",
+        "Approve and publish",
+        "Invite candidates",
+        "Review submissions",
+        "Evaluate the evidence",
+        "Human review decision",
+        "Reports"
+      ],
+      "candidate": [
+        "Discover a job",
+        "Apply",
+        "Receive the assessment",
+        "Complete the practical simulation",
+        "Submit evidence",
+        "Receive human-reviewed results",
+        "Explore development steps"
+      ]
     }
   },
   "how": {
@@ -397,7 +400,7 @@
     ]
   },
   "footer": {
-    "tagline": "A Saudi product for assessing and developing talent through real work.",
+    "tagline": "Skill proves itself. A Saudi product for assessing and developing talent through real work.",
     "status": "Under development. Examples on this site are illustrative.",
     "explore": "Explore"
   },
@@ -407,10 +410,10 @@
     "home": "Back to home"
   },
   "auth": {
-    "loginTitle": "Welcome back",
-    "loginLead": "Sign in to your Midan account.",
-    "registerTitle": "Let's get started",
-    "registerLead": "One account is all you need on Midan.",
+    "loginTitle": "Welcome back to the Midan",
+    "loginLead": "Sign in and pick up where you left off.",
+    "registerTitle": "Ready to enter the Midan?",
+    "registerLead": "One account for all your opportunities. Apply, prove your skill through your work, and see what to develop next.",
     "accountType": "Account type",
     "candidate": "Candidate",
     "organization": "Organization",
@@ -425,7 +428,21 @@
     "checkTitle": "Check your email",
     "checkBody": "We sent a confirmation link to your email. Open it, then sign in.",
     "checkNote": "If it doesn't arrive within a few minutes, check your spam folder. Email sending is limited at this early stage.",
-    "closedNote": "Registration is closed for now: Midan is in a demo stage with fictional data until the privacy and data location review is complete."
+    "closedNote": "Registration is closed for now: Midan is in a demo stage with fictional data until the privacy and data location review is complete.",
+    "orgLoginTitle": "Organization sign-in",
+    "orgLoginLead": "Sign in to your organization's workspace to manage jobs, assessments and reviews.",
+    "orgRegisterTitle": "Register your organization",
+    "orgRegisterLead": "Create the organization administrator's account, then add its profile and branding.",
+    "orgPoints": [
+      "Define the job's requirements and skills",
+      "Build practical assessments and approve them yourself",
+      "Evaluate evidence on shared criteria, with your team deciding"
+    ],
+    "toOrgLogin": "Representing an organization? Organization sign-in",
+    "toCandidateLogin": "A candidate? Candidate sign-in",
+    "toOrgRegister": "Representing an organization? Register it",
+    "toCandidateRegister": "A candidate? Create a candidate account",
+    "humaidanAlt": "Humaidan"
   },
   "errors": {
     "invalid_credentials": "Incorrect email or password.",
@@ -463,7 +480,7 @@
   "jobs": {
     "eyebrow": "Opportunities",
     "title": "Opportunities to prove your work",
-    "lead": "Each opportunity is built on the real responsibilities of the role. What's listed now is demo data for demonstration.",
+    "lead": "Every opportunity here leads to a practical work simulation built from the role's responsibilities. What's listed now is demo data.",
     "search": "Search a job or organization",
     "location": "City",
     "allLocations": "All cities",
@@ -521,7 +538,17 @@
     "startAssessment": "Start assessment",
     "continueAssessment": "Continue assessment",
     "viewReport": "View report",
-    "awaitingResults": "Awaiting results"
+    "awaitingResults": "Awaiting results",
+    "flowLabel": "Your journey on Midan",
+    "flow": [
+      "Discover a job",
+      "Apply",
+      "Receive assessment",
+      "Practical simulation",
+      "Submit evidence",
+      "Reviewed results",
+      "Development"
+    ]
   },
   "profile": {
     "title": "Your professional profile",
@@ -656,7 +683,21 @@
     "compareNote": "Levels appear only after human review. This comparison informs you; it doesn't decide for you.",
     "overall": "Overall",
     "noCompare": "The comparison appears after the first evaluation is reviewed.",
-    "candidate": "Candidate"
+    "candidate": "Candidate",
+    "field": "This assessment's professional field",
+    "fieldHint": "Sets the Humaidan outfit candidates see in this assessment.",
+    "fieldInherit": "Same as the organization's identity",
+    "flow": [
+      "Create the job",
+      "Define the skills",
+      "Generate the assessment",
+      "Review rubrics and approve",
+      "Invite candidates",
+      "Review submissions",
+      "Human review",
+      "Reports"
+    ],
+    "flowLabel": "This job's path"
   },
   "experience": {
     "poweredBy": "Powered by Midan",
@@ -697,7 +738,8 @@
     "back": "Back to the tasks",
     "doneTitle": "Your work is in. Well done!",
     "doneBody": "We've handed your work to {org}. A person on their team reviews it, and its status appears on your dashboard.",
-    "toDashboard": "Go to my dashboard"
+    "toDashboard": "Go to my dashboard",
+    "fieldLabel": "Field: {field}"
   },
   "review": {
     "back": "Job",
@@ -756,5 +798,38 @@
     "improve": "Your next step",
     "noImprove": "You reached a proficient level in every skill assessed.",
     "toNext": "To reach {level}:"
+  },
+  "fields": {
+    "general": "General",
+    "finance": "Finance and accounting",
+    "legal": "Law and legal affairs",
+    "engineering": "Engineering and construction",
+    "technology": "Technology and cybersecurity",
+    "events": "Events and entertainment",
+    "healthcare": "Healthcare",
+    "media": "Media and communications",
+    "marketing": "Marketing and advertising"
+  },
+  "branding": {
+    "link": "Branding and settings",
+    "back": "Organization dashboard",
+    "title": "Your organization's identity",
+    "lead": "This is what candidates see when they enter your assessments.",
+    "logo": "Logo",
+    "logoHint": "PNG, JPEG or WebP, up to 2 MB.",
+    "uploadLogo": "Upload logo",
+    "uploading": "Uploading…",
+    "primaryColor": "Primary color",
+    "accentColor": "Accent color",
+    "welcomeAr": "Welcome message in Arabic",
+    "welcomeEn": "Welcome message in English",
+    "industry": "Organization's field",
+    "industryHint": "Sets Humaidan's default outfit in your assessments. Each assessment can set its own field.",
+    "notSet": "Not set",
+    "preview": "Humaidan in your assessments",
+    "previewNote": "Always the same character, in the approved professional outfit for this field.",
+    "save": "Save identity",
+    "saved": "Saved",
+    "readOnly": "Only an owner or admin can change these settings."
   }
 }

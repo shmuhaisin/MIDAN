@@ -9,6 +9,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   setRequestLocale(locale);
   if (await getSession()) redirect({ href: '/dashboard', locale });
   const t = await getTranslations({ locale, namespace: 'auth' });
-  const kind = (await searchParams).as === 'organization' ? 'organization' : 'candidate';
-  return <AuthShell title={t('registerTitle')} lead={t('registerLead')}><p className="mb-6 border-s-2 border-gold ps-4 text-sm font-medium">{t('closedNote')}</p><RegisterForm initialType={kind} /></AuthShell>;
+  const audience = (await searchParams).as === 'organization' ? 'organization' : 'candidate';
+  const org = audience === 'organization';
+  return (
+    <AuthShell audience={audience} title={t(org ? 'orgRegisterTitle' : 'registerTitle')} lead={t(org ? 'orgRegisterLead' : 'registerLead')}>
+      <p className="mb-6 border-s-2 border-gold ps-4 text-sm font-medium">{t('closedNote')}</p><RegisterForm audience={audience} />
+    </AuthShell>
+  );
 }

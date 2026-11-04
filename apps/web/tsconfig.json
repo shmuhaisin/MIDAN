@@ -36,7 +36,10 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
+    "e2e",
     "node_modules",
+    "playwright.config.ts",
+    "src/lib/humaidan.test.ts",
     "src/messages/messages.test.ts"
   ]
 }

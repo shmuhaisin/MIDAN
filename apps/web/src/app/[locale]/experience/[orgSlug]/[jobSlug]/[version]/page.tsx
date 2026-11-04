@@ -12,5 +12,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   if (!/^\d+$/.test(version)) notFound();
   const data = await apiForPage<ExperienceData>(`/experience/${encodeURIComponent(orgSlug)}/${encodeURIComponent(jobSlug)}/${version}`);
   if (!data) notFound();
-  return <Experience data={data} />;
+  const logo = (data.branding as { logo_path?: string | null } | null)?.logo_path;
+  const logoUrl = logo ? `${process.env.SUPABASE_URL}/storage/v1/object/public/organization-assets/${logo}` : null;
+  return <Experience data={data} logoUrl={logoUrl} />;
 }

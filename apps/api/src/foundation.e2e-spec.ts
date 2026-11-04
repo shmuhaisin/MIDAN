@@ -577,6 +577,30 @@ describe('Midan database foundation', () => {
       await api().get(`/organizations/${orgA}/jobs/${job}/report`).set(bearer(ownerB)).expect(403);
     });
 
+    it('lets only owners and admins of that organization change branding, with valid values only', async () => {
+      await api().patch(`/organizations/${orgA}/branding`).set(bearer(ownerB)).send({ industry: 'finance' }).expect(403);
+      await api().patch(`/organizations/${orgA}/branding`).set(bearer(candidateOne)).send({ industry: 'finance' }).expect(403);
+      await api().patch(`/organizations/${orgA}/branding`).set(bearer(recruiterA)).send({ industry: 'finance' }).expect(403);
+      await api().patch(`/organizations/${orgA}/branding`).set(bearer(ownerA)).send({ industry: 'mascot-from-the-internet' }).expect(400);
+      await api().patch(`/organizations/${orgA}/branding`).set(bearer(ownerA)).send({ primary_color: 'red' }).expect(400);
+      const saved = await api().patch(`/organizations/${orgA}/branding`).set(bearer(ownerA)).send({ industry: 'finance', primary_color: '#123456' }).expect(200);
+      expect(saved.body.industry).toBe('finance');
+      const direct = await rest(ownerB, 'PATCH', `organization_branding?org_id=eq.${orgA}`, { industry: 'legal' });
+      expect(direct.body).toEqual([]);
+      const bad = await rest(ownerA, 'PATCH', `organization_branding?org_id=eq.${orgA}`, { industry: 'not-a-field' });
+      expect(bad.status).toBe(400);
+    });
+
+    it('lets only that organization set an assessment field', async () => {
+      const latest = await api().get(`/organizations/${orgA}/jobs/${job}/assessment`).set(bearer(ownerA)).expect(200);
+      const assessment = latest.body.version.assessments.id;
+      await api().patch(`/organizations/${orgB}/assessments/${assessment}/field`).set(bearer(ownerB)).send({ professional_field: 'legal' }).expect(404);
+      await api().patch(`/organizations/${orgA}/assessments/${assessment}/field`).set(bearer(ownerB)).send({ professional_field: 'legal' }).expect(403);
+      await api().patch(`/organizations/${orgA}/assessments/${assessment}/field`).set(bearer(ownerA)).send({ professional_field: 'nonsense' }).expect(400);
+      const set = await api().patch(`/organizations/${orgA}/assessments/${assessment}/field`).set(bearer(recruiterA)).send({ professional_field: 'marketing' }).expect(200);
+      expect(set.body.professional_field).toBe('marketing');
+    });
+
     it('keeps a closed job readable for the candidate who applied', async () => {
       await api().patch(`/organizations/${orgA}/jobs/${job}/status`).set(bearer(ownerA)).send({ status: 'closed' }).expect(200);
       const mine = await api().get('/me/applications').set(bearer(candidateTwo)).expect(200);

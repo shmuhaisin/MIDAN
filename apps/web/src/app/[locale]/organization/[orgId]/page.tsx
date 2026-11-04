@@ -29,6 +29,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   if (!org || !jobs || !applicants) notFound();
   const t = await getTranslations({ locale, namespace: 'org' });
   const td = await getTranslations({ locale, namespace: 'dashboard' });
+  const tb = await getTranslations({ locale, namespace: 'branding' });
   const canManage = ['owner', 'admin', 'recruiter'].includes(org.my_role);
   const metrics = [
     ['open', jobs.filter((j) => j.status === 'published').length],
@@ -43,7 +44,10 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
           <Eyebrow className="text-deep-muted">{t('eyebrow')}</Eyebrow>
           <h1 className="mt-3 font-display text-4xl font-bold sm:text-5xl">{pick(locale, org.name_ar, org.name_en)}</h1>
-          <p className="mt-2 text-deep-muted">{t('yourRole', { role: td(`role.${org.my_role}`) })}</p>
+          <p className="mt-2 text-deep-muted">
+            {t('yourRole', { role: td(`role.${org.my_role}`) })} ·{' '}
+            <Link href={`/organization/${orgId}/settings`} className="font-semibold text-mint underline underline-offset-4">{tb('link')}</Link>
+          </p>
           <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
             {metrics.map(([key, value]) => (
               <div key={key} className="border-s border-mint/30 ps-4">

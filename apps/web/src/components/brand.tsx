@@ -2,37 +2,29 @@ import clsx from 'clsx';
 import Image from 'next/image';
 import { useId } from 'react';
 import { useTranslations } from 'next-intl';
+import { HUMAIDAN_FILES, safeVariant, type HumaidanVariant } from '@/lib/humaidan';
 
-const OUTFITS = {
-  original: '01_Humaidan_Original.png',
-  finance: '02_Humaidan_Finance.png',
-  legal: '03_Humaidan_Legal_Brown_Bisht.png',
-  engineering: '04_Humaidan_Engineering.png',
-  tech: '05_Humaidan_Tech_Cybersecurity.png',
-  events: '06_Humaidan_Entertainment_Events.png',
-  healthcare: '07_Humaidan_Healthcare.png',
-} as const;
-
-export type Outfit = keyof typeof OUTFITS;
-
-/** Always the full figure: object-contain inside a portrait box, so the shemagh is never cropped. */
+/** The one way to show Humaidan: the full figure, the original files, and Original if a variant isn't recognized. */
 export function Humaidan({
   outfit = 'original',
   sizes,
   priority,
+  idle,
   className,
 }: {
-  outfit?: Outfit;
+  outfit?: HumaidanVariant;
   sizes: string;
   priority?: boolean;
+  idle?: boolean;
   className?: string;
 }) {
   const t = useTranslations('humaidanAlt');
+  const variant = safeVariant(outfit);
   return (
-    <span className={clsx('relative block aspect-[3/4]', className)}>
+    <span className={clsx('relative block aspect-[3/4]', idle && 'humaidan-idle', className)}>
       <Image
-        src={`/assets/humaidan/${OUTFITS[outfit]}`}
-        alt={t(outfit)}
+        src={`/assets/humaidan/${HUMAIDAN_FILES[variant]}`}
+        alt={t(variant)}
         fill
         sizes={sizes}
         priority={priority}
@@ -99,6 +91,21 @@ export function Arrow({ className }: { className?: string }) {
     >
       <path d="M4 10h12M11 5l5 5-5 5" />
     </svg>
+  );
+}
+
+/** A person's or a job's path through Midan, computed from real state. */
+export function JourneyRail({ label, steps, done }: { label: string; steps: string[]; done: boolean[] }) {
+  const current = done.indexOf(false);
+  return (
+    <ol aria-label={label} className="flex gap-1 overflow-x-auto pb-1">
+      {steps.map((step, i) => (
+        <li key={step} aria-current={i === current ? 'step' : undefined} className="min-w-24 flex-1">
+          <span className={clsx('block h-1.5 rounded-full', done[i] ? 'bg-primary' : i === current ? 'bg-gold' : 'bg-surface-2')} />
+          <span className={clsx('mt-1.5 block text-xs leading-snug', i === current ? 'font-semibold' : 'text-muted')}>{step}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 

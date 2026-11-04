@@ -63,7 +63,7 @@ test('forms explain mistakes in the visitor\'s language', async ({ page }) => {
   await expect(page.getByRole('alert').filter({ hasText: 'البريد أو كلمة المرور غير صحيحة' })).toBeVisible();
 
   await page.goto('/en/register?as=organization');
-  await expect(page.getByRole('radio', { name: 'Organization' })).toBeChecked();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Register your organization');
   await page.getByLabel('Name').fill('Someone');
   await page.getByLabel('Email').fill('not-an-email@x');
   await page.getByLabel('Password').fill('longenough1');

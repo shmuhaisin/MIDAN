@@ -29,6 +29,10 @@ Browser -> NestJS -> Postgres as midan_api -> SET LOCAL ROLE authenticated/anon 
 | Reviewer notes | Never | Yes | No | No |
 | Audit log | No | Owner, admin | No | No |
 
+## Demo stage
+
+Sign-up is refused unless the address matches `private.allowed_signup_patterns`. Don't add real candidates before the privacy and data residency review.
+
 ## Migrations
 
 Files in `supabase/migrations` are the source of truth. They were applied with the Supabase MCP `apply_migration` tool, and each file's MD5 was checked against `supabase_migrations.schema_migrations`.

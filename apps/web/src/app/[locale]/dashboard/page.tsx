@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Arrow, Eyebrow, Humaidan, Parapet } from '@/components/brand';
+import { Arrow, Eyebrow, Humaidan, JourneyRail, Parapet } from '@/components/brand';
 import { WithdrawButton } from '@/components/forms';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
@@ -60,6 +60,22 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           ? { title: t('createOrganization'), body: t('createOrganizationBody'), cta: t('createOrganization'), href: '/organization/new' }
           : { title: t('nextTrackTitle'), body: t('nextTrackBody'), cta: t('nextTrackCta'), href: '/opportunities' };
 
+  // Organization staff get a formal workspace. Humaidan guides candidates here.
+  const staffOnly = isOrgFirst || (me.organization_members.length > 0 && !me.candidate_profiles && applications.length === 0);
+  const showHumaidan = !staffOnly;
+  const showRail = !staffOnly;
+  const attempts = active.flatMap((a) => a.assessment_attempts);
+  const released = attempts.some((x) => x.evaluation_results?.released_to_candidate);
+  const railDone = [
+    true,
+    active.length > 0,
+    attempts.length > 0,
+    attempts.some((x) => ['in_progress', 'submitted'].includes(x.status)),
+    attempts.some((x) => x.status === 'submitted'),
+    released,
+    released,
+  ];
+
   return (
     <>
       <section className="mx-auto grid max-w-6xl items-end gap-6 px-4 pt-10 sm:px-6 md:grid-cols-[1fr_auto]">
@@ -74,8 +90,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             </Link>
           )}
         </div>
-        <div className="mx-auto w-36 md:w-44"><Humaidan sizes="176px" priority /></div>
+        {showHumaidan && <div className="mx-auto w-36 md:w-44"><Humaidan sizes="176px" priority /></div>}
       </section>
+      {showRail && (
+        <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6"><JourneyRail label={t('flowLabel')} steps={t.raw('flow') as string[]} done={railDone} /></div>
+      )}
       <Parapet className="text-deep" />
 
       <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[2fr_1fr]">

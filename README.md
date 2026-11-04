@@ -2,15 +2,16 @@
 
 AI-assisted talent assessment and development through practical work simulations. Bilingual (Arabic first), B2B2C.
 
-Current state: **Milestones 1 to 3 in part: public site, database, accounts, job browsing and applications**. Assessments, reports and the Humaidan assistant aren't built yet. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for what is and isn't built.
+Current state: **core MVP workflows work with fictional data, in demo AI mode**. Real sign-up is closed, and the Humaidan chat assistant isn't built yet. See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+
 
 ## Layout
 
 | Path | What | Stack |
 | --- | --- | --- |
 | `apps/web` | Public site and, later, the product UI | Next.js 16, React 19, Tailwind 4, next-intl, next-themes, Motion |
-| `apps/api` | Core API: auth, profile, organizations, jobs, applications | NestJS 11, Prisma 6, Swagger |
-| `services/ai` | AI service (health endpoint and a LangGraph wiring check) | Python 3.12, FastAPI, LangGraph |
+| `apps/api` | Core API: auth, organizations, jobs, assessments, attempts, evaluations, reports | NestJS 11, Prisma 6, Swagger |
+| `services/ai` | Private AI service: assessment builder and evaluation graphs | Python 3.12, FastAPI, LangGraph |
 | `supabase/migrations` | Database migrations ([docs](docs/database/README.md)) | Supabase Postgres, Auth, Storage |
 
 ## Run
@@ -34,7 +35,7 @@ npm run dev:api
 API runs on http://localhost:4000: `/v1/health`, `/v1/health/db`, with Swagger at `/docs`. It needs a `.env`: see [docs/database/README.md](docs/database/README.md).
 
 ```bash
-cd services/ai && uv sync && uv run uvicorn midan_ai.main:app --port 8000
+cd services/ai && uv sync && uv run --env-file ../../.env uvicorn midan_ai.main:app --port 8000
 ```
 
 ## Test
@@ -63,4 +64,4 @@ npm run test:e2e -w @midan/web
 
 All colors live in `apps/web/src/app/globals.css`. Components use semantic tokens (`bg-background`, `text-muted`, `bg-primary`), which are defined separately for light and dark. The five brand colors are never referenced directly except for the `mint`, `ivory` and `forest` utilities on surfaces that stay deep in both themes.
 
-Humaidan's images are in `apps/web/public/assets/humaidan/` with their original filenames. Always render them through the `Humaidan` component, which keeps the full figure in frame. Rules: [docs/product/humaidan-assets-readme.txt](docs/product/humaidan-assets-readme.txt).
+Humaidan's images are in `apps/web/public/assets/humaidan/` with their original filenames. Always render them through the `Humaidan` component, and get a variant only from `resolveHumaidan` in `apps/web/src/lib/humaidan.ts`. Specialized outfits appear only inside assessments. Rules: [docs/product/humaidan-assets-readme.txt](docs/product/humaidan-assets-readme.txt).

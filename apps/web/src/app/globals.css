@@ -120,6 +120,16 @@ body {
   );
 }
 
+/* Humaidan's only motion: a slow, small sway. Off when reduced motion is requested. */
+.humaidan-idle {
+  animation: humaidan-idle 6s ease-in-out infinite;
+}
+@keyframes humaidan-idle {
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
 .skip-link {
   position: absolute;
   inset-inline-start: 1rem;

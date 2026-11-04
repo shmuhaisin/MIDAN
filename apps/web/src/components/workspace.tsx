@@ -3,11 +3,12 @@
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useActionState, useState } from 'react';
-import { generateAssessment, inviteCandidate, publishVersion, updateCriterion, updateJob, updateTask } from '@/lib/actions';
+import { useActionState, useState, useTransition } from 'react';
+import { generateAssessment, inviteCandidate, publishVersion, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
 import type { FormState } from '@/lib/auth-actions';
 import { list, pick } from '@/lib/format';
-import { Arrow, Humaidan } from './brand';
+import { PROFESSIONAL_FIELDS } from '@/lib/humaidan';
+import { Arrow } from './brand';
 import { ErrorText, Field, INPUT, PRIMARY, Submit, useAction } from './forms';
 
 function TextArea({ label, hint, name, ...props }: { label: string; hint?: string; name: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -95,14 +96,45 @@ export function GenerateButton({ orgId, jobId, label }: { orgId: string; jobId: 
 export function EmptyAssessment({ orgId, jobId }: { orgId: string; jobId: string }) {
   const t = useTranslations('workspace');
   return (
-    <div className="flex flex-col items-center gap-6 rounded-lg bg-surface p-6 sm:flex-row">
-      <div className="w-24 shrink-0"><Humaidan outfit="engineering" sizes="96px" /></div>
-      <div>
-        <h3 className="font-display text-xl font-semibold">{t('noAssessmentTitle')}</h3>
-        <p className="mt-1 mb-4 text-muted">{t('noAssessmentBody')}</p>
-        <GenerateButton orgId={orgId} jobId={jobId} label={t('generate')} />
-      </div>
+    <div className="rounded-lg bg-surface p-6">
+      <h3 className="font-display text-xl font-semibold">{t('noAssessmentTitle')}</h3>
+      <p className="mt-1 mb-4 text-muted">{t('noAssessmentBody')}</p>
+      <GenerateButton orgId={orgId} jobId={jobId} label={t('generate')} />
     </div>
+  );
+}
+
+export function FieldSelect({ orgId, assessmentId, field, canEdit }: { orgId: string; assessmentId: string; field: string | null; canEdit: boolean }) {
+  const t = useTranslations('workspace');
+  const tf = useTranslations('fields');
+  const [value, setValue] = useState(field ?? '');
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string>();
+  const [saved, setSaved] = useState(false);
+  return (
+    <label className="block max-w-md">
+      <span className="text-sm font-semibold">{t('field')}</span>
+      <select
+        value={value}
+        disabled={!canEdit || pending}
+        onChange={(e) => {
+          const next = e.target.value;
+          setValue(next);
+          setSaved(false);
+          start(async () => {
+            const result = await setAssessmentField(orgId, assessmentId, next || null);
+            setError(result.error);
+            setSaved(Boolean(result.ok));
+          });
+        }}
+        className={clsx(INPUT, 'disabled:opacity-60')}
+      >
+        <option value="">{t('fieldInherit')}</option>
+        {PROFESSIONAL_FIELDS.map((f) => <option key={f} value={f}>{tf(f)}</option>)}
+      </select>
+      <span className="mt-1 block text-xs text-muted">{t('fieldHint')} <Saved show={saved} label={t('saved')} /></span>
+      <ErrorText code={error} />
+    </label>
   );
 }
 

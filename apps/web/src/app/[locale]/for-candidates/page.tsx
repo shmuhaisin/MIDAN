@@ -10,7 +10,7 @@ export default function Page({ params }: { params: Promise<{ locale: string }> }
   const t = useTranslations();
   return (
     <>
-      <PageHero ns="candidates" outfit="healthcare" />
+      <PageHero ns="candidates" />
       <section className="mx-auto max-w-7xl px-4 sm:px-6">
         <PointList points={t.raw('candidates.points') as { title: string; body: string }[]} />
       </section>

@@ -1,8 +1,9 @@
 import { useTranslations } from 'next-intl';
-import { Eyebrow, Humaidan, type Outfit } from './brand';
+import type { HumaidanVariant } from '@/lib/humaidan';
+import { Eyebrow, Humaidan } from './brand';
 import { Reveal } from './interactive';
 
-export function PageHero({ ns, outfit }: { ns: string; outfit?: Outfit }) {
+export function PageHero({ ns, outfit }: { ns: string; outfit?: HumaidanVariant }) {
   const t = useTranslations(ns);
   return (
     <section className="mx-auto grid max-w-7xl items-end gap-6 px-4 pt-12 sm:px-6 lg:grid-cols-12 lg:pt-16">

@@ -1,5 +1,15 @@
 # Decisions
 
+**2026-11-05: Humaidan's outfit follows a saved professional field, not a free image choice.** `assessments.professional_field`, then `organization_branding.industry`, then Original, resolved in `apps/web/src/lib/humaidan.ts`. Organizations choose a field, so a marketing assessment can't be given the events outfit, and media and marketing always resolve to Original as the approved rules require. The field sits on the assessment rather than the immutable version: it changes presentation, not what a candidate is evaluated on.
+
+**2026-11-05: Candidate and employer auth share one route and one set of actions.** `?as=organization` selects a formal layout with no mascot. No auth logic is duplicated.
+
+**2026-11-05: Real candidate data stays out at the database.** A trigger on `auth.users` refuses sign-up unless the address matches `private.allowed_signup_patterns`, which currently allows only the test accounts. To admit someone for testing, add a pattern with SQL. Remove the gate only after the privacy and data residency review.
+
+**2026-11-05: AI service gets the work, never the person.** The evaluation payload carries no name, email or other attribute, which also removes those as evaluation proxies. Scores are written by the Core API as the reviewer, so RLS applies, and no service-role key exists in the system.
+
+**2026-11-05: Demo mode is a heuristic and says so.** With no key, open answers are estimated from length and structure, always at low confidence, and every screen and report says no AI model was involved. A reviewer who approves those numbers unchanged produces a report based on them, so demo output must never be used to judge a real person.
+
 **2026-11-05: Sessions live in httpOnly cookies, and the browser never calls Supabase or the API directly.** Next.js server actions talk to Supabase Auth and the Core API, which keeps tokens out of browser JavaScript and matches the Browser -> Next.js -> NestJS architecture. Expiring sessions are renewed in `proxy.ts`.
 
 **2026-11-05: The API must be hosted in the same region as the database.** Each transaction makes about 4 round trips. From a local machine to Frankfurt that's 1 to 1.5 seconds; next to the database it should be negligible. Saves feel slow in local development for this reason.

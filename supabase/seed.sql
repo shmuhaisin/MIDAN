@@ -33,8 +33,9 @@ insert into public.organizations (slug, name_ar, name_en, description, is_demo) 
   ('demo-najd-analytics', 'نجد للتحليلات (منشأة تجريبية)', 'Najd Analytics (demo organization)', 'Fictional organization for demonstration.', true),
   ('demo-sahel-finance', 'الساحل المالية (منشأة تجريبية)', 'Sahel Finance (demo organization)', 'Fictional organization for demonstration.', true);
 
-insert into public.organization_branding (org_id, primary_color, accent_color)
-select id, '#1F7A4D', '#D4AF37' from public.organizations where is_demo;
+insert into public.organization_branding (org_id, primary_color, accent_color, industry)
+select id, '#1F7A4D', '#D4AF37', case slug when 'demo-sahel-finance' then 'finance' else 'technology' end
+from public.organizations where is_demo;
 
 insert into public.jobs (org_id, slug, title_ar, title_en, description_ar, description_en, location, status, is_demo, published_at)
 select o.id, j.slug, j.title_ar, j.title_en, j.d_ar, j.d_en, j.location, 'published', true, now()

@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Arrow, Eyebrow } from '@/components/brand';
+import { Arrow, Eyebrow, JourneyRail } from '@/components/brand';
 import { ApplicantStatus, JobStatusButtons } from '@/components/forms';
-import { EmptyAssessment, GenerateButton, InviteButton, JobDetailsForm, PublishPanel, TaskList } from '@/components/workspace';
+import { EmptyAssessment, FieldSelect, GenerateButton, InviteButton, JobDetailsForm, PublishPanel, TaskList } from '@/components/workspace';
 import { Link, redirect } from '@/i18n/navigation';
 import { api, apiForPage } from '@/lib/api';
 import { number, pick } from '@/lib/format';
@@ -21,6 +21,7 @@ type Latest = {
   run: { mode: string } | null;
   version: null | {
     id: string; version_number: number; status: string;
+    assessments: { id: string; professional_field: string | null };
     assessment_tasks: {
       id: string; position: number; task_type: string; title_ar: string; title_en: string; instructions_ar: string; instructions_en: string; weight: string;
       rubric_criteria: { id: string; code: string; description_ar: string; description_en: string; max_score: string; weight: string; answer_key: unknown }[];
@@ -63,6 +64,19 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const evaluated = (compared ?? []).filter((c) => c.evaluation_results?.status === 'reviewed');
   const compareSkills = [...new Map(evaluated.flatMap((c) => c.evaluation_results!.skill_scores.map((s) => [s.skill_id, s.skills] as const))).entries()];
 
+  const attempts = job.applications.flatMap((a) => a.assessment_attempts);
+  const everPublished = published || version?.status === 'archived' || (version?.version_number ?? 0) > 1;
+  const flowDone = [
+    true,
+    job.job_skills.length > 0,
+    Boolean(version),
+    Boolean(everPublished),
+    attempts.length > 0,
+    attempts.some((a) => a.status === 'submitted' && a.evaluation_results),
+    attempts.some((a) => a.evaluation_results?.status === 'reviewed'),
+    evaluated.length > 0,
+  ];
+
   return (
     <div className="mx-auto max-w-5xl space-y-14 px-4 py-10 sm:px-6">
       <header>
@@ -76,6 +90,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             {canBuild && <JobStatusButtons orgId={orgId} jobId={jobId} status={job.status} />}
           </div>
         </div>
+        <div className="mt-6"><JourneyRail label={t('flowLabel')} steps={t.raw('flow') as string[]} done={flowDone} /></div>
       </header>
 
       <section aria-labelledby="details">
@@ -97,6 +112,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             </div>
             {latest.run?.mode === 'demo' && !published && <p className="border-s-2 border-gold ps-4 text-sm font-medium">{t('demoLabel')}</p>}
             {published && <p className="border-s-2 border-gold ps-4 text-sm font-medium">{t('publishedNote')}</p>}
+            <FieldSelect orgId={orgId} assessmentId={version.assessments.id} field={version.assessments.professional_field} canEdit={canBuild} />
             {required.length > 0 && (
               <div>
                 <p className="text-sm font-semibold">{t('coverage')}</p>

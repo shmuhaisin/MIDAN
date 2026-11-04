@@ -6,7 +6,7 @@ import { useLocale, useMessages, useTranslations } from 'next-intl';
 import { useRef, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { number } from '@/lib/format';
-import { Arrow, Eyebrow, Humaidan, TriangleField, type Outfit } from './brand';
+import { Arrow, Eyebrow, Humaidan, TriangleField } from './brand';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -115,7 +115,7 @@ type FieldMessage = {
   levels: string[];
 };
 
-const FIELD_KEYS: Exclude<Outfit, 'original'>[] = ['tech', 'finance', 'legal', 'engineering', 'events', 'healthcare'];
+const FIELD_KEYS = ['tech', 'finance', 'legal', 'engineering', 'events', 'healthcare'] as const;
 
 export function LevelStairs({
   levels,
@@ -195,21 +195,6 @@ export function FieldExplorer() {
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-12 lg:gap-10">
-        <div className="relative mx-auto w-32 sm:w-40 lg:col-span-3 lg:mx-0 lg:w-auto">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={fieldKey}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-              className="lg:sticky lg:top-24"
-            >
-              <Humaidan outfit={fieldKey} sizes="(min-width: 1024px) 22vw, 160px" />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
         <AnimatePresence mode="wait">
           <motion.div
             key={fieldKey}
@@ -217,7 +202,7 @@ export function FieldExplorer() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="lg:col-span-5"
+            className="lg:col-span-7"
           >
             <p className="text-sm font-medium text-muted">{t('jobSays')}</p>
             <p className="mt-2 text-lg text-muted line-through decoration-gold decoration-1">{field.jobLine}</p>
@@ -236,7 +221,7 @@ export function FieldExplorer() {
           </motion.div>
         </AnimatePresence>
 
-        <div className="rounded-lg bg-surface p-5 lg:col-span-4">
+        <div className="rounded-lg bg-surface p-5 lg:col-span-5">
           <p className="font-semibold">{t('levelsTitle', { skill: field.skill })}</p>
           <p className="mt-1 text-sm text-muted">{t('levelsHint')}</p>
           <div className="mt-5">
@@ -258,38 +243,39 @@ export function FieldExplorer() {
   );
 }
 
-export function Story() {
-  const t = useTranslations('home');
-  const locale = useLocale();
-  const steps = t.raw('story') as { title: string; body: string }[];
+function Rail({ title, steps, locale }: { title: string; steps: string[]; locale: string }) {
   const ref = useRef<HTMLOListElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start 70%', 'end 60%'] });
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start 75%', 'end 60%'] });
   const scaleY = useSpring(scrollYProgress, { stiffness: 90, damping: 24 });
+  return (
+    <div>
+      <h3 className="font-display text-2xl font-semibold text-mint">{title}</h3>
+      <ol ref={ref} className="relative mt-6">
+        <span aria-hidden className="absolute start-[0.95rem] top-2 bottom-2 w-px bg-mint/20" />
+        <motion.span aria-hidden style={{ scaleY }} className="absolute start-[0.95rem] top-2 bottom-2 w-px origin-top bg-mint" />
+        {steps.map((step, i) => (
+          <li key={step} className="relative flex items-center gap-4 pb-5 last:pb-0">
+            <span className="relative grid size-8 shrink-0 place-items-center rounded-full bg-deep-2 text-sm font-semibold text-mint ring-1 ring-mint/40">{number(locale, i + 1)}</span>
+            <span className="text-lg">{step}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 
+export function Journeys() {
+  const t = useTranslations('home.flow');
+  const locale = useLocale();
   return (
     <section className="on-deep relative bg-deep text-deep-foreground">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-12 lg:py-24">
-        <div className="lg:col-span-4">
-          <div className="lg:sticky lg:top-28">
-            <Eyebrow className="text-deep-muted">{t('storyEyebrow')}</Eyebrow>
-            <h2 className="mt-4 font-display text-4xl leading-tight font-bold sm:text-5xl">{t('storyTitle')}</h2>
-          </div>
+      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-24">
+        <Eyebrow className="text-deep-muted">{t('eyebrow')}</Eyebrow>
+        <h2 className="mt-4 max-w-4xl font-display text-4xl leading-tight font-bold sm:text-5xl">{t('title')}</h2>
+        <div className="mt-12 grid gap-12 md:grid-cols-2">
+          <Rail title={t('orgTitle')} steps={t.raw('org') as string[]} locale={locale} />
+          <Rail title={t('candidateTitle')} steps={t.raw('candidate') as string[]} locale={locale} />
         </div>
-        <ol ref={ref} className="relative lg:col-span-8">
-          <span aria-hidden className="absolute start-[1.1rem] top-2 bottom-2 w-px bg-mint/20" />
-          <motion.span aria-hidden style={{ scaleY }} className="absolute start-[1.1rem] top-2 bottom-2 w-px origin-top bg-mint" />
-          {steps.map((step, i) => (
-            <li key={step.title} className="relative pb-12 ps-14 last:pb-0">
-              <span className="absolute start-0 top-0 grid size-9 place-items-center rounded-full bg-deep-2 font-semibold text-mint ring-1 ring-mint/40">
-                {number(locale, i + 1)}
-              </span>
-              <Reveal>
-                <h3 className="font-display text-2xl font-semibold sm:text-3xl">{step.title}</h3>
-                <p className="mt-3 max-w-2xl text-lg leading-relaxed text-deep-muted">{step.body}</p>
-              </Reveal>
-            </li>
-          ))}
-        </ol>
       </div>
     </section>
   );
@@ -298,8 +284,8 @@ export function Story() {
 export function Audience() {
   const t = useTranslations();
   const panels = [
-    { title: 'home.candidateTitle', body: 'home.candidateBody', cta: 'cta.candidate', href: '/register?as=candidate', more: '/for-candidates', moreLabel: 'nav.candidates', outfit: 'finance' as const, deep: false },
-    { title: 'home.organizationTitle', body: 'home.organizationBody', cta: 'cta.organization', href: '/register?as=organization', more: '/for-organizations', moreLabel: 'nav.organizations', outfit: 'legal' as const, deep: true },
+    { title: 'home.candidateTitle', body: 'home.candidateBody', cta: 'cta.candidate', href: '/register?as=candidate', more: '/for-candidates', moreLabel: 'nav.candidates', figure: true, deep: false },
+    { title: 'home.organizationTitle', body: 'home.organizationBody', cta: 'cta.organization', href: '/register?as=organization', more: '/for-organizations', moreLabel: 'nav.organizations', figure: false, deep: true },
   ];
   return (
     <section aria-label={t('home.audienceEyebrow')} className="flex flex-col lg:flex-row">
@@ -311,7 +297,7 @@ export function Audience() {
             p.deep ? 'on-deep bg-deep-2 text-deep-foreground' : 'bg-accent text-accent-foreground',
           )}
         >
-          <div className="relative z-10 flex w-full flex-col items-start px-4 py-14 pe-[38%] sm:px-10 sm:pe-[38%] lg:py-20">
+          <div className={clsx('relative z-10 flex w-full flex-col items-start px-4 py-14 sm:px-10 lg:py-20', p.figure && 'pe-[38%] sm:pe-[38%]')}>
             <h2 className="font-display text-3xl leading-tight font-bold sm:text-4xl">{t(p.title)}</h2>
             <p className={clsx('mt-4 max-w-md text-lg leading-relaxed', p.deep ? 'text-deep-muted' : '')}>{t(p.body)}</p>
             <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -330,9 +316,11 @@ export function Audience() {
               </Link>
             </div>
           </div>
-          <div aria-hidden className="absolute end-2 bottom-0 w-[36%] max-w-60 transition-transform duration-500 group-hover:-translate-y-1">
-            <Humaidan outfit={p.outfit} sizes="(min-width: 1024px) 16vw, 36vw" />
-          </div>
+          {p.figure && (
+            <div aria-hidden className="absolute end-2 bottom-0 w-[36%] max-w-60">
+              <Humaidan sizes="(min-width: 1024px) 16vw, 36vw" />
+            </div>
+          )}
         </div>
       ))}
     </section>

@@ -2,7 +2,7 @@ import { use } from 'react';
 import { useTranslations } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import { Eyebrow, Parapet } from '@/components/brand';
-import { Audience, FieldExplorer, Hero, Reveal, Story } from '@/components/interactive';
+import { Audience, FieldExplorer, Hero, Journeys, Reveal } from '@/components/interactive';
 
 export default function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   setRequestLocale(use(params).locale);
@@ -11,10 +11,8 @@ export default function HomePage({ params }: { params: Promise<{ locale: string 
     <>
       <Hero />
       <Parapet className="text-deep" />
-      <div className="on-deep bg-deep py-1" />
+      <Journeys />
       <FieldExplorer />
-      <Parapet className="text-deep" />
-      <Story />
       <Audience />
       <section className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
         <Reveal>

@@ -12,7 +12,7 @@ export default function Page({ params }: { params: Promise<{ locale: string }> }
   const locale = useLocale();
   return (
     <>
-      <PageHero ns="how" outfit="engineering" />
+      <PageHero ns="how" />
       <ol className="mx-auto max-w-7xl border-t border-border px-4 sm:px-6">
         {(t.raw('steps') as { title: string; body: string }[]).map((s, i) => (
           <li key={s.title} className="border-b border-border">

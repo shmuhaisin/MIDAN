@@ -1,12 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { Body, ConflictException, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsPositive, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsPositive, IsString, MaxLength, MinLength } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { AiClient } from '../ai/ai.client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
+import { PROFESSIONAL_FIELDS } from '../common/fields';
 import { BUILDERS, requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
+
+class AssessmentFieldDto {
+  @ApiPropertyOptional({ enum: PROFESSIONAL_FIELDS, nullable: true }) @IsOptional() @IsIn(PROFESSIONAL_FIELDS) professional_field?: string | null;
+}
 
 class UpdateTaskDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(200) title_ar?: string;
@@ -47,7 +52,7 @@ export class AssessmentsController {
         where: { org_id: orgId, assessments: { job_id: jobId } },
         orderBy: { version_number: 'desc' },
         include: {
-          assessments: { select: { id: true, title_ar: true, title_en: true } },
+          assessments: { select: { id: true, title_ar: true, title_en: true, professional_field: true } },
           assessment_tasks: {
             orderBy: { position: 'asc' },
             include: { rubric_criteria: { orderBy: { code: 'asc' } }, task_skill_mappings: { include: { skills: { select: { id: true, name_ar: true, name_en: true } } } } },
@@ -126,6 +131,17 @@ export class AssessmentsController {
         data: { org_id: orgId, workflow: 'assessment_builder', thread_id: threadId, status: 'awaiting_human_review', started_by: user.id, ...result.provenance },
       });
       return { version_id: version.id, warnings: result.payload.warnings, mode: result.provenance.mode };
+    });
+  }
+
+  @Patch('assessments/:assessmentId/field')
+  @ApiOperation({ summary: 'The professional field decides which approved Humaidan candidates see.' })
+  setField(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('assessmentId', ParseUUIDPipe) id: string, @Body() body: AssessmentFieldDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const { count } = await tx.assessments.updateMany({ where: { id, org_id: orgId }, data: { professional_field: body.professional_field ?? null } });
+      if (count === 0) throw new NotFoundException();
+      return tx.assessments.findUniqueOrThrow({ where: { id } });
     });
   }
 
