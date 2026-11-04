@@ -1,6 +1,11 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 
+// File sizes are bigint columns, and JSON has no bigint.
+(BigInt.prototype as unknown as { toJSON(): number }).toJSON = function (this: bigint) {
+  return Number(this);
+};
+
 export type AuthUser = { id: string; email: string };
 export type Tx = Prisma.TransactionClient;
 

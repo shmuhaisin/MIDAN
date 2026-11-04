@@ -171,3 +171,175 @@ for (const locale of ['ar', 'en']) {
     });
   }
 }
+
+test('the full MVP journey: details, draft, publish, work, evaluate, review, release, report', async ({ browser }) => {
+  const owner = await (await signedIn(browser, 'ORG_A_OWNER')).newPage();
+  const candidate = await (await signedIn(browser, 'CANDIDATE_TWO')).newPage();
+  const outsider = await (await signedIn(browser, 'ORG_B_OWNER')).newPage();
+  const name = `MVP Analyst ${RUN}`;
+  const problems: string[] = [];
+  for (const page of [owner, candidate]) {
+    page.on('pageerror', (e) => problems.push(`${page.url()} ${e.message}`));
+    page.on('console', (m) => {
+      // 403 and 404 responses are expected in this journey; browsers log them as errors.
+      if (m.type() === 'error' && !m.text().includes('Failed to load resource')) problems.push(`${page.url()} ${m.text()}`);
+    });
+  }
+
+  await owner.goto('/en/organization/new');
+  await owner.getByLabel('Name in Arabic').fill('منشأة مسار كامل');
+  await owner.getByLabel('Name in English').fill(`Midan Test Flow ${RUN}`);
+  await owner.getByRole('button', { name: 'Create organization' }).click();
+  await expect(owner.getByText('Your role: Owner')).toBeVisible();
+  const orgPath = new URL(owner.url()).pathname;
+
+  await owner.getByRole('button', { name: 'New job' }).click();
+  await owner.getByLabel('Title in Arabic').fill('محلل مسار');
+  await owner.getByLabel('Title in English').fill(name);
+  await owner.getByRole('button', { name: 'Save as draft' }).click();
+  await owner.getByRole('link', { name }).click();
+  await expect(owner.getByRole('heading', { level: 1 })).toHaveText(name);
+  const jobPath = new URL(owner.url()).pathname;
+
+  await owner.getByLabel('Description and responsibilities in English').fill('Prepare monthly reports for management.\nInvestigate order returns.');
+  await owner.getByLabel('Description and responsibilities in Arabic').fill('إعداد التقارير الشهرية للإدارة.\nتحليل المرتجعات.');
+  await owner.getByRole('checkbox', { name: 'Data analysis' }).check();
+  await owner.getByRole('checkbox', { name: 'Written communication' }).check();
+  await owner.getByRole('button', { name: 'Save details' }).click();
+  await expect(owner.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
+
+  await owner.getByRole('button', { name: 'Create assessment draft' }).click();
+  await expect(owner.getByText('Demo mode: this draft was built from templates')).toBeVisible({ timeout: 60_000 });
+  await expect(owner.getByText('Version 1 · Draft')).toBeVisible();
+
+  // Edit, then confirm the edit persisted.
+  await owner.getByRole('button', { name: /A case study from the role/ }).first().click();
+  await owner.locator('form').filter({ has: owner.getByRole('button', { name: 'Save task' }) }).getByLabel('Title in English').fill(`Edited case ${RUN}`);
+  await owner.getByRole('button', { name: 'Save task' }).click();
+  await expect(owner.getByRole('button', { name: new RegExp(`Edited case ${RUN}`) })).toBeVisible();
+
+  await owner.getByRole('link', { name: 'Preview what candidates see' }).click();
+  await expect(owner.getByText('Preview: this is what candidates see')).toBeVisible();
+  const previewPath = new URL(owner.url()).pathname;
+  if (SHOTS) {
+    await owner.goto(previewPath.replace('/en/', '/ar/'));
+    await owner.getByRole('button', { name: 'ابدأ التقييم' }).click();
+    await owner.getByRole('button', { name: 'التالية' }).click();
+    await owner.getByRole('button', { name: 'التالية' }).click();
+    await owner.screenshot({ path: `${SHOTS}/experience-ar.png`, fullPage: true });
+  }
+  await owner.goto(jobPath);
+
+  await owner.getByRole('button', { name: 'Approve and publish this version' }).click();
+  await owner.getByRole('button', { name: 'Confirm publishing' }).click();
+  await expect(owner.getByText('This version is published and fixed')).toBeVisible({ timeout: 40_000 });
+  await owner.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(owner.getByRole('button', { name: 'Back to draft' })).toBeVisible();
+
+  const jobId = jobPath.split('/').pop();
+  await candidate.goto(`/en/opportunities/${jobId}`);
+  await expect(candidate.getByText('Data analysis')).toBeVisible();
+  await candidate.getByRole('button', { name: 'Apply for this job' }).click();
+  await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
+
+  await owner.reload();
+  await owner.getByRole('button', { name: 'Invite to assessment' }).click();
+  await expect(owner.getByText('Invited', { exact: true })).toBeVisible();
+
+  await candidate.goto('/en/dashboard');
+  await candidate.getByRole('listitem').filter({ hasText: name }).getByRole('link', { name: 'Start assessment' }).click();
+  await expect(candidate.getByRole('heading', { level: 1 })).toContainText('practical assessment');
+  await candidate.getByRole('button', { name: 'Start the assessment' }).click();
+
+  const experienceUrl = candidate.url();
+  const answer = 'Returns in Jeddah rose from 40 to 61 over three months. I would audit that region first. Then I would report returns monthly and check the change.';
+  const box = () => candidate.getByRole('textbox', { name: 'Your answer' });
+
+  await expect(box()).toBeVisible();
+  await box().fill(answer);
+  await expect(candidate.getByText('Saved', { exact: true })).toBeVisible();
+  await candidate.reload(); // Autosave survives a reload.
+  await expect(box()).toHaveValue(answer);
+
+  // Walk every task. Open tasks get text; the data task also gets a file; objective tasks get choices.
+  for (let i = 0; i < 6; i++) {
+    if (await box().isVisible()) {
+      if (!(await box().inputValue())) {
+        await box().fill(answer);
+        await expect(candidate.getByText('Saved', { exact: true })).toBeVisible();
+      }
+      if (await candidate.getByRole('heading', { name: 'Supplied data', exact: true }).isVisible()) {
+        await candidate.locator('input[type=file]').setInputFiles({ name: 'work.csv', mimeType: 'text/csv', buffer: Buffer.from('a,b\n1,2\n') });
+        await expect(candidate.getByText('work.csv')).toBeVisible({ timeout: 30_000 });
+      }
+    } else {
+      await candidate.getByRole('radio', { name: 'Check its impact' }).check();
+      await candidate.getByRole('radio', { name: "Say what I know" }).check();
+      await expect(candidate.getByText('Saved', { exact: true })).toBeVisible();
+    }
+    const next = candidate.getByRole('button', { name: 'Next', exact: true });
+    if (!(await next.isVisible())) break;
+    await next.click();
+  }
+  await candidate.getByRole('button', { name: 'Review and submit' }).last().click();
+  await expect(candidate.getByText('Not answered yet')).toHaveCount(0);
+  await candidate.getByRole('button', { name: 'Submit for good' }).click();
+  await expect(candidate.getByText('Your work is in')).toBeVisible();
+  await candidate.goto(experienceUrl);
+  await expect(candidate.getByText('Your work is in')).toBeVisible();
+
+  await owner.reload();
+  await owner.getByRole('link', { name: 'Review the work' }).click();
+  await expect(owner).toHaveURL(/\/review\/[0-9a-f-]{36}$/);
+  const reviewPath = new URL(owner.url()).pathname;
+  await outsider.goto(reviewPath);
+  await expect(outsider.getByRole('heading', { level: 1 })).toHaveText('This field is empty');
+
+  await owner.getByRole('button', { name: 'Run AI-assisted evaluation' }).click();
+  await expect(owner.getByText('Demo mode: these proposed scores')).toBeVisible({ timeout: 60_000 });
+  await expect(owner.getByText('The system is running in demo mode')).toBeVisible();
+  await owner.getByLabel('Your score').first().fill('9');
+  await owner.getByLabel('Internal notes').fill('INTERNAL-NOTE-UI');
+  await owner.getByRole('button', { name: 'Approve the review' }).click();
+  await expect(owner.getByRole('heading', { name: 'Reviewed' })).toBeVisible({ timeout: 40_000 });
+
+  await candidate.goto('/en/dashboard');
+  await expect(candidate.getByRole('listitem').filter({ hasText: name }).getByRole('link', { name: 'View report' })).toHaveCount(0);
+
+  await owner.getByRole('button', { name: 'Release result to candidate' }).click();
+  await expect(owner.getByText('Result released to candidate')).toBeVisible();
+
+  await candidate.reload();
+  await candidate.getByRole('listitem').filter({ hasText: name }).getByRole('link', { name: 'View report' }).click();
+  await expect(candidate.getByRole('heading', { level: 1 })).toHaveText('What your work showed');
+  await expect(candidate.getByText('A report from a demo stage')).toBeVisible();
+  await expect(candidate.getByText('Data analysis').first()).toBeVisible();
+  await expect(candidate.getByText('INTERNAL-NOTE-UI')).toHaveCount(0);
+  if (SHOTS) await candidate.screenshot({ path: `${SHOTS}/report-en.png`, fullPage: true });
+  await outsider.goto(new URL(candidate.url()).pathname);
+  await expect(outsider.getByRole('heading', { level: 1 })).toHaveText('This field is empty');
+
+  await owner.goto(jobPath);
+  await expect(owner.getByText('Compare candidates on the same criteria')).toBeVisible();
+  await expect(owner.getByRole('rowheader').first()).toBeVisible();
+  if (SHOTS) {
+    await owner.screenshot({ path: `${SHOTS}/workspace-en.png`, fullPage: true });
+    await owner.goto(reviewPath);
+    await owner.screenshot({ path: `${SHOTS}/review-en.png`, fullPage: true });
+    await owner.goto(reviewPath.replace('/en/', '/ar/'));
+    await owner.screenshot({ path: `${SHOTS}/review-ar.png`, fullPage: true });
+  }
+  expect(orgPath).toContain('/organization/');
+  expect(problems).toEqual([]);
+});
+
+test('registration is closed for real addresses, with a clear message', async ({ page }) => {
+  await page.goto('/en/register');
+  await expect(page.getByText('Registration is closed for now')).toBeVisible();
+  await page.getByLabel('Name').fill('Someone Real');
+  await page.getByLabel('Email').fill(`someone.real.${RUN}@midan-blocked.test`);
+  await page.getByLabel('Password').fill('a-long-enough-password-1');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Registration is closed' })).toBeVisible();
+  await expect(page.getByText('Please don\'t enter real personal information')).toBeVisible();
+});

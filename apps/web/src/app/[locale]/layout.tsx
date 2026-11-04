@@ -28,6 +28,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return { title: t('title'), description: t('description') };
 }
 
+function DemoBanner() {
+  const t = useTranslations();
+  return <p className="bg-surface-2 px-4 py-1.5 text-center text-xs font-medium">{t('demoBanner')}</p>;
+}
+
 function Footer() {
   const t = useTranslations();
   const links = [
@@ -75,6 +80,7 @@ export default async function LocaleLayout({ children, params }: Params & { chil
         <NextIntlClientProvider>
           <Providers>
             <Header signedIn={Boolean(session)} signOut={signOut} />
+            <DemoBanner />
             <main id="main" className="flex-1">{children}</main>
             <Parapet className="text-deep" />
             <Footer />

@@ -11,7 +11,8 @@ class ApplyDto {
 
 const PUBLIC_JOB = {
   id: true, slug: true, title_ar: true, title_en: true, description_ar: true, description_en: true,
-  location: true, status: true, is_demo: true, published_at: true,
+  location: true, status: true, is_demo: true, published_at: true, requirements_ar: true, requirements_en: true,
+  job_skills: { select: { required_level: true, skills: { select: { id: true, name_ar: true, name_en: true } } } },
   organizations: { select: { id: true, slug: true, name_ar: true, name_en: true, is_demo: true } },
 } as const;
 

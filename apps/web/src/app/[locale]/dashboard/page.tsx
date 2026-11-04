@@ -14,7 +14,8 @@ type Me = {
 };
 type MyApplication = {
   id: string; status: string;
-  jobs: { id: string; title_ar: string; title_en: string; is_demo: boolean; organizations: { name_ar: string; name_en: string } };
+  jobs: { id: string; slug: string; title_ar: string; title_en: string; is_demo: boolean; organizations: { slug: string; name_ar: string; name_en: string } };
+  assessment_attempts: { id: string; status: string; assessment_versions: { version_number: number }; evaluation_results: { released_to_candidate: boolean } | null }[];
 };
 
 const JOURNEY = ['submitted', 'under_review', 'assessment_invited', 'assessment_in_progress', 'assessment_submitted', 'evaluated'];
@@ -44,8 +45,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const isOrgFirst = session.accountType === 'organization';
   const active = applications.filter((a) => a.status !== 'withdrawn');
   const firstOrg = me.organization_members[0];
-  const next = active.some((a) => a.status === 'assessment_invited')
-    ? { title: t('nextInvitedTitle'), body: t('nextInvitedBody') }
+  const experienceHref = (a: MyApplication) =>
+    `/experience/${a.jobs.organizations.slug}/${a.jobs.slug}/${a.assessment_attempts[0]?.assessment_versions.version_number}`;
+  const invited = active.find((a) => a.assessment_attempts.some((x) => ['invited', 'in_progress'].includes(x.status)));
+  const next = invited
+    ? { title: t('nextInvitedTitle'), body: t('nextInvitedBody'), cta: t('startAssessment'), href: experienceHref(invited) }
     : firstOrg && applications.length === 0
       ? { title: t('nextOrgTitle'), body: t('nextOrgBody'), cta: t('openOrganization'), href: `/organization/${firstOrg.org_id}` }
       : !me.candidate_profiles && !isOrgFirst
@@ -93,7 +97,20 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                       {!['withdrawn', 'rejected'].includes(a.status) && <Progress status={a.status} />}
                     </div>
                   </div>
-                  {!['withdrawn', 'rejected', 'hired'].includes(a.status) && <div className="mt-2"><WithdrawButton id={a.id} /></div>}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+                    {a.assessment_attempts.map((x) =>
+                      x.evaluation_results?.released_to_candidate ? (
+                        <Link key={x.id} href={`/reports/${x.id}`} className="font-semibold text-primary underline underline-offset-4">{t('viewReport')}</Link>
+                      ) : x.status === 'submitted' ? (
+                        <span key={x.id} className="text-sm text-muted">{t('awaitingResults')}</span>
+                      ) : a.status !== 'withdrawn' && ['invited', 'in_progress'].includes(x.status) ? (
+                        <Link key={x.id} href={experienceHref(a)} className="font-semibold text-primary underline underline-offset-4">
+                          {x.status === 'invited' ? t('startAssessment') : t('continueAssessment')}
+                        </Link>
+                      ) : null,
+                    )}
+                    {!['withdrawn', 'rejected', 'hired'].includes(a.status) && <WithdrawButton id={a.id} />}
+                  </div>
                 </li>
               ))}
             </ul>

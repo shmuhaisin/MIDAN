@@ -5,3 +5,7 @@ export function number(locale: string, value: number) {
 export function pick(locale: string, ar: string, en: string) {
   return locale === 'ar' ? ar : en;
 }
+
+export function list(locale: string, items: string[]) {
+  return items.join(locale === 'ar' ? '، ' : ', ');
+}

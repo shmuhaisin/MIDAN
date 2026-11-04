@@ -28,6 +28,8 @@ async function gotrue(path: string, body: unknown, token?: string) {
 
 function authError(data: { error_code?: string }) {
   if (data.error_code === 'email_exists') return 'user_already_exists';
+  // The database refuses addresses outside the demo allowlist, and Auth reports that as a failure.
+  if (data.error_code === 'unexpected_failure') return 'registration_closed';
   return data.error_code && KNOWN.has(data.error_code) ? data.error_code : 'generic';
 }
 

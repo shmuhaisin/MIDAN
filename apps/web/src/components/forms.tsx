@@ -10,10 +10,10 @@ import { applyToJob, createJob, createOrganization, saveProfile, setApplicationS
 import { signIn, signUp, type FormState } from '@/lib/auth-actions';
 import { Arrow } from './brand';
 
-const INPUT = 'mt-1.5 block h-12 w-full rounded-lg border border-border bg-surface px-3.5 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/25';
-const PRIMARY = 'inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:translate-y-0 disabled:opacity-60';
+export const INPUT = 'mt-1.5 block h-12 w-full rounded-lg border border-border bg-surface px-3.5 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/25';
+export const PRIMARY = 'inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:translate-y-0 disabled:opacity-60';
 
-function Submit({ children, className }: { children: React.ReactNode; className?: string }) {
+export function Submit({ children, className }: { children: React.ReactNode; className?: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" disabled={pending} aria-busy={pending} className={clsx(PRIMARY, className)}>
@@ -23,7 +23,7 @@ function Submit({ children, className }: { children: React.ReactNode; className?
   );
 }
 
-function ErrorText({ code }: { code?: string }) {
+export function ErrorText({ code }: { code?: string }) {
   const t = useTranslations('errors');
   return (
     <AnimatePresence>
@@ -42,7 +42,7 @@ function ErrorText({ code }: { code?: string }) {
   );
 }
 
-function Field({ label, hint, name, ...props }: { label: string; hint?: string; name: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+export function Field({ label, hint, name, ...props }: { label: string; hint?: string; name: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block">
       <span className="text-sm font-medium">{label}</span>
@@ -174,7 +174,7 @@ export function JobForm({ orgId }: { orgId: string }) {
   );
 }
 
-function useAction(run: () => Promise<FormState>) {
+export function useAction(run: () => Promise<FormState>) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string>();
   return { pending, error, fire: () => start(async () => setError((await run()).error)) };
@@ -199,7 +199,7 @@ export function JobStatusButtons({ orgId, jobId, status }: { orgId: string; jobI
   );
 }
 
-const ORG_STATUSES = ['submitted', 'under_review', 'assessment_invited', 'shortlisted', 'rejected', 'hired'];
+const ORG_STATUSES = ['submitted', 'under_review', 'shortlisted', 'rejected', 'hired'];
 
 export function ApplicantStatus({ id, status, label }: { id: string; status: string; label: string }) {
   const t = useTranslations('applicationStatus');

@@ -72,9 +72,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                     <span className={clsx('rounded-full px-2.5 py-1 text-xs font-semibold', job.status === 'published' ? 'bg-accent text-accent-foreground' : 'bg-surface-2 text-muted')}>
                       {t(`jobStatus.${job.status}`)}
                     </span>
-                    {job.status === 'published'
-                      ? <Link href={`/opportunities/${job.id}`} className="font-semibold hover:text-primary">{pick(locale, job.title_ar, job.title_en)}</Link>
-                      : <span className="font-semibold">{pick(locale, job.title_ar, job.title_en)}</span>}
+                    <Link href={`/organization/${orgId}/jobs/${job.id}`} className="font-semibold underline-offset-4 hover:text-primary hover:underline">{pick(locale, job.title_ar, job.title_en)}</Link>
                   </div>
                   {canManage && <JobStatusButtons orgId={orgId} jobId={job.id} status={job.status} />}
                 </li>

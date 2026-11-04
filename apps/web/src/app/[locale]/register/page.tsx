@@ -10,5 +10,5 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (await getSession()) redirect({ href: '/dashboard', locale });
   const t = await getTranslations({ locale, namespace: 'auth' });
   const kind = (await searchParams).as === 'organization' ? 'organization' : 'candidate';
-  return <AuthShell title={t('registerTitle')} lead={t('registerLead')}><RegisterForm initialType={kind} /></AuthShell>;
+  return <AuthShell title={t('registerTitle')} lead={t('registerLead')}><p className="mb-6 border-s-2 border-gold ps-4 text-sm font-medium">{t('closedNote')}</p><RegisterForm initialType={kind} /></AuthShell>;
 }

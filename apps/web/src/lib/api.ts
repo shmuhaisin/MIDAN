@@ -9,7 +9,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
+export async function api<T>(path: string, init?: { method?: string; body?: unknown; form?: FormData }): Promise<T> {
   const token = await getAccessToken();
   const response = await fetch(`${process.env.API_URL}/v1${path}`, {
     method: init?.method ?? 'GET',
@@ -18,7 +18,7 @@ export async function api<T>(path: string, init?: { method?: string; body?: unkn
       ...(token && { authorization: `Bearer ${token}` }),
       ...(init?.body !== undefined && { 'content-type': 'application/json' }),
     },
-    body: init?.body === undefined ? undefined : JSON.stringify(init.body),
+    body: init?.form ?? (init?.body === undefined ? undefined : JSON.stringify(init.body)),
   });
   if (!response.ok) throw new ApiError(response.status);
   return response.json() as Promise<T>;

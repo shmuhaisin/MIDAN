@@ -1,0 +1,229 @@
+'use client';
+
+import clsx from 'clsx';
+import { AnimatePresence, motion } from 'motion/react';
+import { useLocale, useTranslations } from 'next-intl';
+import { useActionState, useState } from 'react';
+import { generateAssessment, inviteCandidate, publishVersion, updateCriterion, updateJob, updateTask } from '@/lib/actions';
+import type { FormState } from '@/lib/auth-actions';
+import { list, pick } from '@/lib/format';
+import { Arrow, Humaidan } from './brand';
+import { ErrorText, Field, INPUT, PRIMARY, Submit, useAction } from './forms';
+
+function TextArea({ label, hint, name, ...props }: { label: string; hint?: string; name: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <label className="block">
+      <span className="text-sm font-medium">{label}</span>
+      <textarea name={name} rows={4} className={clsx(INPUT, 'h-auto py-2.5 leading-relaxed')} {...props} />
+      {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}
+    </label>
+  );
+}
+
+function Saved({ show, label }: { show?: boolean; label: string }) {
+  if (!show) return null;
+  return <motion.span role="status" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="font-semibold text-primary">{label}</motion.span>;
+}
+
+type Skill = { id: string; name_ar: string; name_en: string };
+type JobDetails = {
+  id: string; title_ar: string; title_en: string; description_ar: string | null; description_en: string | null;
+  requirements_ar: string | null; requirements_en: string | null; location: string | null;
+  job_skills: { skill_id: string; required_level: number }[];
+};
+
+export function JobDetailsForm({ orgId, job, skills, canEdit }: { orgId: string; job: JobDetails; skills: Skill[]; canEdit: boolean }) {
+  const t = useTranslations('workspace');
+  const locale = useLocale();
+  const [state, action] = useActionState<FormState, FormData>(updateJob.bind(null, orgId, job.id), {});
+  const selected = new Map(job.job_skills.map((s) => [s.skill_id, s.required_level]));
+  return (
+    <form action={action}>
+      <fieldset disabled={!canEdit} className="space-y-4">
+        <ErrorText code={state.error} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field name="title_ar" required dir="rtl" label={t('titleAr')} defaultValue={job.title_ar} />
+          <Field name="title_en" required dir="ltr" label={t('titleEn')} defaultValue={job.title_en} />
+          <TextArea name="description_ar" dir="rtl" label={t('descriptionAr')} hint={t('descriptionHint')} defaultValue={job.description_ar ?? ''} />
+          <TextArea name="description_en" dir="ltr" label={t('descriptionEn')} hint={t('descriptionHint')} defaultValue={job.description_en ?? ''} />
+          <TextArea name="requirements_ar" dir="rtl" rows={3} label={t('requirementsAr')} defaultValue={job.requirements_ar ?? ''} />
+          <TextArea name="requirements_en" dir="ltr" rows={3} label={t('requirementsEn')} defaultValue={job.requirements_en ?? ''} />
+          <Field name="location" label={t('location')} defaultValue={job.location ?? ''} />
+        </div>
+        <div>
+          <p className="text-sm font-medium">{t('skills')}</p>
+          <p className="text-xs text-muted">{t('draftSkillsNote')}</p>
+          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+            {skills.map((s) => (
+              <li key={s.id} className="flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="skill" value={s.id} defaultChecked={selected.has(s.id)} className="size-4 accent-[var(--primary)]" />
+                  {pick(locale, s.name_ar, s.name_en)}
+                </label>
+                <select name={`level-${s.id}`} aria-label={`${t('requiredLevel')}: ${pick(locale, s.name_ar, s.name_en)}`} defaultValue={selected.get(s.id) ?? 3} className="rounded border border-border bg-surface px-1.5 py-1 text-sm">
+                  {[1, 2, 3, 4].map((l) => <option key={l} value={l}>L{l}</option>)}
+                </select>
+              </li>
+            ))}
+          </ul>
+        </div>
+        {canEdit && (
+          <div className="flex items-center gap-4">
+            <Submit>{t('save')}</Submit>
+            <Saved show={state.ok} label={t('saved')} />
+          </div>
+        )}
+      </fieldset>
+    </form>
+  );
+}
+
+export function GenerateButton({ orgId, jobId, label }: { orgId: string; jobId: string; label: string }) {
+  const t = useTranslations('workspace');
+  const { pending, error, fire } = useAction(() => generateAssessment(orgId, jobId));
+  return (
+    <div className="space-y-3">
+      <button type="button" onClick={fire} disabled={pending} aria-busy={pending} className={PRIMARY}>
+        {pending && <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-current border-e-transparent" />}
+        {pending ? t('generating') : label}
+      </button>
+      <ErrorText code={error} />
+    </div>
+  );
+}
+
+export function EmptyAssessment({ orgId, jobId }: { orgId: string; jobId: string }) {
+  const t = useTranslations('workspace');
+  return (
+    <div className="flex flex-col items-center gap-6 rounded-lg bg-surface p-6 sm:flex-row">
+      <div className="w-24 shrink-0"><Humaidan outfit="engineering" sizes="96px" /></div>
+      <div>
+        <h3 className="font-display text-xl font-semibold">{t('noAssessmentTitle')}</h3>
+        <p className="mt-1 mb-4 text-muted">{t('noAssessmentBody')}</p>
+        <GenerateButton orgId={orgId} jobId={jobId} label={t('generate')} />
+      </div>
+    </div>
+  );
+}
+
+type Criterion = { id: string; code: string; description_ar: string; description_en: string; max_score: string; weight: string; answer_key: unknown };
+type Task = {
+  id: string; position: number; task_type: string; title_ar: string; title_en: string; instructions_ar: string; instructions_en: string; weight: string;
+  rubric_criteria: Criterion[]; task_skill_mappings: { skills: Skill }[];
+};
+
+function CriterionEditor({ orgId, criterion, editable }: { orgId: string; criterion: Criterion; editable: boolean }) {
+  const t = useTranslations('workspace');
+  const [state, action] = useActionState<FormState, FormData>(updateCriterion.bind(null, orgId, criterion.id), {});
+  return (
+    <form action={action} className="rounded-lg border border-border p-3">
+      <fieldset disabled={!editable} className="space-y-3">
+        <p className="text-xs font-semibold text-muted">{criterion.code}{criterion.answer_key ? ` · ${t('answerKeyNote')}` : ''}</p>
+        <ErrorText code={state.error} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TextArea name="description_ar" rows={2} dir="rtl" required label={t('descriptionAr').split(' ')[0]} aria-label={`${criterion.code} ar`} defaultValue={criterion.description_ar} />
+          <TextArea name="description_en" rows={2} dir="ltr" required label={t('descriptionEn').split(' ')[0]} aria-label={`${criterion.code} en`} defaultValue={criterion.description_en} />
+          <Field name="max_score" type="number" min="1" step="1" required label={t('maxScore')} defaultValue={Number(criterion.max_score)} />
+          <Field name="weight" type="number" min="0.1" step="0.1" required label={t('weight')} defaultValue={Number(criterion.weight)} />
+        </div>
+        {editable && (
+          <div className="flex items-center gap-3">
+            <button type="submit" className="rounded-full border border-border px-3 py-1.5 text-sm font-semibold hover:bg-surface-2">{t('saveCriterion')}</button>
+            <Saved show={state.ok} label={t('saved')} />
+          </div>
+        )}
+      </fieldset>
+    </form>
+  );
+}
+
+function TaskEditor({ orgId, task, editable }: { orgId: string; task: Task; editable: boolean }) {
+  const t = useTranslations('workspace');
+  const locale = useLocale();
+  const [open, setOpen] = useState(false);
+  const [state, action] = useActionState<FormState, FormData>(updateTask.bind(null, orgId, task.id), {});
+  return (
+    <li className="border-b border-border">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-4 py-4 text-start">
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent font-semibold text-accent-foreground">{task.position}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold">{pick(locale, task.title_ar, task.title_en)}</span>
+          <span className="block text-sm text-muted">
+            {t(`taskType.${task.task_type}`)} · {list(locale, task.task_skill_mappings.map((m) => pick(locale, m.skills.name_ar, m.skills.name_en)))}
+          </span>
+        </span>
+        <motion.span aria-hidden animate={{ rotate: open ? 45 : 0 }} className="text-xl">+</motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+            <div className="space-y-5 pb-6">
+              <form action={action}>
+                <fieldset disabled={!editable} className="space-y-3">
+                  <ErrorText code={state.error} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field name="title_ar" required dir="rtl" label={t('taskTitleAr')} defaultValue={task.title_ar} />
+                    <Field name="title_en" required dir="ltr" label={t('taskTitleEn')} defaultValue={task.title_en} />
+                    <TextArea name="instructions_ar" required dir="rtl" rows={5} label={t('instructionsAr')} defaultValue={task.instructions_ar} />
+                    <TextArea name="instructions_en" required dir="ltr" rows={5} label={t('instructionsEn')} defaultValue={task.instructions_en} />
+                    <Field name="weight" type="number" min="0.1" step="0.1" required label={t('weight')} defaultValue={Number(task.weight)} />
+                  </div>
+                  {editable && (
+                    <div className="flex items-center gap-3">
+                      <Submit>{t('saveTask')}</Submit>
+                      <Saved show={state.ok} label={t('saved')} />
+                    </div>
+                  )}
+                </fieldset>
+              </form>
+              <div>
+                <p className="mb-2 text-sm font-semibold">{t('rubric')}</p>
+                <div className="space-y-3">
+                  {task.rubric_criteria.map((c) => <CriterionEditor key={c.id} orgId={orgId} criterion={c} editable={editable} />)}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </li>
+  );
+}
+
+export function TaskList({ orgId, tasks, editable }: { orgId: string; tasks: Task[]; editable: boolean }) {
+  return <ul className="border-t border-border">{tasks.map((task) => <TaskEditor key={task.id} orgId={orgId} task={task} editable={editable} />)}</ul>;
+}
+
+export function PublishPanel({ orgId, versionId }: { orgId: string; versionId: string }) {
+  const t = useTranslations('workspace');
+  const [confirming, setConfirming] = useState(false);
+  const { pending, error, fire } = useAction(() => publishVersion(orgId, versionId));
+  return (
+    <div className="rounded-lg bg-surface p-4">
+      <p className="text-sm text-muted">{t('publishNote')}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        {confirming ? (
+          <>
+            <button type="button" disabled={pending} aria-busy={pending} onClick={fire} className={PRIMARY}>{t('publishConfirm')}</button>
+            <button type="button" onClick={() => setConfirming(false)} className="font-semibold">{t('cancel')}</button>
+          </>
+        ) : (
+          <button type="button" onClick={() => setConfirming(true)} className={PRIMARY}>{t('publish')}<Arrow /></button>
+        )}
+      </div>
+      <div className="mt-2"><ErrorText code={error} /></div>
+    </div>
+  );
+}
+
+export function InviteButton({ applicationId }: { applicationId: string }) {
+  const t = useTranslations('workspace');
+  const { pending, error, fire } = useAction(() => inviteCandidate(applicationId));
+  return (
+    <div>
+      <button type="button" disabled={pending} aria-busy={pending} onClick={fire} className="rounded-full bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{t('invite')}</button>
+      <ErrorText code={error} />
+    </div>
+  );
+}
+

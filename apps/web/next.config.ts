@@ -12,6 +12,7 @@ const env = existsSync(rootEnv) ? parseEnv(readFileSync(rootEnv, 'utf8')) : {};
 
 const config: NextConfig = {
   devIndicators: false,
+  experimental: { serverActions: { bodySizeLimit: '26mb' } },
   env: {
     SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL ?? '',
     SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '',

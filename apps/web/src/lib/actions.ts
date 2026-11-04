@@ -98,3 +98,118 @@ export async function setApplicationStatus(id: string, status: string): Promise<
   revalidatePath('/', 'layout');
   return { ok: true };
 }
+
+function result(run: () => Promise<unknown>): Promise<FormState> {
+  return run().then(
+    () => {
+      revalidatePath('/', 'layout');
+      return { ok: true };
+    },
+    (error) => ({ error: errorCode(error) }),
+  );
+}
+
+export async function updateJob(orgId: string, jobId: string, _: FormState, form: FormData): Promise<FormState> {
+  const title_ar = text(form, 'title_ar');
+  const title_en = text(form, 'title_en');
+  if (!title_ar || !title_en) return { error: 'required' };
+  const skills = form.getAll('skill').map(String).map((skill_id) => ({
+    skill_id,
+    required_level: Number(form.get(`level-${skill_id}`) ?? 2),
+  }));
+  return result(() =>
+    api(`/organizations/${orgId}/jobs/${jobId}`, {
+      method: 'PATCH',
+      body: {
+        title_ar, title_en, skills,
+        description_ar: text(form, 'description_ar'), description_en: text(form, 'description_en'),
+        requirements_ar: text(form, 'requirements_ar'), requirements_en: text(form, 'requirements_en'),
+        location: text(form, 'location'),
+      },
+    }),
+  );
+}
+
+export async function generateAssessment(orgId: string, jobId: string) {
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST' }));
+}
+
+export async function updateTask(orgId: string, taskId: string, _: FormState, form: FormData): Promise<FormState> {
+  return result(() =>
+    api(`/organizations/${orgId}/assessment-tasks/${taskId}`, {
+      method: 'PATCH',
+      body: {
+        title_ar: text(form, 'title_ar'), title_en: text(form, 'title_en'),
+        instructions_ar: text(form, 'instructions_ar'), instructions_en: text(form, 'instructions_en'),
+        weight: Number(form.get('weight')),
+      },
+    }),
+  );
+}
+
+export async function updateCriterion(orgId: string, id: string, _: FormState, form: FormData): Promise<FormState> {
+  return result(() =>
+    api(`/organizations/${orgId}/rubric-criteria/${id}`, {
+      method: 'PATCH',
+      body: {
+        description_ar: text(form, 'description_ar'), description_en: text(form, 'description_en'),
+        max_score: Number(form.get('max_score')), weight: Number(form.get('weight')),
+      },
+    }),
+  );
+}
+
+export async function publishVersion(orgId: string, versionId: string) {
+  return result(() => api(`/organizations/${orgId}/assessment-versions/${versionId}/publish`, { method: 'POST' }));
+}
+
+export async function inviteCandidate(applicationId: string) {
+  return result(() => api(`/applications/${applicationId}/invite`, { method: 'POST' }));
+}
+
+export async function startAttempt(id: string) {
+  return result(() => api(`/attempts/${id}/start`, { method: 'POST' }));
+}
+
+/** Autosave: no revalidation, so typing never re-renders the page. */
+export async function saveAnswer(attemptId: string, taskId: string, answer: Record<string, unknown>): Promise<FormState> {
+  try {
+    await api(`/attempts/${attemptId}/responses/${taskId}`, { method: 'PUT', body: { answer } });
+    return { ok: true };
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+}
+
+export async function uploadEvidence(attemptId: string, taskId: string, form: FormData): Promise<FormState & { file?: { id: string; file_name: string } }> {
+  try {
+    const file = await api<{ id: string; file_name: string }>(`/attempts/${attemptId}/evidence/${taskId}`, { method: 'POST', form });
+    return { ok: true, file };
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+}
+
+export async function submitAttempt(id: string) {
+  return result(() => api(`/attempts/${id}/submit`, { method: 'POST' }));
+}
+
+export async function runEvaluation(attemptId: string) {
+  return result(() => api(`/attempts/${attemptId}/evaluate`, { method: 'POST' }));
+}
+
+export async function submitReview(evaluationId: string, scores: { criterion_id: string; score: number }[], notes: string) {
+  return result(() => api(`/evaluations/${evaluationId}/review`, { method: 'POST', body: { scores, ...(notes.trim() && { notes }) } }));
+}
+
+export async function releaseResult(evaluationId: string) {
+  return result(() => api(`/evaluations/${evaluationId}/release`, { method: 'POST' }));
+}
+
+export async function evidenceLink(id: string): Promise<{ url?: string; error?: string }> {
+  try {
+    return { url: (await api<{ url: string }>(`/evidence/${id}/url`)).url };
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+}

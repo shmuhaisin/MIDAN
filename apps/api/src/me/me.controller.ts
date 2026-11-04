@@ -54,8 +54,15 @@ export class MeController {
         include: {
           jobs: {
             select: {
-              id: true, title_ar: true, title_en: true, is_demo: true,
-              organizations: { select: { name_ar: true, name_en: true } },
+              id: true, slug: true, title_ar: true, title_en: true, is_demo: true,
+              organizations: { select: { slug: true, name_ar: true, name_en: true } },
+            },
+          },
+          assessment_attempts: {
+            select: {
+              id: true, status: true,
+              assessment_versions: { select: { version_number: true, duration_minutes: true } },
+              evaluation_results: { select: { released_to_candidate: true } },
             },
           },
         },

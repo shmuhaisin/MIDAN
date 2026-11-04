@@ -15,3 +15,4 @@ next-env.d.ts
 .claude/
 test-results/
 playwright-report/
+.checkpoints.sqlite*
