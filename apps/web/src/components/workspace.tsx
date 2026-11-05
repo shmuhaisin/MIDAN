@@ -9,7 +9,7 @@ import type { FormState } from '@/lib/auth-actions';
 import { list, pick } from '@/lib/format';
 import { PROFESSIONAL_FIELDS } from '@/lib/humaidan';
 import { Arrow } from './brand';
-import { ErrorText, Field, INPUT, PRIMARY, Submit, useAction } from './forms';
+import { ActionForm, ErrorText, Field, INPUT, PRIMARY, Submit, useAction } from './forms';
 
 function TextArea({ label, hint, name, ...props }: { label: string; hint?: string; name: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
@@ -39,7 +39,7 @@ export function JobDetailsForm({ orgId, job, skills, canEdit }: { orgId: string;
   const [state, action] = useActionState<FormState, FormData>(updateJob.bind(null, orgId, job.id), {});
   const selected = new Map(job.job_skills.map((s) => [s.skill_id, s.required_level]));
   return (
-    <form action={action}>
+    <ActionForm action={action}>
       <fieldset disabled={!canEdit} className="space-y-4">
         <ErrorText code={state.error} />
         <div className="grid gap-4 sm:grid-cols-2">
@@ -75,7 +75,7 @@ export function JobDetailsForm({ orgId, job, skills, canEdit }: { orgId: string;
           </div>
         )}
       </fieldset>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -148,7 +148,7 @@ function CriterionEditor({ orgId, criterion, editable }: { orgId: string; criter
   const t = useTranslations('workspace');
   const [state, action] = useActionState<FormState, FormData>(updateCriterion.bind(null, orgId, criterion.id), {});
   return (
-    <form action={action} className="rounded-lg border border-border p-3">
+    <ActionForm action={action} className="rounded-lg border border-border p-3">
       <fieldset disabled={!editable} className="space-y-3">
         <p className="text-xs font-semibold text-muted">{criterion.code}{criterion.answer_key ? ` · ${t('answerKeyNote')}` : ''}</p>
         <ErrorText code={state.error} />
@@ -165,7 +165,7 @@ function CriterionEditor({ orgId, criterion, editable }: { orgId: string; criter
           </div>
         )}
       </fieldset>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -190,7 +190,7 @@ function TaskEditor({ orgId, task, editable }: { orgId: string; task: Task; edit
         {open && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
             <div className="space-y-5 pb-6">
-              <form action={action}>
+              <ActionForm action={action}>
                 <fieldset disabled={!editable} className="space-y-3">
                   <ErrorText code={state.error} />
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -207,7 +207,7 @@ function TaskEditor({ orgId, task, editable }: { orgId: string; task: Task; edit
                     </div>
                   )}
                 </fieldset>
-              </form>
+              </ActionForm>
               <div>
                 <p className="mb-2 text-sm font-semibold">{t('rubric')}</p>
                 <div className="space-y-3">

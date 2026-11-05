@@ -1,6 +1,7 @@
 // Runs against the real Supabase project, with real sign-ins, through the real database login.
 // Needs .env and .env.test.local. Leftovers are removed by supabase/test-cleanup.sql.
 import 'reflect-metadata';
+import { randomBytes } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -519,14 +520,40 @@ describe('Midan database foundation', () => {
     });
   });
 
-  describe('demo stage safeguards', () => {
-    it('refuses sign-up for any address outside the allowed test pattern, before an email is sent', async () => {
-      const res = await fetch(`${BASE}/auth/v1/signup`, {
+  describe('sign-up stays closed to the public', () => {
+    const signUp = (email: string, data: object) =>
+      fetch(`${BASE}/auth/v1/signup`, {
         method: 'POST',
         headers: { apikey: KEY, 'content-type': 'application/json' },
-        body: JSON.stringify({ email: `real.person.${RUN}@midan-blocked.test`, password: 'a-long-enough-password-1' }),
+        body: JSON.stringify({ email, password: randomBytes(18).toString('base64url'), data }),
       });
-      expect(res.ok).toBe(false);
+
+    // Refused before any email is sent, so these never reach a real inbox.
+    it('refuses direct calls to Supabase without the access code, or with a wrong one', async () => {
+      expect((await signUp(`someone.${RUN}@midan-blocked.test`, {})).ok).toBe(false);
+      expect((await signUp(`someone.${RUN}@midan-blocked.test`, { midan_test_access: 'guess' })).ok).toBe(false);
+    });
+
+    it('never keeps the access code on an account, even when Supabase Auth writes the metadata', async () => {
+      const update = await fetch(`${BASE}/auth/v1/user`, {
+        method: 'PUT',
+        headers: { apikey: KEY, authorization: `Bearer ${candidateTwo.token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ data: { midan_test_access: 'must-not-stay' } }),
+      });
+      expect(update.status).toBe(200);
+      const fresh = await signIn('CANDIDATE_TWO');
+      const claims = JSON.parse(Buffer.from(fresh.token.split('.')[1], 'base64url').toString());
+      expect(claims.user_metadata).not.toHaveProperty('midan_test_access');
+    });
+
+    it('an unverified account cannot sign in', async () => {
+      const res = await fetch(`${BASE}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { apikey: KEY, 'content-type': 'application/json' },
+        body: JSON.stringify({ email: process.env.TEST_UNVERIFIED_EMAIL, password: process.env.TEST_UNVERIFIED_PASSWORD }),
+      });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error_code: string }).error_code).toBe('email_not_confirmed');
     });
   });
 

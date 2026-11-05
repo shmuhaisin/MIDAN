@@ -10,13 +10,15 @@ Only what has been run is marked Tested. Last updated 2026-11-05.
 | 1 | ESLint, CI, shared packages, docker-compose | Not Started |
 | 2 | Supabase project, 28 tables, RLS, migrations, storage, signed URLs | Tested |
 | 2 | Tenant isolation, role permissions, API rate limiting | Tested |
-| 2 | Sign-up allowlist: real addresses refused at the database | Tested |
-| 2 | Tables for occupations, development plans, assistant conversations | Not Started |
+| 2 | Sign-up gate: direct calls refused at the database without the server-held access code | Tested |
+| 2 | Profile or organization created automatically on email verification | Tested with real triggers |
+| 2 | Tables for occupations and development plans | Not Started |
 | 3 | Sessions, candidate dashboard, create organization | Tested |
 | 3 | Candidate profile: basics, experience, education, skills, CV upload, replace and removal | Tested |
 | 3 | Applicant profile for the organization applied to, ending on withdrawal | Tested |
 | 3 | Organization logo, colors, welcome message, industry | Tested |
-| 3 | Sign-in form with a real account, sign-up, email confirmation | Implemented, not verified |
+| 3 | Sign-up and sign-in forms, role redirects, sign-out, session renewal | Tested (forms against a local Auth stand-in; sessions against real Supabase) |
+| 3 | A complete real sign-up with a real email and verification link | Implemented, awaiting the owner's own test |
 | 3 | Team invitations, role management UI | Not Started |
 | 3 | Sharing a profile beyond applications (consent is recorded, sharing isn't built) | Not Started |
 | 4 | Job details and skills, browsing, applying, withdrawing, status tracking | Tested |
@@ -30,5 +32,5 @@ Only what has been run is marked Tested. Last updated 2026-11-05.
 | 7 | Production checkpointer | Not Started: uses a local SQLite file |
 | 8 | Candidate report, organization review, candidate comparison | Tested |
 | 8 | Learning recommendations beyond next-level descriptors; analytics | Not Started |
-| 9 | Humaidan AI assistant (chat) | Not Started |
+| 9 | Humaidan AI chat | Postponed by the owner until knowledge and instructions are prepared. His visual character stays. |
 | 10 | Accessibility audit | Not Started |

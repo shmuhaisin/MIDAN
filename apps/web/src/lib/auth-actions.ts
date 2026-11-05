@@ -2,7 +2,8 @@
 
 import { getLocale } from 'next-intl/server';
 import { redirect } from '@/i18n/navigation';
-import { clearSessionCookies, getAccessToken, setSessionCookies } from './session';
+import { homeFor } from './home';
+import { clearSessionCookies, decodeToken, getAccessToken, setSessionCookies } from './session';
 
 export type FormState = { error?: string; ok?: boolean };
 
@@ -49,21 +50,37 @@ export async function signIn(_: FormState, form: FormData): Promise<FormState> {
   }
   if (!result.ok) return { error: authError(result.data) };
   await setSessionCookies(result.data.access_token, result.data.refresh_token);
-  redirect({ href: '/dashboard', locale: await getLocale() });
+  redirect({ href: await homeFor(decodeToken(result.data.access_token)?.accountType, result.data.access_token), locale: await getLocale() });
   return {};
 }
 
 export async function signUp(_: FormState, form: FormData): Promise<FormState> {
+  // Off anywhere public. The database separately refuses every address outside the synthetic domain.
+  if (process.env.DEV_TEST_SIGNUP !== 'true') return { error: 'registration_closed' };
   const email = text(form, 'email');
   const password = String(form.get('password') ?? '');
   const displayName = text(form, 'display_name');
   const accountType = form.get('account_type') === 'organization' ? 'organization' : 'candidate';
+  const orgNameAr = text(form, 'org_name_ar');
+  const orgNameEn = text(form, 'org_name_en');
   if (!email || !password || !displayName) return { error: 'required' };
+  if (accountType === 'organization' && (!orgNameAr || !orgNameEn)) return { error: 'required' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'email_address_invalid' };
   if (password.length < 8) return { error: 'weak_password' };
   let result;
   try {
-    result = await gotrue('signup', { email, password, data: { display_name: displayName, account_type: accountType } });
+    const locale = await getLocale();
+    const back = encodeURIComponent(`${process.env.APP_URL}/${locale}/auth/confirmed`);
+    result = await gotrue(`signup?redirect_to=${back}`, {
+      email,
+      password,
+      data: {
+        display_name: displayName,
+        account_type: accountType,
+        ...(accountType === 'organization' && { org_name_ar: orgNameAr, org_name_en: orgNameEn }),
+        midan_test_access: process.env.DEV_TEST_ACCESS_CODE,
+      },
+    });
   } catch {
     return { error: 'unavailable' };
   }
@@ -71,7 +88,7 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   const locale = await getLocale();
   if (result.data.access_token) {
     await setSessionCookies(result.data.access_token, result.data.refresh_token);
-    redirect({ href: '/dashboard', locale });
+    redirect({ href: await homeFor(accountType, result.data.access_token), locale });
   }
   redirect({ href: '/check-email', locale });
   return {};

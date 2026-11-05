@@ -19,7 +19,6 @@ export default function Page({ params }: { params: Promise<{ locale: string }> }
         <div>
           <h2 className="font-display text-3xl font-bold">{t('candidates.humaidanTitle')}</h2>
           <p className="mt-3 max-w-2xl text-lg leading-relaxed text-muted">{t('candidates.humaidanBody')}</p>
-          <p className="mt-2 text-sm text-muted">{t('candidates.humaidanStatus')}</p>
           <Link href="/register?as=candidate" className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground">
             {t('cta.candidate')}<Arrow />
           </Link>

@@ -1,5 +1,13 @@
 # Decisions
 
+**2026-11-05: Development registration uses real email and a server-held access code.** The owner tests with a real address, so verification stays on. Public registration stays closed in two layers: the form needs `DEV_TEST_SIGNUP=true`, and a trigger on `auth.users` refuses any sign-up without the access code, whose hash is in `private.signup_access`. The code is stripped on every write to the account, because Supabase Auth writes user metadata again after creating a user. An earlier version only stripped it on insert, so the code stayed on the first real account and in its session token; that code was rotated. Opening public registration is a deliberate step for the owner, after the privacy and data residency review. Testers enter their own email only; candidate data stays fictional.
+
+**2026-11-05: Profiles and organizations are created on verification, not at sign-up.** Unverified sign-ups can't claim organization names. A failure logs a warning and never blocks verification, and the person can finish setup in the app. `account_type` lives in user metadata, which a user can edit, so it only steers screens and first-time setup. It isn't a security boundary; RLS and memberships are.
+
+**2026-11-05: The Humaidan AI chat is postponed by the owner** until knowledge is collected and its instructions are prepared. Don't build or suggest it. His visual character stays.
+
+**2026-11-05: The API connects through the session pooler, port 5432.** The transaction pooler, port 6543, stopped answering from the development network: TCP connected, then the Postgres handshake got no reply, while 5432 on the same hosts answered in 0.4 seconds. That made every page needing data fail with "Can't reach database server". A filter on the network is the likely reason but isn't proven. Session mode holds one server connection per client connection, so a hosted API should revisit this and use port 6543 if its network allows it.
+
 **2026-11-05: Self-reported skills are kept apart from assessed skills.** `candidate_skills` is what a candidate says; `skill_scores` is what their work showed. Every screen labels the first as self-reported, because mixing them would undercut the product's premise.
 
 **2026-11-05: Original CV file names aren't stored.** They often contain a person's name, and nothing needs them. Files are saved under a random name.
@@ -10,7 +18,6 @@
 
 **2026-11-05: Candidate and employer auth share one route and one set of actions.** `?as=organization` selects a formal layout with no mascot. No auth logic is duplicated.
 
-**2026-11-05: Real candidate data stays out at the database.** A trigger on `auth.users` refuses sign-up unless the address matches `private.allowed_signup_patterns`, which currently allows only the test accounts. To admit someone for testing, add a pattern with SQL. Remove the gate only after the privacy and data residency review.
 
 **2026-11-05: AI service gets the work, never the person.** The evaluation payload carries no name, email or other attribute, which also removes those as evaluation proxies. Scores are written by the Core API as the reviewer, so RLS applies, and no service-role key exists in the system.
 

@@ -42,8 +42,8 @@ const base = (existsSync('.env') ? readFileSync('.env', 'utf8') : readFileSync('
   .split('\n').filter((l) => !l.startsWith('DATABASE_URL=') && !l.startsWith('DIRECT_URL=') && !l.startsWith('SUPABASE_SERVICE_ROLE_KEY=')).join('\n').trimEnd();
 const user = `midan_api.${REF}`;
 writeFileSync('.env', `${base}
-# Transaction pooler for the app; session pooler for Prisma introspection.
-DATABASE_URL=postgresql://${user}:${dbPassword}@${POOLER}:6543/postgres?pgbouncer=true&connection_limit=5
+# Session pooler (port 5432). Some networks silently block the transaction pooler port, 6543.
+DATABASE_URL=postgresql://${user}:${dbPassword}@${POOLER}:5432/postgres?connection_limit=5
 DIRECT_URL=postgresql://${user}:${dbPassword}@${POOLER}:5432/postgres
 `, { mode: 0o600 });
 writeFileSync('.env.test.local', testEnv.join('\n') + '\n', { mode: 0o600 });

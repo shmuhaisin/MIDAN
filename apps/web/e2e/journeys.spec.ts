@@ -36,6 +36,21 @@ async function noOverflow(page: Page) {
   expect(scroll).toBeLessThanOrEqual(inner);
 }
 
+test('the dashboard works for an account with no profile, no applications and no organization', async ({ browser }) => {
+  const page = await (await signedIn(browser, 'ORG_A_RECRUITER')).newPage();
+  const problems: string[] = [];
+  page.on('pageerror', (e) => problems.push(e.message));
+  const response = await page.goto('/en/dashboard');
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole('heading', { name: 'My applications' })).toBeVisible();
+  await expect(page.getByText("You haven't applied to anything yet.")).toBeVisible();
+  await expect(page.getByText('Something broke on our side')).toHaveCount(0);
+  await page.getByRole('link', { name: /Complete your profile/ }).first().click();
+  await expect(page).toHaveURL(/\/en\/profile$/);
+  await expect(page.getByLabel('Full name')).toBeVisible();
+  expect(problems).toEqual([]);
+});
+
 test('signed-out visitors can browse, and private pages send them to sign-in', async ({ page }) => {
   await page.goto('/ar/opportunities');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('فرص تثبت فيها عملك');
@@ -51,7 +66,7 @@ test('signed-out visitors can browse, and private pages send them to sign-in', a
 
   for (const path of ['/en/dashboard', '/en/profile', '/en/organization/new']) {
     await page.goto(path);
-    await expect(page).toHaveURL(/\/en\/login$/);
+    await expect(page).toHaveURL(/\/en\/login(\?as=organization)?$/);
   }
 });
 
@@ -64,8 +79,10 @@ test('forms explain mistakes in the visitor\'s language', async ({ page }) => {
 
   await page.goto('/en/register?as=organization');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Register your organization');
-  await page.getByLabel('Name').fill('Someone');
-  await page.getByLabel('Email').fill('not-an-email@x');
+  await page.getByLabel('Name', { exact: true }).fill('Someone');
+  await page.getByLabel('Organization name in Arabic').fill('منشأة');
+  await page.getByLabel('Organization name in English').fill('Org');
+  await page.getByLabel('Email').fill('not-an-email@x'); // Refused by the form's own check, so nothing is sent.
   await page.getByLabel('Password').fill('longenough1');
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'valid email' })).toBeVisible();
@@ -336,15 +353,63 @@ test('the full MVP journey: details, draft, publish, work, evaluate, review, rel
   expect(problems).toEqual([]);
 });
 
-test('registration is closed for real addresses, with a clear message', async ({ page }) => {
+test('the sign-up page explains the development testing flow', async ({ page }) => {
   await page.goto('/en/register');
-  await expect(page.getByText('Registration is closed for now')).toBeVisible();
-  await page.getByLabel('Name').fill('Someone Real');
-  await page.getByLabel('Email').fill(`someone.real.${RUN}@midan-blocked.test`);
-  await page.getByLabel('Password').fill('a-long-enough-password-1');
-  await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'Registration is closed' })).toBeVisible();
-  await expect(page.getByText('Please don\'t enter real personal information')).toBeVisible();
+  await expect(page.getByText('Development testing environment')).toBeVisible();
+  await expect(page.getByText('needs email verification')).toBeVisible();
+  // Never submitted here: this server would send a real email. The form itself is covered in e2e-forms.
+  await page.goto('/en/register?as=organization');
+  await expect(page.getByLabel('Organization name in English')).toBeVisible();
+});
+
+test('the verification landing page handles success and failure', async ({ page }) => {
+  await page.goto('/en/auth/confirmed#access_token=abc&refresh_token=def&type=signup');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your email is confirmed');
+  await expect(page).toHaveURL(/\/en\/auth\/confirmed$/);
+  expect(await page.evaluate(() => window.location.hash)).toBe('');
+  await page.goto('/ar/auth/confirmed#error=access_denied&error_code=otp_expired');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('تعذر تأكيد البريد');
+});
+
+test('sessions: an expired token renews from the real refresh token, and sign-out ends the session', async ({ browser }) => {
+  const context = await signedIn(browser, 'CANDIDATE_ONE');
+  const page = await context.newPage();
+  const cookies = await context.cookies();
+  const access = cookies.find((c) => c.name === 'midan_at') as { value: string };
+  const [header, payload] = access.value.split('.');
+  const claims = JSON.parse(Buffer.from(payload, 'base64url').toString());
+  const expired = Buffer.from(JSON.stringify({ ...claims, exp: 1000 })).toString('base64url');
+  await context.addCookies([{ name: 'midan_at', value: `${header}.${expired}.x`, domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Lax' }]);
+
+  await page.goto('/en/dashboard');
+  await expect(page).toHaveURL(/\/en\/dashboard$/);
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  const renewed = (await context.cookies()).find((c) => c.name === 'midan_at') as { value: string };
+  expect(renewed.value).not.toContain('.x');
+  const live = renewed.value;
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/en$/);
+  expect((await context.cookies()).filter((c) => c.name.startsWith('midan_'))).toEqual([]);
+  const after = await fetch('http://localhost:4000/v1/me', { headers: { authorization: `Bearer ${live}` } });
+  expect(after.status).toBe(401);
+  await page.goto('/en/dashboard');
+  await expect(page).toHaveURL(/\/en\/login$/);
+});
+
+test('accounts land where their role belongs', async ({ browser }) => {
+  const owner = await (await signedIn(browser, 'ORG_B_OWNER')).newPage();
+  await owner.goto('/en/dashboard');
+  await expect(owner).toHaveURL(/\/en\/organization\/(new|[0-9a-f-]{36})$/);
+  await owner.goto('/en/opportunities');
+  await owner.getByRole('link', { name: /Data Analyst/ }).click();
+  await expect(owner.getByText('This is an organization account')).toBeVisible();
+  await expect(owner.getByRole('button', { name: 'Apply for this job' })).toHaveCount(0);
+
+  const candidate = await (await signedIn(browser, 'CANDIDATE_TWO')).newPage();
+  await candidate.goto('/en/organization/new');
+  await expect(candidate).toHaveURL(/\/en\/dashboard$/);
+  await expect(candidate.getByRole('link', { name: 'Create an organization' })).toHaveCount(0);
 });
 
 test('a candidate builds a full profile and CV, and only the organization applied to can see it', async ({ browser }) => {

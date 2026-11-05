@@ -4,11 +4,12 @@ Read HANDOFF.md, PROJECT_STATUS.md, docs/DECISIONS.md and docs/database/README.m
 
 Rules that stay in force:
 - Never touch the `ALNADA` Supabase project. Midan is `al-midan-ya-hamidan`, ref `squpszwbrqkflezfltoj`.
-- Keep real candidate data out until privacy and data residency are reviewed. The sign-up gate stays.
+- Keep real candidate data out until privacy and data residency are reviewed. Development registration works with real Auth; public registration stays closed until the owner approves.
+- The Humaidan AI chat is postponed by the owner: don't build or suggest it. Keep his visual character.
 - Original Humaidan files only, chosen only through `resolveHumaidan`. Specialized outfits appear only inside assessments.
 - `.env` and `.env.test.local` are local only. Run web, API and AI together. After test runs, execute supabase/test-cleanup.sql.
 
 Next:
-1. Build the Humaidan assistant: authenticated API endpoint, role and page context from authorized data, conversation persistence, floating panel, full-screen on mobile, labeled demo mode. It must not solve live assessments or reveal rubrics, and permissions must be enforced by the backend, not the model.
-2. Team invitations and role management.
-3. A persistent LangGraph checkpointer for production, and Graph A generation through a real provider once a key is available.
+1. Team invitations and role management.
+2. A persistent LangGraph checkpointer for production, and Graph A generation through a real provider once a key is available.
+3. Expert review of the skills taxonomy and task templates.

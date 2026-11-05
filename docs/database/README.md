@@ -29,9 +29,16 @@ Browser -> NestJS -> Postgres as midan_api -> SET LOCAL ROLE authenticated/anon 
 | Reviewer notes | Never | Yes | No | No |
 | Audit log | No | Owner, admin | No | No |
 
-## Demo stage
+## Development registration
 
-Sign-up is refused unless the address matches `private.allowed_signup_patterns`. Don't add real candidates before the privacy and data residency review.
+Sign-up needs `DEV_TEST_SIGNUP=true` for the form, and `DEV_TEST_ACCESS_CODE` in `.env` for the database gate. To set or rotate the code, generate a random value locally, put it in `.env`, and store only its hash:
+
+```sql
+insert into private.signup_access (code_hash, note)
+values (encode(sha256(convert_to('<the code>', 'UTF8')), 'hex'), 'Local development server');
+```
+
+Supabase Auth settings live in the dashboard: Site URL and redirect URLs must include this app, and "Confirm email" stays on. The built-in sender only reaches members of the Supabase project's team, at a few emails an hour. Anyone else needs custom SMTP.
 
 ## Migrations
 
@@ -47,7 +54,7 @@ Run from the repo root:
 node scripts/provision-db-credentials.mjs /path/outside/repo/provision.sql
 ```
 
-This writes the database password to `.env` and test passwords to `.env.test.local` (both git-ignored). The SQL file contains only a SCRAM verifier and bcrypt hashes. Running it again rotates the password but needs the `auth.users` inserts removed, as the accounts already exist.
+This writes the database password to `.env` and test passwords to `.env.test.local` (both git-ignored). The SQL file contains only a SCRAM verifier and bcrypt hashes. Running it again rotates the password but needs the `auth.users` inserts removed, as the accounts already exist. `midan.test.unverified@example.com` is a fixture added separately, and tests expect it never to verify.
 
 ## Updating the Prisma schema
 

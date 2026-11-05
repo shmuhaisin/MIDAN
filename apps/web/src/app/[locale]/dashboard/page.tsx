@@ -42,6 +42,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const t = await getTranslations({ locale, namespace: 'dashboard' });
   const ts = await getTranslations({ locale, namespace: 'applicationStatus' });
 
+  // Organization accounts belong in their workspace, not on the candidate dashboard.
+  if (session.accountType === 'organization') {
+    const first = me.organization_members[0];
+    return redirect({ href: first ? `/organization/${first.org_id}` : '/organization/new', locale });
+  }
   const name = me.candidate_profiles?.full_name ?? me.display_name ?? me.email;
   const isOrgFirst = session.accountType === 'organization';
   const active = applications.filter((a) => a.status !== 'withdrawn');
@@ -163,7 +168,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             )}
             <Link href="/profile" className="mt-2 inline-block font-semibold text-primary underline underline-offset-4">{profileDone < profileChecks.length ? t('completeProfile') : t('editProfile')}</Link>
           </section>
-          <section>
+          {(session.accountType !== 'candidate' || me.organization_members.length > 0) && <section>
             <h2 className="font-display text-xl font-bold">{t('organizations')}</h2>
             <ul className="mt-2 space-y-3">
               {me.organization_members.map((m) => (
@@ -178,9 +183,13 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                 </li>
               ))}
             </ul>
-            {me.organization_members.length === 0 && <p className="mt-2 text-sm text-muted">{t('createOrganizationBody')}</p>}
-            <Link href="/organization/new" className="mt-3 inline-block font-semibold text-primary underline underline-offset-4">{t('createOrganization')}</Link>
-          </section>
+            {session.accountType !== 'candidate' && (
+              <>
+                {me.organization_members.length === 0 && <p className="mt-2 text-sm text-muted">{t('createOrganizationBody')}</p>}
+                <Link href="/organization/new" className="mt-3 inline-block font-semibold text-primary underline underline-offset-4">{t('createOrganization')}</Link>
+              </>
+            )}
+          </section>}
         </aside>
       </div>
     </>

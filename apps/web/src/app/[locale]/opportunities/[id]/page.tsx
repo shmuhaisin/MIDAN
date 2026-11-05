@@ -61,6 +61,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           <p role="status" className="font-semibold text-primary">
             {t('applied')}. <Link href="/dashboard" className="underline underline-offset-4">{t('viewApplications')}</Link>
           </p>
+        ) : session?.accountType === 'organization' ? (
+          <p className="text-muted">{t('orgCannotApply')}</p>
         ) : session ? (
           <ApplyButton jobId={id} />
         ) : (

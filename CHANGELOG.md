@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-05: Real development registration
+- Sign-up accepts any valid email through real Supabase Auth, with email verification on.
+- Public registration stays closed: the database refuses sign-ups without an access code held only by the development server, and the form doesn't exist unless `DEV_TEST_SIGNUP=true`.
+- On verification, candidates get a profile, and organizations get an organization, owner membership and branding record.
+- New verification landing page, role-based redirects after sign-in, organization names on organization sign-up.
+- Fixed: forms lost everything typed after any error.
+- Copy no longer promises the Humaidan chat, which is postponed.
+
 ## 2026-11-05: Complete candidate profiles
 - Profiles now hold a summary, experience, education, self-reported skills and a CV, with a completeness indicator on the dashboard.
 - CVs: PDF or Word only, checked by file signature as well as declared type. The original file name isn't kept. Candidates can replace or permanently remove them.

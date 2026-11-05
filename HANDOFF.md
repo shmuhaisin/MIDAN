@@ -14,7 +14,7 @@ Project `al-midan-ya-hamidan`, ref `squpszwbrqkflezfltoj`, region `eu-central-1`
 
 28 tables, all with RLS. 3 buckets. 5 test accounts (`midan.test.*@example.com`) whose passwords exist only in the local `.env.test.local`. `.env` and `.env.test.local` are git-ignored and exist only on this machine: a new checkout must regenerate them with `scripts/provision-db-credentials.mjs`.
 
-Not reachable with the available tools; needs the dashboard: custom SMTP, leaked password protection, Auth Site URL and redirect URLs. The owner chose to continue without SMTP for now, so confirmation email is limited to what Supabase's built-in sender allows. The default Site URL points at localhost:3000, which is a different app on this machine, so confirmation links land there until it's changed to port 3100.
+Not reachable with the available tools; needs the dashboard: custom SMTP, leaked password protection, Auth Site URL and redirect URLs. The owner chose to continue without SMTP for now, so confirmation email reaches only Supabase project team members, a few per hour. The default Site URL points at localhost:3000, which is a different app on this machine, so confirmation links land there until it's changed to port 3100.
 
 ## Tests that were run
 - API, live database, real AI service: 50 end-to-end. API unit: 5.
@@ -24,14 +24,14 @@ Not reachable with the available tools; needs the dashboard: custom SMTP, leaked
 - By eye: profile, applicant profile, login, employer login, assessment screens (legal, technology on mobile), home, review, report.
 
 ## Not checked
-- **Signing in through the form with a real account, sign-up, and email confirmation.** Automation sets session cookies instead. Wrong-password and validation errors were tested.
+- **A complete real sign-up with a real email and link.** Automation doesn't type passwords into pages that send them to hosted Auth, and doesn't email real inboxes. Forms are tested against a local stand-in in `apps/web/e2e-forms`, and the rest against real Supabase separately.
 - Any real LLM provider; no key is configured.
-- The cause of intermittent 20-second database stalls on the local connection to Frankfurt. A single retry handles them; a second expiry returns 503. One full browser run also lost its connection to Supabase entirely (connect timeouts); those 7 tests passed unchanged on re-run. Hosted reliability hasn't been measured.
+- The cause of intermittent 20-second database stalls on the local connection to Frankfurt. A single retry handles them; a second expiry returns 503. Long test runs also failed when the Mac slept (`ERR_NETWORK_IO_SUSPENDED`, connect timeouts); they pass when it stays awake. Hosted reliability hasn't been measured.
 - Session renewal in `proxy.ts` has not been exercised with a truly expired token.
 - No automated accessibility audit. Arabic copy has not been reviewed by a native editor.
 
 ## Known gaps
-`npm audit` reports a high-severity finding in the Prisma CLI's `deepmerge-ts` (see docs/DECISIONS.md). Candidate account deletion is blocked once they've applied, pending a PDPL erasure design. The Humaidan chat assistant doesn't exist yet. Section reveals start at opacity 0, so that content needs JavaScript to appear; fix before launch. No ESLint (`lint` runs `tsc`), no CI, no `packages/*`, no docker-compose. See PROJECT_STATUS.md.
+`npm audit` reports a high-severity finding in the Prisma CLI's `deepmerge-ts` (see docs/DECISIONS.md). Candidate account deletion is blocked once they've applied, pending a PDPL erasure design. The Humaidan chat is postponed by the owner. Section reveals start at opacity 0, so that content needs JavaScript to appear; fix before launch. No ESLint (`lint` runs `tsc`), no CI, no `packages/*`, no docker-compose. See PROJECT_STATUS.md.
 
 ## Next
-Build the Humaidan assistant, then team invitations. See NEXT_SESSION_PROMPT.md.
+Team invitations and role management. See NEXT_SESSION_PROMPT.md.

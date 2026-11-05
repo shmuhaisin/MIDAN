@@ -8,7 +8,8 @@
     "start": "next start -p 3100",
     "lint": "tsc --noEmit",
     "test": "node --test --experimental-strip-types src/messages/messages.test.ts src/lib/humaidan.test.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:forms": "playwright test --config playwright.forms.config.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

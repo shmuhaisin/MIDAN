@@ -1,7 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { AuthShell } from '@/components/auth-shell';
 import { RegisterForm } from '@/components/forms';
-import { redirect } from '@/i18n/navigation';
+import { Link, redirect } from '@/i18n/navigation';
 import { getSession } from '@/lib/session';
 
 export default async function Page({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ as?: string }> }) {
@@ -13,7 +13,21 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const org = audience === 'organization';
   return (
     <AuthShell audience={audience} title={t(org ? 'orgRegisterTitle' : 'registerTitle')} lead={t(org ? 'orgRegisterLead' : 'registerLead')}>
-      <p className="mb-6 border-s-2 border-gold ps-4 text-sm font-medium">{t('closedNote')}</p><RegisterForm audience={audience} />
+      {process.env.DEV_TEST_SIGNUP === 'true' ? (
+        <>
+          <aside className="mb-6 rounded-lg border border-gold bg-surface p-4 text-sm">
+            <p className="font-semibold">{t('devTitle')}</p>
+            <p className="mt-1 leading-relaxed">{t('devBody')}</p>
+          </aside>
+          <RegisterForm audience={audience} />
+        </>
+      ) : (
+        <div>
+          <h2 className="font-display text-xl font-semibold">{t('closedTitle')}</h2>
+          <p className="mt-2 mb-6 text-muted">{t('closedBody')}</p>
+          <Link href={audience === 'organization' ? '/login?as=organization' : '/login'} className="inline-flex rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground">{t('loginSubmit')}</Link>
+        </div>
+      )}
     </AuthShell>
   );
 }

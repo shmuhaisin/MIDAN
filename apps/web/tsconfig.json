@@ -33,12 +33,18 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    ".next-forms-on/types/**/*.ts",
+    ".next-forms-on/dev/types/**/*.ts",
+    ".next-forms-off/types/**/*.ts",
+    ".next-forms-off/dev/types/**/*.ts"
   ],
   "exclude": [
     "e2e",
+    "e2e-forms",
     "node_modules",
     "playwright.config.ts",
+    "playwright.forms.config.ts",
     "src/lib/humaidan.test.ts",
     "src/messages/messages.test.ts"
   ]

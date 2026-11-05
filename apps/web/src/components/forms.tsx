@@ -3,8 +3,7 @@
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
 import { useTranslations } from 'next-intl';
-import { useActionState, useEffect, useId, useState, useTransition } from 'react';
-import { useFormStatus } from 'react-dom';
+import { createContext, useActionState, useContext, useEffect, useId, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
 import { applyToJob, createJob, createOrganization, saveBranding, setApplicationStatus, setJobStatus, uploadLogo, withdrawApplication } from '@/lib/actions';
 import { signIn, signUp, type FormState } from '@/lib/auth-actions';
@@ -14,8 +13,32 @@ import { Arrow, Humaidan } from './brand';
 export const INPUT = 'mt-1.5 block h-12 w-full rounded-lg border border-border bg-surface px-3.5 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/25';
 export const PRIMARY = 'inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:translate-y-0 disabled:opacity-60';
 
+const FormPending = createContext(false);
+
+/**
+ * A form that keeps what the person typed. React resets a form when a form action finishes,
+ * which would wipe every field after a validation error, so this submits through a transition instead.
+ */
+export function ActionForm({ action, children, ...props }: { action: (form: FormData) => void } & Omit<React.FormHTMLAttributes<HTMLFormElement>, 'action' | 'onSubmit'>) {
+  const [pending, start] = useTransition();
+  return (
+    <FormPending.Provider value={pending}>
+      <form
+        {...props}
+        onSubmit={(e) => {
+          e.preventDefault();
+          const form = new FormData(e.currentTarget);
+          start(() => action(form));
+        }}
+      >
+        {children}
+      </form>
+    </FormPending.Provider>
+  );
+}
+
 export function Submit({ children, className }: { children: React.ReactNode; className?: string }) {
-  const { pending } = useFormStatus();
+  const pending = useContext(FormPending);
   return (
     <button type="submit" disabled={pending} aria-busy={pending} className={clsx(PRIMARY, className)}>
       {pending && <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-current border-e-transparent" />}
@@ -63,7 +86,7 @@ export function LoginForm({ audience }: { audience: 'candidate' | 'organization'
   const [state, action] = useActionState<FormState, FormData>(signIn, {});
   const org = audience === 'organization';
   return (
-    <form action={action} className="space-y-4">
+    <ActionForm action={action} className="space-y-4">
       <ErrorText code={state.error} />
       <Field name="email" type="email" autoComplete="email" required label={t('email')} dir="ltr" />
       <Field name="password" type="password" autoComplete="current-password" required label={t('password')} dir="ltr" />
@@ -72,7 +95,7 @@ export function LoginForm({ audience }: { audience: 'candidate' | 'organization'
         {t('noAccount')} <Link href={org ? '/register?as=organization' : '/register'} className="font-semibold text-primary underline underline-offset-4">{t('registerSubmit')}</Link>
       </p>
       <AudienceSwitch href={org ? '/login' : '/login?as=organization'} label={t(org ? 'toCandidateLogin' : 'toOrgLogin')} />
-    </form>
+    </ActionForm>
   );
 }
 
@@ -81,10 +104,16 @@ export function RegisterForm({ audience }: { audience: 'candidate' | 'organizati
   const [state, action] = useActionState<FormState, FormData>(signUp, {});
   const org = audience === 'organization';
   return (
-    <form action={action} className="space-y-4">
+    <ActionForm action={action} className="space-y-4">
       <input type="hidden" name="account_type" value={audience} />
       <ErrorText code={state.error} />
       <Field name="display_name" autoComplete="name" required maxLength={200} label={t('displayName')} />
+      {org && (
+        <>
+          <Field name="org_name_ar" required maxLength={200} dir="rtl" label={t('orgNameAr')} />
+          <Field name="org_name_en" required maxLength={200} dir="ltr" label={t('orgNameEn')} />
+        </>
+      )}
       <Field name="email" type="email" autoComplete="email" required label={t('email')} dir="ltr" />
       <Field name="password" type="password" autoComplete="new-password" required minLength={8} label={t('password')} hint={t('passwordHint')} dir="ltr" />
       <Submit className="w-full">{t('registerSubmit')}</Submit>
@@ -92,7 +121,7 @@ export function RegisterForm({ audience }: { audience: 'candidate' | 'organizati
         {t('haveAccount')} <Link href={org ? '/login?as=organization' : '/login'} className="font-semibold text-primary underline underline-offset-4">{t('loginSubmit')}</Link>
       </p>
       <AudienceSwitch href={org ? '/register' : '/register?as=organization'} label={t(org ? 'toCandidateRegister' : 'toOrgRegister')} />
-    </form>
+    </ActionForm>
   );
 }
 
@@ -137,7 +166,7 @@ export function BrandingForm({ orgId, branding, logoUrl, canEdit }: {
           <p className="mt-1 text-xs text-muted">{t('logoHint')}</p>
           <ErrorText code={logoError} />
         </div>
-        <form action={action}>
+        <ActionForm action={action}>
           <fieldset disabled={!canEdit} className="space-y-4">
             <ErrorText code={state.error} />
             <label className="block">
@@ -167,7 +196,7 @@ export function BrandingForm({ orgId, branding, logoUrl, canEdit }: {
               </div>
             )}
           </fieldset>
-        </form>
+        </ActionForm>
       </div>
       <aside className="rounded-lg bg-surface p-5 lg:self-start">
         <p className="font-semibold">{t('preview')}</p>
@@ -188,13 +217,13 @@ export function OrganizationForm() {
   const [slug, setSlug] = useState('');
   const [edited, setEdited] = useState(false);
   return (
-    <form action={action} className="space-y-4">
+    <ActionForm action={action} className="space-y-4">
       <ErrorText code={state.error} />
       <Field name="name_ar" required maxLength={200} label={t('nameAr')} dir="rtl" />
       <Field name="name_en" required maxLength={200} label={t('nameEn')} dir="ltr" onChange={(e) => !edited && setSlug(toSlug(e.target.value))} />
       <Field name="slug" required maxLength={80} label={t('slug')} hint={t('slugHint')} dir="ltr" value={slug} onChange={(e) => { setEdited(true); setSlug(e.target.value); }} />
       <Submit>{t('create')}<Arrow /></Submit>
-    </form>
+    </ActionForm>
   );
 }
 
@@ -216,13 +245,13 @@ export function JobForm({ orgId }: { orgId: string }) {
       <AnimatePresence initial={false}>
         {open && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <form action={action} className="mt-4 grid gap-4 rounded-lg bg-surface p-5 sm:grid-cols-2">
+            <ActionForm action={action} className="mt-4 grid gap-4 rounded-lg bg-surface p-5 sm:grid-cols-2">
               <div className="sm:col-span-2"><ErrorText code={state.error} /></div>
               <Field name="title_ar" required maxLength={200} label={t('titleAr')} dir="rtl" />
               <Field name="title_en" required maxLength={200} label={t('titleEn')} dir="ltr" onChange={(e) => setSlug(toSlug(e.target.value))} />
               <Field name="slug" required maxLength={80} label={t('jobSlug')} hint={t('slugHint')} dir="ltr" value={slug} onChange={(e) => setSlug(e.target.value)} />
               <div className="flex items-start pt-6"><Submit>{t('createJob')}</Submit></div>
-            </form>
+            </ActionForm>
           </motion.div>
         )}
       </AnimatePresence>

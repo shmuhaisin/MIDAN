@@ -307,9 +307,8 @@
         "body": "Recommendations linked to the skills shown in your work, to build into a practical plan."
       }
     ],
-    "humaidanTitle": "Humaidan is with you along the way",
-    "humaidanBody": "Midan's assistant explains requirements, steps and results. It won't complete an assessment for you, because the work here is yours.",
-    "humaidanStatus": "The assistant is being built and arrives in a later phase."
+    "humaidanTitle": "Humaidan is with you in the Midan",
+    "humaidanBody": "Midan's face and your guide here. He welcomes you to your account, and you'll see him in your assessments in the professional outfit that suits the role."
   },
   "organizations": {
     "eyebrow": "For organizations",
@@ -363,7 +362,7 @@
       }
     ],
     "statusTitle": "Where we are now",
-    "statusBody": "Midan is under development. Accounts, opportunities and applications work now with demo data. Practical assessments and the assistant arrive in coming phases."
+    "statusBody": "Midan is under development. Accounts, opportunities, assessments and reports work now in a demo environment with fictional data, and public registration hasn't opened yet."
   },
   "faq": {
     "eyebrow": "FAQ",
@@ -391,11 +390,11 @@
       },
       {
         "q": "Will Humaidan complete the assessment for me?",
-        "a": "No. It explains instructions and how to submit, but it doesn't give answers or reveal confidential criteria."
+        "a": "No. Humaidan is Midan's character, and the work in an assessment is yours."
       },
       {
         "q": "Is the platform available now?",
-        "a": "You can create an account, browse the demo opportunities and apply. Practical assessments and the Humaidan assistant arrive in coming phases."
+        "a": "Not to the public yet. Midan currently runs in a demo environment with fictional data, and public registration hasn't opened."
       }
     ]
   },
@@ -426,9 +425,8 @@
     "noAccount": "No account yet?",
     "haveAccount": "Already have an account?",
     "checkTitle": "Check your email",
-    "checkBody": "We sent a confirmation link to your email. Open it, then sign in.",
-    "checkNote": "If it doesn't arrive within a few minutes, check your spam folder. Email sending is limited at this early stage.",
-    "closedNote": "Registration is closed for now: Midan is in a demo stage with fictional data until the privacy and data location review is complete.",
+    "checkBody": "We sent a confirmation link to your email. Open it, then sign in. You can't sign in before confirming.",
+    "checkNote": "If it doesn't arrive within a few minutes, check your spam folder. Email sending is very limited in this testing environment.",
     "orgLoginTitle": "Organization sign-in",
     "orgLoginLead": "Sign in to your organization's workspace to manage jobs, assessments and reviews.",
     "orgRegisterTitle": "Register your organization",
@@ -442,7 +440,17 @@
     "toCandidateLogin": "A candidate? Candidate sign-in",
     "toOrgRegister": "Representing an organization? Register it",
     "toCandidateRegister": "A candidate? Create a candidate account",
-    "humaidanAlt": "Humaidan"
+    "humaidanAlt": "Humaidan",
+    "devTitle": "Development testing environment",
+    "devBody": "This is a real Supabase account and needs email verification. You can use your own email for testing, with fictional details in the rest of the profile. Public registration isn't open.",
+    "closedTitle": "Registration isn't available yet",
+    "closedBody": "Public registration on Midan hasn't opened yet. If you have an account, you can sign in.",
+    "orgNameAr": "Organization name in Arabic",
+    "orgNameEn": "Organization name in English",
+    "confirmedTitle": "Your email is confirmed",
+    "confirmedBody": "Your account is ready. Sign in to continue.",
+    "confirmFailedTitle": "We couldn't confirm your email",
+    "confirmFailedBody": "The link may have expired or already been used. Try signing in, and if that doesn't work, register again."
   },
   "errors": {
     "invalid_credentials": "Incorrect email or password.",
@@ -450,8 +458,8 @@
     "weak_password": "That password is weak. Choose a stronger one with at least 8 characters.",
     "user_already_exists": "This email is already registered. Try signing in.",
     "email_address_invalid": "Enter a valid email address.",
-    "email_address_not_authorized": "We can't send email to this address at this early stage.",
-    "over_email_send_rate_limit": "We've sent too many emails in a short time. Try again soon.",
+    "email_address_not_authorized": "Supabase's test sender can't email this address. Use the email of a member of the Supabase project's team, or set up a custom email server.",
+    "over_email_send_rate_limit": "The hourly email limit has been reached. Wait an hour and try again.",
     "over_request_rate_limit": "Too many attempts. Try again soon.",
     "required": "Complete the required fields.",
     "invalid_slug": "The link can only use lowercase English letters, numbers and hyphens.",
@@ -462,7 +470,7 @@
     "session": "Your session ended. Sign in again.",
     "unavailable": "The service isn't available right now. Try again soon.",
     "generic": "Something went wrong. Try again.",
-    "registration_closed": "Registration is closed during this demo stage, until the privacy review is complete.",
+    "registration_closed": "Public registration hasn't opened yet.",
     "too_large": "That file is too large.",
     "cv_type": "Upload a PDF or Word file.",
     "invalid_years": "Check the years: an end year can't be before its start year."
@@ -502,7 +510,8 @@
     "signInToApply": "Sign in to apply",
     "back": "All opportunities",
     "requirements": "Requirements",
-    "skills": "Skills assessed"
+    "skills": "Skills assessed",
+    "orgCannotApply": "This is an organization account. Candidates apply from candidate accounts."
   },
   "dashboard": {
     "hello": "Welcome, {name}",
@@ -645,7 +654,7 @@
     "body": "This page couldn't load. The service is probably unavailable for a moment.",
     "retry": "Try again"
   },
-  "demoBanner": "Demo version with fictional data. Please don't enter real personal information.",
+  "demoBanner": "Development version for testing. Please don't enter real candidates' information.",
   "workspace": {
     "back": "Organization dashboard",
     "details": "Job details",

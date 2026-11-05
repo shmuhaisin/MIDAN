@@ -2,7 +2,7 @@
 
 AI-assisted talent assessment and development through practical work simulations. Bilingual (Arabic first), B2B2C.
 
-Current state: **core MVP workflows work with fictional data, in demo AI mode**. Real sign-up is closed, and the Humaidan chat assistant isn't built yet. See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+Current state: **core MVP workflows work with fictional data, in demo AI mode**. Public registration is closed; development sign-up uses real Supabase Auth. The Humaidan chat is postponed. See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 
 ## Layout
@@ -54,10 +54,16 @@ Against the live database (see the database docs first):
 npm run test:e2e -w @midan/api
 ```
 
-Browser journeys, with the web app and API running:
+Browser journeys, with the web app, API and AI service running:
 
 ```bash
 npm run test:e2e -w @midan/web
+```
+
+The sign-up and sign-in forms, which start their own servers against a local Auth stand-in:
+
+```bash
+npm run test:forms -w @midan/web
 ```
 
 ## Design tokens

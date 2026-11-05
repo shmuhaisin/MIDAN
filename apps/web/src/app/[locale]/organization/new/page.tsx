@@ -6,7 +6,9 @@ import { getSession } from '@/lib/session';
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  if (!(await getSession())) return redirect({ href: '/login', locale });
+  const session = await getSession();
+  if (!session) return redirect({ href: '/login?as=organization', locale });
+  if (session.accountType === 'candidate') return redirect({ href: '/dashboard', locale });
   const t = await getTranslations({ locale, namespace: 'org' });
   return (
     <section className="mx-auto max-w-xl px-4 py-12 sm:px-6">
