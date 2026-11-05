@@ -10,6 +10,7 @@ import { list, pick } from '@/lib/format';
 import { PROFESSIONAL_FIELDS } from '@/lib/humaidan';
 import { Arrow } from './brand';
 import { ActionForm, ErrorText, Field, INPUT, PRIMARY, Submit, useAction } from './forms';
+import { TaskRequirementPicker, type Requirement } from './requirements';
 
 function TextArea({ label, hint, name, ...props }: { label: string; hint?: string; name: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
@@ -30,6 +31,7 @@ type Skill = { id: string; name_ar: string; name_en: string };
 type JobDetails = {
   id: string; title_ar: string; title_en: string; description_ar: string | null; description_en: string | null;
   requirements_ar: string | null; requirements_en: string | null; location: string | null;
+  employment_type: string | null; salary_min: string | null; salary_max: string | null; application_deadline: string | null;
   job_skills: { skill_id: string; required_level: number }[];
 };
 
@@ -50,6 +52,16 @@ export function JobDetailsForm({ orgId, job, skills, canEdit }: { orgId: string;
           <TextArea name="requirements_ar" dir="rtl" rows={3} label={t('requirementsAr')} defaultValue={job.requirements_ar ?? ''} />
           <TextArea name="requirements_en" dir="ltr" rows={3} label={t('requirementsEn')} defaultValue={job.requirements_en ?? ''} />
           <Field name="location" label={t('location')} defaultValue={job.location ?? ''} />
+          <label className="block">
+            <span className="text-sm font-medium">{t('employmentType')}</span>
+            <select name="employment_type" defaultValue={job.employment_type ?? ''} className={INPUT}>
+              <option value="">{t('notSpecified')}</option>
+              {['full_time', 'part_time', 'contract', 'temporary', 'internship', 'flexible'].map((k) => <option key={k} value={k}>{t(`employment.${k}`)}</option>)}
+            </select>
+          </label>
+          <Field name="salary_min" type="number" min={0} label={t('salaryMin')} defaultValue={job.salary_min == null ? '' : Number(job.salary_min)} />
+          <Field name="salary_max" type="number" min={0} label={t('salaryMax')} defaultValue={job.salary_max == null ? '' : Number(job.salary_max)} />
+          <Field name="application_deadline" type="date" label={t('deadline')} defaultValue={job.application_deadline?.slice(0, 10) ?? ''} />
         </div>
         <div>
           <p className="text-sm font-medium">{t('skills')}</p>
@@ -141,7 +153,7 @@ export function FieldSelect({ orgId, assessmentId, field, canEdit }: { orgId: st
 type Criterion = { id: string; code: string; description_ar: string; description_en: string; max_score: string; weight: string; answer_key: unknown };
 type Task = {
   id: string; position: number; task_type: string; title_ar: string; title_en: string; instructions_ar: string; instructions_en: string; weight: string;
-  rubric_criteria: Criterion[]; task_skill_mappings: { skills: Skill }[];
+  rubric_criteria: Criterion[]; task_skill_mappings: { skills: Skill }[]; task_requirement_mappings: { requirement_id: string }[];
 };
 
 function CriterionEditor({ orgId, criterion, editable }: { orgId: string; criterion: Criterion; editable: boolean }) {
@@ -169,7 +181,7 @@ function CriterionEditor({ orgId, criterion, editable }: { orgId: string; criter
   );
 }
 
-function TaskEditor({ orgId, task, editable }: { orgId: string; task: Task; editable: boolean }) {
+function TaskEditor({ orgId, task, editable, requirements }: { orgId: string; task: Task; editable: boolean; requirements: Requirement[] }) {
   const t = useTranslations('workspace');
   const locale = useLocale();
   const [open, setOpen] = useState(false);
@@ -208,6 +220,10 @@ function TaskEditor({ orgId, task, editable }: { orgId: string; task: Task; edit
                   )}
                 </fieldset>
               </ActionForm>
+              <TaskRequirementPicker
+                orgId={orgId} taskId={task.id} requirements={requirements} editable={editable}
+                selected={task.task_requirement_mappings.map((m) => m.requirement_id)}
+              />
               <div>
                 <p className="mb-2 text-sm font-semibold">{t('rubric')}</p>
                 <div className="space-y-3">
@@ -222,8 +238,8 @@ function TaskEditor({ orgId, task, editable }: { orgId: string; task: Task; edit
   );
 }
 
-export function TaskList({ orgId, tasks, editable }: { orgId: string; tasks: Task[]; editable: boolean }) {
-  return <ul className="border-t border-border">{tasks.map((task) => <TaskEditor key={task.id} orgId={orgId} task={task} editable={editable} />)}</ul>;
+export function TaskList({ orgId, tasks, editable, requirements }: { orgId: string; tasks: Task[]; editable: boolean; requirements: Requirement[] }) {
+  return <ul className="border-t border-border">{tasks.map((task) => <TaskEditor key={task.id} orgId={orgId} task={task} editable={editable} requirements={requirements} />)}</ul>;
 }
 
 export function PublishPanel({ orgId, versionId }: { orgId: string; versionId: string }) {

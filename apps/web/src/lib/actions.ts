@@ -151,6 +151,10 @@ export async function updateJob(orgId: string, jobId: string, _: FormState, form
         description_ar: text(form, 'description_ar'), description_en: text(form, 'description_en'),
         requirements_ar: text(form, 'requirements_ar'), requirements_en: text(form, 'requirements_en'),
         location: text(form, 'location'),
+        employment_type: text(form, 'employment_type') || null,
+        salary_min: text(form, 'salary_min') ? Number(text(form, 'salary_min')) : null,
+        salary_max: text(form, 'salary_max') ? Number(text(form, 'salary_max')) : null,
+        application_deadline: text(form, 'application_deadline') || null,
       },
     }),
   );
@@ -260,4 +264,24 @@ export async function saveBranding(orgId: string, _: FormState, form: FormData):
 
 export async function uploadLogo(orgId: string, form: FormData) {
   return result(() => api(`/organizations/${orgId}/branding/logo`, { method: 'POST', form }));
+}
+
+export type RequirementInput = {
+  requirement_type: string; description_ar: string | null; description_en: string | null; is_mandatory: boolean; min_years: number | null;
+};
+
+export async function saveRequirement(orgId: string, jobId: string, id: string | null, input: RequirementInput) {
+  return result(() =>
+    id
+      ? api(`/organizations/${orgId}/job-requirements/${id}`, { method: 'PATCH', body: input })
+      : api(`/organizations/${orgId}/jobs/${jobId}/requirements`, { method: 'POST', body: input }),
+  );
+}
+
+export async function removeRequirement(orgId: string, id: string) {
+  return result(() => api(`/organizations/${orgId}/job-requirements/${id}`, { method: 'DELETE' }));
+}
+
+export async function setTaskRequirements(orgId: string, taskId: string, requirementIds: string[]) {
+  return result(() => api(`/organizations/${orgId}/assessment-tasks/${taskId}/requirements`, { method: 'PUT', body: { requirement_ids: requirementIds } }));
 }

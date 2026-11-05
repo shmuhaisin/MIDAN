@@ -1,5 +1,13 @@
 # Decisions
 
+**2026-11-05: Requirements are their own rows, and `job_skills` stays the only source of structured skills.** A requirement can link to a skill, but skills aren't copied into requirements. The old free-text `requirements_ar` and `requirements_en` columns stay, so existing jobs and code keep working.
+
+**2026-11-05: A published version keeps a snapshot, not live links alone.** Jobs stay editable after an assessment is published, so `assessment_versions.requirements_snapshot` records what the version was built against. Only the publish trigger writes it. Anything sent by a client is discarded.
+
+**2026-11-05: Requirements entered through the API always count as stated by the employer.** The endpoint doesn't accept `origin`. Any other origin is forced to draft by a trigger, so AI output can't reach candidates or pass as an employer's statement, whichever route writes it.
+
+**2026-11-05: Job data comes from organizations and permitted sources only.** Manual entry, CSV and JSON imports, authorized datasets, and public or licensed descriptions where permitted.
+
 **2026-11-05: Development registration uses real email and a server-held access code.** The owner tests with a real address, so verification stays on. Public registration stays closed in two layers: the form needs `DEV_TEST_SIGNUP=true`, and a trigger on `auth.users` refuses any sign-up without the access code, whose hash is in `private.signup_access`. The code is stripped on every write to the account, because Supabase Auth writes user metadata again after creating a user. An earlier version only stripped it on insert, so the code stayed on the first real account and in its session token; that code was rotated. Opening public registration is a deliberate step for the owner, after the privacy and data residency review. Testers enter their own email only; candidate data stays fictional.
 
 **2026-11-05: Profiles and organizations are created on verification, not at sign-up.** Unverified sign-ups can't claim organization names. A failure logs a warning and never blocks verification, and the person can finish setup in the app. `account_type` lives in user metadata, which a user can edit, so it only steers screens and first-time setup. It isn't a security boundary; RLS and memberships are.

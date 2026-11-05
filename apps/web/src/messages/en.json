@@ -511,7 +511,17 @@
     "back": "All opportunities",
     "requirements": "Requirements",
     "skills": "Skills assessed",
-    "orgCannotApply": "This is an organization account. Candidates apply from candidate accounts."
+    "orgCannotApply": "This is an organization account. Candidates apply from candidate accounts.",
+    "employment": {
+      "full_time": "Full time",
+      "part_time": "Part time",
+      "contract": "Contract",
+      "temporary": "Temporary",
+      "internship": "Internship",
+      "flexible": "Flexible"
+    },
+    "deadline": "Apply by {date}",
+    "salary": "Salary: {range}"
   },
   "dashboard": {
     "hello": "Welcome, {name}",
@@ -742,7 +752,20 @@
       "Human review",
       "Reports"
     ],
-    "flowLabel": "This job's path"
+    "flowLabel": "This job's path",
+    "employmentType": "Employment type",
+    "notSpecified": "Not specified",
+    "salaryMin": "Salary from",
+    "salaryMax": "Salary to",
+    "deadline": "Application deadline",
+    "employment": {
+      "full_time": "Full time",
+      "part_time": "Part time",
+      "contract": "Contract",
+      "temporary": "Temporary",
+      "internship": "Internship",
+      "flexible": "Flexible"
+    }
   },
   "experience": {
     "poweredBy": "Powered by Midan",
@@ -896,5 +919,42 @@
     "none": "Nothing to show.",
     "viewWork": "Review their assessment work",
     "privacy": "You can see this profile because this candidate applied to your organization. Access ends if they withdraw."
+  },
+  "requirements": {
+    "title": "Job requirements",
+    "lead": "Each requirement here can be linked to the task that measures it.",
+    "type": {
+      "responsibility": "Responsibilities",
+      "daily_task": "Daily duties",
+      "qualification": "Qualifications",
+      "education": "Education",
+      "experience": "Experience",
+      "competency": "Competencies",
+      "certification": "Certifications",
+      "language": "Languages",
+      "other": "Other"
+    },
+    "typeLabel": "Type",
+    "textAr": "Description in Arabic",
+    "textEn": "Description in English",
+    "mandatory": "Required",
+    "optional": "Preferred",
+    "minYears": "Minimum years of experience",
+    "years": "At least {count} years",
+    "add": "Add a requirement",
+    "save": "Save",
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "needText": "Write the description in at least one language.",
+    "empty": "No requirements yet. Add what this job really needs, then link it to assessment tasks.",
+    "notAssessed": "No task measures this yet",
+    "measuredBy": "Measured by: {tasks}",
+    "coverage": "{covered} of {total} required items are measured by a task",
+    "measures": "Requirements this task measures",
+    "noRequirements": "Add the job's requirements first to link them to this task.",
+    "saveMapping": "Save links",
+    "lockedNote": "These requirements were copied when this version was published, and later edits won't change them.",
+    "publicTitle": "Requirements"
   }
 }

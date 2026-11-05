@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Body, ConflictException, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { IsIn, IsNumber, IsOptional, IsPositive, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsPositive, IsString, IsUUID, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { AiClient } from '../ai/ai.client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
@@ -25,6 +25,7 @@ class UpdateCriterionDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(2000) description_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(2000) description_en?: string;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @IsPositive() max_score?: number;
+  @ApiPropertyOptional() @ValidateIf((o) => o.requirement_id !== null) @IsOptional() @IsUUID() requirement_id?: string | null;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @IsPositive() weight?: number;
 }
 
@@ -55,7 +56,11 @@ export class AssessmentsController {
           assessments: { select: { id: true, title_ar: true, title_en: true, professional_field: true } },
           assessment_tasks: {
             orderBy: { position: 'asc' },
-            include: { rubric_criteria: { orderBy: { code: 'asc' } }, task_skill_mappings: { include: { skills: { select: { id: true, name_ar: true, name_en: true } } } } },
+            include: {
+              rubric_criteria: { orderBy: { code: 'asc' } },
+              task_skill_mappings: { include: { skills: { select: { id: true, name_ar: true, name_en: true } } } },
+              task_requirement_mappings: { select: { requirement_id: true } },
+            },
           },
         },
       });

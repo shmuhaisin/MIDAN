@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-05: Structured job requirements
+- New `job_requirements` table: responsibilities, daily duties, qualifications, education, experience, competencies, certifications, languages and other, each with a required or preferred flag. Either language may be left empty.
+- Tasks can be linked to the requirements they measure (`task_requirement_mappings`), and rubric criteria to one requirement. Links must stay inside the same job and organization.
+- The job screen shows how many required items a task measures, and marks the ones nothing measures yet.
+- Publishing a version stores a snapshot of the job, its requirements and skills. Later job edits don't change what that version was built against.
+- A requirement in use is retired rather than deleted, so history stays traceable.
+- AI-origin requirements are forced to draft and stay out of public view until a person reviews them. Nothing generates them yet.
+- Jobs gained employment type, salary range and application deadline. The public job page shows requirements by type.
+- The database already allowed several assessments per job, and a test now proves it. The API and screens still show only the latest one.
+
 ## 2026-11-05: Real development registration
 - Sign-up accepts any valid email through real Supabase Auth, with email verification on.
 - Public registration stays closed: the database refuses sign-ups without an access code held only by the development server, and the form doesn't exist unless `DEV_TEST_SIGNUP=true`.

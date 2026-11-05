@@ -8,7 +8,7 @@ Only what has been run is marked Tested. Last updated 2026-11-05.
 | 1 | Public pages: home, how it works, candidates, organizations, about, FAQ, opportunities, job details | Tested |
 | 1 | Public pages: contact, privacy, terms | Not Started (legal pages need review) |
 | 1 | ESLint, CI, shared packages, docker-compose | Not Started |
-| 2 | Supabase project, 28 tables, RLS, migrations, storage, signed URLs | Tested |
+| 2 | Supabase project, 30 tables, RLS, migrations, storage, signed URLs | Tested |
 | 2 | Tenant isolation, role permissions, API rate limiting | Tested |
 | 2 | Sign-up gate: direct calls refused at the database without the server-held access code | Tested |
 | 2 | Profile or organization created automatically on email verification | Tested with real triggers |
@@ -22,6 +22,11 @@ Only what has been run is marked Tested. Last updated 2026-11-05.
 | 3 | Team invitations, role management UI | Not Started |
 | 3 | Sharing a profile beyond applications (consent is recorded, sharing isn't built) | Not Started |
 | 4 | Job details and skills, browsing, applying, withdrawing, status tracking | Tested |
+| 4 | Structured job requirements, employment details, public display | Tested |
+| 4 | Linking tasks and rubric criteria to requirements, coverage on the job screen, snapshot at publish | Tested (the screen links tasks; rubric links are API only) |
+| 4 | Several assessments per job | Partial: database tested, API and screens still show the latest only |
+| 4 | Assessment drafts built from requirements | Not Started: drafts still come from templates and job title |
+| 4 | CSV and JSON imports, external employers, review queue, AI extraction | Not Started |
 | 4 | 30 to 50 reviewed skills, occupations | Not Started (6 draft skills exist) |
 | 5 | Assessment drafts, editing, publishing, preview, branded experience, autosave, evidence, submission | Tested |
 | 5 | Humaidan by saved professional field (all rule scenarios) | Tested |

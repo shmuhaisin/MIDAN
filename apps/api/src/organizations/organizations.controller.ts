@@ -2,7 +2,7 @@ import { Body, Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsIn, IsInt, IsISO8601, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { job_status } from '@prisma/client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { PROFESSIONAL_FIELDS } from '../common/fields';
@@ -45,6 +45,10 @@ class UpdateJobDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(8000) requirements_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(8000) requirements_en?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100) location?: string;
+  @ApiPropertyOptional() @ValidateIf((o) => o.employment_type !== null) @IsOptional() @IsIn(['full_time', 'part_time', 'contract', 'temporary', 'internship', 'flexible']) employment_type?: string | null;
+  @ApiPropertyOptional() @ValidateIf((o) => o.salary_min !== null) @IsOptional() @IsNumber() @Min(0) salary_min?: number | null;
+  @ApiPropertyOptional() @ValidateIf((o) => o.salary_max !== null) @IsOptional() @IsNumber() @Min(0) salary_max?: number | null;
+  @ApiPropertyOptional() @ValidateIf((o) => o.application_deadline !== null) @IsOptional() @IsISO8601({ strict: true }) application_deadline?: string | null;
   @ApiPropertyOptional({ type: [JobSkillDto] }) @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => JobSkillDto) skills?: JobSkillDto[];
 }
 
@@ -158,7 +162,12 @@ export class OrganizationsController {
   updateJob(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('jobId', ParseUUIDPipe) jobId: string, @Body() { skills, ...fields }: UpdateJobDto) {
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, ['owner', 'admin', 'recruiter']);
-      const { count } = await tx.jobs.updateMany({ where: { id: jobId, org_id: orgId }, data: fields });
+      const { application_deadline, ...rest } = fields;
+      const data = {
+        ...rest,
+        ...(application_deadline !== undefined && { application_deadline: application_deadline ? new Date(application_deadline) : null }),
+      };
+      const { count } = await tx.jobs.updateMany({ where: { id: jobId, org_id: orgId }, data });
       if (count === 0) throw new NotFoundException();
       if (skills) {
         await tx.job_skills.deleteMany({ where: { job_id: jobId } });

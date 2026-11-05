@@ -434,6 +434,122 @@ describe('Midan database foundation', () => {
     });
   });
 
+  describe('job requirements through to assessments', () => {
+    let job: string, otherJob: string, assessment: string, version: string, task: string, criterion: string;
+    let responsibility: string, experience: string, unused: string, otherRequirement: string;
+    const base = () => `/organizations/${orgA}`;
+
+    it('stores structured requirements for the owning organization only', async () => {
+      job = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: `req-${RUN}`, title_ar: 'مسوق', title_en: 'Marketer', status: 'published' }).expect(201)).body.id;
+      otherJob = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: `req-other-${RUN}`, title_ar: 'آخر', title_en: 'Other' }).expect(201)).body.id;
+      const add = (body: object, who = ownerA, on = job) => api().post(`${base()}/jobs/${on}/requirements`).set(bearer(who)).send(body);
+
+      const created = await add({ requirement_type: 'responsibility', description_en: 'Analyze campaign performance', description_ar: 'تحليل أداء الحملات' }).expect(201);
+      responsibility = created.body.id;
+      expect(created.body.origin).toBe('employer_stated');
+      experience = (await add({ requirement_type: 'experience', description_ar: 'خبرة في التسويق الرقمي', min_years: 3 }).expect(201)).body.id;
+      unused = (await add({ requirement_type: 'certification', description_en: 'Analytics certification', is_mandatory: false }).expect(201)).body.id;
+      otherRequirement = (await add({ requirement_type: 'competency', description_en: 'Unrelated' }, ownerA, otherJob).expect(201)).body.id;
+
+      await add({ requirement_type: 'nonsense', description_en: 'x' }).expect(400);
+      await add({ requirement_type: 'responsibility' }).expect(422);
+      await add({ requirement_type: 'responsibility', description_en: 'x', min_years: 2 }).expect(422);
+      await add({ requirement_type: 'responsibility', description_en: 'x', origin: 'ai_inferred' }).expect(400);
+
+      await add({ requirement_type: 'other', description_en: 'intruder' }, ownerB).expect(403);
+      await add({ requirement_type: 'other', description_en: 'intruder' }, candidateOne).expect(403);
+      await api().get(`${base()}/jobs/${job}/requirements`).set(bearer(ownerB)).expect(403);
+      await api().patch(`/organizations/${orgB}/job-requirements/${responsibility}`).set(bearer(ownerB)).send({ description_en: 'hacked' }).expect(404);
+
+      const direct = await rest(ownerB, 'POST', 'job_requirements', { job_id: job, org_id: orgA, requirement_type: 'other', description_en: 'intruder' });
+      expect(direct.status).toBe(403);
+      const crossed = await rest(ownerB, 'POST', 'job_requirements', { job_id: job, org_id: orgB, requirement_type: 'other', description_en: 'crossed' });
+      expect(crossed.status).not.toBe(201);
+      expect((await rest(ownerB, 'PATCH', `job_requirements?id=eq.${responsibility}`, { description_en: 'hacked' })).body).toEqual([]);
+    });
+
+    it('never treats AI output as approved, and hides it until reviewed', async () => {
+      const inferred = await rest(ownerA, 'POST', 'job_requirements', {
+        job_id: job, org_id: orgA, requirement_type: 'competency', description_en: 'AI guess', origin: 'ai_inferred', review_status: 'approved',
+      });
+      expect(inferred.body[0].review_status).toBe('draft');
+      const seen = await api().get(`/jobs/${job}`).expect(200);
+      const texts = seen.body.job_requirements.map((r: { description_en: string }) => r.description_en);
+      expect(texts).toContain('Analyze campaign performance');
+      expect(texts).not.toContain('AI guess');
+      expect((await rest(null, 'GET', `job_requirements?id=eq.${inferred.body[0].id}`)).body).toEqual([]);
+      expect((await rest(null, 'GET', `job_requirements?job_id=eq.${otherJob}`)).body).toEqual([]);
+      expect((await rest(candidateTwo, 'GET', `job_requirements?id=eq.${inferred.body[0].id}`)).body).toEqual([]);
+    });
+
+    it('allows several assessments for one job', async () => {
+      assessment = (await rest(ownerA, 'POST', 'assessments', { org_id: orgA, job_id: job, title_ar: 'أول', title_en: 'First' })).body[0].id;
+      const second = await rest(ownerA, 'POST', 'assessments', { org_id: orgA, job_id: job, title_ar: 'ثان', title_en: 'Second' });
+      expect(second.status).toBe(201);
+      version = (await rest(ownerA, 'POST', 'assessment_versions', { assessment_id: assessment, org_id: orgA, version_number: 1, requirements_snapshot: { forged: true } })).body[0].id;
+      expect((await rest(ownerA, 'GET', `assessment_versions?id=eq.${version}`)).body[0].requirements_snapshot).toBeNull();
+      task = (await rest(ownerA, 'POST', 'assessment_tasks', {
+        version_id: version, org_id: orgA, position: 1, task_type: 'data_analysis', title_ar: 'حملة', title_en: 'Campaign', instructions_ar: 'حلل', instructions_en: 'Analyze',
+      })).body[0].id;
+      criterion = (await rest(ownerA, 'POST', 'rubric_criteria', { task_id: task, org_id: orgA, code: 'C1', description_ar: 'دقة', description_en: 'Accuracy', max_score: 10 })).body[0].id;
+    });
+
+    it('maps tasks and rubrics only to active requirements of the same job', async () => {
+      await api().put(`${base()}/assessment-tasks/${task}/requirements`).set(bearer(ownerB)).send({ requirement_ids: [responsibility] }).expect(403);
+      await api().put(`${base()}/assessment-tasks/${task}/requirements`).set(bearer(ownerA)).send({ requirement_ids: [otherRequirement] }).expect(422);
+      const set = await api().put(`${base()}/assessment-tasks/${task}/requirements`).set(bearer(ownerA)).send({ requirement_ids: [responsibility] }).expect(200);
+      expect(set.body).toEqual([{ requirement_id: responsibility }]);
+
+      await api().patch(`${base()}/rubric-criteria/${criterion}`).set(bearer(ownerA)).send({ requirement_id: otherRequirement }).expect(422);
+      await api().patch(`${base()}/rubric-criteria/${criterion}`).set(bearer(ownerA)).send({ requirement_id: responsibility }).expect(200);
+
+      const listed = await api().get(`${base()}/jobs/${job}/requirements`).set(bearer(ownerA)).expect(200);
+      const row = (id: string) => listed.body.find((r: { id: string }) => r.id === id);
+      expect(row(responsibility).task_requirement_mappings).toHaveLength(1);
+      expect(row(experience).task_requirement_mappings).toHaveLength(0);
+
+      expect((await rest(ownerB, 'GET', `task_requirement_mappings?task_id=eq.${task}`)).body).toEqual([]);
+      expect((await rest(candidateOne, 'GET', `task_requirement_mappings?task_id=eq.${task}`)).body).toEqual([]);
+    });
+
+    it('freezes a snapshot at publish that later edits cannot change, and locks the mappings', async () => {
+      const published = await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).expect(201);
+      const snapshot = published.body.requirements_snapshot;
+      expect(snapshot.job.title_en).toBe('Marketer');
+      const snapped = snapshot.requirements.find((r: { id: string }) => r.id === responsibility);
+      expect(snapped.description_en).toBe('Analyze campaign performance');
+      expect(snapped.task_ids).toEqual([task]);
+
+      await api().patch(`${base()}/job-requirements/${responsibility}`).set(bearer(ownerA)).send({ description_en: 'Changed later' }).expect(200);
+      const after = (await rest(ownerA, 'GET', `assessment_versions?id=eq.${version}`)).body[0];
+      expect(after.requirements_snapshot.requirements.find((r: { id: string }) => r.id === responsibility).description_en).toBe('Analyze campaign performance');
+
+      expect((await rest(ownerA, 'PATCH', `assessment_versions?id=eq.${version}`, { requirements_snapshot: { forged: true } })).status).toBe(400);
+      await api().put(`${base()}/assessment-tasks/${task}/requirements`).set(bearer(ownerA)).send({ requirement_ids: [] }).expect(422);
+    });
+
+    it('retires a requirement in use, and deletes one that is not', async () => {
+      const inUse = await api().delete(`${base()}/job-requirements/${responsibility}`).set(bearer(ownerA)).expect(200);
+      expect(inUse.body.removed).toBe('retired');
+      const free = await api().delete(`${base()}/job-requirements/${unused}`).set(bearer(ownerA)).expect(200);
+      expect(free.body.removed).toBe('deleted');
+      await api().delete(`${base()}/job-requirements/${unused}`).set(bearer(ownerA)).expect(404);
+
+      const listed = await api().get(`${base()}/jobs/${job}/requirements`).set(bearer(ownerA)).expect(200);
+      expect(listed.body.map((r: { id: string }) => r.id)).not.toContain(responsibility);
+      expect((await rest(null, 'GET', `job_requirements?id=eq.${responsibility}`)).body).toEqual([]);
+      const history = (await rest(ownerA, 'GET', `assessment_versions?id=eq.${version}`)).body[0];
+      expect(history.requirements_snapshot.requirements.map((r: { id: string }) => r.id)).toContain(responsibility);
+    });
+
+    it('validates employment details on a job', async () => {
+      await api().patch(`${base()}/jobs/${job}`).set(bearer(ownerA)).send({ employment_type: 'whenever' }).expect(400);
+      await api().patch(`${base()}/jobs/${job}`).set(bearer(ownerA)).send({ salary_min: 9000, salary_max: 100 }).expect(422);
+      const ok = await api().patch(`${base()}/jobs/${job}`).set(bearer(ownerA)).send({ employment_type: 'full_time', salary_min: 8000, salary_max: 12000, application_deadline: '2030-01-31' }).expect(200);
+      expect(ok.body.employment_type).toBe('full_time');
+    });
+  });
+
   describe('candidate profiles', () => {
     const PDF = Buffer.from('%PDF-1.4 fictional test file');
     let job: string, application: string;

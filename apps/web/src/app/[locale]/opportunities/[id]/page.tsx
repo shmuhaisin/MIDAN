@@ -4,14 +4,17 @@ import { Arrow, Eyebrow } from '@/components/brand';
 import { ApplyButton } from '@/components/forms';
 import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
-import { pick } from '@/lib/format';
+import { number, pick } from '@/lib/format';
+import { REQUIREMENT_TYPES, requirementText } from '@/lib/requirements';
 import { getSession } from '@/lib/session';
 
 type Job = {
   id: string; status: string; title_ar: string; title_en: string; description_ar: string | null; description_en: string | null;
   location: string | null; is_demo: boolean; organizations: { name_ar: string; name_en: string };
   requirements_ar: string | null; requirements_en: string | null;
+  employment_type: string | null; application_deadline: string | null;
   job_skills: { required_level: number; skills: { id: string; name_ar: string; name_en: string } }[];
+  job_requirements: { id: string; requirement_type: string; description_ar: string | null; description_en: string | null; is_mandatory: boolean; min_years: string | null }[];
 };
 type Mine = { job_id: string; status: string };
 
@@ -26,6 +29,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   ]);
   if (!job) notFound();
   const t = await getTranslations({ locale, namespace: 'jobs' });
+  const tr = await getTranslations({ locale, namespace: 'requirements' });
   const applied = mine?.some((a) => a.job_id === id);
   const description = pick(locale, job.description_ar ?? '', job.description_en ?? '');
   return (
@@ -34,7 +38,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         <Arrow className="rotate-180 rtl:rotate-0 rtl:scale-x-100" />{t('back')}
       </Link>
       <Eyebrow className="mt-8 text-muted">
-        {pick(locale, job.organizations.name_ar, job.organizations.name_en)}{job.location && ` · ${job.location}`}
+        {pick(locale, job.organizations.name_ar, job.organizations.name_en)}{job.location && ` · ${job.location}`}{job.employment_type && ` · ${t(`employment.${job.employment_type}`)}`}
       </Eyebrow>
       <h1 className="mt-4 font-display text-4xl leading-tight font-bold sm:text-5xl">{pick(locale, job.title_ar, job.title_en)}</h1>
       {job.is_demo && <p className="mt-5 border-s-2 border-gold ps-4 text-sm font-medium">{t('demoNote')}</p>}
@@ -45,6 +49,24 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           <h2 className="mt-8 font-display text-xl font-semibold">{t('requirements')}</h2>
           <p className="mt-2 max-w-2xl text-lg leading-relaxed whitespace-pre-line text-muted">{pick(locale, job.requirements_ar ?? '', job.requirements_en ?? '')}</p>
         </>
+      )}
+      {job.job_requirements.length > 0 && (
+        <section aria-label={tr('publicTitle')} className="mt-8 space-y-5">
+          {REQUIREMENT_TYPES.filter((k) => job.job_requirements.some((r) => r.requirement_type === k)).map((k) => (
+            <div key={k}>
+              <h2 className="font-display text-xl font-semibold">{tr(`type.${k}`)}</h2>
+              <ul className="mt-2 max-w-2xl list-disc space-y-1 ps-5 text-lg leading-relaxed text-muted">
+                {job.job_requirements.filter((r) => r.requirement_type === k).map((r) => (
+                  <li key={r.id}>
+                    <bdi>{requirementText(locale, r)}</bdi>
+                    {r.min_years != null && ` (${tr('years', { count: number(locale, Number(r.min_years)) })})`}
+                    {!r.is_mandatory && ` · ${tr('optional')}`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </section>
       )}
       {job.job_skills.length > 0 && (
         <>

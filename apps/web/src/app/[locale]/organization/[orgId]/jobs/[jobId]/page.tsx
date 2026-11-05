@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Arrow, Eyebrow, JourneyRail } from '@/components/brand';
 import { ApplicantStatus, JobStatusButtons } from '@/components/forms';
+import { RequirementsEditor, type Requirement } from '@/components/requirements';
 import { EmptyAssessment, FieldSelect, GenerateButton, InviteButton, JobDetailsForm, PublishPanel, TaskList } from '@/components/workspace';
 import { Link, redirect } from '@/i18n/navigation';
 import { api, apiForPage } from '@/lib/api';
@@ -12,6 +13,7 @@ type Attempt = { id: string; status: string; evaluation_results: { id: string; s
 type Job = {
   id: string; slug: string; status: string; title_ar: string; title_en: string; description_ar: string | null; description_en: string | null;
   requirements_ar: string | null; requirements_en: string | null; location: string | null;
+  employment_type: string | null; salary_min: string | null; salary_max: string | null; application_deadline: string | null;
   organizations: { slug: string };
   job_skills: { skill_id: string; required_level: number }[];
   applications: { id: string; status: string; users: { email: string; candidate_profiles: { full_name: string; headline: string | null } | null }; assessment_attempts: Attempt[] }[];
@@ -26,6 +28,7 @@ type Latest = {
       id: string; position: number; task_type: string; title_ar: string; title_en: string; instructions_ar: string; instructions_en: string; weight: string;
       rubric_criteria: { id: string; code: string; description_ar: string; description_en: string; max_score: string; weight: string; answer_key: unknown }[];
       task_skill_mappings: { skills: Skill }[];
+      task_requirement_mappings: { requirement_id: string }[];
     }[];
   };
 };
@@ -40,17 +43,19 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   setRequestLocale(locale);
   if (!(await getSession())) return redirect({ href: '/login', locale });
   if (!/^[0-9a-f-]{36}$/.test(orgId) || !/^[0-9a-f-]{36}$/.test(jobId)) notFound();
-  const [org, job, skills, latest, compared] = await Promise.all([
+  const [org, job, skills, latest, compared, requirements] = await Promise.all([
     apiForPage<{ my_role: string }>(`/organizations/${orgId}`),
     apiForPage<Job>(`/organizations/${orgId}/jobs/${jobId}`),
     api<Skill[]>('/skills'),
     apiForPage<Latest>(`/organizations/${orgId}/jobs/${jobId}/assessment`),
     apiForPage<Compared[]>(`/organizations/${orgId}/jobs/${jobId}/report`),
+    apiForPage<Requirement[]>(`/organizations/${orgId}/jobs/${jobId}/requirements`),
   ]);
   if (!org || !job || !latest) notFound();
   const t = await getTranslations({ locale, namespace: 'workspace' });
   const ts = await getTranslations({ locale, namespace: 'applicationStatus' });
   const to = await getTranslations({ locale, namespace: 'org' });
+  const tr = await getTranslations({ locale, namespace: 'requirements' });
 
   const canBuild = ['owner', 'admin', 'recruiter'].includes(org.my_role);
   const canPublish = ['owner', 'admin'].includes(org.my_role);
@@ -98,6 +103,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         <JobDetailsForm orgId={orgId} job={job} skills={skills} canEdit={canBuild} />
       </section>
 
+      <section aria-labelledby="requirements">
+        <Eyebrow className="mb-4 text-muted"><span id="requirements">{tr('title')}</span></Eyebrow>
+        <RequirementsEditor orgId={orgId} jobId={jobId} requirements={requirements ?? []} versionId={version?.id} canEdit={canBuild} />
+      </section>
+
       <section aria-labelledby="assessment">
         <Eyebrow className="mb-4 text-muted"><span id="assessment">{t('assessment')}</span></Eyebrow>
         {!version ? (
@@ -112,6 +122,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             </div>
             {latest.run?.mode === 'demo' && !published && <p className="border-s-2 border-gold ps-4 text-sm font-medium">{t('demoLabel')}</p>}
             {published && <p className="border-s-2 border-gold ps-4 text-sm font-medium">{t('publishedNote')}</p>}
+            {published && <p className="border-s-2 border-gold ps-4 text-sm font-medium">{tr('lockedNote')}</p>}
             <FieldSelect orgId={orgId} assessmentId={version.assessments.id} field={version.assessments.professional_field} canEdit={canBuild} />
             {required.length > 0 && (
               <div>
@@ -125,7 +136,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                 </ul>
               </div>
             )}
-            <TaskList orgId={orgId} tasks={version.assessment_tasks} editable={Boolean(editable)} />
+            <TaskList orgId={orgId} tasks={version.assessment_tasks} editable={Boolean(editable)} requirements={requirements ?? []} />
             {editable && canPublish && <PublishPanel orgId={orgId} versionId={version.id} />}
             {published && canBuild && <GenerateButton orgId={orgId} jobId={jobId} label={t('newVersion')} />}
           </div>

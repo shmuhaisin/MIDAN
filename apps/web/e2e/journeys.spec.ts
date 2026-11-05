@@ -531,3 +531,71 @@ test('no error badge: switching language and saving re-render the layout without
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   expect(problems).toEqual([]);
 });
+
+test('requirements: a job gets structured requirements, tasks measure them, and publishing freezes them', async ({ browser }) => {
+  test.setTimeout(240_000);
+  const owner = await (await signedIn(browser, 'ORG_A_OWNER', { viewport: { width: 1280, height: 900 } })).newPage();
+  const visitor = await (await browser.newContext()).newPage();
+  const name = `Requirements Role ${RUN}`;
+  const problems: string[] = [];
+  owner.on('pageerror', (e) => problems.push(e.message));
+
+  await owner.goto('/en/organization/new');
+  await owner.getByLabel('Name in Arabic').fill('منشأة متطلبات');
+  await owner.getByLabel('Name in English').fill(`Midan Test Req ${RUN}`);
+  await owner.getByRole('button', { name: 'Create organization' }).click();
+  await expect(owner.getByText('Your role: Owner')).toBeVisible();
+  await owner.getByRole('button', { name: 'New job' }).click();
+  await owner.getByLabel('Title in Arabic').fill('دور متطلبات');
+  await owner.getByLabel('Title in English').fill(name);
+  await owner.getByRole('button', { name: 'Save as draft' }).click();
+  await owner.getByRole('link', { name }).click();
+  await expect(owner.getByRole('heading', { level: 1 })).toHaveText(name);
+  const jobId = new URL(owner.url()).pathname.split('/').pop();
+  await expect(owner.getByText('No requirements yet.')).toBeVisible();
+
+  // Nothing written: a clear message, and nothing is lost.
+  await owner.getByRole('button', { name: 'Add a requirement' }).click();
+  await owner.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(owner.getByRole('alert').filter({ hasText: 'at least one language' })).toBeVisible();
+
+  await owner.getByLabel('Description in English').last().fill('Analyze campaign performance');
+  await owner.getByLabel('Description in Arabic').last().fill('تحليل أداء الحملات');
+  await owner.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(owner.getByText('Analyze campaign performance')).toBeVisible();
+
+  await owner.getByRole('button', { name: 'Add a requirement' }).click();
+  await owner.getByRole('combobox', { name: /^Type/ }).selectOption('experience');
+  await owner.getByLabel('Description in English').last().fill('Digital marketing experience');
+  await owner.getByLabel('Minimum years of experience').fill('3');
+  await owner.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(owner.getByText('At least 3 years')).toBeVisible();
+
+  await owner.getByRole('button', { name: 'Create assessment draft' }).click();
+  await expect(owner.getByText('Version 1 · Draft')).toBeVisible({ timeout: 60_000 });
+  await expect(owner.getByText('0 of 2 required items are measured by a task')).toBeVisible();
+  await expect(owner.getByText('No task measures this yet').first()).toBeVisible();
+
+  await owner.getByRole('button', { name: /A case study from the role/ }).first().click();
+  await owner.getByRole('group', { name: 'Requirements this task measures' }).getByLabel('Analyze campaign performance').check();
+  await owner.getByRole('button', { name: 'Save links' }).click();
+  await expect(owner.getByText('1 of 2 required items are measured by a task')).toBeVisible();
+  await expect(owner.getByText('Measured by:')).toBeVisible();
+
+  await owner.getByRole('button', { name: 'Approve and publish this version' }).click();
+  await owner.getByRole('button', { name: 'Confirm publishing' }).click();
+  await expect(owner.getByText('later edits won\'t change them')).toBeVisible({ timeout: 40_000 });
+  await owner.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(owner.getByRole('button', { name: 'Back to draft' })).toBeVisible();
+
+  await visitor.goto(`/en/opportunities/${jobId}`);
+  await expect(visitor.getByRole('heading', { name: 'Responsibilities' })).toBeVisible();
+  await expect(visitor.getByText('Analyze campaign performance')).toBeVisible();
+  await expect(visitor.getByText('At least 3 years')).toBeVisible();
+  await expect(visitor.getByText('measured by')).toHaveCount(0);
+  if (SHOTS) await owner.screenshot({ path: `${SHOTS}/requirements-en.png`, fullPage: true });
+  await owner.goto(`/ar/organization/${new URL(owner.url()).pathname.split('/')[3]}/jobs/${jobId}`);
+  await expect(owner.getByRole('heading', { name: 'المسؤوليات' })).toBeVisible();
+  if (SHOTS) await owner.screenshot({ path: `${SHOTS}/requirements-ar.png`, fullPage: true });
+  expect(problems).toEqual([]);
+});

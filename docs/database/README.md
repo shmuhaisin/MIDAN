@@ -20,6 +20,9 @@ Browser -> NestJS -> Postgres as midan_api -> SET LOCAL ROLE authenticated/anon 
 | --- | --- | --- | --- | --- |
 | Published jobs, their organizations | Yes | Yes | Yes | Yes |
 | Draft jobs | No | Yes | No | No |
+| Job requirements: approved, active, on a published job | Yes | Yes | Yes | Yes |
+| Job requirements: draft, AI-origin or retired | No | Yes | No | No |
+| Which tasks measure which requirement | Never | Yes | No | No |
 | Candidate profile, CV | Own | Only while they have an active application here | No | No |
 | Applications | Own | Own organization | No | No |
 | Tasks | After invitation | Yes | No | No |
@@ -28,6 +31,17 @@ Browser -> NestJS -> Postgres as midan_api -> SET LOCAL ROLE authenticated/anon 
 | Evaluation results, scores | After release | Yes | No | No |
 | Reviewer notes | Never | Yes | No | No |
 | Audit log | No | Owner, admin | No | No |
+
+## Job structure
+
+```
+Organization -> Jobs -> Job requirements and skills -> Assessments -> Versions -> Tasks -> Rubric criteria
+```
+
+- **`job_requirements`** holds one row per requirement, with `requirement_type`, `is_mandatory`, `origin` and `review_status`. `min_years` is only for experience.
+- **`task_requirement_mappings`** says which tasks measure which requirements, and `rubric_criteria.requirement_id` links a criterion to one. A trigger refuses links to another job or to a retired requirement. Mappings lock with the version.
+- **`assessment_versions.requirements_snapshot`** is written only at publish.
+- **Several assessments per job** are allowed by the schema.
 
 ## Development registration
 

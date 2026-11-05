@@ -1,4 +1,5 @@
 import { Body, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
@@ -12,9 +13,15 @@ class ApplyDto {
 const PUBLIC_JOB = {
   id: true, slug: true, title_ar: true, title_en: true, description_ar: true, description_en: true,
   location: true, status: true, is_demo: true, published_at: true, requirements_ar: true, requirements_en: true,
-  job_skills: { select: { required_level: true, skills: { select: { id: true, name_ar: true, name_en: true } } } },
+  employment_type: true, application_deadline: true, salary_min: true, salary_max: true,
+  job_skills: { select: { required_level: true, is_required: true, skills: { select: { id: true, name_ar: true, name_en: true } } } },
+  job_requirements: {
+    where: { retired_at: null, review_status: 'approved' },
+    orderBy: [{ requirement_type: 'asc' }, { position: 'asc' }],
+    select: { id: true, requirement_type: true, description_ar: true, description_en: true, is_mandatory: true, min_years: true },
+  },
   organizations: { select: { id: true, slug: true, name_ar: true, name_en: true, is_demo: true } },
-} as const;
+} satisfies Prisma.jobsSelect;
 
 @ApiTags('jobs')
 @Controller('jobs')
