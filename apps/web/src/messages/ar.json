@@ -765,7 +765,20 @@
       "temporary": "مؤقت",
       "internship": "تدريب",
       "flexible": "عمل مرن"
-    }
+    },
+    "assessmentsLabel": "تقييمات هذه الوظيفة",
+    "addAssessment": "أضف تقييمًا آخر",
+    "assessmentTitleAr": "عنوان التقييم بالعربية",
+    "assessmentTitleEn": "عنوان التقييم بالإنجليزية",
+    "createAssessment": "أنشئ المسودة",
+    "addAssessmentHint": "تبدأ المسودة من النماذج نفسها، فعدّل مهامها ومعاييرها لتناسب ما يقيسه هذا التقييم.",
+    "renameAssessment": "تغيير العنوان",
+    "saveTitle": "حفظ العنوان",
+    "cancelAction": "إلغاء",
+    "removeAssessment": "إزالة هذه المسودة",
+    "confirmRemoveAssessment": "تأكيد الإزالة",
+    "inviteNamed": "دعوة إلى التقييم: {title}",
+    "versionOf": "{title} · النسخة {n}"
   },
   "experience": {
     "poweredBy": "بتشغيل الميدان",

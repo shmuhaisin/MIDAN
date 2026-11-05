@@ -33,7 +33,7 @@ export class ApplicationsController {
               candidate_skills: { select: { skill_id: true, skills: { select: { name_ar: true, name_en: true } } } },
             },
           },
-          assessment_attempts: { select: { id: true, status: true } },
+          assessment_attempts: { orderBy: { created_at: 'asc' }, select: { id: true, status: true, assessment_versions: { select: { assessments: { select: { title_ar: true, title_en: true } } } } } },
         },
       });
       if (!application) throw new NotFoundException();

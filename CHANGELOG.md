@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-05: Several assessments for one job
+- A job can now have several assessments, each with its own title, field, drafts and versions. The job screen switches between them, adds another, renames, and removes a draft that was never published.
+- Organizations choose which assessment to invite a candidate to. A candidate takes each assessment once, whichever version is current.
+- An application counts as evaluated only after every invited assessment is reviewed. Being invited to another assessment moves it back to invited or in progress.
+- Automatic status changes no longer overwrite shortlisted, rejected or hired. Withdrawn applications still refuse new work.
+- Candidates see each assessment separately on their dashboard, and the assessment address now uses the version id. Old addresses with a version number redirect to the job's first assessment.
+- Comparisons are now per assessment version, because only those share criteria. Earlier they mixed versions together.
+- Requirement coverage counts the latest version of every assessment on the job.
+
 ## 2026-11-05: Structured job requirements
 - New `job_requirements` table: responsibilities, daily duties, qualifications, education, experience, competencies, certifications, languages and other, each with a required or preferred flag. Either language may be left empty.
 - Tasks can be linked to the requirements they measure (`task_requirement_mappings`), and rubric criteria to one requirement. Links must stay inside the same job and organization.
@@ -8,7 +17,6 @@
 - A requirement in use is retired rather than deleted, so history stays traceable.
 - AI-origin requirements are forced to draft and stay out of public view until a person reviews them. Nothing generates them yet.
 - Jobs gained employment type, salary range and application deadline. The public job page shows requirements by type.
-- The database already allowed several assessments per job, and a test now proves it. The API and screens still show only the latest one.
 
 ## 2026-11-05: Real development registration
 - Sign-up accepts any valid email through real Supabase Auth, with email verification on.

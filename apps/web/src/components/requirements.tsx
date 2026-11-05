@@ -11,7 +11,7 @@ import { ErrorText, Field, INPUT, PRIMARY } from './forms';
 
 export type Requirement = {
   id: string; requirement_type: string; description_ar: string | null; description_en: string | null; is_mandatory: boolean; min_years: string | null;
-  task_requirement_mappings: { assessment_tasks: { id: string; position: number; title_ar: string; title_en: string; version_id: string } }[];
+  task_requirement_mappings: { assessment_tasks: { id: string; position: number; title_ar: string; title_en: string; version_id: string; assessment_versions: { assessments: { title_ar: string; title_en: string } } } }[];
 };
 
 function RequirementForm({ orgId, jobId, initial, onDone }: { orgId: string; jobId: string; initial?: Requirement; onDone: () => void }) {
@@ -74,13 +74,13 @@ function RequirementForm({ orgId, jobId, initial, onDone }: { orgId: string; job
   );
 }
 
-function RequirementRow({ orgId, jobId, requirement, versionId, canEdit }: { orgId: string; jobId: string; requirement: Requirement; versionId?: string; canEdit: boolean }) {
+function RequirementRow({ orgId, jobId, requirement, versionIds, showAssessment, canEdit }: { orgId: string; jobId: string; requirement: Requirement; versionIds: string[]; showAssessment: boolean; canEdit: boolean }) {
   const t = useTranslations('requirements');
   const locale = useLocale();
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string>();
-  const tasks = requirement.task_requirement_mappings.map((m) => m.assessment_tasks).filter((task) => task.version_id === versionId);
+  const tasks = requirement.task_requirement_mappings.map((m) => m.assessment_tasks).filter((task) => versionIds.includes(task.version_id));
 
   if (editing) return <li className="py-3"><RequirementForm orgId={orgId} jobId={jobId} initial={requirement} onDone={() => setEditing(false)} /></li>;
   return (
@@ -90,8 +90,12 @@ function RequirementRow({ orgId, jobId, requirement, versionId, canEdit }: { org
         <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
           <span className="font-medium text-muted">{t(requirement.is_mandatory ? 'mandatory' : 'optional')}</span>
           {requirement.min_years != null && <span className="text-muted">{t('years', { count: number(locale, Number(requirement.min_years)) })}</span>}
-          {versionId && (tasks.length > 0
-            ? <span className="text-primary">{t('measuredBy', { tasks: list(locale, tasks.map((task) => pick(locale, task.title_ar, task.title_en))) })}</span>
+          {versionIds.length > 0 && (tasks.length > 0
+            ? <span className="text-primary">{t('measuredBy', { tasks: list(locale, tasks.map((task) => {
+                const title = pick(locale, task.title_ar, task.title_en);
+                const assessment = task.assessment_versions.assessments;
+                return showAssessment ? `${pick(locale, assessment.title_ar, assessment.title_en)}: ${title}` : title;
+              })) })}</span>
             : <span className="font-medium text-error">{t('notAssessed')}</span>)}
         </p>
         <ErrorText code={error} />
@@ -112,17 +116,17 @@ function RequirementRow({ orgId, jobId, requirement, versionId, canEdit }: { org
   );
 }
 
-export function RequirementsEditor({ orgId, jobId, requirements, versionId, canEdit }: { orgId: string; jobId: string; requirements: Requirement[]; versionId?: string; canEdit: boolean }) {
+export function RequirementsEditor({ orgId, jobId, requirements, versionIds, canEdit }: { orgId: string; jobId: string; requirements: Requirement[]; versionIds: string[]; canEdit: boolean }) {
   const t = useTranslations('requirements');
   const locale = useLocale();
   const [adding, setAdding] = useState(false);
   const required = requirements.filter((r) => r.is_mandatory);
-  const covered = required.filter((r) => r.task_requirement_mappings.some((m) => m.assessment_tasks.version_id === versionId));
+  const covered = required.filter((r) => r.task_requirement_mappings.some((m) => versionIds.includes(m.assessment_tasks.version_id)));
 
   return (
     <div>
       <p className="text-muted">{t('lead')}</p>
-      {versionId && required.length > 0 && (
+      {versionIds.length > 0 && required.length > 0 && (
         <p role="status" className="mt-2 text-sm font-semibold">{t('coverage', { covered: number(locale, covered.length), total: number(locale, required.length) })}</p>
       )}
       {requirements.length === 0 && !adding && <p className="mt-3 text-muted">{t('empty')}</p>}
@@ -132,7 +136,7 @@ export function RequirementsEditor({ orgId, jobId, requirements, versionId, canE
             <h3 className="font-semibold">{t(`type.${k}`)}</h3>
             <ul className="divide-y divide-border border-t border-border">
               {requirements.filter((r) => r.requirement_type === k).map((r) => (
-                <RequirementRow key={r.id} orgId={orgId} jobId={jobId} requirement={r} versionId={versionId} canEdit={canEdit} />
+                <RequirementRow key={r.id} orgId={orgId} jobId={jobId} requirement={r} versionIds={versionIds} showAssessment={versionIds.length > 1} canEdit={canEdit} />
               ))}
             </ul>
           </section>

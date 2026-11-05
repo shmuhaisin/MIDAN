@@ -49,7 +49,14 @@ export class RequirementsController {
         include: {
           skills: { select: { id: true, name_ar: true, name_en: true } },
           task_requirement_mappings: {
-            select: { assessment_tasks: { select: { id: true, position: true, title_ar: true, title_en: true, version_id: true } } },
+            select: {
+              assessment_tasks: {
+                select: {
+                  id: true, position: true, title_ar: true, title_en: true, version_id: true,
+                  assessment_versions: { select: { assessments: { select: { title_ar: true, title_en: true } } } },
+                },
+              },
+            },
           },
         },
       });

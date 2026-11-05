@@ -159,9 +159,10 @@ export class MeController {
             },
           },
           assessment_attempts: {
+            orderBy: { created_at: 'asc' },
             select: {
               id: true, status: true,
-              assessment_versions: { select: { version_number: true, duration_minutes: true } },
+              assessment_versions: { select: { id: true, version_number: true, duration_minutes: true, assessments: { select: { title_ar: true, title_en: true } } } },
               evaluation_results: { select: { released_to_candidate: true } },
             },
           },

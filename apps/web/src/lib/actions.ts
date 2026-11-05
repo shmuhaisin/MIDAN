@@ -160,8 +160,34 @@ export async function updateJob(orgId: string, jobId: string, _: FormState, form
   );
 }
 
-export async function generateAssessment(orgId: string, jobId: string) {
-  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST' }));
+export async function generateAssessment(orgId: string, jobId: string, assessmentId?: string) {
+  return result(() =>
+    api(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST', body: assessmentId ? { assessment_id: assessmentId } : {} }),
+  );
+}
+
+export async function addAssessment(orgId: string, jobId: string, form: FormData): Promise<FormState & { assessmentId?: string }> {
+  const title_ar = text(form, 'title_ar');
+  const title_en = text(form, 'title_en');
+  if (!title_ar || !title_en) return { error: 'required' };
+  try {
+    const made = await api<{ assessment_id: string }>(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST', body: { title_ar, title_en } });
+    revalidatePath('/', 'layout');
+    return { ok: true, assessmentId: made.assessment_id };
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+}
+
+export async function renameAssessment(orgId: string, assessmentId: string, form: FormData) {
+  const title_ar = text(form, 'title_ar');
+  const title_en = text(form, 'title_en');
+  if (!title_ar || !title_en) return { error: 'required' };
+  return result(() => api(`/organizations/${orgId}/assessments/${assessmentId}`, { method: 'PATCH', body: { title_ar, title_en } }));
+}
+
+export async function removeAssessment(orgId: string, assessmentId: string) {
+  return result(() => api(`/organizations/${orgId}/assessments/${assessmentId}`, { method: 'DELETE' }));
 }
 
 export async function updateTask(orgId: string, taskId: string, _: FormState, form: FormData): Promise<FormState> {
@@ -193,8 +219,8 @@ export async function publishVersion(orgId: string, versionId: string) {
   return result(() => api(`/organizations/${orgId}/assessment-versions/${versionId}/publish`, { method: 'POST' }));
 }
 
-export async function inviteCandidate(applicationId: string) {
-  return result(() => api(`/applications/${applicationId}/invite`, { method: 'POST' }));
+export async function inviteCandidate(applicationId: string, assessmentId: string) {
+  return result(() => api(`/applications/${applicationId}/invite`, { method: 'POST', body: { assessment_id: assessmentId } }));
 }
 
 export async function startAttempt(id: string) {

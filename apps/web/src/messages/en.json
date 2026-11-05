@@ -765,7 +765,20 @@
       "temporary": "Temporary",
       "internship": "Internship",
       "flexible": "Flexible"
-    }
+    },
+    "assessmentsLabel": "Assessments for this job",
+    "addAssessment": "Add another assessment",
+    "assessmentTitleAr": "Assessment title in Arabic",
+    "assessmentTitleEn": "Assessment title in English",
+    "createAssessment": "Create draft",
+    "addAssessmentHint": "The draft starts from the same templates, so edit its tasks and criteria to fit what this assessment measures.",
+    "renameAssessment": "Rename",
+    "saveTitle": "Save title",
+    "cancelAction": "Cancel",
+    "removeAssessment": "Remove this draft",
+    "confirmRemoveAssessment": "Confirm removal",
+    "inviteNamed": "Invite to assessment: {title}",
+    "versionOf": "{title} · Version {n}"
   },
   "experience": {
     "poweredBy": "Powered by Midan",

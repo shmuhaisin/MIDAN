@@ -148,7 +148,14 @@ export class OrganizationsController {
             orderBy: { created_at: 'desc' },
             include: {
               users: { select: { email: true, candidate_profiles: { select: { full_name: true, headline: true } } } },
-              assessment_attempts: { select: { id: true, status: true, evaluation_results: { select: { id: true, status: true, released_to_candidate: true } } } },
+              assessment_attempts: {
+                orderBy: { created_at: 'asc' },
+                select: {
+                  id: true, status: true,
+                  assessment_versions: { select: { id: true, version_number: true, assessment_id: true, assessments: { select: { title_ar: true, title_en: true } } } },
+                  evaluation_results: { select: { id: true, status: true, released_to_candidate: true } },
+                },
+              },
             },
           },
         },

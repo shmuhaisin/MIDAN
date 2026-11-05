@@ -22,7 +22,7 @@ export type ExperienceData = {
   organization: { name_ar: string; name_en: string };
   branding: { primary_color: string | null; industry: string | null; welcome_ar: string | null; welcome_en: string | null } | null;
   job: { title_ar: string; title_en: string };
-  version: { assessments: { professional_field: string | null }; duration_minutes: number | null; instructions_ar: string | null; instructions_en: string | null; assessment_tasks: Task[] };
+  version: { id: string; assessments: { title_ar: string; title_en: string; professional_field: string | null }; duration_minutes: number | null; instructions_ar: string | null; instructions_en: string | null; assessment_tasks: Task[] };
   attempt: {
     id: string; status: string; started_at: string | null;
     task_responses: { task_id: string; answer: Answer }[];
@@ -139,7 +139,9 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
           <div>
             <p className="font-display text-lg font-bold">{orgName}</p>
             <p className="text-sm text-muted">
-              {pick(locale, data.job.title_ar, data.job.title_en)}{field && field !== 'general' && ` · ${t('fieldLabel', { field: tf(field) })}`}
+              {pick(locale, data.job.title_ar, data.job.title_en)}
+              {pick(locale, data.version.assessments.title_ar, data.version.assessments.title_en) !== pick(locale, data.job.title_ar, data.job.title_en) && ` · ${pick(locale, data.version.assessments.title_ar, data.version.assessments.title_en)}`}
+              {field && field !== 'general' && ` · ${t('fieldLabel', { field: tf(field) })}`}
             </p>
           </div>
         </div>

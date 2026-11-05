@@ -16,7 +16,7 @@ export type ReviewData = {
   applications: { job_id: string; users: { candidate_profiles: { full_name: string } | null } | null };
   task_responses: { task_id: string; answer: { text?: string; choices?: Record<string, string> } }[];
   evidence_files: { id: string; task_id: string; file_name: string }[];
-  assessment_versions: { assessment_tasks: Task[] };
+  assessment_versions: { assessments: { title_ar: string; title_en: string }; assessment_tasks: Task[] };
   evaluation_results: {
     id: string; status: string; overall_score: string | null; ai_mode: string | null; review_reasons: string[]; released_to_candidate: boolean;
     criterion_scores: Score[];

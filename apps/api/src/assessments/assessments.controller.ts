@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Body, ConflictException, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, UnprocessableEntityException, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsIn, IsNumber, IsOptional, IsPositive, IsString, IsUUID, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { Prisma } from '@prisma/client';
@@ -11,6 +11,19 @@ import { AuthUser, DbService } from '../db/db.service';
 
 class AssessmentFieldDto {
   @ApiPropertyOptional({ enum: PROFESSIONAL_FIELDS, nullable: true }) @IsOptional() @IsIn(PROFESSIONAL_FIELDS) professional_field?: string | null;
+}
+
+class GenerateDto {
+  @ApiPropertyOptional({ description: 'Adds a version to this assessment.' }) @IsOptional() @IsUUID() assessment_id?: string;
+  @ApiPropertyOptional({ description: 'With title_en, starts another assessment for the job.' })
+  @ValidateIf((o) => o.title_ar !== undefined || o.title_en !== undefined) @IsString() @MinLength(1) @MaxLength(200) title_ar?: string;
+  @ApiPropertyOptional()
+  @ValidateIf((o) => o.title_ar !== undefined || o.title_en !== undefined) @IsString() @MinLength(1) @MaxLength(200) title_en?: string;
+}
+
+class UpdateAssessmentDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(200) title_ar?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(200) title_en?: string;
 }
 
 class UpdateTaskDto {
@@ -37,6 +50,11 @@ type DraftTask = {
 };
 type Draft = { tasks: DraftTask[]; warnings: string[] };
 
+const ASSESSMENT_SUMMARY = {
+  id: true, title_ar: true, title_en: true, professional_field: true,
+  assessment_versions: { orderBy: { version_number: 'desc' }, select: { id: true, version_number: true, status: true } },
+} satisfies Prisma.assessmentsSelect;
+
 @ApiTags('assessments')
 @ApiBearerAuth()
 @UseGuards(AuthGuard)
@@ -45,12 +63,20 @@ export class AssessmentsController {
   constructor(private readonly db: DbService, private readonly ai: AiClient) {}
 
   @Get('jobs/:jobId/assessment')
-  @ApiOperation({ summary: 'The latest version of the assessment, with its confidential rubric.' })
-  async latest(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('jobId', ParseUUIDPipe) jobId: string) {
-    const version = await this.db.asUser(user, async (tx) => {
+  @ApiOperation({ summary: "The job's assessments, and the latest version of one with its confidential rubric. Without a choice, the oldest assessment." })
+  async latest(
+    @CurrentUser() user: AuthUser,
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+    @Query('assessment', new ParseUUIDPipe({ optional: true })) assessmentId?: string,
+  ) {
+    const { version, assessments } = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId);
-      return tx.assessment_versions.findFirst({
-        where: { org_id: orgId, assessments: { job_id: jobId } },
+      const all = await tx.assessments.findMany({ where: { org_id: orgId, job_id: jobId }, orderBy: [{ created_at: 'asc' }, { id: 'asc' }], select: ASSESSMENT_SUMMARY });
+      if (assessmentId && !all.some((a) => a.id === assessmentId)) throw new NotFoundException();
+      const chosen = assessmentId ?? all[0]?.id;
+      const found = !chosen ? null : await tx.assessment_versions.findFirst({
+        where: { org_id: orgId, assessment_id: chosen },
         orderBy: { version_number: 'desc' },
         include: {
           assessments: { select: { id: true, title_ar: true, title_en: true, professional_field: true } },
@@ -64,27 +90,33 @@ export class AssessmentsController {
           },
         },
       });
+      return { version: found, assessments: all };
     });
     const run = version?.ai_thread_id
       ? await this.db.asUser(user, (tx) => tx.ai_workflow_runs.findUnique({ where: { thread_id: version.ai_thread_id as string }, select: { mode: true, model_version: true } }))
       : null;
-    return { version, run };
+    return { version, run, assessments };
   }
 
   @Post('jobs/:jobId/assessment/generate')
   @ApiOperation({ summary: 'Runs the assessment builder graph and saves the result as a draft. Never publishes.' })
-  async generate(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('jobId', ParseUUIDPipe) jobId: string) {
-    const { job, taxonomy, existing } = await this.db.asUser(user, async (tx) => {
+  async generate(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('jobId', ParseUUIDPipe) jobId: string, @Body() body: GenerateDto) {
+    const { job, taxonomy, target, existing } = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
       const found = await tx.jobs.findFirst({
         where: { id: jobId, org_id: orgId },
         include: { job_skills: { include: { skills: true } } },
       });
       if (!found) throw new NotFoundException();
+      const assessment = body.assessment_id
+        ? await tx.assessments.findFirst({ where: { id: body.assessment_id, org_id: orgId, job_id: jobId } })
+        : body.title_ar ? null : await tx.assessments.findFirst({ where: { org_id: orgId, job_id: jobId }, orderBy: { created_at: 'asc' } });
+      if (body.assessment_id && !assessment) throw new NotFoundException();
       return {
         job: found,
+        target: assessment,
         taxonomy: await tx.skills.findMany(),
-        existing: await tx.assessment_versions.findFirst({ where: { org_id: orgId, assessments: { job_id: jobId } }, orderBy: { version_number: 'desc' } }),
+        existing: !assessment ? null : await tx.assessment_versions.findFirst({ where: { assessment_id: assessment.id }, orderBy: { version_number: 'desc' } }),
       };
     });
     if (existing && ['draft', 'in_review'].includes(existing.status)) throw new ConflictException('A draft already exists');
@@ -104,8 +136,9 @@ export class AssessmentsController {
     if (result.status !== 'awaiting_human_review') throw new UnprocessableEntityException('The draft could not be generated');
 
     return this.db.asUser(user, async (tx) => {
-      let assessment = await tx.assessments.findFirst({ where: { org_id: orgId, job_id: jobId } });
-      assessment ??= await tx.assessments.create({ data: { org_id: orgId, job_id: jobId, title_ar: job.title_ar, title_en: job.title_en } });
+      const assessment = target ?? await tx.assessments.create({
+        data: { org_id: orgId, job_id: jobId, title_ar: body.title_ar ?? job.title_ar, title_en: body.title_en ?? job.title_en },
+      });
       const version = await tx.assessment_versions.create({
         data: {
           assessment_id: assessment.id, org_id: orgId, version_number: (existing?.version_number ?? 0) + 1,
@@ -135,7 +168,30 @@ export class AssessmentsController {
       await tx.ai_workflow_runs.create({
         data: { org_id: orgId, workflow: 'assessment_builder', thread_id: threadId, status: 'awaiting_human_review', started_by: user.id, ...result.provenance },
       });
-      return { version_id: version.id, warnings: result.payload.warnings, mode: result.provenance.mode };
+      return { version_id: version.id, assessment_id: assessment.id, warnings: result.payload.warnings, mode: result.provenance.mode };
+    });
+  }
+
+  @Patch('assessments/:assessmentId')
+  rename(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('assessmentId', ParseUUIDPipe) id: string, @Body() body: UpdateAssessmentDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const { count } = await tx.assessments.updateMany({ where: { id, org_id: orgId }, data: body });
+      if (count === 0) throw new NotFoundException();
+      return tx.assessments.findUniqueOrThrow({ where: { id } });
+    });
+  }
+
+  @Delete('assessments/:assessmentId')
+  @ApiOperation({ summary: 'Removes an assessment that was never published. Published ones stay, so results remain traceable.' })
+  remove(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('assessmentId', ParseUUIDPipe) id: string) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const found = await tx.assessments.findFirst({ where: { id, org_id: orgId }, select: { assessment_versions: { select: { status: true } } } });
+      if (!found) throw new NotFoundException();
+      if (found.assessment_versions.some((v) => !['draft', 'in_review'].includes(v.status))) throw new ConflictException('A published assessment cannot be removed');
+      await tx.assessments.delete({ where: { id } });
+      return { removed: true };
     });
   }
 

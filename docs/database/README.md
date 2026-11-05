@@ -41,7 +41,8 @@ Organization -> Jobs -> Job requirements and skills -> Assessments -> Versions -
 - **`job_requirements`** holds one row per requirement, with `requirement_type`, `is_mandatory`, `origin` and `review_status`. `min_years` is only for experience.
 - **`task_requirement_mappings`** says which tasks measure which requirements, and `rubric_criteria.requirement_id` links a criterion to one. A trigger refuses links to another job or to a retired requirement. Mappings lock with the version.
 - **`assessment_versions.requirements_snapshot`** is written only at publish.
-- **Several assessments per job** are allowed by the schema.
+- **Several assessments per job:** each has its own versions, numbered from 1. A candidate takes each assessment once.
+- **Application status** follows every attempt through `private.sync_application_status`, and stops at a person's decision or a withdrawal.
 
 ## Development registration
 

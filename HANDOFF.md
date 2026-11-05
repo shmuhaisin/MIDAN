@@ -17,21 +17,20 @@ Project `al-midan-ya-hamidan`, ref `squpszwbrqkflezfltoj`, region `eu-central-1`
 Not reachable with the available tools; needs the dashboard: custom SMTP, leaked password protection, Auth Site URL and redirect URLs. The owner chose to continue without SMTP for now, so confirmation email reaches only Supabase project team members, a few per hour. The default Site URL points at localhost:3000, which is a different app on this machine, so confirmation links land there until it's changed to port 3100.
 
 ## Tests that were run
-- API, live database, real AI service: 59 end-to-end, 7 of them for job requirements. API unit: 7.
-- Browser (Playwright, live database): 16 journeys, including the whole flow from job to released report and the requirements flow from form to public page, and 6 character tests covering all 17 Humaidan scenarios by checking the actual image files. Forms against a local Auth stand-in: 6.
+- API, live database, real AI service: 66 end-to-end, 7 for job requirements and 7 for several assessments. API unit: 7.
+- Browser (Playwright, live database): 17 journeys, including the whole flow from job to released report, the requirements flow, and two assessments on one job, and 6 character tests covering all 17 Humaidan scenarios by checking the actual image files. Forms against a local Auth stand-in: 6.
 - AI: 23, including interrupt and resume, bounded repair, deterministic scoring, invented evidence, prompt injection.
 - Web: type check, production build, 7 unit tests.
-- By eye: job requirements in Arabic, profile, applicant profile, login, employer login, assessment screens (legal, technology on mobile), home, review, report.
+- By eye: job requirements and two assessments in Arabic, the candidate's assessment intro on a phone, profile, applicant profile, login, employer login, assessment screens (legal, technology on mobile), home, review, report.
 
 ## Not checked
 - **A complete real sign-up with a real email and link.** Automation doesn't type passwords into pages that send them to hosted Auth, and doesn't email real inboxes. Forms are tested against a local stand-in in `apps/web/e2e-forms`, and the rest against real Supabase separately.
 - Any real LLM provider; no key is configured.
 - The cause of intermittent 20-second database stalls on the local connection to Frankfurt. A single retry handles them; a second expiry returns 503. Long test runs also failed when the Mac slept (`ERR_NETWORK_IO_SUSPENDED`, connect timeouts); they pass when it stays awake. Hosted reliability hasn't been measured.
-- Session renewal in `proxy.ts` has not been exercised with a truly expired token.
 - No automated accessibility audit. Arabic copy has not been reviewed by a native editor.
 
 ## Known gaps
 `npm audit` reports a high-severity finding in the Prisma CLI's `deepmerge-ts` (see docs/DECISIONS.md). Candidate account deletion is blocked once they've applied, pending a PDPL erasure design. The Humaidan chat is postponed by the owner. Section reveals start at opacity 0, so that content needs JavaScript to appear; fix before launch. No ESLint (`lint` runs `tsc`), no CI, no `packages/*`, no docker-compose. See PROJECT_STATUS.md.
 
 ## Next
-The job data work continues: several assessments per job in the API and screens, assessment drafts built from requirements, then imports. See NEXT_SESSION_PROMPT.md.
+The job data work continues: assessment drafts built from requirements, then imports. See NEXT_SESSION_PROMPT.md.

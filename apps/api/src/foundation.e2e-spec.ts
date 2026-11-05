@@ -1,7 +1,7 @@
 // Runs against the real Supabase project, with real sign-ins, through the real database login.
 // Needs .env and .env.test.local. Leftovers are removed by supabase/test-cleanup.sql.
 import 'reflect-metadata';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -547,6 +547,143 @@ describe('Midan database foundation', () => {
       await api().patch(`${base()}/jobs/${job}`).set(bearer(ownerA)).send({ salary_min: 9000, salary_max: 100 }).expect(422);
       const ok = await api().patch(`${base()}/jobs/${job}`).set(bearer(ownerA)).send({ employment_type: 'full_time', salary_min: 8000, salary_max: 12000, application_deadline: '2030-01-31' }).expect(200);
       expect(ok.body.employment_type).toBe('full_time');
+    });
+  });
+
+  describe('several assessments for one job', () => {
+    let job: string, application: string, first: string, second: string, firstVersion: string, secondVersion: string;
+    let firstAttempt: string, secondAttempt: string, firstEvaluation: string, secondEvaluation: string;
+    const base = () => `/organizations/${orgA}`;
+    const status = async () => (await api().get('/me/applications').set(bearer(candidateTwo)).expect(200)).body.find((a: { id: string }) => a.id === application).status;
+    const work = async (attempt: string) => {
+      const opened = await api().get(`/attempts/${attempt}/evaluation`).set(bearer(ownerA)).expect(200);
+      for (const task of opened.body.assessment_versions.assessment_tasks) {
+        const answer = task.task_type === 'objective_questions' ? { choices: { q1: 'b', q2: 'c' } } : { text: 'My own work on this task, with the reasoning shown step by step.' };
+        await api().put(`/attempts/${attempt}/responses/${task.id}`).set(bearer(candidateTwo)).send({ answer }).expect(200);
+      }
+    };
+
+    it('keeps each assessment and its version numbers separate', async () => {
+      job = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: `multi-${RUN}`, title_ar: 'محلل', title_en: 'Analyst', status: 'published' }).expect(201)).body.id;
+      const empty = await api().get(`${base()}/jobs/${job}/assessment`).set(bearer(ownerA)).expect(200);
+      expect(empty.body).toMatchObject({ version: null, assessments: [] });
+
+      const a = await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({}).expect(201);
+      first = a.body.assessment_id; firstVersion = a.body.version_id;
+      await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({ title_ar: 'بلا إنجليزي' }).expect(400);
+      await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({}).expect(409);
+      const b = await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({ title_ar: 'تقييم البيانات', title_en: 'Data assessment' }).expect(201);
+      second = b.body.assessment_id; secondVersion = b.body.version_id;
+      expect(second).not.toBe(first);
+
+      const list = await api().get(`${base()}/jobs/${job}/assessment`).set(bearer(ownerA)).expect(200);
+      expect(list.body.assessments.map((x: { id: string }) => x.id)).toEqual([first, second]);
+      expect(list.body.version.id).toBe(firstVersion);
+      expect(list.body.assessments[0].title_en).toBe('Analyst');
+      const chosen = await api().get(`${base()}/jobs/${job}/assessment?assessment=${second}`).set(bearer(ownerA)).expect(200);
+      expect(chosen.body.version).toMatchObject({ id: secondVersion, version_number: 1 });
+
+      await api().get(`${base()}/jobs/${job}/assessment?assessment=not-an-id`).set(bearer(ownerA)).expect(400);
+      await api().get(`${base()}/jobs/${job}/assessment?assessment=${randomUUID()}`).set(bearer(ownerA)).expect(404);
+      await api().get(`${base()}/jobs/${job}/assessment?assessment=${second}`).set(bearer(ownerB)).expect(403);
+      await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerB)).send({ title_ar: 'x', title_en: 'x' }).expect(403);
+      await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({ assessment_id: randomUUID() }).expect(404);
+    });
+
+    it('renames and removes only what it should', async () => {
+      await api().patch(`${base()}/assessments/${second}`).set(bearer(ownerA)).send({ title_en: '' }).expect(400);
+      const renamed = await api().patch(`${base()}/assessments/${second}`).set(bearer(ownerA)).send({ title_en: 'Data work' }).expect(200);
+      expect(renamed.body.title_en).toBe('Data work');
+      await api().patch(`/organizations/${orgB}/assessments/${second}`).set(bearer(ownerB)).send({ title_en: 'hacked' }).expect(404);
+
+      const extra = await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({ title_ar: 'مؤقت', title_en: 'Temporary' }).expect(201);
+      await api().delete(`/organizations/${orgB}/assessments/${extra.body.assessment_id}`).set(bearer(ownerB)).expect(404);
+      await api().delete(`${base()}/assessments/${extra.body.assessment_id}`).set(bearer(ownerA)).expect(200);
+      await api().get(`${base()}/jobs/${job}/assessment?assessment=${extra.body.assessment_id}`).set(bearer(ownerA)).expect(404);
+    });
+
+    it('invites a candidate to a chosen assessment, once each', async () => {
+      application = (await api().post(`/jobs/${job}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
+      await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).expect(422);
+      await api().post(`${base()}/assessment-versions/${firstVersion}/publish`).set(bearer(ownerA)).expect(201);
+      await api().post(`${base()}/assessment-versions/${secondVersion}/publish`).set(bearer(ownerA)).expect(201);
+      await api().delete(`${base()}/assessments/${second}`).set(bearer(ownerA)).expect(409);
+
+      await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).expect(422);
+      await api().post(`/applications/${application}/invite`).set(bearer(ownerB)).send({ assessment_id: first }).expect(404);
+      await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).send({ assessment_id: randomUUID() }).expect(422);
+      firstAttempt = (await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).send({ assessment_id: first }).expect(201)).body.id;
+      await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).send({ assessment_id: first }).expect(409);
+      expect(await status()).toBe('assessment_invited');
+
+      // Not even a newer version of the same assessment, whichever route writes it.
+      const newer = await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({ assessment_id: first }).expect(201);
+      await api().post(`${base()}/assessment-versions/${newer.body.version_id}/publish`).set(bearer(ownerA)).expect(201);
+      await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).send({ assessment_id: first }).expect(409);
+      const direct = await rest(ownerA, 'POST', 'assessment_attempts', { application_id: application, version_id: newer.body.version_id, org_id: orgA });
+      expect(direct.status).not.toBe(201);
+    });
+
+    it('finds each attempt at its own address, and keeps old links working', async () => {
+      const slug = (await api().get(`${base()}/jobs/${job}`).set(bearer(ownerA)).expect(200)).body.organizations.slug;
+      const byId = await api().get(`/experience/${slug}/multi-${RUN}/${firstVersion}`).set(bearer(candidateTwo)).expect(200);
+      expect(byId.body.mode).toBe('attempt');
+      expect(byId.body.attempt.id).toBe(firstAttempt);
+      const old = await api().get(`/experience/${slug}/multi-${RUN}/1`).set(bearer(candidateTwo)).expect(200);
+      expect(old.body.version.id).toBe(firstVersion);
+      await api().get(`/experience/${slug}/multi-${RUN}/nonsense`).set(bearer(candidateTwo)).expect(404);
+      await api().get(`/experience/${slug}/multi-${RUN}/99999999999999`).set(bearer(candidateTwo)).expect(404);
+      const staff = await api().get(`/experience/${slug}/multi-${RUN}/${secondVersion}`).set(bearer(ownerA)).expect(200);
+      expect(staff.body).toMatchObject({ mode: 'preview', version: { assessments: { title_en: 'Data work' } } });
+    });
+
+    it('calls an application evaluated only once every invited assessment is reviewed', async () => {
+      await api().post(`/attempts/${firstAttempt}/start`).set(bearer(candidateTwo)).expect(201);
+      expect(await status()).toBe('assessment_in_progress');
+
+      secondAttempt = (await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).send({ assessment_id: second }).expect(201)).body.id;
+      expect(await status()).toBe('assessment_in_progress');
+
+      await work(firstAttempt);
+      await api().post(`/attempts/${firstAttempt}/submit`).set(bearer(candidateTwo)).expect(201);
+      expect(await status()).toBe('assessment_invited');
+
+      firstEvaluation = (await api().post(`/attempts/${firstAttempt}/evaluate`).set(bearer(ownerA)).expect(201)).body.id;
+      await api().post(`/evaluations/${firstEvaluation}/review`).set(bearer(ownerA)).send({ scores: [] }).expect(201);
+      expect(await status()).toBe('assessment_invited');
+
+      await api().post(`/attempts/${secondAttempt}/start`).set(bearer(candidateTwo)).expect(201);
+      expect(await status()).toBe('assessment_in_progress');
+      await work(secondAttempt);
+      await api().post(`/attempts/${secondAttempt}/submit`).set(bearer(candidateTwo)).expect(201);
+      expect(await status()).toBe('assessment_submitted');
+
+      secondEvaluation = (await api().post(`/attempts/${secondAttempt}/evaluate`).set(bearer(ownerA)).expect(201)).body.id;
+      expect(await status()).toBe('assessment_submitted');
+      await api().post(`/evaluations/${secondEvaluation}/review`).set(bearer(ownerA)).send({ scores: [] }).expect(201);
+      expect(await status()).toBe('evaluated');
+    });
+
+    it('says which assessment each attempt belongs to, so comparisons stay within one', async () => {
+      const compare = await api().get(`${base()}/jobs/${job}/report`).set(bearer(ownerA)).expect(200);
+      expect(compare.body.map((c: { assessment_versions: { assessment_id: string } }) => c.assessment_versions.assessment_id)).toEqual([first, second]);
+      expect(compare.body[1].assessment_versions.assessments.title_en).toBe('Data work');
+      const mine = await api().get('/me/applications').set(bearer(candidateTwo)).expect(200);
+      const attempts = mine.body.find((a: { id: string }) => a.id === application).assessment_attempts;
+      expect(attempts.map((x: { assessment_versions: { id: string } }) => x.assessment_versions.id)).toEqual([firstVersion, secondVersion]);
+      expect(JSON.stringify(attempts)).not.toContain('rubric');
+    });
+
+    it('never overwrites a decision made by a person, and refuses work after withdrawal', async () => {
+      await api().patch(`/applications/${application}/status`).set(bearer(ownerA)).send({ status: 'shortlisted' }).expect(200);
+      const third = await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({ title_ar: 'ثالث', title_en: 'Third' }).expect(201);
+      await api().post(`${base()}/assessment-versions/${third.body.version_id}/publish`).set(bearer(ownerA)).expect(201);
+      const attempt = await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).send({ assessment_id: third.body.assessment_id }).expect(201);
+      expect(await status()).toBe('shortlisted');
+
+      await api().post(`/applications/${application}/withdraw`).set(bearer(candidateTwo)).expect(201);
+      await api().post(`/attempts/${attempt.body.id}/start`).set(bearer(candidateTwo)).expect(422);
+      expect(await status()).toBe('withdrawn');
     });
   });
 

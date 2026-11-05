@@ -1,5 +1,13 @@
 # Decisions
 
+**2026-11-05: An application's status comes from all of its attempts.** One function, `private.sync_application_status`, replaces the separate updates that each set a status. In progress wins, then invited. Evaluated needs every attempt reviewed, and expired attempts don't count. It only moves applications within the assessment stages, so a person's decision stays.
+
+**2026-11-05: One attempt per assessment, not per version.** Publishing a new version doesn't invite anyone again. Retakes aren't a product decision yet, so a trigger refuses a second attempt until they are.
+
+**2026-11-05: Assessment addresses use the version id.** Version numbers restart for each assessment, so a number alone became ambiguous. Old links redirect to the job's oldest assessment, which is the only one that could have existed when they were sent.
+
+**2026-11-05: A published assessment can't be removed; a never-published one can.** Attempts and results point to published versions.
+
 **2026-11-05: Requirements are their own rows, and `job_skills` stays the only source of structured skills.** A requirement can link to a skill, but skills aren't copied into requirements. The old free-text `requirements_ar` and `requirements_en` columns stay, so existing jobs and code keep working.
 
 **2026-11-05: A published version keeps a snapshot, not live links alone.** Jobs stay editable after an assessment is published, so `assessment_versions.requirements_snapshot` records what the version was built against. Only the publish trigger writes it. Anything sent by a client is discarded.

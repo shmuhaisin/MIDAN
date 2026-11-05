@@ -126,6 +126,7 @@ export class EvaluationsController {
           assessment_versions: {
             select: {
               version_number: true,
+              assessments: { select: { title_ar: true, title_en: true } },
               assessment_tasks: { orderBy: { position: 'asc' }, include: { rubric_criteria: { orderBy: { code: 'asc' } } } },
             },
           },
@@ -221,7 +222,7 @@ export class EvaluationsController {
         where: { attempt_id: id, released_to_candidate: true, assessment_attempts: { candidate_id: user.id } },
         select: {
           overall_score: true, report: true, ai_mode: true, released_at: true,
-          assessment_attempts: { select: { applications: { select: { jobs: { select: { title_ar: true, title_en: true, organizations: { select: { name_ar: true, name_en: true } } } } } } } },
+          assessment_attempts: { select: { assessment_versions: { select: { assessments: { select: { title_ar: true, title_en: true } } } }, applications: { select: { jobs: { select: { title_ar: true, title_en: true, organizations: { select: { name_ar: true, name_en: true } } } } } } } },
           skill_scores: {
             select: {
               level: true, source: true,
@@ -236,14 +237,16 @@ export class EvaluationsController {
   }
 
   @Get('organizations/:orgId/jobs/:jobId/report')
-  @ApiOperation({ summary: 'Candidates for one job, compared on the same skills and the same scale.' })
+  @ApiOperation({ summary: 'Attempts for one job. Compare only within one assessment version, where the criteria are the same.' })
   compare(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('jobId', ParseUUIDPipe) jobId: string) {
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId);
       const attempts = await tx.assessment_attempts.findMany({
         where: { org_id: orgId, applications: { job_id: jobId, status: { not: 'withdrawn' } } },
+        orderBy: { created_at: 'asc' },
         select: {
           id: true, status: true,
+          assessment_versions: { select: { id: true, version_number: true, assessment_id: true, assessments: { select: { title_ar: true, title_en: true } } } },
           applications: { select: { users: { select: { email: true, candidate_profiles: { select: { full_name: true } } } } } },
           evaluation_results: {
             select: {

@@ -24,8 +24,8 @@ Only what has been run is marked Tested. Last updated 2026-11-05.
 | 4 | Job details and skills, browsing, applying, withdrawing, status tracking | Tested |
 | 4 | Structured job requirements, employment details, public display | Tested |
 | 4 | Linking tasks and rubric criteria to requirements, coverage on the job screen, snapshot at publish | Tested (the screen links tasks; rubric links are API only) |
-| 4 | Several assessments per job | Partial: database tested, API and screens still show the latest only |
-| 4 | Assessment drafts built from requirements | Not Started: drafts still come from templates and job title |
+| 4 | Several assessments per job: drafts, invitations, candidate view, status, comparison | Tested |
+| 4 | Assessment drafts built from requirements | Not Started: every draft starts from the same templates, so a second assessment needs editing to differ |
 | 4 | CSV and JSON imports, external employers, review queue, AI extraction | Not Started |
 | 4 | 30 to 50 reviewed skills, occupations | Not Started (6 draft skills exist) |
 | 5 | Assessment drafts, editing, publishing, preview, branded experience, autosave, evidence, submission | Tested |

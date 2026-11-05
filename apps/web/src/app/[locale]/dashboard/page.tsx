@@ -16,7 +16,7 @@ type Me = {
 type MyApplication = {
   id: string; status: string;
   jobs: { id: string; slug: string; title_ar: string; title_en: string; is_demo: boolean; organizations: { slug: string; name_ar: string; name_en: string } };
-  assessment_attempts: { id: string; status: string; assessment_versions: { version_number: number }; evaluation_results: { released_to_candidate: boolean } | null }[];
+  assessment_attempts: { id: string; status: string; assessment_versions: { id: string; version_number: number; assessments: { title_ar: string; title_en: string } }; evaluation_results: { released_to_candidate: boolean } | null }[];
 };
 
 const JOURNEY = ['submitted', 'under_review', 'assessment_invited', 'assessment_in_progress', 'assessment_submitted', 'evaluated'];
@@ -51,11 +51,14 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const isOrgFirst = session.accountType === 'organization';
   const active = applications.filter((a) => a.status !== 'withdrawn');
   const firstOrg = me.organization_members[0];
-  const experienceHref = (a: MyApplication) =>
-    `/experience/${a.jobs.organizations.slug}/${a.jobs.slug}/${a.assessment_attempts[0]?.assessment_versions.version_number}`;
-  const invited = active.find((a) => a.assessment_attempts.some((x) => ['invited', 'in_progress'].includes(x.status)));
+  const experienceHref = (a: MyApplication, x: MyApplication['assessment_attempts'][number]) =>
+    `/experience/${a.jobs.organizations.slug}/${a.jobs.slug}/${x.assessment_versions.id}`;
+  const open = (a: MyApplication) => a.assessment_attempts.find((x) => ['invited', 'in_progress'].includes(x.status));
+  const invited = active.find((a) => open(a));
+  const named = (a: MyApplication, x: MyApplication['assessment_attempts'][number], label: string) =>
+    a.assessment_attempts.length > 1 ? `${label}: ${pick(locale, x.assessment_versions.assessments.title_ar, x.assessment_versions.assessments.title_en)}` : label;
   const next = invited
-    ? { title: t('nextInvitedTitle'), body: t('nextInvitedBody'), cta: t('startAssessment'), href: experienceHref(invited) }
+    ? { title: t('nextInvitedTitle'), body: t('nextInvitedBody'), cta: t('startAssessment'), href: experienceHref(invited, open(invited)!) }
     : firstOrg && applications.length === 0
       ? { title: t('nextOrgTitle'), body: t('nextOrgBody'), cta: t('openOrganization'), href: `/organization/${firstOrg.org_id}` }
       : !me.candidate_profiles && !isOrgFirst
@@ -132,12 +135,12 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                   <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
                     {a.assessment_attempts.map((x) =>
                       x.evaluation_results?.released_to_candidate ? (
-                        <Link key={x.id} href={`/reports/${x.id}`} className="font-semibold text-primary underline underline-offset-4">{t('viewReport')}</Link>
+                        <Link key={x.id} href={`/reports/${x.id}`} className="font-semibold text-primary underline underline-offset-4">{named(a, x, t('viewReport'))}</Link>
                       ) : x.status === 'submitted' ? (
-                        <span key={x.id} className="text-sm text-muted">{t('awaitingResults')}</span>
+                        <span key={x.id} className="text-sm text-muted">{named(a, x, t('awaitingResults'))}</span>
                       ) : a.status !== 'withdrawn' && ['invited', 'in_progress'].includes(x.status) ? (
-                        <Link key={x.id} href={experienceHref(a)} className="font-semibold text-primary underline underline-offset-4">
-                          {x.status === 'invited' ? t('startAssessment') : t('continueAssessment')}
+                        <Link key={x.id} href={experienceHref(a, x)} className="font-semibold text-primary underline underline-offset-4">
+                          {named(a, x, x.status === 'invited' ? t('startAssessment') : t('continueAssessment'))}
                         </Link>
                       ) : null,
                     )}

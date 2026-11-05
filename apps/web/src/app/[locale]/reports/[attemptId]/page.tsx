@@ -8,7 +8,7 @@ import { getSession } from '@/lib/session';
 
 type Report = {
   overall_score: string; ai_mode: string | null;
-  assessment_attempts: { applications: { jobs: { title_ar: string; title_en: string; organizations: { name_ar: string; name_en: string } } } };
+  assessment_attempts: { assessment_versions: { assessments: { title_ar: string; title_en: string } }; applications: { jobs: { title_ar: string; title_en: string; organizations: { name_ar: string; name_en: string } } } };
   skill_scores: {
     level: number;
     skills: { id: string; name_ar: string; name_en: string; skill_levels: { level: number; descriptor_ar: string; descriptor_en: string }[] };
@@ -24,6 +24,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   if (!report) notFound();
   const t = await getTranslations({ locale, namespace: 'report' });
   const job = report.assessment_attempts.applications.jobs;
+  const assessment = report.assessment_attempts.assessment_versions.assessments;
   const describe = (s: Report['skill_scores'][number], level: number) => {
     const row = s.skills.skill_levels.find((l) => l.level === level);
     return row ? pick(locale, row.descriptor_ar, row.descriptor_en) : '';
@@ -36,7 +37,10 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground"><Arrow className="rotate-180" />{t('back')}</Link>
       <div className="mt-6 grid items-end gap-6 sm:grid-cols-[1fr_auto]">
         <div>
-          <Eyebrow className="text-muted">{t('eyebrow')} · {pick(locale, job.title_ar, job.title_en)}</Eyebrow>
+          <Eyebrow className="text-muted">
+            {t('eyebrow')} · {pick(locale, job.title_ar, job.title_en)}
+            {pick(locale, assessment.title_ar, assessment.title_en) !== pick(locale, job.title_ar, job.title_en) && ` · ${pick(locale, assessment.title_ar, assessment.title_en)}`}
+          </Eyebrow>
           <h1 className="mt-3 font-display text-4xl font-bold sm:text-5xl">{t('title')}</h1>
           <p className="mt-3 text-muted">{t('reviewedNote', { org: pick(locale, job.organizations.name_ar, job.organizations.name_en) })}</p>
           {report.ai_mode === 'demo' && <p className="mt-2 border-s-2 border-gold ps-3 text-sm font-medium">{t('demoNote')}</p>}

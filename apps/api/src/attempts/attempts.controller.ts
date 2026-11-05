@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Headers, NotFoundException, Param, ParseIntPipe, ParseUUIDPipe, Post, Put, ServiceUnavailableException, UnprocessableEntityException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Post, Put, ServiceUnavailableException, UnprocessableEntityException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiProperty, ApiTags } from '@nestjs/swagger';
-import { IsObject } from 'class-validator';
+import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { IsObject, IsOptional, IsUUID } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { BUILDERS, requireRole } from '../common/roles';
@@ -13,7 +13,12 @@ class SaveResponseDto {
   @ApiProperty() @IsObject() answer!: Record<string, unknown>;
 }
 
+class InviteDto {
+  @ApiPropertyOptional({ description: 'Required when the job has more than one published assessment.' }) @IsOptional() @IsUUID() assessment_id?: string;
+}
+
 const MAX_UPLOAD = 25 * 1024 * 1024;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @ApiTags('attempts')
 @ApiBearerAuth()
@@ -23,34 +28,50 @@ export class AttemptsController {
   constructor(private readonly db: DbService) {}
 
   @Post('applications/:id/invite')
-  invite(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+  invite(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() body: InviteDto) {
     return this.db.asUser(user, async (tx) => {
       const application = await tx.applications.findFirst({ where: { id } });
       if (!application) throw new NotFoundException();
       await requireRole(tx, user, application.org_id, BUILDERS);
-      const version = await tx.assessment_versions.findFirst({
-        where: { org_id: application.org_id, status: 'published', assessments: { job_id: application.job_id } },
+      const published = await tx.assessment_versions.findMany({
+        where: {
+          org_id: application.org_id, status: 'published', assessments: { job_id: application.job_id },
+          ...(body.assessment_id && { assessment_id: body.assessment_id }),
+        },
         orderBy: { version_number: 'desc' },
       });
+      const version = published[0];
       if (!version) throw new UnprocessableEntityException('Publish an assessment for this job first');
+      if (published.some((v) => v.assessment_id !== version.assessment_id)) throw new UnprocessableEntityException('Choose which assessment to invite the candidate to');
+      const already = await tx.assessment_attempts.findFirst({
+        where: { application_id: id, assessment_versions: { assessment_id: version.assessment_id } },
+        select: { id: true },
+      });
+      if (already) throw new ConflictException('This candidate was already invited to this assessment');
       return tx.assessment_attempts.create({
         data: { application_id: id, version_id: version.id, org_id: application.org_id, candidate_id: application.candidate_id },
       });
     });
   }
 
-  /** The branded experience. A candidate gets their attempt; a staff member gets a read-only preview. */
+  /**
+   * The branded experience. A candidate gets their attempt; a staff member gets a read-only preview.
+   * Addressed by version id. Older links use a version number, which means the job's first assessment.
+   */
   @Get('experience/:orgSlug/:jobSlug/:version')
   experience(
     @CurrentUser() user: AuthUser,
     @Param('orgSlug') orgSlug: string,
     @Param('jobSlug') jobSlug: string,
-    @Param('version', ParseIntPipe) versionNumber: number,
+    @Param('version') address: string,
   ) {
+    const which = UUID.test(address) ? { id: address } : /^\d{1,9}$/.test(address) ? { version_number: Number(address) } : null;
+    if (!which) throw new NotFoundException();
     return this.db.asUser(user, async (tx) => {
       const version = await tx.assessment_versions.findFirst({
-        where: { version_number: versionNumber, assessments: { jobs: { slug: jobSlug, organizations: { slug: orgSlug } } } },
-        include: { assessment_tasks: { orderBy: { position: 'asc' } }, assessments: { select: { professional_field: true } } },
+        where: { ...which, assessments: { jobs: { slug: jobSlug, organizations: { slug: orgSlug } } } },
+        orderBy: { assessments: { created_at: 'asc' } },
+        include: { assessment_tasks: { orderBy: { position: 'asc' } }, assessments: { select: { title_ar: true, title_en: true, professional_field: true } } },
       });
       if (!version) throw new NotFoundException();
       const [organization, branding, job, attempt] = await Promise.all([

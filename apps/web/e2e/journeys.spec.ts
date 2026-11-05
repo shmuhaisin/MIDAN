@@ -379,13 +379,14 @@ test('sessions: an expired token renews from the real refresh token, and sign-ou
   const [header, payload] = access.value.split('.');
   const claims = JSON.parse(Buffer.from(payload, 'base64url').toString());
   const expired = Buffer.from(JSON.stringify({ ...claims, exp: 1000 })).toString('base64url');
-  await context.addCookies([{ name: 'midan_at', value: `${header}.${expired}.x`, domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Lax' }]);
+  const forged = `${header}.${expired}.x`;
+  await context.addCookies([{ name: 'midan_at', value: forged, domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Lax' }]);
 
   await page.goto('/en/dashboard');
   await expect(page).toHaveURL(/\/en\/dashboard$/);
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   const renewed = (await context.cookies()).find((c) => c.name === 'midan_at') as { value: string };
-  expect(renewed.value).not.toContain('.x');
+  expect(renewed.value).not.toBe(forged);
   const live = renewed.value;
 
   await page.getByRole('button', { name: 'Sign out' }).click();
@@ -597,5 +598,102 @@ test('requirements: a job gets structured requirements, tasks measure them, and 
   await owner.goto(`/ar/organization/${new URL(owner.url()).pathname.split('/')[3]}/jobs/${jobId}`);
   await expect(owner.getByRole('heading', { name: 'المسؤوليات' })).toBeVisible();
   if (SHOTS) await owner.screenshot({ path: `${SHOTS}/requirements-ar.png`, fullPage: true });
+  expect(problems).toEqual([]);
+});
+
+test('several assessments: each has its own draft, invitation and address, and the status waits for all of them', async ({ browser }) => {
+  test.setTimeout(300_000);
+  const owner = await (await signedIn(browser, 'ORG_A_OWNER', { viewport: { width: 1280, height: 900 } })).newPage();
+  const candidate = await (await signedIn(browser, 'CANDIDATE_ONE', { viewport: { width: 390, height: 844 } })).newPage();
+  const name = `Two Assessments ${RUN}`;
+  const problems: string[] = [];
+  owner.on('pageerror', (e) => problems.push(e.message));
+  candidate.on('pageerror', (e) => problems.push(e.message));
+
+  await owner.goto('/en/organization/new');
+  await owner.getByLabel('Name in Arabic').fill('منشأة تقييمين');
+  await owner.getByLabel('Name in English').fill(`Midan Test Two ${RUN}`);
+  await owner.getByRole('button', { name: 'Create organization' }).click();
+  await expect(owner.getByText('Your role: Owner')).toBeVisible();
+  await owner.getByRole('button', { name: 'New job' }).click();
+  await owner.getByLabel('Title in Arabic').fill('دور بتقييمين');
+  await owner.getByLabel('Title in English').fill(name);
+  await owner.getByRole('button', { name: 'Save as draft' }).click();
+  await owner.getByRole('link', { name }).click();
+  await expect(owner.getByRole('heading', { level: 1 })).toHaveText(name);
+  await owner.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(owner.getByRole('button', { name: 'Back to draft' })).toBeVisible();
+  const jobId = new URL(owner.url()).pathname.split('/').pop();
+
+  await owner.getByRole('button', { name: 'Create assessment draft' }).click();
+  await expect(owner.getByText('Version 1 · Draft')).toBeVisible({ timeout: 60_000 });
+  const switcher = owner.getByRole('navigation', { name: 'Assessments for this job' });
+  await expect(switcher.getByRole('link')).toHaveCount(1);
+
+  await owner.getByRole('button', { name: 'Add another assessment' }).click();
+  await owner.getByLabel('Assessment title in Arabic').fill('تقييم البيانات');
+  await owner.getByLabel('Assessment title in English').fill('Data assessment');
+  await owner.getByRole('button', { name: 'Create draft' }).click();
+  await expect(owner).toHaveURL(/assessment=/, { timeout: 60_000 });
+  await expect(switcher.getByRole('link')).toHaveCount(2);
+  await expect(owner.getByRole('heading', { name: 'Data assessment' })).toBeVisible();
+  await expect(switcher.getByRole('link', { name: /Data assessment/ })).toHaveAttribute('aria-current', 'page');
+
+  // A mistaken draft can be removed, and publishing removes that option.
+  await owner.getByRole('button', { name: 'Add another assessment' }).click();
+  await owner.getByLabel('Assessment title in Arabic').fill('مؤقت');
+  await owner.getByLabel('Assessment title in English').fill('Temporary');
+  await owner.getByRole('button', { name: 'Create draft' }).click();
+  await expect(owner.getByRole('heading', { name: 'Temporary' })).toBeVisible({ timeout: 60_000 });
+  await owner.getByRole('button', { name: 'Remove this draft' }).click();
+  await owner.getByRole('button', { name: 'Confirm removal' }).click();
+  await expect(switcher.getByRole('link')).toHaveCount(2);
+
+  // Renaming, then publishing each in turn.
+  await switcher.getByRole('link', { name: /Data assessment/ }).click();
+  await expect(owner.getByRole('heading', { name: 'Data assessment' })).toBeVisible();
+  await owner.getByRole('button', { name: 'Rename' }).click();
+  await owner.getByLabel('Assessment title in English').fill('Data work');
+  await owner.getByRole('button', { name: 'Save title' }).click();
+  await expect(owner.getByRole('heading', { name: 'Data work' })).toBeVisible();
+  for (const link of [/Data work/, new RegExp(name)]) {
+    await switcher.getByRole('link', { name: link }).click();
+    await expect(owner.getByRole('heading', { level: 3, name: link })).toBeVisible();
+    await expect(owner.getByText('Version 1 · Draft')).toBeVisible();
+    await owner.getByRole('button', { name: 'Approve and publish this version' }).click();
+    await owner.getByRole('button', { name: 'Confirm publishing' }).click();
+    await expect(owner.getByText('Version 1 · Published')).toBeVisible({ timeout: 40_000 });
+    await expect(owner.getByRole('button', { name: 'Remove this draft' })).toHaveCount(0);
+  }
+
+  await candidate.goto(`/en/opportunities/${jobId}`);
+  await candidate.getByRole('button', { name: 'Apply for this job' }).click();
+  await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
+
+  await owner.reload();
+  await owner.getByRole('button', { name: 'Invite to assessment: Data work' }).click();
+  await expect(owner.getByText('Invited', { exact: true })).toHaveCount(1);
+  await owner.getByRole('button', { name: `Invite to assessment: ${name}` }).click();
+  await expect(owner.getByText('Invited', { exact: true })).toHaveCount(2);
+
+  await candidate.goto('/en/dashboard');
+  await expect(candidate.getByRole('link', { name: 'Start assessment: Data work' })).toBeVisible();
+  const start = candidate.getByRole('link', { name: `Start assessment: ${name}` });
+  await expect(start).toBeVisible();
+  await expect(start).toHaveAttribute('href', /\/experience\/.+\/[0-9a-f-]{36}$/);
+  await candidate.getByRole('link', { name: 'Start assessment: Data work' }).click();
+  await expect(candidate).toHaveURL(/\/experience\//);
+  await expect(candidate.getByText('Data work')).toBeVisible();
+  await noOverflow(candidate);
+
+  // The address from before a job could have several assessments still arrives somewhere real.
+  const path = new URL(candidate.url()).pathname.split('/');
+  await candidate.goto(`/en/experience/${path[3]}/${path[4]}/1`);
+  await expect(candidate).toHaveURL(/\/experience\/.+\/[0-9a-f-]{36}$/);
+
+  await owner.goto(`/ar${new URL(owner.url()).pathname.slice(3)}`);
+  await expect(owner.getByRole('navigation', { name: 'تقييمات هذه الوظيفة' })).toBeVisible();
+  if (SHOTS) await owner.screenshot({ path: `${SHOTS}/two-assessments-ar.png`, fullPage: true });
+  if (SHOTS) await candidate.screenshot({ path: `${SHOTS}/two-assessments-candidate.png` });
   expect(problems).toEqual([]);
 });

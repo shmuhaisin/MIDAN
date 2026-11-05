@@ -4,7 +4,8 @@ import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useActionState, useState, useTransition } from 'react';
-import { generateAssessment, inviteCandidate, publishVersion, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
+import { Link, useRouter } from '@/i18n/navigation';
+import { addAssessment, generateAssessment, inviteCandidate, publishVersion, removeAssessment, renameAssessment, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
 import type { FormState } from '@/lib/auth-actions';
 import { list, pick } from '@/lib/format';
 import { PROFESSIONAL_FIELDS } from '@/lib/humaidan';
@@ -91,9 +92,9 @@ export function JobDetailsForm({ orgId, job, skills, canEdit }: { orgId: string;
   );
 }
 
-export function GenerateButton({ orgId, jobId, label }: { orgId: string; jobId: string; label: string }) {
+export function GenerateButton({ orgId, jobId, assessmentId, label }: { orgId: string; jobId: string; assessmentId?: string; label: string }) {
   const t = useTranslations('workspace');
-  const { pending, error, fire } = useAction(() => generateAssessment(orgId, jobId));
+  const { pending, error, fire } = useAction(() => generateAssessment(orgId, jobId, assessmentId));
   return (
     <div className="space-y-3">
       <button type="button" onClick={fire} disabled={pending} aria-busy={pending} className={PRIMARY}>
@@ -112,6 +113,130 @@ export function EmptyAssessment({ orgId, jobId }: { orgId: string; jobId: string
       <h3 className="font-display text-xl font-semibold">{t('noAssessmentTitle')}</h3>
       <p className="mt-1 mb-4 text-muted">{t('noAssessmentBody')}</p>
       <GenerateButton orgId={orgId} jobId={jobId} label={t('generate')} />
+    </div>
+  );
+}
+
+type AssessmentSummary = { id: string; title_ar: string; title_en: string; assessment_versions: { status: string }[] };
+
+export function AssessmentSwitcher({ orgId, jobId, assessments, selected, canBuild }: { orgId: string; jobId: string; assessments: AssessmentSummary[]; selected: string; canBuild: boolean }) {
+  const t = useTranslations('workspace');
+  const locale = useLocale();
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string>();
+
+  function create(form: FormData) {
+    start(async () => {
+      const made = await addAssessment(orgId, jobId, form);
+      setError(made.error);
+      if (made.assessmentId) {
+        setAdding(false);
+        router.push(`/organization/${orgId}/jobs/${jobId}?assessment=${made.assessmentId}`);
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <nav aria-label={t('assessmentsLabel')} className="flex flex-wrap items-center gap-2">
+        {assessments.map((a) => {
+          const current = a.id === selected;
+          return (
+            <Link
+              key={a.id} href={`/organization/${orgId}/jobs/${jobId}?assessment=${a.id}`} aria-current={current ? 'page' : undefined}
+              className={clsx('rounded-full border px-4 py-2 text-sm font-semibold transition-colors', current ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-surface-2')}
+            >
+              {pick(locale, a.title_ar, a.title_en)}
+              <span className="ms-2 font-medium opacity-80">{t(`status.${a.assessment_versions[0]?.status ?? 'draft'}`)}</span>
+            </Link>
+          );
+        })}
+        {canBuild && !adding && (
+          <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-2 rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold transition-colors hover:bg-surface-2">
+            <span aria-hidden>+</span>{t('addAssessment')}
+          </button>
+        )}
+      </nav>
+      {adding && (
+        <form
+          className="grid gap-3 rounded-lg bg-surface p-4 sm:grid-cols-2"
+          onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
+        >
+          <Field name="title_ar" dir="rtl" required maxLength={200} label={t('assessmentTitleAr')} />
+          <Field name="title_en" dir="ltr" required maxLength={200} label={t('assessmentTitleEn')} />
+          <div className="sm:col-span-2">
+            <p className="mb-3 text-sm text-muted">{t('addAssessmentHint')}</p>
+            <ErrorText code={error} />
+            <div className="mt-2 flex items-center gap-4">
+              <button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY}>
+                {pending && <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-current border-e-transparent" />}
+                {pending ? t('generating') : t('createAssessment')}
+              </button>
+              <button type="button" onClick={() => setAdding(false)} className="font-semibold">{t('cancelAction')}</button>
+            </div>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+export function AssessmentTitle({ orgId, jobId, assessment, canEdit, canRemove }: { orgId: string; jobId: string; assessment: { id: string; title_ar: string; title_en: string }; canEdit: boolean; canRemove: boolean }) {
+  const t = useTranslations('workspace');
+  const locale = useLocale();
+  const router = useRouter();
+  const [renaming, setRenaming] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string>();
+
+  function save(form: FormData) {
+    start(async () => {
+      const done = await renameAssessment(orgId, assessment.id, form);
+      setError(done.error);
+      if (!done.error) setRenaming(false);
+    });
+  }
+  function remove() {
+    start(async () => {
+      const done = await removeAssessment(orgId, assessment.id);
+      setError(done.error);
+      if (!done.error) router.push(`/organization/${orgId}/jobs/${jobId}`);
+    });
+  }
+
+  if (renaming) {
+    return (
+      <form className="grid gap-3 rounded-lg bg-surface p-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); save(new FormData(e.currentTarget)); }}>
+        <Field name="title_ar" dir="rtl" required maxLength={200} label={t('assessmentTitleAr')} defaultValue={assessment.title_ar} />
+        <Field name="title_en" dir="ltr" required maxLength={200} label={t('assessmentTitleEn')} defaultValue={assessment.title_en} />
+        <div className="sm:col-span-2">
+          <ErrorText code={error} />
+          <div className="mt-2 flex items-center gap-4">
+            <button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY}>{t('saveTitle')}</button>
+            <button type="button" onClick={() => setRenaming(false)} className="font-semibold">{t('cancelAction')}</button>
+          </div>
+        </div>
+      </form>
+    );
+  }
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h3 className="font-display text-2xl font-semibold">{pick(locale, assessment.title_ar, assessment.title_en)}</h3>
+        {canEdit && <button type="button" onClick={() => setRenaming(true)} className="text-sm font-semibold underline underline-offset-4">{t('renameAssessment')}</button>}
+        {canRemove && (confirming ? (
+          <span className="flex items-center gap-3 text-sm">
+            <button type="button" disabled={pending} aria-busy={pending} onClick={remove} className="font-semibold text-error underline underline-offset-4 disabled:opacity-60">{t('confirmRemoveAssessment')}</button>
+            <button type="button" onClick={() => setConfirming(false)} className="font-semibold">{t('cancelAction')}</button>
+          </span>
+        ) : (
+          <button type="button" onClick={() => setConfirming(true)} className="text-sm text-muted underline underline-offset-4">{t('removeAssessment')}</button>
+        ))}
+      </div>
+      <ErrorText code={error} />
     </div>
   );
 }
@@ -264,12 +389,12 @@ export function PublishPanel({ orgId, versionId }: { orgId: string; versionId: s
   );
 }
 
-export function InviteButton({ applicationId }: { applicationId: string }) {
+export function InviteButton({ applicationId, assessmentId, title }: { applicationId: string; assessmentId: string; title: string }) {
   const t = useTranslations('workspace');
-  const { pending, error, fire } = useAction(() => inviteCandidate(applicationId));
+  const { pending, error, fire } = useAction(() => inviteCandidate(applicationId, assessmentId));
   return (
     <div>
-      <button type="button" disabled={pending} aria-busy={pending} onClick={fire} className="rounded-full bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{t('invite')}</button>
+      <button aria-label={t('inviteNamed', { title })} type="button" disabled={pending} aria-busy={pending} onClick={fire} className="rounded-full bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{t('invite')}</button>
       <ErrorText code={error} />
     </div>
   );

@@ -13,7 +13,7 @@ type Education = { institution: string; qualification: string; field?: string; s
 type Applicant = {
   status: string;
   jobs: { id: string; title_ar: string; title_en: string; job_skills: Named[] };
-  assessment_attempts: { id: string; status: string }[];
+  assessment_attempts: { id: string; status: string; assessment_versions: { assessments: { title_ar: string; title_en: string } } }[];
   users: {
     email: string;
     candidate_skills: Named[];
@@ -36,7 +36,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const profile = data.users.candidate_profiles;
   const listed = new Set(data.users.candidate_skills.map((s) => s.skill_id));
   const required = new Set(data.jobs.job_skills.map((s) => s.skill_id));
-  const attempt = data.assessment_attempts.find((a) => a.status === 'submitted');
+  const submitted = data.assessment_attempts.filter((a) => a.status === 'submitted');
   const span = (i: { start_year: number; end_year?: number | null }) => `${i.start_year} – ${i.end_year ?? t('present')}`;
 
   return (
@@ -52,9 +52,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         </p>
         <p className="mt-2 text-sm font-medium">{t('appliedFor', { job: pick(locale, data.jobs.title_ar, data.jobs.title_en) })} · {ts(data.status)}</p>
         <p className="mt-4 border-s-2 border-gold ps-4 text-sm">{t('privacy')}</p>
-        {attempt && (
-          <Link href={`/organization/${orgId}/review/${attempt.id}`} className="mt-4 inline-flex items-center gap-2 font-semibold text-primary underline underline-offset-4">{t('viewWork')}<Arrow /></Link>
-        )}
+        {submitted.map((attempt) => (
+          <Link key={attempt.id} href={`/organization/${orgId}/review/${attempt.id}`} className="mt-4 me-5 inline-flex items-center gap-2 font-semibold text-primary underline underline-offset-4">
+            {submitted.length > 1 ? `${t('viewWork')}: ${pick(locale, attempt.assessment_versions.assessments.title_ar, attempt.assessment_versions.assessments.title_en)}` : t('viewWork')}<Arrow />
+          </Link>
+        ))}
       </header>
 
       {!profile && <p className="text-muted">{t('noProfile')}</p>}
