@@ -74,6 +74,7 @@ export default async function LocaleLayout({ children, params }: Params & { chil
       lang={locale}
       dir={locale === 'ar' ? 'rtl' : 'ltr'}
       suppressHydrationWarning
+      data-scroll-behavior="smooth"
       className={`${plexArabic.variable} ${plex.variable} ${kufi.variable} ${bricolage.variable}`}
     >
       <body className="flex min-h-dvh flex-col">

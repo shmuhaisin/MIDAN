@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { evidenceLink, releaseResult, runEvaluation, submitReview } from '@/lib/actions';
 import { number, pick } from '@/lib/format';
-import { ErrorText, INPUT, PRIMARY, useAction } from './forms';
+import { ErrorText, INPUT, openFileLink, PRIMARY, useAction } from './forms';
 
 type Score = { criterion_id: string; score: string; source: string; evidence_ref: string | null; explanation: string | null; confidence: string | null };
 type Criterion = { id: string; code: string; description_ar: string; description_en: string; max_score: string };
@@ -47,11 +47,7 @@ function EvidenceLink({ id, name }: { id: string; name: string }) {
     <span>
       <button
         type="button"
-        onClick={async () => {
-          const result = await evidenceLink(id);
-          setError(result.error);
-          if (result.url) window.open(result.url, '_blank', 'noopener');
-        }}
+        onClick={() => openFileLink(() => evidenceLink(id), setError)}
         className="font-semibold text-primary underline underline-offset-4"
       >
         {t('open')}: <span dir="ltr">{name}</span>

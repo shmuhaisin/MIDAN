@@ -4,12 +4,13 @@ import { Arrow, Eyebrow, Humaidan, JourneyRail, Parapet } from '@/components/bra
 import { WithdrawButton } from '@/components/forms';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
-import { pick } from '@/lib/format';
+import { number, pick } from '@/lib/format';
 import { getSession } from '@/lib/session';
 
 type Me = {
   display_name: string | null; email: string;
-  candidate_profiles: { full_name: string; headline: string | null } | null;
+  candidate_profiles: { full_name: string; headline: string | null; summary: string | null; cv_path: string | null; experience: unknown[]; education: unknown[] } | null;
+  candidate_skills: { skill_id: string }[];
   organization_members: { org_id: string; role: string; organizations: { name_ar: string; name_en: string; is_demo: boolean } }[];
 };
 type MyApplication = {
@@ -59,6 +60,13 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         : isOrgFirst && me.organization_members.length === 0
           ? { title: t('createOrganization'), body: t('createOrganizationBody'), cta: t('createOrganization'), href: '/organization/new' }
           : { title: t('nextTrackTitle'), body: t('nextTrackBody'), cta: t('nextTrackCta'), href: '/opportunities' };
+
+  const profile = me.candidate_profiles;
+  const profileChecks = [
+    Boolean(profile?.headline), Boolean(profile?.summary), Boolean(profile?.experience.length),
+    Boolean(profile?.education.length), me.candidate_skills.length > 0, Boolean(profile?.cv_path),
+  ];
+  const profileDone = profileChecks.filter(Boolean).length;
 
   // Organization staff get a formal workspace. Humaidan guides candidates here.
   const staffOnly = isOrgFirst || (me.organization_members.length > 0 && !me.candidate_profiles && applications.length === 0);
@@ -145,7 +153,15 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                 {me.candidate_profiles.headline && <span className="block text-sm text-muted">{me.candidate_profiles.headline}</span>}
               </p>
             )}
-            <Link href="/profile" className="mt-2 inline-block font-semibold text-primary underline underline-offset-4">{t('editProfile')}</Link>
+            {profile && (
+              <div className="mt-3">
+                <p className="text-sm text-muted">{t('profileProgress', { done: number(locale, profileDone), total: number(locale, profileChecks.length) })}</p>
+                <span aria-hidden className="mt-1 flex gap-1">
+                  {profileChecks.map((done, i) => <span key={i} className={clsx('h-1.5 flex-1 rounded-full', i < profileDone ? 'bg-primary' : 'bg-surface-2')} />)}
+                </span>
+              </div>
+            )}
+            <Link href="/profile" className="mt-2 inline-block font-semibold text-primary underline underline-offset-4">{profileDone < profileChecks.length ? t('completeProfile') : t('editProfile')}</Link>
           </section>
           <section>
             <h2 className="font-display text-xl font-bold">{t('organizations')}</h2>

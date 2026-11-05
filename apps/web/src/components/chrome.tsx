@@ -18,7 +18,15 @@ const NAV = [
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <ThemeProvider
+      attribute="data-theme"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+      // The theme script only needs to run from the server's HTML. React 19 reports an error if
+      // an executable script is rendered again on the client, which layout refreshes do.
+      scriptProps={{ type: typeof window === 'undefined' ? 'text/javascript' : 'application/json' }}
+    >
       <MotionConfig reducedMotion="user">{children}</MotionConfig>
     </ThemeProvider>
   );

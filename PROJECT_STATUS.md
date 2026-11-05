@@ -12,10 +12,13 @@ Only what has been run is marked Tested. Last updated 2026-11-05.
 | 2 | Tenant isolation, role permissions, API rate limiting | Tested |
 | 2 | Sign-up allowlist: real addresses refused at the database | Tested |
 | 2 | Tables for occupations, development plans, assistant conversations | Not Started |
-| 3 | Sessions, candidate dashboard, basic profile, create organization | Tested |
+| 3 | Sessions, candidate dashboard, create organization | Tested |
+| 3 | Candidate profile: basics, experience, education, skills, CV upload, replace and removal | Tested |
+| 3 | Applicant profile for the organization applied to, ending on withdrawal | Tested |
 | 3 | Organization logo, colors, welcome message, industry | Tested |
 | 3 | Sign-in form with a real account, sign-up, email confirmation | Implemented, not verified |
-| 3 | Team invitations, role management UI, education, experience, CV upload | Not Started |
+| 3 | Team invitations, role management UI | Not Started |
+| 3 | Sharing a profile beyond applications (consent is recorded, sharing isn't built) | Not Started |
 | 4 | Job details and skills, browsing, applying, withdrawing, status tracking | Tested |
 | 4 | 30 to 50 reviewed skills, occupations | Not Started (6 draft skills exist) |
 | 5 | Assessment drafts, editing, publishing, preview, branded experience, autosave, evidence, submission | Tested |

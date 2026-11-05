@@ -3,10 +3,10 @@
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
 import { useTranslations } from 'next-intl';
-import { useActionState, useEffect, useState, useTransition } from 'react';
+import { useActionState, useEffect, useId, useState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Link } from '@/i18n/navigation';
-import { applyToJob, createJob, createOrganization, saveBranding, saveProfile, setApplicationStatus, setJobStatus, uploadLogo, withdrawApplication } from '@/lib/actions';
+import { applyToJob, createJob, createOrganization, saveBranding, setApplicationStatus, setJobStatus, uploadLogo, withdrawApplication } from '@/lib/actions';
 import { signIn, signUp, type FormState } from '@/lib/auth-actions';
 import { PROFESSIONAL_FIELDS, resolveHumaidan } from '@/lib/humaidan';
 import { Arrow, Humaidan } from './brand';
@@ -43,12 +43,13 @@ export function ErrorText({ code }: { code?: string }) {
   );
 }
 
-export function Field({ label, hint, name, ...props }: { label: string; hint?: string; name: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+export function Field({ label, hint, name, className, ...props }: { label: string; hint?: string; name: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const hintId = useId();
   return (
     <label className="block">
       <span className="text-sm font-medium">{label}</span>
-      <input name={name} aria-describedby={hint ? `${name}-hint` : undefined} className={INPUT} {...props} />
-      {hint && <span id={`${name}-hint`} className="mt-1 block text-xs text-muted">{hint}</span>}
+      <input name={name} aria-describedby={hint ? hintId : undefined} className={className ?? INPUT} {...props} />
+      {hint && <span id={hintId} className="mt-1 block text-xs text-muted">{hint}</span>}
     </label>
   );
 }
@@ -177,30 +178,6 @@ export function BrandingForm({ orgId, branding, logoUrl, canEdit }: {
   );
 }
 
-export function ProfileForm({ profile }: { profile: { full_name?: string; headline?: string | null; city?: string | null; share_profile_consent?: boolean } | null }) {
-  const t = useTranslations('profile');
-  const [state, action] = useActionState<FormState, FormData>(saveProfile, {});
-  return (
-    <form action={action} className="space-y-4">
-      <ErrorText code={state.error} />
-      <Field name="full_name" required maxLength={200} autoComplete="name" defaultValue={profile?.full_name ?? ''} label={t('fullName')} />
-      <Field name="headline" maxLength={200} defaultValue={profile?.headline ?? ''} label={t('headline')} hint={t('headlineHint')} />
-      <Field name="city" maxLength={100} defaultValue={profile?.city ?? ''} label={t('city')} />
-      <label className="flex items-start gap-3 rounded-lg bg-surface p-4">
-        <input type="checkbox" name="share_profile_consent" defaultChecked={profile?.share_profile_consent ?? false} className="mt-1 size-4 accent-[var(--primary)]" />
-        <span>
-          <span className="block text-sm font-medium">{t('consent')}</span>
-          <span className="mt-1 block text-xs text-muted">{t('consentHint')}</span>
-        </span>
-      </label>
-      <div className="flex items-center gap-4">
-        <Submit>{t('save')}</Submit>
-        {state.ok && <motion.span role="status" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="font-semibold text-primary">{t('saved')}</motion.span>}
-      </div>
-    </form>
-  );
-}
-
 function toSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 }
@@ -251,6 +228,20 @@ export function JobForm({ orgId }: { orgId: string }) {
       </AnimatePresence>
     </div>
   );
+}
+
+/**
+ * Opens a signed file link. The tab has to open during the click itself, or browsers block it,
+ * so it opens empty and is pointed at the link once the server answers.
+ */
+export async function openFileLink(getLink: () => Promise<{ url?: string; error?: string }>, setError: (code?: string) => void) {
+  const tab = window.open('', '_blank');
+  if (tab) tab.opener = null;
+  const result = await getLink();
+  setError(result.error);
+  if (!tab) return;
+  if (result.url) tab.location.href = result.url;
+  else tab.close();
 }
 
 export function useAction(run: () => Promise<FormState>) {

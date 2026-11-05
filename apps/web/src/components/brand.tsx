@@ -27,7 +27,7 @@ export function Humaidan({
         alt={t(variant)}
         fill
         sizes={sizes}
-        priority={priority}
+        loading={priority ? 'eager' : undefined}
         className="object-contain object-bottom"
       />
     </span>

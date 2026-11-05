@@ -10,5 +10,5 @@ Rules that stay in force:
 
 Next:
 1. Build the Humaidan assistant: authenticated API endpoint, role and page context from authorized data, conversation persistence, floating panel, full-screen on mobile, labeled demo mode. It must not solve live assessments or reveal rubrics, and permissions must be enforced by the backend, not the model.
-2. Finish candidate profiles (education, experience, skills, CV upload) and team invitations.
+2. Team invitations and role management.
 3. A persistent LangGraph checkpointer for production, and Graph A generation through a real provider once a key is available.

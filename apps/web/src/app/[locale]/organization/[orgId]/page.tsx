@@ -97,7 +97,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                 return (
                   <li key={a.id} className="grid gap-3 border-b border-border py-4 sm:grid-cols-[1fr_1fr_14rem] sm:items-center">
                     <div className="min-w-0">
-                      <p className="truncate font-semibold">{name}</p>
+                      <Link href={`/organization/${orgId}/applicants/${a.id}`} className="block truncate font-semibold underline-offset-4 hover:text-primary hover:underline">{name}</Link>
                       <p className="truncate text-sm text-muted">{a.users.candidate_profiles?.headline ?? t('noProfile')}</p>
                     </div>
                     <p className="text-sm">{pick(locale, a.jobs.title_ar, a.jobs.title_en)}</p>

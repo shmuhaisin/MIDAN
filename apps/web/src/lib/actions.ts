@@ -12,24 +12,50 @@ function text(form: FormData, name: string) {
   return String(form.get(name) ?? '').trim();
 }
 
-export async function saveProfile(_: FormState, form: FormData): Promise<FormState> {
-  const full_name = text(form, 'full_name');
-  if (!full_name) return { error: 'required' };
+export type ProfilePayload = {
+  full_name: string; headline: string | null; city: string | null; summary: string | null; years_experience: number | null;
+  share_profile_consent: boolean;
+  education: { institution: string; qualification: string; field?: string; start_year: number; end_year?: number | null }[];
+  experience: { title: string; organization: string; start_year: number; end_year?: number | null; description?: string }[];
+  skill_ids: string[];
+};
+
+export async function saveProfile({ skill_ids, ...profile }: ProfilePayload): Promise<FormState> {
+  if (!profile.full_name.trim()) return { error: 'required' };
+  const backwards = [...profile.education, ...profile.experience].some((i) => i.end_year != null && i.end_year < i.start_year);
+  if (backwards) return { error: 'invalid_years' };
   try {
-    await api('/me/candidate-profile', {
-      method: 'PUT',
-      body: {
-        full_name,
-        ...(text(form, 'headline') && { headline: text(form, 'headline') }),
-        ...(text(form, 'city') && { city: text(form, 'city') }),
-        share_profile_consent: form.get('share_profile_consent') === 'on',
-      },
-    });
+    await api('/me/candidate-profile', { method: 'PUT', body: profile });
+    await api('/me/skills', { method: 'PUT', body: { skill_ids } });
   } catch (error) {
     return { error: errorCode(error) };
   }
   revalidatePath('/', 'layout');
   return { ok: true };
+}
+
+export async function uploadCv(form: FormData) {
+  return result(() => api('/me/cv', { method: 'POST', form }));
+}
+
+export async function removeCv() {
+  return result(() => api('/me/cv', { method: 'DELETE' }));
+}
+
+export async function myCvLink(): Promise<{ url?: string; error?: string }> {
+  try {
+    return { url: (await api<{ url: string }>('/me/cv/url')).url };
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+}
+
+export async function applicantCvLink(applicationId: string): Promise<{ url?: string; error?: string }> {
+  try {
+    return { url: (await api<{ url: string }>(`/applications/${applicationId}/cv-url`)).url };
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
 }
 
 export async function applyToJob(jobId: string): Promise<FormState> {

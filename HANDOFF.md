@@ -17,16 +17,16 @@ Project `al-midan-ya-hamidan`, ref `squpszwbrqkflezfltoj`, region `eu-central-1`
 Not reachable with the available tools; needs the dashboard: custom SMTP, leaked password protection, Auth Site URL and redirect URLs. The owner chose to continue without SMTP for now, so confirmation email is limited to what Supabase's built-in sender allows. The default Site URL points at localhost:3000, which is a different app on this machine, so confirmation links land there until it's changed to port 3100.
 
 ## Tests that were run
-- API, live database, real AI service: 44 end-to-end. API unit: 2.
-- Browser (Playwright, live database): 9 journeys, including the whole flow from job to released report, and 6 character tests covering all 17 Humaidan scenarios by checking the actual image files.
+- API, live database, real AI service: 50 end-to-end. API unit: 5.
+- Browser (Playwright, live database): 11 journeys, including the whole flow from job to released report, and 6 character tests covering all 17 Humaidan scenarios by checking the actual image files.
 - AI: 23, including interrupt and resume, bounded repair, deterministic scoring, invented evidence, prompt injection.
 - Web: type check, production build, 7 unit tests.
-- By eye: login, employer login, assessment screens (legal, technology on mobile), home, review, report.
+- By eye: profile, applicant profile, login, employer login, assessment screens (legal, technology on mobile), home, review, report.
 
 ## Not checked
 - **Signing in through the form with a real account, sign-up, and email confirmation.** Automation sets session cookies instead. Wrong-password and validation errors were tested.
 - Any real LLM provider; no key is configured.
-- A next-themes script warning can appear in development on client navigation. A red dev badge appeared in one earlier screenshot and did not recur once the journey failed on console errors, so its cause wasn't confirmed.
+- The cause of intermittent 20-second database stalls on the local connection to Frankfurt. A single retry handles them; a second expiry returns 503. One full browser run also lost its connection to Supabase entirely (connect timeouts); those 7 tests passed unchanged on re-run. Hosted reliability hasn't been measured.
 - Session renewal in `proxy.ts` has not been exercised with a truly expired token.
 - No automated accessibility audit. Arabic copy has not been reviewed by a native editor.
 
@@ -34,4 +34,4 @@ Not reachable with the available tools; needs the dashboard: custom SMTP, leaked
 `npm audit` reports a high-severity finding in the Prisma CLI's `deepmerge-ts` (see docs/DECISIONS.md). Candidate account deletion is blocked once they've applied, pending a PDPL erasure design. The Humaidan chat assistant doesn't exist yet. Section reveals start at opacity 0, so that content needs JavaScript to appear; fix before launch. No ESLint (`lint` runs `tsc`), no CI, no `packages/*`, no docker-compose. See PROJECT_STATUS.md.
 
 ## Next
-Build the Humaidan assistant. See NEXT_SESSION_PROMPT.md.
+Build the Humaidan assistant, then team invitations. See NEXT_SESSION_PROMPT.md.

@@ -40,7 +40,7 @@ export async function apiForPage<T>(path: string): Promise<T | null> {
 export function errorCode(error: unknown) {
   if (error instanceof ApiError) {
     const codes: Record<number, string> = {
-      400: 'required', 401: 'session', 403: 'forbidden', 404: 'not_found', 409: 'duplicate', 422: 'not_allowed', 429: 'over_request_rate_limit',
+      400: 'required', 401: 'session', 403: 'forbidden', 404: 'not_found', 409: 'duplicate', 413: 'too_large', 422: 'not_allowed', 429: 'over_request_rate_limit',
     };
     return codes[error.status] ?? 'generic';
   }

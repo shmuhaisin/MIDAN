@@ -4,6 +4,8 @@ begin;
 set local storage.allow_delete_query = 'true';
 delete from storage.objects o using public.users u
   where o.owner_id = u.id::text and u.email like 'midan.test.%@example.com';
+delete from public.candidate_skills s using public.users u
+  where s.candidate_id = u.id and u.email like 'midan.test.%@example.com';
 delete from public.candidate_profiles p using public.users u
   where p.user_id = u.id and u.email like 'midan.test.%@example.com';
 delete from public.organizations where slug like 'midan-test-%';

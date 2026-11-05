@@ -298,6 +298,9 @@ test('the full MVP journey: details, draft, publish, work, evaluate, review, rel
   await owner.getByRole('button', { name: 'Run AI-assisted evaluation' }).click();
   await expect(owner.getByText('Demo mode: these proposed scores')).toBeVisible({ timeout: 60_000 });
   await expect(owner.getByText('The system is running in demo mode')).toBeVisible();
+  const evidenceResponse = owner.context().waitForEvent('response', (r) => r.url().includes('/storage/v1/object/sign/assessment-evidence/'));
+  await owner.getByRole('button', { name: /Open: work\.csv/ }).click();
+  expect((await evidenceResponse).status()).toBe(200);
   await owner.getByLabel('Your score').first().fill('9');
   await owner.getByLabel('Internal notes').fill('INTERNAL-NOTE-UI');
   await owner.getByRole('button', { name: 'Approve the review' }).click();
@@ -342,4 +345,124 @@ test('registration is closed for real addresses, with a clear message', async ({
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Registration is closed' })).toBeVisible();
   await expect(page.getByText('Please don\'t enter real personal information')).toBeVisible();
+});
+
+test('a candidate builds a full profile and CV, and only the organization applied to can see it', async ({ browser }) => {
+  const candidate = await (await signedIn(browser, 'CANDIDATE_ONE', { viewport: { width: 1280, height: 900 } })).newPage();
+  const owner = await (await signedIn(browser, 'ORG_A_OWNER')).newPage();
+  const outsider = await (await signedIn(browser, 'ORG_B_OWNER')).newPage();
+  const problems: string[] = [];
+  candidate.on('pageerror', (e) => problems.push(e.message));
+
+  await candidate.goto('/en/profile');
+  await expect(candidate.getByText("don't upload your real CV")).toBeVisible();
+  await candidate.getByLabel('Full name').fill('Test Candidate One');
+  await candidate.getByLabel('Professional headline').fill('Fictional analyst');
+  await candidate.getByLabel('City').fill('Riyadh');
+  await candidate.getByLabel('Years of experience').fill('3');
+  await candidate.getByLabel('About you').fill('A fictional summary for testing.');
+
+  await candidate.getByRole('button', { name: 'Add experience' }).click();
+  await candidate.getByLabel('Job title', { exact: true }).last().fill('Junior Analyst');
+  await candidate.getByLabel('Organization', { exact: true }).last().fill('Fictional Co');
+  const experience = candidate.getByRole('group', { name: 'Experience' });
+  await experience.getByLabel('Start year').last().fill('2020');
+  await experience.getByLabel('End year').last().fill('2010');
+
+  await candidate.getByRole('button', { name: 'Add a qualification' }).click();
+  await candidate.getByLabel('Institution', { exact: true }).last().fill('Fictional University');
+  await candidate.getByLabel('Qualification', { exact: true }).last().fill('BSc');
+  await candidate.getByRole('group', { name: 'Education' }).getByLabel('Start year').last().fill('2015');
+  await candidate.getByRole('group', { name: 'Your skills' }).getByRole('checkbox', { name: 'Data analysis' }).check({ force: true });
+
+  await candidate.getByRole('button', { name: 'Save profile' }).click();
+  await expect(candidate.getByRole('alert').filter({ hasText: 'Check the years' })).toBeVisible();
+  await expect(candidate.getByLabel('Job title', { exact: true }).last()).toHaveValue('Junior Analyst'); // Nothing typed is lost.
+
+  await experience.getByLabel('End year').last().fill('');
+  await candidate.getByRole('button', { name: 'Save profile' }).click();
+  await expect(candidate.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
+
+  await candidate.locator('input[type=file]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('x') });
+  await expect(candidate.getByRole('alert').filter({ hasText: 'Upload a PDF or Word file' })).toBeVisible();
+  await candidate.locator('input[type=file]').setInputFiles({ name: 'fictional.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 fictional') });
+  await expect(candidate.getByText('You have a CV on file')).toBeVisible({ timeout: 40_000 });
+  if (SHOTS) await candidate.screenshot({ path: `${SHOTS}/profile-en.png`, fullPage: true });
+
+  await candidate.reload();
+  await expect(candidate.getByLabel('Job title', { exact: true }).last()).toHaveValue('Junior Analyst');
+  await expect(candidate.getByLabel('Institution', { exact: true }).last()).toHaveValue('Fictional University');
+  await expect(candidate.getByRole('checkbox', { name: 'Data analysis' })).toBeChecked();
+  await expect(candidate.getByText('You have a CV on file')).toBeVisible();
+
+  await candidate.goto('/ar/profile');
+  if (SHOTS) await candidate.screenshot({ path: `${SHOTS}/profile-ar.png`, fullPage: true });
+  await candidate.goto('/en/dashboard');
+  await expect(candidate.getByText('5 of 6 complete').or(candidate.getByText('6 of 6 complete'))).toBeVisible();
+
+  // Applies, then appears to that organization only.
+  await owner.goto('/en/organization/new');
+  await owner.getByLabel('Name in Arabic').fill('منشأة ملف');
+  await owner.getByLabel('Name in English').fill(`Midan Test Profile ${RUN}`);
+  await owner.getByRole('button', { name: 'Create organization' }).click();
+  await expect(owner.getByText('Your role: Owner')).toBeVisible();
+  await owner.getByRole('button', { name: 'New job' }).click();
+  await owner.getByLabel('Title in Arabic').fill('وظيفة ملف');
+  await owner.getByLabel('Title in English').fill(`Profile Role ${RUN}`);
+  await owner.getByRole('button', { name: 'Save as draft' }).click();
+  const row = owner.getByRole('listitem').filter({ hasText: `Profile Role ${RUN}` });
+  await row.getByRole('button', { name: 'Publish' }).click();
+  await expect(row.getByText('Published')).toBeVisible();
+  await row.getByRole('link', { name: `Profile Role ${RUN}` }).click();
+  await expect(owner.getByRole('heading', { level: 1 })).toHaveText(`Profile Role ${RUN}`);
+  const jobId = new URL(owner.url()).pathname.split('/').pop();
+
+  await candidate.goto(`/en/opportunities/${jobId}`);
+  await candidate.getByRole('button', { name: 'Apply for this job' }).click();
+  await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
+
+  await owner.reload();
+  await owner.getByRole('link', { name: 'Test Candidate One' }).click();
+  await expect(owner).toHaveURL(/\/applicants\/[0-9a-f-]{36}$/);
+  await expect(owner.getByText('Junior Analyst · Fictional Co').first()).toBeVisible();
+  await expect(owner.getByText('Self-reported and not assessed')).toBeVisible();
+  await expect(owner.getByRole('button', { name: 'Open CV' })).toBeVisible();
+  if (SHOTS) await owner.screenshot({ path: `${SHOTS}/applicant-en.png`, fullPage: true });
+  const applicantPath = new URL(owner.url()).pathname;
+
+  const cvResponse = owner.context().waitForEvent('response', (r) => r.url().includes('/storage/v1/object/sign/candidate-documents/'));
+  await owner.getByRole('button', { name: 'Open CV' }).click();
+  expect((await cvResponse).status()).toBe(200);
+
+  await outsider.goto(applicantPath);
+  await expect(outsider.getByRole('heading', { level: 1 })).toHaveText('This field is empty');
+
+  await candidate.goto('/en/dashboard');
+  const mine = candidate.getByRole('listitem').filter({ hasText: `Profile Role ${RUN}` });
+  await mine.getByRole('button', { name: 'Withdraw' }).click();
+  await mine.getByRole('alertdialog').getByRole('button', { name: 'Withdraw' }).click();
+  await expect(mine.getByText('Withdrawn')).toBeVisible();
+  await owner.goto(applicantPath);
+  await expect(owner.getByRole('heading', { level: 1 })).toHaveText('This field is empty');
+  expect(problems).toEqual([]);
+});
+
+test('no error badge: switching language and saving re-render the layout without console errors', async ({ browser }) => {
+  const page = await (await signedIn(browser, 'CANDIDATE_ONE')).newPage();
+  const problems: string[] = [];
+  page.on('pageerror', (e) => problems.push(e.message));
+  page.on('console', (m) => {
+    if (m.type() === 'error' && !m.text().includes('Failed to load resource')) problems.push(m.text());
+  });
+  await page.goto('/en/profile');
+  await page.getByLabel('Full name').fill('Test Candidate One');
+  await page.getByRole('button', { name: 'Save profile' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
+  await page.getByRole('button', { name: 'العربية' }).first().click();
+  await expect(page).toHaveURL(/\/ar\/profile$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('ملفك المهني');
+  await page.getByRole('button', { name: 'English' }).first().click();
+  await expect(page).toHaveURL(/\/en\/profile$/);
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  expect(problems).toEqual([]);
 });

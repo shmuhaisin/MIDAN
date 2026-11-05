@@ -433,6 +433,92 @@ describe('Midan database foundation', () => {
     });
   });
 
+  describe('candidate profiles', () => {
+    const PDF = Buffer.from('%PDF-1.4 fictional test file');
+    let job: string, application: string;
+
+    it('saves education, experience and skills, and validates them', async () => {
+      const profile = {
+        full_name: 'Test Candidate One', summary: 'Fictional summary', years_experience: 3,
+        education: [{ institution: 'Test University', qualification: 'BSc', start_year: 2015, end_year: 2019 }],
+        experience: [{ title: 'Analyst', organization: 'Test Co', start_year: 2019, end_year: null, description: 'Fictional work' }],
+      };
+      await api().put('/me/candidate-profile').set(bearer(candidateOne)).send({ ...profile, education: [{ institution: 'x', qualification: 'y', start_year: 2020, end_year: 2010 }] }).expect(400);
+      await api().put('/me/candidate-profile').set(bearer(candidateOne)).send({ ...profile, education: [{ institution: 'x', qualification: 'y', start_year: 1200 }] }).expect(400);
+      await api().put('/me/candidate-profile').set(bearer(candidateOne)).send({ ...profile, experience: [{ title: 'x', organization: 'y', start_year: 2020, salary: 1 }] }).expect(400);
+      await api().put('/me/candidate-profile').set(bearer(candidateOne)).send(profile).expect(200);
+
+      const skills = (await api().get('/skills').expect(200)).body as { id: string }[];
+      await api().put('/me/skills').set(bearer(candidateOne)).send({ skill_ids: ['not-a-uuid'] }).expect(400);
+      await api().put('/me/skills').set(bearer(candidateOne)).send({ skill_ids: ['00000000-0000-4000-8000-000000000000'] }).expect(400);
+      await api().put('/me/skills').set(bearer(candidateOne)).send({ skill_ids: [skills[0].id, skills[1].id] }).expect(200);
+
+      const me = await api().get('/me').set(bearer(candidateOne)).expect(200);
+      expect(me.body.candidate_profiles.education[0].institution).toBe('Test University');
+      expect(me.body.candidate_profiles.experience[0].title).toBe('Analyst');
+      expect(me.body.candidate_skills).toHaveLength(2);
+    });
+
+    it('records consent time only when consent changes', async () => {
+      const on = await api().put('/me/candidate-profile').set(bearer(candidateOne)).send({ full_name: 'Test Candidate One', share_profile_consent: true }).expect(200);
+      expect(on.body.consent_updated_at).toBeTruthy();
+      const again = await api().put('/me/candidate-profile').set(bearer(candidateOne)).send({ full_name: 'Test Candidate One', share_profile_consent: true }).expect(200);
+      expect(again.body.consent_updated_at).toBe(on.body.consent_updated_at);
+      await api().put('/me/candidate-profile').set(bearer(candidateOne)).send({ full_name: 'Test Candidate One', share_profile_consent: false }).expect(200);
+    });
+
+    it('accepts only real PDF or Word files as a CV, without keeping the file name', async () => {
+      const send = (buffer: Buffer, filename: string, contentType: string) =>
+        api().post('/me/cv').set(bearer(candidateOne)).attach('file', buffer, { filename, contentType });
+      await send(Buffer.from('MZ'), 'bad.exe', 'application/x-msdownload').expect(422);
+      await send(Buffer.from('MZ not a pdf'), 'fake.pdf', 'application/pdf').expect(422);
+      const saved = await send(PDF, 'Real Person Name.pdf', 'application/pdf').expect(201);
+      expect(saved.body.cv_path).not.toContain('Real');
+      const first = saved.body.cv_path;
+
+      const replaced = await send(PDF, 'second.pdf', 'application/pdf').expect(201);
+      expect(replaced.body.cv_path).not.toBe(first);
+      const link = await api().get('/me/cv/url').set(bearer(candidateOne)).expect(200);
+      expect((await fetch(link.body.url)).status).toBe(200);
+      expect((await storage(candidateOne, 'GET', `object/candidate-documents/${first}`)).ok).toBe(false);
+    });
+
+    it('needs a saved profile before a CV', async () => {
+      const fresh = await signIn('ORG_B_OWNER');
+      await api().post('/me/cv').set(bearer(fresh)).attach('file', PDF, { filename: 'a.pdf', contentType: 'application/pdf' }).expect(422);
+    });
+
+    it('shows the profile and CV only to the organization applied to, and only while active', async () => {
+      job = (await api().post(`/organizations/${orgA}/jobs`).set(bearer(ownerA))
+        .send({ slug: `profile-${RUN}`, title_ar: 'س', title_en: 'Profile job', status: 'published' }).expect(201)).body.id;
+      application = (await api().post(`/jobs/${job}/applications`).set(bearer(candidateOne)).send({}).expect(201)).body.id;
+
+      const seen = await api().get(`/applications/${application}/profile`).set(bearer(ownerA)).expect(200);
+      expect(seen.body.users.candidate_profiles.experience[0].title).toBe('Analyst');
+      expect(seen.body.users.candidate_skills).toHaveLength(2);
+      const link = await api().get(`/applications/${application}/cv-url`).set(bearer(ownerA)).expect(200);
+      expect((await fetch(link.body.url)).status).toBe(200);
+
+      await api().get(`/applications/${application}/profile`).set(bearer(ownerB)).expect(404);
+      await api().get(`/applications/${application}/cv-url`).set(bearer(ownerB)).expect(404);
+      await api().get(`/applications/${application}/profile`).set(bearer(candidateTwo)).expect(404);
+      await api().get(`/applications/${application}/profile`).set(bearer(candidateOne)).expect(403);
+      await api().get('/me/cv/url').set(bearer(ownerB)).expect(404);
+
+      await api().post(`/applications/${application}/withdraw`).set(bearer(candidateOne)).expect(201);
+      await api().get(`/applications/${application}/profile`).set(bearer(ownerA)).expect(404);
+      await api().get(`/applications/${application}/cv-url`).set(bearer(ownerA)).expect(404);
+    });
+
+    it('lets a candidate remove their CV for good', async () => {
+      const me = await api().get('/me').set(bearer(candidateOne)).expect(200);
+      const path = me.body.candidate_profiles.cv_path;
+      await api().delete('/me/cv').set(bearer(candidateOne)).expect(200);
+      await api().delete('/me/cv').set(bearer(candidateOne)).expect(404);
+      expect((await storage(candidateOne, 'GET', `object/candidate-documents/${path}`)).ok).toBe(false);
+    });
+  });
+
   describe('demo stage safeguards', () => {
     it('refuses sign-up for any address outside the allowed test pattern, before an email is sent', async () => {
       const res = await fetch(`${BASE}/auth/v1/signup`, {

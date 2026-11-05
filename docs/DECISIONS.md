@@ -1,5 +1,11 @@
 # Decisions
 
+**2026-11-05: Self-reported skills are kept apart from assessed skills.** `candidate_skills` is what a candidate says; `skill_scores` is what their work showed. Every screen labels the first as self-reported, because mixing them would undercut the product's premise.
+
+**2026-11-05: Original CV file names aren't stored.** They often contain a person's name, and nothing needs them. Files are saved under a random name.
+
+**2026-11-05: An expired database transaction retries once.** Prisma error P2028 means it rolled back, so a retry can't double-apply. This depends on transaction callbacks doing only database work; calls to the AI service and Storage stay outside them. The stalls behind it were seen on the local connection to the Frankfurt transaction pooler, and their cause isn't established. Investigate if they appear in hosted use.
+
 **2026-11-05: Humaidan's outfit follows a saved professional field, not a free image choice.** `assessments.professional_field`, then `organization_branding.industry`, then Original, resolved in `apps/web/src/lib/humaidan.ts`. Organizations choose a field, so a marketing assessment can't be given the events outfit, and media and marketing always resolve to Original as the approved rules require. The field sits on the assessment rather than the immutable version: it changes presentation, not what a candidate is evaluated on.
 
 **2026-11-05: Candidate and employer auth share one route and one set of actions.** `?as=organization` selects a formal layout with no mascot. No auth logic is duplicated.

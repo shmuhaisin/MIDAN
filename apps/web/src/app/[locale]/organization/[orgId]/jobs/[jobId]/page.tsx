@@ -144,7 +144,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
               return (
                 <li key={a.id} className="grid items-center gap-3 border-b border-border py-4 sm:grid-cols-[1fr_12rem_auto]">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold">{name}</p>
+                    <Link href={`/organization/${orgId}/applicants/${a.id}`} className="block truncate font-semibold underline-offset-4 hover:text-primary hover:underline">{name}</Link>
                     <p className="text-sm text-muted">{attempt ? t(`attempt.${attempt.status}`) : ts(a.status)}</p>
                   </div>
                   {canBuild ? <ApplicantStatus id={a.id} status={a.status} label={to('changeStatus', { name })} /> : <span className="text-sm">{ts(a.status)}</span>}

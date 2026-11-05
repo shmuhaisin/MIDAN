@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-05: Complete candidate profiles
+- Profiles now hold a summary, experience, education, self-reported skills and a CV, with a completeness indicator on the dashboard.
+- CVs: PDF or Word only, checked by file signature as well as declared type. The original file name isn't kept. Candidates can replace or permanently remove them.
+- Organizations get an applicant profile screen, with skills labeled self-reported. Access ends when the candidate withdraws.
+- Fixed: clearing a profile field didn't save, and consent time changed on every save.
+- Fixed: file links could be blocked as popups, because the tab opened after the server answered.
+- Fixed: the red error badge in development, caused by the theme script re-rendering on the client.
+- Fixed: a stalled database connection could show the error page. An expired transaction now retries once.
+
 ## 2026-11-05: Product experience correction and Humaidan rules
 - Humaidan's outfit now follows a saved professional field: assessment, then organization, then Original.
 - Removed outfit swapping from the homepage, and the Finance, Legal, Healthcare and Engineering figures from general pages, the assessment builder and reports.

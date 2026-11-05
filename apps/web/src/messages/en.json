@@ -463,7 +463,9 @@
     "unavailable": "The service isn't available right now. Try again soon.",
     "generic": "Something went wrong. Try again.",
     "registration_closed": "Registration is closed during this demo stage, until the privacy review is complete.",
-    "too_large": "That file is too large. The limit is 25 MB."
+    "too_large": "That file is too large.",
+    "cv_type": "Upload a PDF or Word file.",
+    "invalid_years": "Check the years: an end year can't be before its start year."
   },
   "applicationStatus": {
     "submitted": "Submitted",
@@ -548,11 +550,13 @@
       "Submit evidence",
       "Reviewed results",
       "Development"
-    ]
+    ],
+    "profileProgress": "{done} of {total} complete",
+    "completeProfile": "Complete your profile"
   },
   "profile": {
     "title": "Your professional profile",
-    "lead": "Only organizations you apply to can see this.",
+    "lead": "Only organizations you apply to can see this, and they lose access if you withdraw.",
     "fullName": "Full name",
     "headline": "Professional headline",
     "headlineHint": "For example: Recent graduate data analyst",
@@ -561,7 +565,39 @@
     "consentHint": "Optional, and you can turn it off anytime. This sharing isn't built yet, so nothing is shared until it is.",
     "save": "Save profile",
     "saved": "Saved",
-    "back": "Back to my dashboard"
+    "back": "Back to my dashboard",
+    "demoWarning": "This is a demo: use fictional details only, and don't upload your real CV.",
+    "basics": "The basics",
+    "summary": "About you",
+    "summaryHint": "Two or three lines on what you do well and what you're looking for.",
+    "years": "Years of experience",
+    "experience": "Experience",
+    "addExperience": "Add experience",
+    "jobTitle": "Job title",
+    "organization": "Organization",
+    "description": "What did you do?",
+    "education": "Education",
+    "addEducation": "Add a qualification",
+    "institution": "Institution",
+    "qualification": "Qualification",
+    "field": "Field of study",
+    "startYear": "Start year",
+    "endYear": "End year",
+    "endYearHint": "Leave empty if ongoing",
+    "remove": "Remove",
+    "skills": "Your skills",
+    "skillsHint": "These are skills you report yourself. Assessments show what your work proves.",
+    "cv": "CV",
+    "cvHint": "PDF or Word, up to 10 MB. We don't keep the original file name.",
+    "cvUpload": "Upload CV",
+    "cvReplace": "Replace",
+    "cvView": "View",
+    "cvRemove": "Remove for good",
+    "cvOnFile": "You have a CV on file",
+    "cvNone": "You haven't uploaded a CV yet.",
+    "cvSaveFirst": "Save your profile first to upload a CV.",
+    "uploading": "Uploading…",
+    "sharing": "Sharing your profile"
   },
   "org": {
     "newTitle": "Create your organization",
@@ -831,5 +867,25 @@
     "save": "Save identity",
     "saved": "Saved",
     "readOnly": "Only an owner or admin can change these settings."
+  },
+  "applicant": {
+    "back": "Job",
+    "noProfile": "The candidate hasn't completed a profile yet.",
+    "appliedFor": "Applied for {job}",
+    "experience": "Experience",
+    "education": "Education",
+    "present": "present",
+    "skills": "Skills the candidate listed",
+    "skillsNote": "Self-reported and not assessed. The evidence is in the assessment results.",
+    "matches": "Required for this job",
+    "required": "Skills this job requires",
+    "notListed": "Not listed",
+    "cv": "CV",
+    "cvOpen": "Open CV",
+    "cvNone": "The candidate hasn't uploaded a CV.",
+    "years": "{count} years of experience",
+    "none": "Nothing to show.",
+    "viewWork": "Review their assessment work",
+    "privacy": "You can see this profile because this candidate applied to your organization. Access ends if they withdraw."
   }
 }

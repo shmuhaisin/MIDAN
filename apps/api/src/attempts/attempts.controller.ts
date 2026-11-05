@@ -6,6 +6,7 @@ import { IsObject } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { BUILDERS, requireRole } from '../common/roles';
+import { signedUrl, storageFetch } from '../common/storage';
 import { AuthUser, DbService } from '../db/db.service';
 
 class SaveResponseDto {
@@ -13,13 +14,6 @@ class SaveResponseDto {
 }
 
 const MAX_UPLOAD = 25 * 1024 * 1024;
-
-function storage(path: string, token: string, init: RequestInit = {}) {
-  return fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/${path}`, {
-    ...init,
-    headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '', authorization: token, ...init.headers },
-  });
-}
 
 @ApiTags('attempts')
 @ApiBearerAuth()
@@ -107,7 +101,7 @@ export class AttemptsController {
     const name = file.originalname.normalize('NFC').replace(/[^\w.\-؀-ۿ]+/g, '_').slice(-120);
     const path = `${attempt.org_id}/${id}/${randomUUID()}-${Buffer.from(name).toString('hex').slice(0, 60)}`;
 
-    const upload = await storage(`object/assessment-evidence/${path}`, token, {
+    const upload = await storageFetch(`object/assessment-evidence/${path}`, token, {
       method: 'POST',
       headers: { 'content-type': file.mimetype },
       body: new Uint8Array(file.buffer),
@@ -131,14 +125,9 @@ export class AttemptsController {
   async evidenceUrl(@CurrentUser() user: AuthUser, @Headers('authorization') token: string, @Param('id', ParseUUIDPipe) id: string) {
     const file = await this.db.asUser(user, (tx) => tx.evidence_files.findFirst({ where: { id } }));
     if (!file) throw new NotFoundException();
-    const signed = await storage(`object/sign/assessment-evidence/${file.storage_path}`, token, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ expiresIn: 300 }),
-    });
-    if (!signed.ok) throw new ForbiddenException();
-    const { signedURL } = (await signed.json()) as { signedURL: string };
-    return { url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1${signedURL}`, file_name: file.file_name };
+    const url = await signedUrl('assessment-evidence', file.storage_path, token);
+    if (!url) throw new ForbiddenException();
+    return { url, file_name: file.file_name };
   }
 
   @Post('attempts/:id/submit')

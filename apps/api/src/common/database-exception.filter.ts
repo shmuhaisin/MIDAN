@@ -7,6 +7,7 @@ type Mapped = { status: number; message: string };
 function map(error: Prisma.PrismaClientKnownRequestError | Prisma.PrismaClientUnknownRequestError): Mapped {
   const text = error.message;
   const code = 'code' in error ? error.code : undefined;
+  if (code === 'P2028') return { status: 503, message: 'Temporarily unavailable' };
   if (code === 'P2002') return { status: 409, message: 'This already exists' };
   if (code === 'P2025') return { status: 404, message: 'Not found' };
   if (code === 'P2003') return { status: 400, message: 'A referenced record does not exist' };

@@ -134,6 +134,7 @@ body {
   position: absolute;
   inset-inline-start: 1rem;
   top: -4rem;
+  opacity: 0;
   z-index: 100;
   background: var(--primary);
   color: var(--primary-foreground);
@@ -142,6 +143,7 @@ body {
 }
 .skip-link:focus {
   top: 0.75rem;
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
