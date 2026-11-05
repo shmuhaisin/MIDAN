@@ -19,7 +19,7 @@ export default defineConfig({
       url: 'http://localhost:3200/en/login',
       timeout: 180_000,
       reuseExistingServer: false,
-      env: { ...stubbed, DEV_TEST_SIGNUP: 'true', MIDAN_DIST_DIR: '.next-forms-on' },
+      env: { ...stubbed, DEV_TEST_SIGNUP: 'true', APP_URL: 'http://localhost:3200', MIDAN_DIST_DIR: '.next-forms-on' },
     },
     {
       command: 'npx next dev -p 3201',

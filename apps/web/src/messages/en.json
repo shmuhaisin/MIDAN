@@ -419,7 +419,7 @@
     "displayName": "Name",
     "email": "Email",
     "password": "Password",
-    "passwordHint": "At least 8 characters",
+    "passwordHint": "At least 8 characters.",
     "loginSubmit": "Sign in",
     "registerSubmit": "Create account",
     "noAccount": "No account yet?",
@@ -450,7 +450,22 @@
     "confirmedTitle": "Your email is confirmed",
     "confirmedBody": "Your account is ready. Sign in to continue.",
     "confirmFailedTitle": "We couldn't confirm your email",
-    "confirmFailedBody": "The link may have expired or already been used. Try signing in, and if that doesn't work, register again."
+    "confirmFailedBody": "The link may have expired or already been used. Try signing in, and if that doesn't work, register again.",
+    "google": "Continue with Google",
+    "orEmail": "or with email",
+    "forgot": "Forgot your password?",
+    "forgotTitle": "Recover your password",
+    "forgotLead": "Enter your email and we'll send a reset link.",
+    "resetRequest": "Send the link",
+    "resetSent": "If this address has an account, a reset link will arrive within minutes.",
+    "backToLogin": "Back to sign in",
+    "resetTitle": "A new password",
+    "resetLead": "Choose a new password for your account.",
+    "newPassword": "New password",
+    "resetSubmit": "Save password",
+    "resetDone": "Your password was changed. Sign in with it now.",
+    "resetLinkBad": "This link isn't valid or has expired.",
+    "resetAgain": "Request a new link"
   },
   "errors": {
     "invalid_credentials": "Incorrect email or password.",
@@ -473,7 +488,10 @@
     "registration_closed": "Public registration hasn't opened yet.",
     "too_large": "That file is too large.",
     "cv_type": "Upload a PDF or Word file.",
-    "invalid_years": "Check the years: an end year can't be before its start year."
+    "invalid_years": "Check the years: an end year can't be before its start year.",
+    "google_failed": "Signing in with Google didn't finish. Try again.",
+    "same_password": "Choose a password different from your current one.",
+    "reset_link_invalid": "This link isn't valid or has expired. Request a new one."
   },
   "applicationStatus": {
     "submitted": "Submitted",

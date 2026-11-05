@@ -16,6 +16,8 @@ function expiresSoon(token: string) {
   }
 }
 
+const PRIVATE = /^\/(ar|en)\/(dashboard|onboarding|profile|applications|interviews|development|notifications|settings|reports|experience|organization)(\/|$)/;
+
 /** Renews an expiring session on page loads, then reloads so the page sees the new cookies. */
 export default async function proxy(request: NextRequest) {
   const access = request.cookies.get(ACCESS)?.value;
@@ -40,6 +42,16 @@ export default async function proxy(request: NextRequest) {
     } catch {
       // Supabase unreachable: carry on, and the API will treat the session as ended if it must.
     }
+  }
+  // Signed out, a private page goes to sign-in and remembers where it was headed.
+  if (request.method === 'GET' && !access && !refresh && PRIVATE.test(request.nextUrl.pathname)) {
+    const login = request.nextUrl.clone();
+    const locale = request.nextUrl.pathname.split('/')[1];
+    login.pathname = `/${locale}/login`;
+    login.search = '';
+    const next = request.nextUrl.pathname.slice(locale.length + 1) + request.nextUrl.search;
+    if (next !== '/dashboard') login.searchParams.set('next', next);
+    return NextResponse.redirect(login);
   }
   return intl(request);
 }

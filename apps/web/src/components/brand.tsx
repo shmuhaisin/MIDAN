@@ -68,12 +68,17 @@ export function TriangleField({ className }: { className?: string }) {
   );
 }
 
-export function Mark({ className }: { className?: string }) {
+/**
+ * The approved logo. Set only its height: the width follows from the artwork's proportions.
+ * Pass `decorative` when the platform name sits beside it, so screen readers don't hear the name twice.
+ */
+export function Logo({ className, decorative, priority, sizes = '160px' }: { className?: string; decorative?: boolean; priority?: boolean; sizes?: string }) {
   return (
-    <svg aria-hidden viewBox="0 0 32 32" className={clsx('size-7', className)}>
-      <path fill="var(--primary)" d="M2 30V20h5v-6h5V8h8v6h5v6h5v10z" />
-      <path fill="var(--gold)" d="M16 13l5 9H11z" />
-    </svg>
+    <Image
+      src="/assets/brand/midan-logo.png" width={1385} height={758} sizes={sizes} priority={priority}
+      alt={decorative ? '' : 'الميدان — MIDAN'}
+      className={clsx('h-10 w-auto max-w-full object-contain', className)}
+    />
   );
 }
 

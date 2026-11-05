@@ -1,5 +1,5 @@
 import { useTranslations } from 'next-intl';
-import { Eyebrow, Humaidan, TriangleField } from './brand';
+import { Eyebrow, Humaidan, Logo, TriangleField } from './brand';
 
 export type Audience = 'candidate' | 'organization';
 
@@ -10,6 +10,7 @@ export function AuthShell({ audience, title, lead, children }: { audience: Audie
   return (
     <section className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:items-center lg:py-14">
       <div className="mx-auto w-full max-w-md">
+        <Logo priority className="mb-6 h-16 sm:h-20" sizes="150px" />
         <Eyebrow className="text-muted">{tb('eyebrow')}</Eyebrow>
         <h1 className="mt-3 font-display text-4xl leading-tight font-bold">{title}</h1>
         <p className="mt-2 mb-8 text-lg text-muted">{lead}</p>

@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { ThemeProvider, useTheme } from 'next-themes';
 import { useEffect, useState, useSyncExternalStore, useTransition } from 'react';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
-import { Arrow, Mark } from './brand';
+import { Arrow, Logo } from './brand';
 
 const NAV = [
   ['/opportunities', 'opportunities'],
@@ -131,8 +131,8 @@ export function Header({ signedIn, signOut }: { signedIn: boolean; signOut: () =
     >
       <a href="#main" className="skip-link">{t('nav.skip')}</a>
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 font-display text-xl font-bold">
-          <Mark />
+        <Link href="/" className="flex shrink-0 items-center gap-2 font-display text-xl font-bold">
+          <Logo decorative priority className="h-9 sm:h-11" sizes="88px" />
           {t('brand.name')}
         </Link>
         <nav aria-label={t('nav.primary')} className="hidden flex-1 items-center gap-1 lg:flex">

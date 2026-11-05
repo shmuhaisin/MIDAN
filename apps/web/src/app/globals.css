@@ -2,14 +2,15 @@
 
 /* Brand palette. Never reference these from components: use the semantic tokens below. */
 :root {
-  --brand-forest: #0b3d2e;
-  --brand-green: #1f7a4d;
-  --brand-mint: #a7e3c2;
-  --brand-ivory: #f7f4e9;
+  --brand-forest: #0f5b46;
+  --brand-green: #1f7a5c;
+  --brand-mint: #dceee5;
+  --brand-ivory: #f7f4ee;
+  --brand-ink: #1f2a26;
   --brand-gold: #d4af37;
 
   --background: var(--brand-ivory);
-  --foreground: var(--brand-forest);
+  --foreground: var(--brand-ink);
   --surface: #fffdf6;
   --surface-2: #eeeadb;
   --muted: #47604f;
@@ -20,14 +21,14 @@
   --accent-foreground: var(--brand-forest);
   --gold: var(--brand-gold);
   --border: rgb(11 61 46 / 0.16);
-  --success: #1f7a4d;
+  --success: #1f7a5c;
   --warning: #8a6500;
   --error: #b3362b;
-  --focus: #1f7a4d;
+  --focus: #1f7a5c;
   --shadow: 0 18px 50px -24px rgb(11 61 46 / 0.35);
   /* A section that stays deep in both themes */
   --deep: var(--brand-forest);
-  --deep-2: #0f4a38;
+  --deep-2: #0c4d3b;
   --deep-foreground: var(--brand-ivory);
   --deep-muted: #b9d4c6;
 }

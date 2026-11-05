@@ -42,5 +42,18 @@ createServer(async (req, res) => {
     return send(400, { error_code: 'invalid_credentials' });
   }
   if (pathname === '/auth/v1/logout') return send(204, {});
+  if (pathname === '/auth/v1/settings') return send(200, { external: { google: true } });
+  if (pathname === '/auth/v1/recover') return send(200, {});
+  if (pathname === '/auth/v1/user' && req.method === 'PUT') {
+    const authorized = req.headers.authorization === 'Bearer recovery-token';
+    return authorized ? send(200, { id: 'stub-user' }) : send(401, { error_code: 'bad_jwt' });
+  }
+  if (pathname === '/auth/v1/authorize') {
+    res.writeHead(302, { location: `${searchParams.get('redirect_to')}?code=google-code` });
+    return res.end();
+  }
+  if (pathname === '/auth/v1/token' && searchParams.get('grant_type') === 'pkce') {
+    return body.auth_code === 'google-code' && body.code_verifier ? send(200, sessions.candidate) : send(400, { error_code: 'flow_state_not_found' });
+  }
   return send(404, {});
 }).listen(54399, 'localhost');

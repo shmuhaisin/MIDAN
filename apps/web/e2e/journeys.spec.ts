@@ -66,7 +66,7 @@ test('signed-out visitors can browse, and private pages send them to sign-in', a
 
   for (const path of ['/en/dashboard', '/en/profile', '/en/organization/new']) {
     await page.goto(path);
-    await expect(page).toHaveURL(/\/en\/login(\?as=organization)?$/);
+    await expect(page).toHaveURL(/\/en\/login(\?(as=organization|next=.*))?$/);
   }
 });
 

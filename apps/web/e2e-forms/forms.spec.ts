@@ -103,3 +103,48 @@ test('with the development flag off, there is no sign-up form at all', async ({ 
   await page.goto(`${OFF}/en/login`);
   await expect(page.getByLabel('Password')).toBeVisible();
 });
+
+test('forgot and reset password: same answer for any address, a bad link is explained, and a good link works', async ({ page }) => {
+  await page.goto(`${ON}/ar/login`);
+  await page.getByRole('link', { name: 'نسيت كلمة المرور؟' }).click();
+  await expect(page).toHaveURL(/\/ar\/forgot-password$/);
+  await page.getByLabel('البريد الإلكتروني').fill('someone.fictional@gmail.com');
+  await page.getByRole('button', { name: 'أرسل الرابط' }).click();
+  await expect(page.getByRole('status')).toContainText('إذا كان هذا البريد مسجلًا');
+  const recover = (await calls()).findLast((c) => c.path === '/auth/v1/recover');
+  expect(recover?.query).toContain('reset-password');
+
+  await page.goto(`${ON}/ar/reset-password`);
+  await expect(page.getByRole('alert').filter({ hasText: 'غير صالح' })).toBeVisible();
+
+  await page.goto(`${ON}/en/reset-password#access_token=recovery-token&type=recovery`);
+  await expect(page).toHaveURL(/\/en\/reset-password$/);
+  await page.getByLabel('New password').fill('short');
+  await page.getByLabel('New password').evaluate((el: HTMLInputElement) => el.removeAttribute('minlength'));
+  await page.getByRole('button', { name: 'Save password' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'weak' })).toBeVisible();
+  await page.getByLabel('New password').fill('a-brand-new-password-1');
+  await page.getByRole('button', { name: 'Save password' }).click();
+  await expect(page.getByRole('status')).toContainText('Your password was changed');
+});
+
+test('Google sign-in returns to the page someone wanted, using the one-time code', async ({ page }) => {
+  await page.goto(`${ON}/en/applications/00000000-0000-0000-0000-000000000000?from=mail`);
+  await expect(page).toHaveURL(/\/en\/login\?next=/);
+  await page.getByRole('button', { name: 'Continue with Google' }).click();
+  await expect(page).toHaveURL(/\/en\/applications\/00000000-0000-0000-0000-000000000000\?from=mail$/);
+  const cookies = await context_cookies(page);
+  expect(cookies.find((c) => c.name === 'midan_at')?.httpOnly).toBe(true);
+  expect(cookies.find((c) => c.name === 'midan_pkce')).toBeUndefined();
+});
+
+test('a return address outside the site is ignored', async ({ page }) => {
+  for (const evil of ['https://evil.example/x', '//evil.example/x', '/\\evil.example']) {
+    await page.goto(`${ON}/en/login?next=${encodeURIComponent(evil)}`);
+    await page.getByLabel('Email').fill('form.candidate@example.com');
+    await page.getByLabel('Password').fill(PASSWORD);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`^${ON}/en/(dashboard|onboarding)`));
+    await page.context().clearCookies();
+  }
+});
