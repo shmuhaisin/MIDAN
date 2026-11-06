@@ -22,6 +22,8 @@ test('allows what the app uses: Supabase logos and sign-in, and Daily interviews
   const policy = parse(contentSecurityPolicy({ nonce: 'abc', supabaseUrl: 'https://p.supabase.co/some/path' }));
   assert.ok(policy.get('img-src')!.includes('https://p.supabase.co'));
   assert.ok(policy.get('form-action')!.includes('https://p.supabase.co'));
+  // Google sign-in without JavaScript: a form post redirected to Supabase, then Google. Chromium blocks the last hop otherwise.
+  assert.ok(policy.get('form-action')!.includes('https://accounts.google.com'));
   assert.deepEqual(policy.get('frame-src'), ['https://*.daily.co']);
 });
 

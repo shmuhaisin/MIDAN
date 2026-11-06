@@ -5,7 +5,8 @@
  * - styles: React renders style attributes, which a nonce can't cover, so inline styles stay allowed (scripts don't);
  * - images: our own files, data and blob URLs, and organization logos from Supabase Storage's public bucket;
  * - frames: interviews embed Daily Prebuilt (components/daily-room.tsx), which daily-js talks to;
- * - forms: server actions post to this site; Google sign-in continues at Supabase Auth.
+ * - forms: server actions post to this site. Google sign-in goes on to Supabase Auth and then Google, and browsers apply
+ *   form-action to each redirect of a form post, which is what a click before hydration or without JavaScript makes.
  * Development adds what React's debugging needs: 'unsafe-eval'.
  */
 export function contentSecurityPolicy({ nonce, supabaseUrl, dev = false, https = false }: { nonce: string; supabaseUrl?: string; dev?: boolean; https?: boolean }) {
@@ -24,7 +25,7 @@ export function contentSecurityPolicy({ nonce, supabaseUrl, dev = false, https =
     ['worker-src', "'self'", 'blob:'],
     ['object-src', "'none'"],
     ['base-uri', "'self'"],
-    ['form-action', "'self'", ...(supabase ? [supabase] : [])],
+    ['form-action', "'self'", ...(supabase ? [supabase] : []), 'https://accounts.google.com'],
     ['frame-ancestors', "'none'"],
   ];
   return [...directives.map((d) => d.join(' ')), ...(https ? ['upgrade-insecure-requests'] : [])].join('; ');
