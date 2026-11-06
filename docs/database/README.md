@@ -44,6 +44,23 @@ Organization -> Jobs -> Job requirements and skills -> Assessments -> Versions -
 - **Several assessments per job:** each has its own versions, numbered from 1. A candidate takes each assessment once.
 - **Application status** follows every attempt through `private.sync_application_status`, and stops at a person's decision or a withdrawal.
 
+## Reference data
+
+Sector skills and the employer registry live in `reference_skills`, `reference_skill_contexts`, `employer_registry`, `employer_aliases` and `employer_sources`. They're readable by anyone and written only through `private.import_reference_data`.
+
+- **The workbooks stay out of this public repository.** Extract them to JSON, then load it:
+
+```bash
+python scripts/extract-reference-data.py "<folder>" > reference-skills.json
+python scripts/extract-employers.py ALMIDAN_Employer_Database_10_Entities.xlsx > employers.json
+node scripts/import-reference-data.mjs reference-skills.json employers.json
+```
+
+- **The import needs a temporary grant:** `grant usage on schema private to midan_api; grant execute on function private.import_reference_data(jsonb) to midan_api;`. Revoke both afterwards. It's safe to run again.
+- **Skills stay per sector.** The same words in two sectors are two rows, because names alone don't prove they mean the same thing. Names exist in Arabic only.
+- **The workbooks hold** names, descriptions, sub-sectors, job families and a priority flag. They hold no proficiency levels or skill identifiers, so `proficiency_scale` and `source_skill_id` stay empty. 88 technical skills appear in sub-sector sheets but not in the workbook's own unique list, so they have no priority flag, and 109 skills have no description.
+- **An employer entry is an identity record.** It doesn't mean a partnership, an account or vacancies. Brand fields are left empty because the source marks them unverified.
+
 ## Development registration
 
 Sign-up needs `DEV_TEST_SIGNUP=true` for the form, and `DEV_TEST_ACCESS_CODE` in `.env` for the database gate. To set or rotate the code, generate a random value locally, put it in `.env`, and store only its hash:

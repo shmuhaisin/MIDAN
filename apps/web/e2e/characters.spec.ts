@@ -260,7 +260,8 @@ test('settings screens save and update Humaidan for real, and a candidate sees i
   expect((await call('ORG_A_OWNER', 'POST', `/organizations/${org.id}/assessment-versions/${job.versionId}/publish`)).status).toBe(201);
   const application = await call('CANDIDATE_TWO', 'POST', `/jobs/${job.jobId}/applications`, {});
   expect(application.status).toBe(201);
-  expect((await call('ORG_A_OWNER', 'POST', `/applications/${application.body.id}/invite`)).status).toBe(201);
+  // Applying assigned the approved assessment.
+  expect((await call('ORG_A_OWNER', 'POST', `/applications/${application.body.id}/invite`)).status).toBe(409);
 
   const candidate = await open(browser, 'CANDIDATE_TWO', { viewport: { width: 375, height: 812 } });
   await candidate.goto(experience('ar', org, job));

@@ -1,7 +1,7 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
 import { issueOutcome, retryInterviewCalendar, scheduleInterview, updateInterview } from '@/lib/candidate-actions';
 import { formatWhen, pick } from '@/lib/format';
@@ -57,37 +57,55 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
   const t = useTranslations('hiring');
   const ta = useTranslations('application');
   const locale = useLocale();
-  const [when, setWhen] = useState('');
-  const [minutes, setMinutes] = useState('30');
-  const [instructions, setInstructions] = useState({ ar: '', en: '' });
-  const [outcome, setOutcome] = useState('');
-  const [message, setMessage] = useState({ ar: '', en: '' });
-  const zone = 'Asia/Riyadh';
-  const schedule = useAction(async () => {
-    const result = await scheduleInterview(orgId, applicationId, {
-      scheduled_at: new Date(when).toISOString(), duration_minutes: Number(minutes), time_zone: zone,
-      ...(instructions.ar.trim() && { instructions_ar: instructions.ar.trim() }), ...(instructions.en.trim() && { instructions_en: instructions.en.trim() }),
+  const [scheduling, startSchedule] = useTransition();
+  const [scheduleError, setScheduleError] = useState<string>();
+  const [issuing, startIssue] = useTransition();
+  const [issueError, setIssueError] = useState<string>();
+  const trimmed = (form: FormData, name: string) => String(form.get(name) ?? '').trim();
+
+  // Read from the form itself, so what was typed before the page finished loading still counts.
+  function schedule(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const target = e.currentTarget;
+    const form = new FormData(target);
+    const when = new Date(trimmed(form, 'when'));
+    if (Number.isNaN(when.getTime())) return setScheduleError('required');
+    startSchedule(async () => {
+      const result = await scheduleInterview(orgId, applicationId, {
+        scheduled_at: when.toISOString(), duration_minutes: Number(trimmed(form, 'duration')), time_zone: 'Asia/Riyadh',
+        ...(trimmed(form, 'instructions_ar') && { instructions_ar: trimmed(form, 'instructions_ar') }),
+        ...(trimmed(form, 'instructions_en') && { instructions_en: trimmed(form, 'instructions_en') }),
+      });
+      setScheduleError(result.error);
+      if (result.ok) target.reset();
     });
-    if (result.ok) setWhen('');
-    return result;
-  });
-  const issue = useAction(async () => {
-    const result = await issueOutcome(orgId, applicationId, { outcome, ...(message.ar.trim() && { message_ar: message.ar.trim() }), ...(message.en.trim() && { message_en: message.en.trim() }) });
-    if (result.ok) setOutcome('');
-    return result;
-  });
+  }
+  function issue(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const target = e.currentTarget;
+    const form = new FormData(target);
+    startIssue(async () => {
+      const result = await issueOutcome(orgId, applicationId, {
+        outcome: trimmed(form, 'outcome'),
+        ...(trimmed(form, 'message_ar') && { message_ar: trimmed(form, 'message_ar') }),
+        ...(trimmed(form, 'message_en') && { message_en: trimmed(form, 'message_en') }),
+      });
+      setIssueError(result.error);
+      if (result.ok) target.reset();
+    });
+  }
   return (
     <div className="space-y-10">
       <section aria-labelledby="hiring-interviews">
         <h2 id="hiring-interviews" className="font-display text-2xl font-bold">{t('interviews')}</h2>
         {interviews.length > 0 && <ul className="mt-2 border-t border-border">{interviews.map((i) => <InterviewRow key={i.id} orgId={orgId} interview={i} canManage={canManage} />)}</ul>}
         {canManage && (
-          <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); schedule.fire(); }}>
-            <label className="block"><span className="text-sm font-medium">{t('when')}</span><input type="datetime-local" required value={when} onChange={(e) => setWhen(e.target.value)} className={INPUT} /></label>
-            <Field name="duration" type="number" min={5} max={480} required label={t('duration')} value={minutes} onChange={(e) => setMinutes(e.target.value)} />
-            <Field name="instructions_ar" dir="rtl" maxLength={2000} label={t('instructionsAr')} value={instructions.ar} onChange={(e) => setInstructions({ ...instructions, ar: e.target.value })} />
-            <Field name="instructions_en" dir="ltr" maxLength={2000} label={t('instructionsEn')} value={instructions.en} onChange={(e) => setInstructions({ ...instructions, en: e.target.value })} />
-            <div className="sm:col-span-2"><ErrorText code={schedule.error} /><button type="submit" disabled={schedule.pending} aria-busy={schedule.pending} className={PRIMARY}>{t('schedule')}</button></div>
+          <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={schedule}>
+            <label className="block"><span className="text-sm font-medium">{t('when')}</span><input type="datetime-local" name="when" required className={INPUT} /></label>
+            <Field name="duration" type="number" min={5} max={480} required label={t('duration')} defaultValue="30" />
+            <Field name="instructions_ar" dir="rtl" maxLength={2000} label={t('instructionsAr')} />
+            <Field name="instructions_en" dir="ltr" maxLength={2000} label={t('instructionsEn')} />
+            <div className="sm:col-span-2"><ErrorText code={scheduleError} /><button type="submit" disabled={scheduling} aria-busy={scheduling} className={PRIMARY}>{t('schedule')}</button></div>
           </form>
         )}
       </section>
@@ -98,17 +116,17 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
           <ul className="mt-2 space-y-1">{outcomes.map((o) => <li key={o.id} className="text-sm"><span className="font-semibold">{ta(`outcome.${o.outcome}`)}</span> · {pick(locale, o.message_ar ?? '', o.message_en ?? '')}</li>)}</ul>
         )}
         {canManage && (
-          <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); issue.fire(); }}>
+          <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={issue}>
             <label className="block sm:col-span-2">
               <span className="text-sm font-medium">{t('decision')}</span>
-              <select required value={outcome} onChange={(e) => setOutcome(e.target.value)} className={INPUT}>
+              <select name="outcome" required defaultValue="" className={INPUT}>
                 <option value="">{t('choose')}</option>
                 {['hired', 'not_selected', 'on_hold', 'additional_interview'].map((k) => <option key={k} value={k}>{ta(`outcome.${k}`)}</option>)}
               </select>
             </label>
-            <Field name="message_ar" dir="rtl" maxLength={2000} label={t('messageAr')} value={message.ar} onChange={(e) => setMessage({ ...message, ar: e.target.value })} />
-            <Field name="message_en" dir="ltr" maxLength={2000} label={t('messageEn')} value={message.en} onChange={(e) => setMessage({ ...message, en: e.target.value })} />
-            <div className="sm:col-span-2"><ErrorText code={issue.error} /><button type="submit" disabled={issue.pending} aria-busy={issue.pending} className={PRIMARY}>{t('issue')}</button></div>
+            <Field name="message_ar" dir="rtl" maxLength={2000} label={t('messageAr')} />
+            <Field name="message_en" dir="ltr" maxLength={2000} label={t('messageEn')} />
+            <div className="sm:col-span-2"><ErrorText code={issueError} /><button type="submit" disabled={issuing} aria-busy={issuing} className={PRIMARY}>{t('issue')}</button></div>
           </form>
         )}
       </section>

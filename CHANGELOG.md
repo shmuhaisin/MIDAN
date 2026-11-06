@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-06: The candidate experience
+- Approved logo, with real transparency, in `apps/web/public/assets/brand` and the reusable `Logo` component. Palette values from the implementation brief.
+- Sector skills reference and employer registry imported, with their sources. Registry entries are identity records only, and none is a partner.
+- Password recovery and change, Google sign-in (shown only when switched on in Supabase), returning to the page someone wanted, and onboarding with saved progress.
+- Private CV pipeline: local extraction and OCR, personal data kept apart, layered redaction, a second check that can block any external request, and review before anything is saved. See docs/privacy/cv-data-flow.md.
+- The same protection for assessment answers before AI evaluation.
+- Job filters, match explanations from a defined calculation, external listings kept apart, and a review step before applying.
+- Applying now assigns the approved assessment immediately, and keeps a snapshot of the profile and CV. Repeated clicks reach the same application.
+- A page for each application. Assessment deadlines and server-held timers, drafts, receipts, resubmission only when the organization allows it, and released results by criterion.
+- Interviews with Daily Prebuilt and Google Calendar, tested against local stand-ins. Outcomes issued by the organization. Career development, notifications and settings.
+- Small organization-side additions the journey depends on: scheduling, decisions, assessment deadlines and timers, job sector and level.
+
 ## 2026-11-05: Several assessments for one job
 - A job can now have several assessments, each with its own title, field, drafts and versions. The job screen switches between them, adds another, renames, and removes a draft that was never published.
 - Organizations choose which assessment to invite a candidate to. A candidate takes each assessment once, whichever version is current.

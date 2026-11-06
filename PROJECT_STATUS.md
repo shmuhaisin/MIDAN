@@ -8,7 +8,7 @@ Only what has been run is marked Tested. Last updated 2026-11-05.
 | 1 | Public pages: home, how it works, candidates, organizations, about, FAQ, opportunities, job details | Tested |
 | 1 | Public pages: contact, privacy, terms | Not Started (legal pages need review) |
 | 1 | ESLint, CI, shared packages, docker-compose | Not Started |
-| 2 | Supabase project, 30 tables, RLS, migrations, storage, signed URLs | Tested |
+| 2 | Supabase project, 47 tables, RLS, migrations, storage, signed URLs | Tested |
 | 2 | Tenant isolation, role permissions, API rate limiting | Tested |
 | 2 | Sign-up gate: direct calls refused at the database without the server-held access code | Tested |
 | 2 | Profile or organization created automatically on email verification | Tested with real triggers |
@@ -37,5 +37,18 @@ Only what has been run is marked Tested. Last updated 2026-11-05.
 | 7 | Production checkpointer | Not Started: uses a local SQLite file |
 | 8 | Candidate report, organization review, candidate comparison | Tested |
 | 8 | Learning recommendations beyond next-level descriptors; analytics | Not Started |
+| 11 | Approved logo and reusable component | Tested on light and dark, phone and desktop |
+| 11 | Skills reference and employer registry | Imported and tested. No proficiency scale or skill IDs exist in the sources |
+| 11 | Password recovery, return path, onboarding | Tested (forms against a local Auth stand-in) |
+| 11 | Google sign-in | Implemented, tested against a stand-in. Not switched on: needs an OAuth client. New accounts are refused until registration opens |
+| 11 | CV pipeline: extraction, OCR, redaction, outbound check, review | Tested with fictional data. Real AI provider never run: no key. Arabic OCR not run: language pack not installed here |
+| 11 | Job filters, match, apply with review, snapshots, application page | Tested |
+| 11 | External listings | Implemented with no data: none exist, and none were invented |
+| 11 | Deadlines, timers, drafts, receipts, resubmission, results by criterion | Tested. Task materials and accepted formats display if present, with no company screen to enter them |
+| 11 | Interviews and Daily Prebuilt | API tested against a stand-in. The embedded call has never run: no key |
+| 11 | Google Calendar | Tested against a stand-in, including failures. Never run for real: no credentials |
+| 11 | Outcomes, notifications, settings | Tested. Notifications are in-app only: no email sender |
+| 11 | Career development | Tested. No course or certification links: no verified catalog exists |
+| 11 | Deployment | Not Started: nothing deployed. See docs/deployment.md |
 | 9 | Humaidan AI chat | Postponed by the owner until knowledge and instructions are prepared. His visual character stays. |
 | 10 | Accessibility audit | Not Started |

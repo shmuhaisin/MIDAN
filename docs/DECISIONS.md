@@ -1,5 +1,19 @@
 # Decisions
 
+**2026-11-06: The palette values in the implementation brief replace the earlier ones.** The brief both asks to keep the existing palette and lists different values as approved. The listed values were applied at token level, with gold kept as a small accent. Changing back is a few lines in `globals.css`. The owner should confirm.
+
+**2026-11-06: The employer workbook's external-jobs sheet isn't imported.** It's an empty template for a source the owner removed from scope. Only identity, alias and source sheets are read.
+
+**2026-11-06: Applying assigns every published assessment, immediately.** A database trigger does it, whichever route creates the application. Assessments published later still use the organization's invite.
+
+**2026-11-06: CV redaction runs in the private AI service, not the API.** It has the parsers and OCR, nothing else reaches it, and a failed check stops there. There is deliberately no path that sends a raw CV.
+
+**2026-11-06: Match percentages are a stated calculation.** Required skills with evidence, divided by required skills. No model and no score from anywhere else.
+
+**2026-11-06: No course or certification links until there's a verified catalog.** `learning_resources` is empty, and every row must carry a checked link and date. Gaps and practical project goals work without it.
+
+**2026-11-06: Interview rooms are named from the interview id,** so a candidate joining first can create the room without write access to the interview. Rooms are private, and tokens are short-lived and scoped to one room.
+
 **2026-11-05: An application's status comes from all of its attempts.** One function, `private.sync_application_status`, replaces the separate updates that each set a status. In progress wins, then invited. Evaluated needs every attempt reviewed, and expired attempts don't count. It only moves applications within the assessment stages, so a person's decision stays.
 
 **2026-11-05: One attempt per assessment, not per version.** Publishing a new version doesn't invite anyone again. Retakes aren't a product decision yet, so a trigger refuses a second attempt until they are.

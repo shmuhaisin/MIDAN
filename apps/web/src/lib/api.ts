@@ -21,7 +21,9 @@ export async function api<T>(path: string, init?: { method?: string; body?: unkn
     body: init?.form ?? (init?.body === undefined ? undefined : JSON.stringify(init.body)),
   });
   if (!response.ok) throw new ApiError(response.status);
-  return response.json() as Promise<T>;
+  // A lookup that finds nothing answers with an empty body.
+  const text = await response.text();
+  return (text ? JSON.parse(text) : null) as T;
 }
 
 /** For pages: an ended session goes to sign-in, and a missing or forbidden page returns null. */

@@ -1,6 +1,6 @@
 # Handoff
 
-**Branch:** `feat/job-requirements-foundation`, local and unmerged. `main` doesn't have this work, but the live database already has its migration. **Remote:** https://github.com/shmuhaisin/MIDAN (public).
+**Branch:** `feat/candidate-experience`, local and unmerged, on top of `feat/job-requirements-foundation`. `main` doesn't have this work, but the live database already has its migration. **Remote:** https://github.com/shmuhaisin/MIDAN (public).
 
 ## What exists
 - `apps/web` (port 3100): public pages, role-aware auth, opportunities, candidate dashboard, profile, branded assessment experience, candidate report, organization dashboard, branding settings, job workspace, review.
@@ -12,7 +12,7 @@ All three must run together. Humaidan rules are in `apps/web/src/lib/humaidan.ts
 ## Supabase
 Project `al-midan-ya-hamidan`, ref `squpszwbrqkflezfltoj`, region `eu-central-1`, $0/month. See [docs/database/README.md](docs/database/README.md). The unrelated project `ALNADA` in the same organization must not be touched.
 
-30 tables, all with RLS. 3 buckets. 5 test accounts (`midan.test.*@example.com`) whose passwords exist only in the local `.env.test.local`. `.env` and `.env.test.local` are git-ignored and exist only on this machine: a new checkout must regenerate them with `scripts/provision-db-credentials.mjs`.
+47 tables, all with RLS. 3 buckets. 5 test accounts (`midan.test.*@example.com`) whose passwords exist only in the local `.env.test.local`. `.env` and `.env.test.local` are git-ignored and exist only on this machine: a new checkout must regenerate them with `scripts/provision-db-credentials.mjs`.
 
 Not reachable with the available tools; needs the dashboard: custom SMTP, leaked password protection, Auth Site URL and redirect URLs. The owner chose to continue without SMTP for now, so confirmation email reaches only Supabase project team members, a few per hour. The default Site URL points at localhost:3000, which is a different app on this machine, so confirmation links land there until it's changed to port 3100.
 
@@ -33,4 +33,4 @@ Not reachable with the available tools; needs the dashboard: custom SMTP, leaked
 `npm audit` reports a high-severity finding in the Prisma CLI's `deepmerge-ts` (see docs/DECISIONS.md). Candidate account deletion is blocked once they've applied, pending a PDPL erasure design. The Humaidan chat is postponed by the owner. Section reveals start at opacity 0, so that content needs JavaScript to appear; fix before launch. No ESLint (`lint` runs `tsc`), no CI, no `packages/*`, no docker-compose. See PROJECT_STATUS.md.
 
 ## Next
-The job data work continues: assessment drafts built from requirements, then imports. See NEXT_SESSION_PROMPT.md.
+Credentials, then deployment and real integration tests. See docs/deployment.md. See NEXT_SESSION_PROMPT.md.

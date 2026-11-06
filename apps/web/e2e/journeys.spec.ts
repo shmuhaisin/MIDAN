@@ -31,6 +31,23 @@ async function signedIn(browser: Browser, who: string, options: Parameters<Brows
   return context;
 }
 
+/** Applying goes through a review page, and needs a profile with a name. */
+async function applyFromJobPage(page: Page) {
+  await page.getByRole('link', { name: 'Apply for this job' }).click();
+  const confirm = page.getByRole('button', { name: 'Confirm application' });
+  const needProfile = page.getByRole('link', { name: 'Complete my profile' });
+  await expect(confirm.or(needProfile)).toBeVisible();
+  if (await needProfile.isVisible()) {
+    const back = page.url();
+    await needProfile.click();
+    await page.getByLabel('Full name').fill('Test Candidate');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page).toHaveURL(/step=2/);
+    await page.goto(back);
+  }
+  await confirm.click();
+}
+
 async function noOverflow(page: Page) {
   const [scroll, inner] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   expect(scroll).toBeLessThanOrEqual(inner);
@@ -62,7 +79,7 @@ test('signed-out visitors can browse, and private pages send them to sign-in', a
   await page.getByRole('link', { name: /محلل بيانات/ }).click();
   await expect(page.getByText('هذه وظيفة خيالية')).toBeVisible();
   await page.getByRole('link', { name: 'سجّل دخولك للتقديم' }).click();
-  await expect(page).toHaveURL(/\/ar\/login$/);
+  await expect(page).toHaveURL(/\/ar\/login(\?next=.*)?$/);
 
   for (const path of ['/en/dashboard', '/en/profile', '/en/organization/new']) {
     await page.goto(path);
@@ -125,8 +142,7 @@ test('organization and candidate complete a full hiring journey, isolated from a
   await candidate.goto('/en/opportunities');
   await candidate.getByRole('searchbox').fill(jobTitle);
   await candidate.getByRole('link', { name: new RegExp(jobTitle) }).click();
-  await candidate.getByRole('link', { name: 'Apply for this job' }).click();
-  await candidate.getByRole('button', { name: 'Confirm application' }).click();
+  await applyFromJobPage(candidate);
   await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
 
   await owner.reload();
@@ -256,13 +272,12 @@ test('the full MVP journey: details, draft, publish, work, evaluate, review, rel
 
   const jobId = jobPath.split('/').pop();
   await candidate.goto(`/en/opportunities/${jobId}`);
-  await expect(candidate.getByText('Data analysis')).toBeVisible();
-  await candidate.getByRole('link', { name: 'Apply for this job' }).click();
-  await candidate.getByRole('button', { name: 'Confirm application' }).click();
+  await expect(candidate.getByRole('listitem').filter({ hasText: 'Data analysis' }).first()).toBeVisible();
+  await applyFromJobPage(candidate);
   await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
 
+  // The approved assessment was assigned on applying, with no separate invitation.
   await owner.reload();
-  await owner.getByRole('button', { name: 'Invite to assessment' }).click();
   await expect(owner.getByText('Invited', { exact: true })).toBeVisible();
 
   await candidate.goto('/en/dashboard');
@@ -486,8 +501,7 @@ test('a candidate builds a full profile and CV, and only the organization applie
   const jobId = new URL(owner.url()).pathname.split('/').pop();
 
   await candidate.goto(`/en/opportunities/${jobId}`);
-  await candidate.getByRole('link', { name: 'Apply for this job' }).click();
-  await candidate.getByRole('button', { name: 'Confirm application' }).click();
+  await applyFromJobPage(candidate);
   await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
 
   await owner.reload();
@@ -670,14 +684,11 @@ test('several assessments: each has its own draft, invitation and address, and t
   }
 
   await candidate.goto(`/en/opportunities/${jobId}`);
-  await candidate.getByRole('link', { name: 'Apply for this job' }).click();
-  await candidate.getByRole('button', { name: 'Confirm application' }).click();
+  await applyFromJobPage(candidate);
   await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
 
   await owner.reload();
-  await owner.getByRole('button', { name: 'Invite to assessment: Data work' }).click();
-  await expect(owner.getByText('Invited', { exact: true })).toHaveCount(1);
-  await owner.getByRole('button', { name: `Invite to assessment: ${name}` }).click();
+  // Every published assessment is assigned on applying.
   await expect(owner.getByText('Invited', { exact: true })).toHaveCount(2);
 
   await candidate.goto('/en/dashboard');

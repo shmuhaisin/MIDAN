@@ -351,3 +351,28 @@ def test_reanalysis_follows_the_same_controls():
         assert_no_prohibited(user)
     # The provider sees only sections: no identifier links two requests, or a request to a person.
     assert "request_id" not in provider.calls[0][1]
+
+
+def test_assessment_answers_are_protected_the_same_way():
+    from midan_ai.evaluation import make_open_evaluator
+    from midan_ai.providers import JsonLLMProvider
+    from midan_ai.schemas import CriterionInput, EvaluationInput, TaskInput
+
+    sent: list[str] = []
+
+    def complete(system: str, user: str) -> str:
+        sent.append(user)
+        return json.dumps({"score": 5, "confidence": 0.9, "explanation": "ok", "evidence_quote": "SQL"})
+
+    task = TaskInput(
+        id="t1", task_type="written_case_study", title_en="Case", instructions_en="Answer", weight=1, skill_ids=[], skill_weights={},
+        criteria=[CriterionInput(id="c1", code="C1", description_en="Clarity", max_score=10)],
+    )
+    data = EvaluationInput(attempt_id="a", attempt_status="submitted", rubric_version=1, skills=[], tasks=[task], responses={}, evidence={}, known_names=["Fahad Testperson"])
+    evaluate = make_open_evaluator(JsonLLMProvider(complete, "stub"))
+    answer = "I am Fahad Testperson, call 0551234567 or fahad@example.com. I would use SQL to compare regions."
+    evaluate({"input": data, "proposals": [], "review_reasons": [], "answers": {"t1": answer}})
+    assert len(sent) == 1
+    for value in ("Fahad", "Testperson", "0551234567", "fahad@example.com"):
+        assert value not in sent[0]
+    assert "SQL" in sent[0]
