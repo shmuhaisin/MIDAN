@@ -19,5 +19,11 @@ delete from public.notifications s using public.users u
   where s.user_id = u.id and u.email like 'midan.test.%@example.com';
 delete from public.candidate_profiles p using public.users u
   where p.user_id = u.id and u.email like 'midan.test.%@example.com';
-delete from public.audit_logs l where not exists (select 1 from public.organizations o where o.id = l.org_id);
+-- Platform-level entries have no organization and stay.
+delete from public.audit_logs l where l.org_id is not null and not exists (select 1 from public.organizations o where o.id = l.org_id);
+-- Listings, imports and catalog entries created by the pipeline tests, which always carry these marks.
+delete from public.external_job_listings where source_job_id like 'midan-test-%';
+delete from public.import_runs where started_by = 'e2e';
+delete from public.learning_resources where provider = 'Midan test provider';
+delete from public.background_jobs j using public.users u where j.acting_user_id = u.id and u.email like 'midan.test.%@example.com';
 commit;

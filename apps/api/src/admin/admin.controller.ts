@@ -116,7 +116,7 @@ export class AdminController {
 
   @Post('import-records/:id/resolve')
   async resolve(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number, @Body() body: ResolveDto) {
-    await this.db.asUser(user, (tx) => tx.$queryRaw`select public.admin_resolve_import_record(${id}::bigint, ${body.resolution})`);
+    await this.db.asUser(user, (tx) => tx.$executeRaw`select public.admin_resolve_import_record(${id}::bigint, ${body.resolution})`);
     return { ok: true };
   }
 
@@ -181,7 +181,7 @@ export class AdminController {
 
   @Post('admins')
   async setAdmin(@CurrentUser() user: AuthUser, @Body() body: AdminDto) {
-    await this.db.asUser(user, (tx) => tx.$queryRaw`select public.admin_set_platform_admin(${body.email}, ${body.grant})`);
+    await this.db.asUser(user, (tx) => tx.$executeRaw`select public.admin_set_platform_admin(${body.email}, ${body.grant})`);
     return { ok: true };
   }
 
@@ -237,7 +237,7 @@ export class AdminController {
 
   @Post('background-jobs/:id/retry')
   async retryJob(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
-    await this.db.asUser(user, (tx) => tx.$queryRaw`select public.admin_retry_background_job(${id}::uuid)`);
+    await this.db.asUser(user, (tx) => tx.$executeRaw`select public.admin_retry_background_job(${id}::uuid)`);
     return { ok: true };
   }
 

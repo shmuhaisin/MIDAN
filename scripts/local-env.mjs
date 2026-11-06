@@ -82,4 +82,13 @@ for (const name of ACCOUNTS) {
 }
 
 writeFileSync(testPath, `${lines.join('\n')}\n`, { mode: 0o600 });
+
+// The platform administrator test account. On a hosted project, the first administrator is added the same way, by SQL.
+const { createRequire } = await import('node:module');
+const { Client } = createRequire(new URL('../apps/api/package.json', import.meta.url))('pg');
+const db = new Client({ connectionString: `postgresql://postgres@127.0.0.1:${process.env.LOCAL_PG_PORT ?? 54322}/midan` });
+await db.connect();
+await db.query(`insert into private.platform_admins (user_id, note) select id, 'local test administrator' from public.users
+  where email = 'midan.test.platform-admin@example.com' on conflict do nothing`);
+await db.end();
 console.log(`Wrote .env and .env.test.local; ${ACCOUNTS.length} local test accounts ready.`);

@@ -59,6 +59,8 @@ migrate() {
     applied=$((applied + 1))
   done
   sql -d "$DB" -f "$ROOT/supabase/local/10_local_logins.sql"
+  # Supabase reloads the Data API's schema cache after DDL by itself; locally, PostgREST is told to.
+  sql -d "$DB" -c "notify pgrst, 'reload schema'"
   echo "Local database ready on 127.0.0.1:$PORT/$DB ($applied migrations applied this run)"
 }
 

@@ -11,6 +11,7 @@ import { AttemptsController } from './attempts/attempts.controller';
 import { DbModule } from './db/db.module';
 import { EvaluationsController } from './evaluations/evaluations.controller';
 import { RequirementsController } from './jobs/requirements.controller';
+import { JobAnalysisController } from './jobs/analysis.controller';
 import { SkillsController } from './jobs/skills.controller';
 import { HealthController } from './health.controller';
 import { JobsController } from './jobs/jobs.controller';
@@ -28,7 +29,7 @@ import { OrganizationsController } from './organizations/organizations.controlle
   controllers: [
     HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, MeController,
     AssessmentsController, AttemptsController, EvaluationsController, RequirementsController,
-    CandidateController, CvController, CareerController, ReferenceController, InterviewsController, AdminController,
+    CandidateController, CvController, CareerController, ReferenceController, InterviewsController, AdminController, JobAnalysisController,
   ],
 })
 export class AppModule {}

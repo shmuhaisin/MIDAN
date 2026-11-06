@@ -448,6 +448,12 @@ begin
   return query select null::uuid, 0::numeric, 'unmatched', jsonb_build_object('rule', 'no_registry_match', 'collected_name', p_name);
 end $$;
 
+/** Text prepared for whole-word matching: punctuation becomes space, then Arabic is normalized, padded with spaces. */
+create function private.match_text(p text) returns text
+language sql immutable parallel safe set search_path = '' as $$
+  select ' ' || public.normalize_arabic(regexp_replace(coalesce(p, ''), '[.,;:!?()\[\]{}"''«»،؛؟/\\|_+=*&^%$#@~`<>\-]+', ' ', 'g')) || ' '
+$$;
+
 /**
  * Classifies text against the sector skills reference by literal mentions, after public.normalize_arabic.
  * Only skill names of at least two words or eight letters count, so short common words don't match everything.
@@ -457,11 +463,11 @@ end $$;
  */
 create function private.classify_text(p_text text)
 returns jsonb language sql stable security definer set search_path = '' as $$
-  with t as (select ' ' || public.normalize_arabic(p_text) || ' ' as body),
+  with t as (select private.match_text(p_text) as body),
   hits as (
-    select s.id, s.sector_code, s.name_ar, s.name_search from public.reference_skills s, t
+    select s.id, s.sector_code, s.name_ar, trim(private.match_text(s.name_ar)) as name_search from public.reference_skills s, t
     where (strpos(s.name_search, ' ') > 0 or length(s.name_search) >= 8)
-      and strpos(t.body, ' ' || s.name_search || ' ') > 0
+      and strpos(t.body, private.match_text(s.name_ar)) > 0
   ),
   by_sector as (select sector_code, count(*) n from hits group by sector_code),
   best as (select sector_code, n from by_sector order by n desc, sector_code limit 1),
