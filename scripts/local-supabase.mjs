@@ -232,6 +232,24 @@ async function handleStorage(req, res, path) {
     }
   }
 
+  // A folder's files and subfolders, among the objects the caller's policies let them see, as Supabase lists them.
+  match = /^object\/list\/([^/]+)$/.exec(path);
+  if (match && req.method === 'POST') {
+    const { prefix = '' } = JSON.parse((await readBody(req)).toString() || '{}');
+    const folder = prefix.replace(/\/+$/, '');
+    const start = folder ? `${folder}/` : '';
+    const rows = await asCaller(claims, (c) => c.query(
+      'select id, name, created_at, metadata from storage.objects where bucket_id = $1 and left(name, length($2)) = $2 order by name',
+      [match[1], start],
+    ));
+    const entries = new Map();
+    for (const row of rows.rows) {
+      const [first, ...deeper] = row.name.slice(start.length).split('/');
+      if (!entries.has(first)) entries.set(first, deeper.length ? { name: first, id: null } : { name: first, id: row.id, created_at: row.created_at, metadata: row.metadata });
+    }
+    return json(res, 200, [...entries.values()]);
+  }
+
   match = /^object\/(?:authenticated\/)?([^/]+)\/(.+)$/.exec(path);
   if (!match) return fail(res, 404, 'Not found');
   const [, bucketId, rawName] = match;

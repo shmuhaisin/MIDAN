@@ -47,6 +47,7 @@
     "node_modules",
     "playwright.config.ts",
     "playwright.forms.config.ts",
+    "src/lib/application-status.test.ts",
     "src/lib/humaidan.test.ts",
     "src/messages/messages.test.ts"
   ]

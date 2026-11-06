@@ -73,12 +73,14 @@ export class ApplicationsController {
   }
 
   @Patch(':id/status')
-  updateStatus(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateStatusDto) {
-    return this.db.asUser(user, async (tx) => {
-      // RLS hides rows from other tenants, and a candidate's own row is not theirs to change.
-      const { count } = await tx.applications.updateMany({ where: { id }, data: { status: body.status } });
-      if (count === 0) throw new NotFoundException();
-      return tx.applications.findUniqueOrThrow({ where: { id } });
-    });
+  @ApiOperation({
+    summary: "A staff member's decision on an application.",
+    description: 'Only the moves in public.set_application_status are allowed (422 otherwise). Assessment stages, outcomes and withdrawal are set elsewhere.',
+  })
+  async updateStatus(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateStatusDto) {
+    // Another organization's application, or a candidate's own, is reported as not found by the database.
+    const [application] = await this.db.asUser(user, (tx) =>
+      tx.$queryRaw<unknown[]>`select * from public.set_application_status(${id}::uuid, ${body.status}::public.application_status)`);
+    return application;
   }
 }

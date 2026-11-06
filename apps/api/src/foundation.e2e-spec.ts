@@ -200,6 +200,25 @@ describe('Midan database foundation', () => {
       await api().patch(`/applications/${appOneA}/status`).set(bearer(candidateOne)).send({ status: 'hired' }).expect(404);
     });
 
+    it('allows only the status moves the workflow has', async () => {
+      const job = (await api().post(`/organizations/${orgA}/jobs`).set(bearer(ownerA))
+        .send({ slug: `transitions-${RUN}`, title_ar: 'ت', title_en: 'Transitions', status: 'published' }).expect(201)).body.id;
+      const id = (await api().post(`/jobs/${job}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
+      const move = (who: Session, status: string) => api().patch(`/applications/${id}/status`).set(bearer(who)).send({ status });
+
+      // Never by hand: the assessment stages, "evaluated", and hiring straight from submitted.
+      for (const status of ['evaluated', 'assessment_submitted', 'hired']) await move(ownerA, status).expect(422);
+      await move(recruiterA, 'under_review').expect(200);
+      await move(ownerA, 'submitted').expect(422);
+      await move(ownerA, 'shortlisted').expect(200);
+      // Straight to the table, the rules can't be stepped around: the application is still shortlisted afterwards.
+      await rest(ownerA, 'PATCH', `applications?id=eq.${id}`, { status: 'hired' });
+      expect((await move(ownerA, 'shortlisted').expect(200)).body.status).toBe('shortlisted');
+      // A job without an assessment has nothing to wait for. Hired is final.
+      expect((await move(ownerA, 'hired').expect(200)).body.status).toBe('hired');
+      await move(ownerA, 'rejected').expect(422);
+    });
+
     it('holds at the database even when backend checks are skipped', async () => {
       const db = app.get(DbService);
       const seen = await db.asUser(ownerB, (tx) => tx.applications.findMany({ where: { org_id: orgA } }));
@@ -1371,15 +1390,56 @@ describe('Midan database foundation', () => {
         body: '%PDF-test',
       });
 
-    it('stores a CV privately: owner and applied-to organization only', async () => {
+    it("stores files privately: a file that isn't an application's CV is the candidate's alone", async () => {
       expect((await upload(candidateTwo, candidateTwo)).status).toBe(200);
       expect((await upload(candidateOne, candidateTwo)).ok).toBe(false);
 
       const path = `object/${cv(candidateTwo)}`;
       expect((await storage(candidateTwo, 'GET', path)).status).toBe(200);
-      expect((await storage(ownerA, 'GET', path)).status).toBe(200);
+      // Not the CV of any application, so not even an organization the candidate applied to reads it.
+      expect((await storage(ownerA, 'GET', path)).ok).toBe(false);
       expect((await storage(ownerB, 'GET', path)).ok).toBe(false);
       expect((await fetch(`${BASE}/storage/v1/object/public/${cv(candidateTwo)}`)).ok).toBe(false);
+    });
+
+    it("gives each organization only the CV copy submitted to it, never another employer's", async () => {
+      await api().post('/me/cv').set(bearer(candidateTwo))
+        .attach('file', Buffer.from('%PDF-1.4 fictional test file'), { filename: 'cv.pdf', contentType: 'application/pdf' }).expect(201);
+      const open = async (owner: Session, org: string, slug: string) => (await api().post(`/organizations/${org}/jobs`).set(bearer(owner))
+        .send({ slug, title_ar: 'م', title_en: 'Documents', status: 'published' }).expect(201)).body.id as string;
+      const jobForA = await open(ownerA, orgA, `documents-a-${RUN}`);
+      const jobForB = await open(ownerB, orgB, `documents-b-${RUN}`);
+      const toA = (await api().post(`/jobs/${jobForA}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body;
+      const toB = (await api().post(`/jobs/${jobForB}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body;
+      expect(toA.cv_snapshot_path).toContain(`/applications/${jobForA}/`);
+      const copyA = `object/candidate-documents/${toA.cv_snapshot_path}`;
+      const copyB = `object/candidate-documents/${toB.cv_snapshot_path}`;
+
+      expect((await storage(ownerA, 'GET', copyA)).status).toBe(200);
+      expect((await storage(ownerA, 'GET', copyB)).ok).toBe(false);
+      expect((await storage(ownerB, 'GET', copyB)).status).toBe(200);
+      expect((await storage(ownerB, 'GET', copyA)).ok).toBe(false);
+      expect((await api().get(`/applications/${toA.id}/cv-url`).set(bearer(ownerA)).expect(200)).body.url).toContain(jobForA);
+      await api().get(`/applications/${toB.id}/cv-url`).set(bearer(ownerA)).expect(404);
+
+      // Listing the candidate's folder shows organization A its own application, and not that one to B exists.
+      const list = async (who: Session, prefix: string) => (await (await fetch(`${BASE}/storage/v1/object/list/candidate-documents`, {
+        method: 'POST',
+        headers: { apikey: KEY, authorization: `Bearer ${who.token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ prefix }),
+      })).json()) as { name: string }[];
+      const folders = (await list(ownerA, `${candidateTwo.id}/applications`)).map((e) => e.name);
+      expect(folders).toContain(jobForA);
+      expect(folders).not.toContain(jobForB);
+      expect(await list(ownerA, `${candidateTwo.id}/applications/${jobForB}`)).toEqual([]);
+
+      // Nobody else: another candidate, or a signed-out visitor.
+      expect((await storage(candidateOne, 'GET', copyA)).ok).toBe(false);
+      expect((await fetch(`${BASE}/storage/v1/${copyA}`, { headers: { apikey: KEY } })).ok).toBe(false);
+
+      // A withdrawal ends the organization's access.
+      await api().post(`/applications/${toA.id}/withdraw`).set(bearer(candidateTwo)).expect(201);
+      expect((await storage(ownerA, 'GET', copyA)).ok).toBe(false);
     });
 
     it('rejects file types the bucket does not allow', async () => {

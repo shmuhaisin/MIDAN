@@ -17,7 +17,7 @@ export function map(error: DatabaseError): Mapped {
   if (/P0002|No account with that email|not found/i.test(text)) return { status: 404, message: 'Not found' };
   if (/22023|Unknown action|Unknown resolution|not queued from here/i.test(text)) return { status: 400, message: 'Invalid request' };
   if (/row-level security|permission denied|42501|not available/i.test(text)) return { status: 403, message: 'Not allowed' };
-  if (/23514|check constraint|not open for|immutable|cannot be changed/i.test(text)) return { status: 422, message: 'This change is not allowed' };
+  if (/23514|check constraint|not open for|immutable|cannot be changed|not allowed until/i.test(text)) return { status: 422, message: 'This change is not allowed' };
   return { status: 500, message: 'Internal server error' };
 }
 

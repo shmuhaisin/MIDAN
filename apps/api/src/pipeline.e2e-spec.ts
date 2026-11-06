@@ -500,6 +500,10 @@ describe('Midan administration and data pipeline', () => {
       expect(apps.map((a: { id: string }) => a.id)).toContain(application);
       await api().get(`${base()}/applications`).set(bearer(ownerB)).expect(403);
 
+      // Submitted but not yet reviewed: no hiring, by hand or through an outcome.
+      await api().patch(`/applications/${application}/status`).set(bearer(ownerA)).send({ status: 'hired' }).expect(422);
+      await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'hired' }).expect(422);
+
       evaluation = (await api().post(`/attempts/${attempt}/evaluate`).set(bearer(ownerA)).expect(201)).body.id;
       const full = (await api().get(`/attempts/${attempt}/evaluation`).set(bearer(ownerA)).expect(200)).body;
       expect(full.task_responses.length).toBeGreaterThan(0);
@@ -519,6 +523,12 @@ describe('Midan administration and data pipeline', () => {
       expect(JSON.stringify(report)).not.toContain('Checked against the rubric');
       const mine = (await api().get('/me/applications').set(bearer(candidateTwo)).expect(200)).body.find((a: { id: string }) => a.id === application);
       expect(mine.status).toBe('evaluated');
+    });
+
+    it('hires only once the assessment has been reviewed, and only by the owning organization', async () => {
+      await api().patch(`/applications/${application}/status`).set(bearer(ownerB)).send({ status: 'hired' }).expect(404);
+      expect((await api().patch(`/applications/${application}/status`).set(bearer(ownerA)).send({ status: 'hired' }).expect(200)).body.status).toBe('hired');
+      await api().patch(`/applications/${application}/status`).set(bearer(ownerA)).send({ status: 'rejected' }).expect(422);
     });
   });
 

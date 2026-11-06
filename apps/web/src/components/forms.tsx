@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { createContext, useActionState, useContext, useEffect, useId, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
 import { applyToJob, createJob, createOrganization, saveBranding, setApplicationStatus, setJobStatus, uploadLogo, withdrawApplication } from '@/lib/actions';
+import { statusOptions } from '@/lib/application-status';
 import { changePassword, requestPasswordReset, resetPassword, signIn, signUp, startGoogleSignIn, type FormState } from '@/lib/auth-actions';
 import { PROFESSIONAL_FIELDS, resolveHumaidan } from '@/lib/humaidan';
 import { Arrow, Humaidan } from './brand';
@@ -395,14 +396,13 @@ export function JobStatusButtons({ orgId, jobId, status }: { orgId: string; jobI
   );
 }
 
-const ORG_STATUSES = ['submitted', 'under_review', 'shortlisted', 'rejected', 'hired'];
-
 export function ApplicantStatus({ id, status, label }: { id: string; status: string; label: string }) {
   const t = useTranslations('applicationStatus');
   const [pending, start] = useTransition();
   const [value, setValue] = useState(status);
   const [error, setError] = useState<string>();
-  const options = ORG_STATUSES.includes(status) ? ORG_STATUSES : [status, ...ORG_STATUSES];
+  const options = statusOptions(status);
+  if (options.length === 1) return <span className="text-sm">{t(status)}</span>;
   return (
     <div>
       <select
