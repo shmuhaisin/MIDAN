@@ -12,6 +12,7 @@
     "test:forms": "playwright test --config playwright.forms.config.ts"
   },
   "dependencies": {
+    "@daily-co/daily-js": "^0.94.0",
     "clsx": "^2.1.1",
     "motion": "^14.9.1",
     "next": "^16.4.5",

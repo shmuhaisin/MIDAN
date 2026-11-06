@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { saveAnswer, startAttempt, submitAttempt, uploadEvidence } from '@/lib/actions';
-import { list, number, pick, readableOnWhite } from '@/lib/format';
+import { formatWhen, list, number, pick, readableOnWhite } from '@/lib/format';
 import { resolveHumaidan } from '@/lib/humaidan';
 import { Arrow, Humaidan } from './brand';
 import { ErrorText, PRIMARY, useAction } from './forms';
@@ -14,7 +14,8 @@ import { ErrorText, PRIMARY, useAction } from './forms';
 type Question = { id: string; prompt_ar: string; prompt_en: string; options: { id: string; label_ar: string; label_en: string }[] };
 type Task = {
   id: string; position: number; task_type: string; title_ar: string; title_en: string; instructions_ar: string; instructions_en: string;
-  config: { questions?: Question[]; dataset_csv?: string; dataset_name?: string };
+  task_skill_mappings?: { skills: { id: string; name_ar: string; name_en: string } }[];
+  config: { questions?: Question[]; dataset_csv?: string; dataset_name?: string; deliverables_ar?: string[]; deliverables_en?: string[]; accepted_formats?: string[]; materials?: { title: string; url: string }[] };
 };
 type Answer = { text?: string; choices?: Record<string, string> };
 export type ExperienceData = {
@@ -22,9 +23,12 @@ export type ExperienceData = {
   organization: { name_ar: string; name_en: string };
   branding: { primary_color: string | null; industry: string | null; welcome_ar: string | null; welcome_en: string | null } | null;
   job: { title_ar: string; title_en: string };
-  version: { id: string; assessments: { title_ar: string; title_en: string; professional_field: string | null }; duration_minutes: number | null; instructions_ar: string | null; instructions_en: string | null; assessment_tasks: Task[] };
+  version: {
+    id: string; assessments: { title_ar: string; title_en: string; professional_field: string | null };
+    scenario_ar: string | null; scenario_en: string | null; is_timed: boolean; deadline_hours: number | null;
+    candidate_rubric: { title_ar: string; title_en: string; criteria: { code: string; description_ar: string; description_en: string; max_score: string }[] }[] | null; duration_minutes: number | null; instructions_ar: string | null; instructions_en: string | null; assessment_tasks: Task[] };
   attempt: {
-    id: string; status: string; started_at: string | null;
+    id: string; status: string; started_at: string | null; deadline_at: string | null; expires_at: string | null; submitted_at: string | null; receipt_code: string | null;
     task_responses: { task_id: string; answer: Answer }[];
     evidence_files: { id: string; task_id: string; file_name: string }[];
   } | null;
@@ -51,6 +55,23 @@ function isAnswered(task: Task, answer?: Answer) {
 
 const subscribeNoop = () => () => {};
 
+/** Counts down from what the server stored, so refreshing the page can't add time. */
+function Remaining({ expiresAt }: { expiresAt: string }) {
+  const t = useTranslations('experience');
+  const locale = useLocale();
+  const [, tick] = useState(0);
+  const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  if (!mounted) return null;
+  const left = Math.max(0, new Date(expiresAt).getTime() - Date.now());
+  const minutes = Math.floor(left / 60_000);
+  const seconds = Math.floor((left % 60_000) / 1000);
+  return <span role="timer" className={clsx('text-sm font-semibold', left < 5 * 60_000 && 'text-error')}>{t('remaining', { time: `${number(locale, minutes)}:${String(seconds).padStart(2, '0')}` })}</span>;
+}
+
 function Elapsed({ startedAt }: { startedAt: string }) {
   const t = useTranslations('experience');
   const locale = useLocale();
@@ -71,10 +92,12 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
   const locale = useLocale();
   const router = useRouter();
   const tasks = data.version.assessment_tasks;
+  const targetSkills = [...new Map(tasks.flatMap((task) => (task.task_skill_mappings ?? []).map((m) => [m.skills.id, m.skills] as const))).values()];
   const preview = data.mode === 'preview';
   const attempt = data.attempt;
-  const [view, setView] = useState<'intro' | number | 'review' | 'done'>(() => {
+  const [view, setView] = useState<'intro' | number | 'review' | 'done' | 'expired'>(() => {
     if (attempt?.status === 'submitted') return 'done';
+    if (attempt?.status === 'expired') return 'expired';
     return attempt?.status === 'in_progress' ? 0 : 'intro';
   });
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => Object.fromEntries((attempt?.task_responses ?? []).map((r) => [r.task_id, r.answer])));
@@ -101,7 +124,12 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
   const submit = useAction(async () => {
     await flushSaves();
     const result = await submitAttempt((attempt as NonNullable<typeof attempt>).id);
-    if (result.ok) setView('done');
+    if (result.ok) {
+      setView('done');
+      router.refresh();
+    } else if (result.error === 'not_allowed') {
+      setView('expired');
+    }
     return result;
   });
 
@@ -159,7 +187,23 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-36"><Humaidan outfit={variant} sizes="144px" /></motion.div>
           <h1 className="mt-6 font-display text-3xl font-bold">{t('doneTitle')}</h1>
           <p className="mt-3 text-lg text-muted">{t('doneBody', { org: orgName })}</p>
+          {attempt?.receipt_code && attempt.submitted_at && (
+            <p role="status" className="mt-4 rounded-lg bg-surface p-4 text-sm">{t('receipt', { code: attempt.receipt_code, date: formatWhen(locale, attempt.submitted_at, 'Asia/Riyadh') })}</p>
+          )}
           <Link href="/dashboard" className={clsx(PRIMARY, 'mt-6')}>{t('toDashboard')}<Arrow /></Link>
+        </section>
+      </>
+    );
+  }
+
+  if (view === 'expired') {
+    return (
+      <>
+        {header}
+        <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+          <h1 className="font-display text-3xl font-bold">{t('expiredTitle')}</h1>
+          <p className="mt-2 text-lg text-muted">{t('expiredBody')}</p>
+          <Link href="/dashboard" className="mt-6 inline-block font-semibold text-primary underline underline-offset-4">{t('backToDashboard')}</Link>
         </section>
       </>
     );
@@ -180,11 +224,35 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
           </div>
         </section>
         <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+          {pick(locale, data.version.scenario_ar ?? '', data.version.scenario_en ?? '') && (
+            <div className="mb-6 rounded-lg bg-surface p-4">
+              <h2 className="font-display text-xl font-semibold">{t('scenario')}</h2>
+              <p className="mt-1 leading-relaxed whitespace-pre-line">{pick(locale, data.version.scenario_ar ?? '', data.version.scenario_en ?? '')}</p>
+            </div>
+          )}
           <p className="text-lg leading-relaxed text-muted">{pick(locale, data.version.instructions_ar ?? '', data.version.instructions_en ?? '')}</p>
           <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-1 font-medium">
-            {data.version.duration_minutes && <li>{t('estimated', { minutes: number(locale, data.version.duration_minutes) })}</li>}
+            {data.version.duration_minutes && <li>{t(data.version.is_timed ? 'timedFor' : 'estimated', { minutes: number(locale, data.version.duration_minutes) })}</li>}
             <li>{t('tasksCount', { count: number(locale, tasks.length) })}</li>
+            {attempt?.deadline_at && <li>{t('deadlineOn', { date: formatWhen(locale, attempt.deadline_at, 'Asia/Riyadh') })}</li>}
           </ul>
+          {data.version.is_timed && <p className="mt-2 text-sm text-muted">{t('timedNote')}</p>}
+          {targetSkills.length > 0 && (
+            <p className="mt-4"><span className="font-semibold">{t('targetSkills')}: </span>{targetSkills.map((s) => pick(locale, s.name_ar, s.name_en)).join(locale === 'ar' ? '، ' : ', ')}</p>
+          )}
+          {data.version.candidate_rubric && data.version.candidate_rubric.length > 0 && (
+            <details className="mt-5 rounded-lg bg-surface p-4">
+              <summary className="cursor-pointer font-semibold">{t('rubricTitle')}</summary>
+              {data.version.candidate_rubric.map((task) => (
+                <div key={task.title_en} className="mt-3">
+                  <p className="font-medium">{pick(locale, task.title_ar, task.title_en)}</p>
+                  <ul className="mt-1 list-disc space-y-1 ps-5 text-sm text-muted">
+                    {task.criteria.map((c) => <li key={c.code}>{pick(locale, c.description_ar, c.description_en)} ({t('maxScore', { score: number(locale, Number(c.max_score)) })})</li>)}
+                  </ul>
+                </div>
+              ))}
+            </details>
+          )}
           <h2 className="mt-7 font-display text-xl font-semibold">{t('rulesTitle')}</h2>
           <ul className="mt-2 space-y-1.5 text-muted">{(t.raw('rules') as string[]).map((r) => <li key={r}>{r}</li>)}</ul>
           <div className="mt-7">
@@ -272,7 +340,7 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
         <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-medium text-muted">{t('taskOf', { current: number(locale, index + 1), total: number(locale, tasks.length) })}</p>
           <div className="flex items-center gap-4">
-            {attempt?.started_at && <Elapsed startedAt={attempt.started_at} />}
+            {attempt?.expires_at ? <Remaining expiresAt={attempt.expires_at} /> : attempt?.started_at && <Elapsed startedAt={attempt.started_at} />}
             <p aria-live="polite" className={clsx('min-w-16 text-sm font-medium', save === 'failed' ? 'text-error' : 'text-primary')}>
               {save === 'saving' ? t('saving') : save === 'saved' ? t('saved') : save === 'failed' ? t('saveFailed') : ''}
             </p>
@@ -281,6 +349,17 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
         <h1 className="mt-2 font-display text-2xl leading-snug font-bold sm:text-3xl">{pick(locale, task.title_ar, task.title_en)}</h1>
         <p className="mt-3 text-lg leading-relaxed whitespace-pre-line">{pick(locale, task.instructions_ar, task.instructions_en)}</p>
 
+        {(task.config.deliverables_en?.length || task.config.deliverables_ar?.length || task.config.materials?.length || task.config.accepted_formats?.length) ? (
+          <div className="mt-4 space-y-2 rounded-lg bg-surface p-4 text-sm">
+            {(locale === 'ar' ? task.config.deliverables_ar : task.config.deliverables_en)?.length ? (
+              <div><p className="font-semibold">{t('deliverables')}</p><ul className="mt-1 list-disc ps-5">{(locale === 'ar' ? task.config.deliverables_ar : task.config.deliverables_en)?.map((d) => <li key={d}>{d}</li>)}</ul></div>
+            ) : null}
+            {task.config.materials?.length ? (
+              <div><p className="font-semibold">{t('materials')}</p><ul className="mt-1 space-y-1">{task.config.materials.filter((m) => m.url.startsWith('https://')).map((m) => <li key={m.url}><a href={m.url} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">{m.title}</a></li>)}</ul></div>
+            ) : null}
+            {task.config.accepted_formats?.length ? <p><span className="font-semibold">{t('acceptedFormats')}: </span><bdi>{task.config.accepted_formats.join(', ')}</bdi></p> : null}
+          </div>
+        ) : null}
         {task.config.dataset_csv && (
           <div className="mt-5">
             <div className="mb-2 flex items-center justify-between gap-3">

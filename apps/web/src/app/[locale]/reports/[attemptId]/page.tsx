@@ -6,7 +6,9 @@ import { apiForPage } from '@/lib/api';
 import { number, pick } from '@/lib/format';
 import { getSession } from '@/lib/session';
 
+type Criterion = { task_title_ar: string; task_title_en: string; code: string; description_ar: string; description_en: string; max_score: string; score: string | null; explanation: string | null; reviewed: boolean };
 type Report = {
+  criteria: Criterion[];
   overall_score: string; ai_mode: string | null;
   assessment_attempts: { assessment_versions: { assessments: { title_ar: string; title_en: string } }; applications: { jobs: { title_ar: string; title_en: string; organizations: { name_ar: string; name_en: string } } } };
   skill_scores: {
@@ -68,6 +70,25 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           ))}
         </ul>
       </section>
+
+      {report.criteria.length > 0 && (
+        <section className="mt-12" aria-labelledby="criteria">
+          <h2 id="criteria" className="font-display text-2xl font-bold">{t('criteria')}</h2>
+          <p className="mt-1 text-sm text-muted">{t('criteriaNote')}</p>
+          <ul className="mt-4 border-t border-border">
+            {report.criteria.map((c) => (
+              <li key={`${c.task_title_en}-${c.code}`} className="grid gap-2 border-b border-border py-4 sm:grid-cols-[1fr_auto]">
+                <div>
+                  <p className="text-sm text-muted">{pick(locale, c.task_title_ar, c.task_title_en)}</p>
+                  <p className="font-semibold">{pick(locale, c.description_ar, c.description_en)}</p>
+                  {c.explanation && <p className="mt-1 text-muted"><bdi>{c.explanation}</bdi></p>}
+                </div>
+                <p className="font-display text-xl font-bold">{c.score == null ? '—' : number(locale, Number(c.score))} <span className="text-sm font-normal text-muted">/ {number(locale, Number(c.max_score))}</span></p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="mt-12 grid gap-10 md:grid-cols-2">
         <section>

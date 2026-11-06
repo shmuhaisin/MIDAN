@@ -61,6 +61,10 @@ class JsonLLMProvider:
         self._attempts = attempts
         self.provenance = Provenance(mode="live", model_version=name, prompt_version=PROMPT_VERSION)
 
+    @property
+    def complete(self):
+        return self._complete
+
     def score_open(self, task: TaskInput, criterion: CriterionInput, answer: str) -> OpenScore:
         # A candidate must not be able to close the data block.
         safe = answer.replace("</response>", "< /response>")

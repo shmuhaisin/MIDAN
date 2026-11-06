@@ -48,6 +48,7 @@ export class EvaluationsController {
           task_responses: true,
           evidence_files: { select: { task_id: true, file_name: true } },
           evaluation_results: { select: { id: true } },
+          applications: { select: { users: { select: { display_name: true, candidate_profiles: { select: { full_name: true } } } } } },
         },
       });
       if (!attempt) throw new NotFoundException();
@@ -63,6 +64,7 @@ export class EvaluationsController {
     const payload = {
       attempt_id: id,
       attempt_status: snapshot.status,
+      known_names: [snapshot.applications.users.candidate_profiles?.full_name, snapshot.applications.users.display_name].filter(Boolean),
       rubric_version: snapshot.assessment_versions.version_number,
       skills: [...skills.values()].map((s) => ({ id: s.id, slug: s.slug, name_ar: s.name_ar, name_en: s.name_en })),
       tasks: tasks.map((t) => ({
@@ -218,6 +220,7 @@ export class EvaluationsController {
   @ApiOperation({ summary: "The candidate's report. Exists only after the organization releases it." })
   report(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.db.asUser(user, async (tx) => {
+      const criteria = await tx.$queryRaw<unknown[]>`select * from public.released_result_details(${id}::uuid)`;
       const result = await tx.evaluation_results.findFirst({
         where: { attempt_id: id, released_to_candidate: true, assessment_attempts: { candidate_id: user.id } },
         select: {
@@ -232,7 +235,7 @@ export class EvaluationsController {
         },
       });
       if (!result) throw new NotFoundException();
-      return result;
+      return { ...result, criteria };
     });
   }
 

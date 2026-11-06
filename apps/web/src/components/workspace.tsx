@@ -11,6 +11,7 @@ import { list, pick } from '@/lib/format';
 import { PROFESSIONAL_FIELDS } from '@/lib/humaidan';
 import { Arrow } from './brand';
 import { ActionForm, ErrorText, Field, INPUT, PRIMARY, Submit, useAction } from './forms';
+import { saveVersionSettings } from '@/lib/candidate-actions';
 import { TaskRequirementPicker, type Requirement } from './requirements';
 
 function TextArea({ label, hint, name, ...props }: { label: string; hint?: string; name: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -32,12 +33,54 @@ type Skill = { id: string; name_ar: string; name_en: string };
 type JobDetails = {
   id: string; title_ar: string; title_en: string; description_ar: string | null; description_en: string | null;
   requirements_ar: string | null; requirements_en: string | null; location: string | null;
-  employment_type: string | null; salary_min: string | null; salary_max: string | null; application_deadline: string | null;
+  employment_type: string | null; salary_min: string | null; salary_max: string | null; application_deadline: string | null; sector: string | null; experience_level: string | null;
   job_skills: { skill_id: string; required_level: number }[];
 };
 
+/** What candidates are told and how long they have. The company approves this along with the assessment. */
+export function VersionSettings({ orgId, version, canEdit }: { orgId: string; version: { id: string; scenario_ar: string | null; scenario_en: string | null; deadline_hours: number | null; duration_minutes: number | null; is_timed: boolean; rubric_shared: boolean }; canEdit: boolean }) {
+  const t = useTranslations('workspace');
+  const [scenarioAr, setScenarioAr] = useState(version.scenario_ar ?? '');
+  const [scenarioEn, setScenarioEn] = useState(version.scenario_en ?? '');
+  const [deadline, setDeadline] = useState(version.deadline_hours == null ? '' : String(version.deadline_hours));
+  const [minutes, setMinutes] = useState(version.duration_minutes == null ? '' : String(version.duration_minutes));
+  const [timed, setTimed] = useState(version.is_timed);
+  const [shared, setShared] = useState(version.rubric_shared);
+  const [saved, setSaved] = useState(false);
+  const { pending, error, fire } = useAction(async () => {
+    const result = await saveVersionSettings(orgId, version.id, {
+      scenario_ar: scenarioAr, scenario_en: scenarioEn, is_timed: timed, rubric_shared: shared,
+      ...(deadline && { deadline_hours: Number(deadline) }), ...(minutes && { duration_minutes: Number(minutes) }),
+    });
+    setSaved(Boolean(result.ok));
+    return result;
+  });
+  return (
+    <form className="space-y-3 rounded-lg bg-surface p-4" onSubmit={(e) => { e.preventDefault(); fire(); }}>
+      <p className="font-semibold">{t('candidateSettings')}</p>
+      <fieldset disabled={!canEdit} className="grid gap-3 sm:grid-cols-2">
+        <label className="block"><span className="text-sm font-medium">{t('scenarioAr')}</span><textarea dir="rtl" rows={2} value={scenarioAr} onChange={(e) => setScenarioAr(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} /></label>
+        <label className="block"><span className="text-sm font-medium">{t('scenarioEn')}</span><textarea dir="ltr" rows={2} value={scenarioEn} onChange={(e) => setScenarioEn(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} /></label>
+        <Field name="deadline_hours" type="number" min={1} max={2160} label={t('deadlineHours')} hint={t('deadlineHint')} value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+        <Field name="duration_minutes" type="number" min={1} max={1440} label={t('durationMinutes')} value={minutes} onChange={(e) => setMinutes(e.target.value)} />
+        <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={timed} onChange={(e) => setTimed(e.target.checked)} className="size-4 accent-[var(--primary)]" />{t('isTimed')}</label>
+        <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="size-4 accent-[var(--primary)]" />{t('shareRubric')}</label>
+      </fieldset>
+      {canEdit && (
+        <div className="flex items-center gap-3">
+          <button type="submit" disabled={pending} aria-busy={pending} className="rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold">{t('saveSettings')}</button>
+          {saved && !pending && <span role="status" className="text-sm font-semibold text-primary">{t('saved')}</span>}
+        </div>
+      )}
+      <ErrorText code={error} />
+    </form>
+  );
+}
+
 export function JobDetailsForm({ orgId, job, skills, canEdit }: { orgId: string; job: JobDetails; skills: Skill[]; canEdit: boolean }) {
   const t = useTranslations('workspace');
+  const ts = useTranslations('sectors');
+  const tj = useTranslations('jobs');
   const locale = useLocale();
   const [state, action] = useActionState<FormState, FormData>(updateJob.bind(null, orgId, job.id), {});
   const selected = new Map(job.job_skills.map((s) => [s.skill_id, s.required_level]));
@@ -53,6 +96,20 @@ export function JobDetailsForm({ orgId, job, skills, canEdit }: { orgId: string;
           <TextArea name="requirements_ar" dir="rtl" rows={3} label={t('requirementsAr')} defaultValue={job.requirements_ar ?? ''} />
           <TextArea name="requirements_en" dir="ltr" rows={3} label={t('requirementsEn')} defaultValue={job.requirements_en ?? ''} />
           <Field name="location" label={t('location')} defaultValue={job.location ?? ''} />
+          <label className="block">
+            <span className="text-sm font-medium">{t('sector')}</span>
+            <select name="sector" defaultValue={job.sector ?? ''} className={INPUT}>
+              <option value="">{t('notSpecified')}</option>
+              {['digital', 'culture_entertainment', 'tourism_hospitality', 'manufacturing', 'construction_real_estate', 'financial_services', 'wholesale_retail', 'other'].map((k) => <option key={k} value={k}>{ts(k)}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium">{t('experienceLevel')}</span>
+            <select name="experience_level" defaultValue={job.experience_level ?? ''} className={INPUT}>
+              <option value="">{t('notSpecified')}</option>
+              {['entry', 'junior', 'mid', 'senior', 'lead'].map((k) => <option key={k} value={k}>{tj(`level.${k}`)}</option>)}
+            </select>
+          </label>
           <label className="block">
             <span className="text-sm font-medium">{t('employmentType')}</span>
             <select name="employment_type" defaultValue={job.employment_type ?? ''} className={INPUT}>

@@ -2,14 +2,15 @@ import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Arrow } from '@/components/brand';
 import { ApplicantCvButton } from '@/components/profile';
+import { HiringPanel } from '@/components/hiring-panel';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { number, pick } from '@/lib/format';
 import { getSession } from '@/lib/session';
 
 type Named = { skill_id: string; skills: { name_ar: string; name_en: string } };
-type Experience = { title: string; organization: string; start_year: number; end_year?: number | null; description?: string };
-type Education = { institution: string; qualification: string; field?: string; start_year: number; end_year?: number | null };
+type Experience = { title: string; organization?: string; start_year?: number | null; end_year?: number | null; description?: string };
+type Education = { institution?: string; qualification: string; field?: string; start_year?: number | null; end_year?: number | null };
 type Applicant = {
   status: string;
   jobs: { id: string; title_ar: string; title_en: string; job_skills: Named[] };
@@ -29,7 +30,12 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   setRequestLocale(locale);
   if (!(await getSession())) return redirect({ href: '/login?as=organization', locale });
   if (!/^[0-9a-f-]{36}$/.test(applicationId)) notFound();
-  const data = await apiForPage<Applicant>(`/applications/${applicationId}/profile`);
+  const [data, org, hiring] = await Promise.all([
+    apiForPage<Applicant>(`/applications/${applicationId}/profile`),
+    apiForPage<{ my_role: string }>(`/organizations/${orgId}`),
+    apiForPage<{ interviews: Parameters<typeof HiringPanel>[0]['interviews']; outcomes: Parameters<typeof HiringPanel>[0]['outcomes'] }>(`/organizations/${orgId}/applications/${applicationId}/interviews`),
+  ]);
+  const canManage = ['owner', 'admin', 'recruiter'].includes(org?.my_role ?? '');
   if (!data) notFound();
   const t = await getTranslations({ locale, namespace: 'applicant' });
   const ts = await getTranslations({ locale, namespace: 'applicationStatus' });
@@ -37,7 +43,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const listed = new Set(data.users.candidate_skills.map((s) => s.skill_id));
   const required = new Set(data.jobs.job_skills.map((s) => s.skill_id));
   const submitted = data.assessment_attempts.filter((a) => a.status === 'submitted');
-  const span = (i: { start_year: number; end_year?: number | null }) => `${i.start_year} – ${i.end_year ?? t('present')}`;
+  const span = (i: { start_year?: number | null; end_year?: number | null }) => (i.start_year ? `${i.start_year} – ${i.end_year ?? t('present')}` : '');
 
   return (
     <article className="mx-auto max-w-4xl space-y-10 px-4 py-10 sm:px-6">
@@ -58,6 +64,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           </Link>
         ))}
       </header>
+
+      {hiring && <HiringPanel orgId={orgId} applicationId={applicationId} interviews={hiring.interviews} outcomes={hiring.outcomes} canManage={canManage} />}
 
       {!profile && <p className="text-muted">{t('noProfile')}</p>}
       {profile?.summary && <p className="max-w-3xl text-lg leading-relaxed whitespace-pre-line">{profile.summary}</p>}

@@ -2,6 +2,7 @@
 // Needs .env and .env.test.local. Leftovers are removed by supabase/test-cleanup.sql.
 import 'reflect-metadata';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { createServer, type Server } from 'node:http';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -158,7 +159,9 @@ describe('Midan database foundation', () => {
       appOneB = (await api().post(`/jobs/${jobB}/applications`).set(bearer(candidateOne)).send({}).expect(201)).body.id;
       appTwoA = (await api().post(`/jobs/${jobA}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
 
-      await api().post(`/jobs/${jobA}/applications`).set(bearer(candidateOne)).send({}).expect(409);
+      // A repeated click gets the same application, not a second one or an error.
+      const again = await api().post(`/jobs/${jobA}/applications`).set(bearer(candidateOne)).send({}).expect(201);
+      expect(again.body.id).toBe(appOneA);
       await api().post(`/jobs/${draftJobA}/applications`).set(bearer(candidateOne)).send({}).expect(404);
 
       const mine = await api().get('/me/applications').set(bearer(candidateOne)).expect(200);
@@ -687,6 +690,363 @@ describe('Midan database foundation', () => {
     });
   });
 
+  describe('the candidate journey', () => {
+    const base = () => `/organizations/${orgA}`;
+    let job: string, version: string, application: string, attempt: string, slug: string, interview: string, evaluation: string;
+    const docx = (lines: string[]) => {
+      // A small real .docx with personal data in it. Everything is fictional.
+      const crc32 = (data: Buffer) => { let c = ~0; for (const b of data) { c ^= b; for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1; } return ~c >>> 0; };
+      const body = Buffer.from(`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${lines.map((l) => `<w:p><w:r><w:t>${l}</w:t></w:r></w:p>`).join('')}</w:body></w:document>`);
+      const name = Buffer.from('word/document.xml');
+      const head = Buffer.alloc(30); head.writeUInt32LE(0x04034b50, 0); head.writeUInt16LE(20, 4); head.writeUInt32LE(crc32(body), 14); head.writeUInt32LE(body.length, 18); head.writeUInt32LE(body.length, 22); head.writeUInt16LE(name.length, 26);
+      const central = Buffer.alloc(46); central.writeUInt32LE(0x02014b50, 0); central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6); central.writeUInt32LE(crc32(body), 16); central.writeUInt32LE(body.length, 20); central.writeUInt32LE(body.length, 24); central.writeUInt16LE(name.length, 28);
+      const offset = head.length + name.length + body.length;
+      const end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(1, 8); end.writeUInt16LE(1, 10); end.writeUInt32LE(central.length + name.length, 12); end.writeUInt32LE(offset, 16);
+      return Buffer.concat([head, name, body, central, name, end]);
+    };
+    const uploadCv = (data: Buffer, who = candidateOne) =>
+      api().post('/me/cv').set(bearer(who)).attach('file', data, { filename: 'fictional-name-cv.docx', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    const settled = async (id: string, who = candidateOne) => {
+      for (let i = 0; i < 60; i++) {
+        const seen = await api().get(`/me/cv/analyses/${id}`).set(bearer(who)).expect(200);
+        if (seen.body.status !== 'pending') return seen.body;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      throw new Error('Analysis never finished');
+    };
+
+    it('offers the skills reference with its source, and keeps employers separate from partners', async () => {
+      const found = await api().get(`/reference/skills?q=${encodeURIComponent('النمذجة الثلاثية')}&sector=digital`).expect(200);
+      expect(found.body.length).toBeGreaterThan(0);
+      expect(found.body[0].sector_code).toBe('digital');
+      const families = await api().get('/reference/job-families?sector=digital').expect(200);
+      expect(families.body.length).toBe(17);
+      expect((await rest(null, 'POST', 'reference_skills', { sector_code: 'x', skill_kind: 'general', name_ar: 'x', source_file: 'x', source_sheet: 'x', source_row: 1 })).status).not.toBe(201);
+      expect((await rest(candidateOne, 'PATCH', 'employer_registry?source_company_id=eq.ALM-001', { partnership_status: 'partner' })).status).not.toBe(200);
+      const employers = await rest(null, 'GET', 'employer_registry?select=partnership_status');
+      expect(employers.body).toHaveLength(10);
+      expect(employers.body.every((e: { partnership_status: string }) => e.partnership_status === 'not_partner')).toBe(true);
+    });
+
+    it('works for an account with no data at all', async () => {
+      const dashboard = await api().get('/me/dashboard').set(bearer(recruiterA)).expect(200);
+      expect(dashboard.body).toMatchObject({ interviews: [], recommended: [], unread: expect.any(Number) });
+      expect((await api().get('/me/career').set(bearer(recruiterA)).expect(200)).body).toMatchObject({ target: null, role_skills: [], plan: [] });
+    });
+
+    it('reads a CV locally, keeps it for review, and saves only what the candidate approves', async () => {
+      await api().put('/me/candidate-profile').set(bearer(candidateOne)).send({ full_name: 'Test Candidate One', headline: 'Set by hand' }).expect(200);
+      const upload = await uploadCv(docx([
+        'Test Candidate One', 'test.candidate@example.com', '+966 55 123 4567', 'National ID: 1012345678',
+        'Summary', 'Analyst who builds weekly reports', 'Skills', 'SQL, Python', 'Certifications', 'Fictional Data Certificate',
+        'References', 'Noura Refname 0501112222',
+      ])).expect(201);
+      const analysis = await settled(upload.body.analysis_id);
+      expect(analysis).toMatchObject({ status: 'awaiting_review', mode: 'local_only' });
+      expect(analysis.personal.phone).toBe('+966551234567');
+      expect(analysis.professional.skills).toEqual(expect.arrayContaining(['SQL', 'Python']));
+      expect(JSON.stringify(analysis.professional)).not.toMatch(/1012345678|Refname|test\.candidate|551234567/);
+      expect(analysis.redaction_counts.phone).toBeGreaterThan(0);
+
+      // Nothing reached the profile by itself, and nobody else can read the analysis.
+      const before = await api().get('/me').set(bearer(candidateOne)).expect(200);
+      expect(before.body.candidate_profiles.headline).toBe('Set by hand');
+      expect(before.body.candidate_profiles.self_reported_skills).toEqual([]);
+      await api().get(`/me/cv/analyses/${analysis.id}`).set(bearer(candidateTwo)).expect(404);
+      expect((await rest(ownerA, 'GET', `cv_analyses?id=eq.${analysis.id}`)).body).toEqual([]);
+      expect((await rest(null, 'GET', `cv_analyses?id=eq.${analysis.id}`)).status).not.toBe(200);
+
+      await api().post(`/me/cv/analyses/${analysis.id}/apply`).set(bearer(candidateOne)).send({ phone: '+966551234567', skills: ['SQL'], certifications: [{ title: 'Fictional Data Certificate' }] }).expect(201);
+      const after = await api().get('/me').set(bearer(candidateOne)).expect(200);
+      expect(after.body.candidate_profiles).toMatchObject({ headline: 'Set by hand', phone: '+966551234567', self_reported_skills: ['SQL'], certifications: [{ title: 'Fictional Data Certificate' }] });
+      await api().post(`/me/cv/analyses/${analysis.id}/apply`).set(bearer(candidateOne)).send({ skills: ['Python'] }).expect(422);
+      expect((await api().get(`/me/cv/analyses/${analysis.id}`).set(bearer(candidateOne))).body.personal).toBeNull();
+
+      // Reanalysis goes through the same pipeline, and leaves corrections alone until approved.
+      const again = await api().post('/me/cv/analyses').set(bearer(candidateOne)).expect(201);
+      const second = await settled(again.body.id);
+      expect(second.status).toBe('awaiting_review');
+      await api().post(`/me/cv/analyses/${second.id}/dismiss`).set(bearer(candidateOne)).expect(201);
+      expect((await api().get('/me').set(bearer(candidateOne))).body.candidate_profiles.headline).toBe('Set by hand');
+    });
+
+    it('reports a failed analysis instead of guessing, and allows a retry', async () => {
+      await api().put('/me/candidate-profile').set(bearer(candidateTwo)).send({ full_name: 'Test Candidate Two' }).expect(200);
+      const bad = await api().post('/me/cv').set(bearer(candidateTwo)).attach('file', Buffer.from('%PDF-1.4 not really a pdf'), { filename: 'cv.pdf', contentType: 'application/pdf' }).expect(201);
+      const failed = await settled(bad.body.analysis_id, candidateTwo);
+      expect(failed).toMatchObject({ status: 'failed', failure_code: 'unreadable', personal: null, professional: null });
+      await api().post('/me/cv').set(bearer(candidateTwo)).attach('file', Buffer.from('not a document'), { filename: 'cv.pdf', contentType: 'application/pdf' }).expect(422);
+      await api().delete('/me/cv').set(bearer(candidateTwo)).expect(200);
+    });
+
+    it('assigns the approved assessment on applying, with a snapshot and one application per click', async () => {
+      job = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: `journey-${RUN}`, title_ar: 'محلل', title_en: 'Journey Analyst', status: 'published' }).expect(201)).body.id;
+      await api().patch(`${base()}/jobs/${job}`).set(bearer(ownerA)).send({ sector: 'digital', experience_level: 'mid', employment_type: 'full_time', location: 'Riyadh Test' }).expect(200);
+      version = (await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({}).expect(201)).body.version_id;
+      await api().patch(`${base()}/assessment-versions/${version}`).set(bearer(ownerA)).send({ deadline_hours: 72, rubric_shared: true, scenario_en: 'You join a fictional team.' }).expect(200);
+      await api().patch(`${base()}/assessment-versions/${version}`).set(bearer(candidateOne)).send({ deadline_hours: 1 }).expect(403);
+      await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).expect(201);
+      await api().patch(`${base()}/assessment-versions/${version}`).set(bearer(ownerA)).send({ deadline_hours: 1 }).expect(422);
+
+      const filtered = await api().get(`/jobs?sector=digital&experience_level=mid&employment_type=full_time&location=${encodeURIComponent('riyadh')}&q=journey`).expect(200);
+      expect(filtered.body.map((j: { id: string }) => j.id)).toContain(job);
+      expect((await api().get('/jobs?sector=manufacturing&q=journey').expect(200)).body).toEqual([]);
+      const details = await api().get(`/jobs/${job}`).expect(200);
+      expect(details.body.assessments[0]).toMatchObject({ is_timed: false, deadline_hours: 72 });
+      expect(JSON.stringify(details.body)).not.toMatch(/rubric|fictional team/);
+
+      const clicks = await Promise.all([1, 2, 3].map(() => api().post(`/jobs/${job}/applications`).set(bearer(candidateOne)).send({})));
+      expect(new Set(clicks.map((c) => c.body.id)).size).toBe(1);
+      application = clicks[0].body.id;
+      const seen = await api().get(`/me/applications/${application}`).set(bearer(candidateOne)).expect(200);
+      expect(seen.body).toMatchObject({ status: 'assessment_invited', has_cv: true });
+      expect(seen.body.profile_snapshot.full_name).toBe('Test Candidate One');
+      expect(seen.body.assessment_attempts).toHaveLength(1);
+      attempt = seen.body.assessment_attempts[0].id;
+      expect(new Date(seen.body.assessment_attempts[0].deadline_at).getTime()).toBeGreaterThan(Date.now() + 70 * 3_600_000);
+
+      await api().get(`/me/applications/${application}`).set(bearer(candidateTwo)).expect(404);
+      await api().get(`/me/applications/${application}/cv-url`).set(bearer(candidateTwo)).expect(404);
+      const mine = await api().get(`/me/applications/${application}/cv-url`).set(bearer(candidateOne)).expect(200);
+      expect(mine.body.url).toContain('/applications/');
+
+      // Later edits change neither the snapshot nor the copy of the CV the organization reads.
+      await api().put('/me/candidate-profile').set(bearer(candidateOne)).send({ full_name: 'Renamed Later' }).expect(200);
+      await api().delete('/me/cv').set(bearer(candidateOne)).expect(200);
+      const after = await api().get(`/me/applications/${application}`).set(bearer(candidateOne)).expect(200);
+      expect(after.body.profile_snapshot.full_name).toBe('Test Candidate One');
+      const orgCopy = await api().get(`/applications/${application}/cv-url`).set(bearer(ownerA)).expect(200);
+      expect(orgCopy.body.url).toContain('/applications/');
+      await api().get(`/applications/${application}/cv-url`).set(bearer(ownerB)).expect(404);
+      await rest(candidateOne, 'PATCH', `applications?id=eq.${application}`, { profile_snapshot: { forged: true } });
+      expect((await api().get(`/me/applications/${application}`).set(bearer(candidateOne))).body.profile_snapshot.full_name).toBe('Test Candidate One');
+
+      const notes = await api().get('/me/notifications').set(bearer(candidateOne)).expect(200);
+      const kinds = notes.body.map((n: { kind: string }) => n.kind);
+      expect(kinds).toEqual(expect.arrayContaining(['application_received', 'assessment_assigned']));
+      expect(JSON.stringify(notes.body)).not.toContain('Test Candidate Two');
+      expect((await rest(candidateTwo, 'GET', `notifications?id=eq.${notes.body[0].id}`)).body).toEqual([]);
+      await api().post(`/me/notifications/${notes.body[0].id}/read`).set(bearer(candidateTwo)).expect(201).expect((r) => expect(r.body.updated).toBe(0));
+      await api().post(`/me/notifications/${notes.body[0].id}/read`).set(bearer(candidateOne)).expect(201).expect((r) => expect(r.body.updated).toBe(1));
+    });
+
+    it('shows the shared rubric without answer keys, keeps drafts, and gives one receipt however often it is sent', async () => {
+      slug = (await api().get(`${base()}/jobs/${job}`).set(bearer(ownerA))).body.organizations.slug;
+      const seen = await api().get(`/experience/${slug}/journey-${RUN}/${version}`).set(bearer(candidateOne)).expect(200);
+      expect(seen.body.mode).toBe('attempt');
+      expect(seen.body.version.candidate_rubric.length).toBeGreaterThan(0);
+      expect(JSON.stringify(seen.body.version.candidate_rubric)).not.toContain('answer_key');
+      expect(seen.body.version.scenario_en).toBe('You join a fictional team.');
+      const tasks = seen.body.version.assessment_tasks as { id: string; task_type: string }[];
+
+      await api().post(`/attempts/${attempt}/start`).set(bearer(candidateOne)).expect(201);
+      const open = tasks.find((t) => t.task_type !== 'objective_questions') as { id: string };
+      await api().put(`/attempts/${attempt}/responses/${open.id}`).set(bearer(candidateOne)).send({ answer: { text: 'A draft' } }).expect(200);
+      const restored = await api().get(`/experience/${slug}/journey-${RUN}/${version}`).set(bearer(candidateOne)).expect(200);
+      expect(restored.body.attempt.task_responses[0].answer.text).toBe('A draft');
+      for (const task of tasks) {
+        const answer = task.task_type === 'objective_questions' ? { choices: { q1: 'b', q2: 'c' } } : { text: 'My finished work on this, with the reasoning shown.' };
+        await api().put(`/attempts/${attempt}/responses/${task.id}`).set(bearer(candidateOne)).send({ answer }).expect(200);
+      }
+      const sent = await Promise.all([1, 2].map(() => api().post(`/attempts/${attempt}/submit`).set(bearer(candidateOne)).expect(201)));
+      expect(sent[0].body.receipt_code).toMatch(/^MDN-/);
+      expect(sent[1].body.receipt_code).toBe(sent[0].body.receipt_code);
+      await api().put(`/attempts/${attempt}/responses/${open.id}`).set(bearer(candidateOne)).send({ answer: { text: 'After submitting' } }).expect(422);
+
+      await api().post(`/attempts/${attempt}/reopen`).set(bearer(candidateOne)).send({ hours: 2 }).expect(403);
+      await api().post(`/attempts/${attempt}/reopen`).set(bearer(ownerB)).send({ hours: 2 }).expect(403);
+      await api().post(`/attempts/${attempt}/reopen`).set(bearer(ownerA)).send({ hours: 2 }).expect(201);
+      await api().put(`/attempts/${attempt}/responses/${open.id}`).set(bearer(candidateOne)).send({ answer: { text: 'Improved, as the organization allowed.' } }).expect(200);
+      await api().post(`/attempts/${attempt}/submit`).set(bearer(candidateOne)).expect(201);
+      evaluation = (await api().post(`/attempts/${attempt}/evaluate`).set(bearer(ownerA)).expect(201)).body.id;
+      await api().post(`/attempts/${attempt}/reopen`).set(bearer(ownerA)).send({ hours: 2 }).expect(422);
+    });
+
+    it('keeps the timer on the server, so a refresh changes nothing and late work is refused', async () => {
+      const timedJob = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: `timed-${RUN}`, title_ar: 'موقوت', title_en: 'Timed', status: 'published' }).expect(201)).body.id;
+      const draft = (await api().post(`${base()}/jobs/${timedJob}/assessment/generate`).set(bearer(ownerA)).send({}).expect(201)).body.version_id;
+      await api().patch(`${base()}/assessment-versions/${draft}`).set(bearer(ownerA)).send({ is_timed: true, duration_minutes: 1 }).expect(200);
+      await api().post(`${base()}/assessment-versions/${draft}/publish`).set(bearer(ownerA)).expect(201);
+      const applied = (await api().post(`/jobs/${timedJob}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
+      const timed = (await api().get(`/me/applications/${applied}`).set(bearer(candidateTwo))).body.assessment_attempts[0].id;
+      const started = await api().post(`/attempts/${timed}/start`).set(bearer(candidateTwo)).expect(201);
+      expect(new Date(started.body.expires_at).getTime() - new Date(started.body.started_at).getTime()).toBe(60_000);
+      await api().post(`/attempts/${timed}/start`).set(bearer(candidateTwo)).expect(403);
+      const page = await api().get(`/experience/${slug}/timed-${RUN}/${draft}`).set(bearer(candidateTwo)).expect(200);
+      expect(page.body.attempt.expires_at).toBe(new Date(started.body.expires_at).toISOString());
+      const task = page.body.version.assessment_tasks.find((t: { task_type: string }) => t.task_type !== 'objective_questions');
+
+      await new Promise((r) => setTimeout(r, 122_000));
+      await api().put(`/attempts/${timed}/responses/${task.id}`).set(bearer(candidateTwo)).send({ answer: { text: 'Too late' } }).expect(422);
+      await api().post(`/attempts/${timed}/submit`).set(bearer(candidateTwo)).expect(422);
+      const after = await api().get(`/me/applications/${applied}`).set(bearer(candidateTwo)).expect(200);
+      expect(after.body.assessment_attempts[0].status).toBe('expired');
+    }, 200_000);
+
+    it('shows released scores by criterion, and never a reviewer note or another candidate', async () => {
+      await api().get(`/attempts/${attempt}/report`).set(bearer(candidateOne)).expect(404);
+      await api().post(`/evaluations/${evaluation}/review`).set(bearer(ownerA)).send({ scores: [], notes: 'INTERNAL-JOURNEY-NOTE' }).expect(201);
+      await api().post(`/evaluations/${evaluation}/release`).set(bearer(ownerA)).expect(201);
+      const report = await api().get(`/attempts/${attempt}/report`).set(bearer(candidateOne)).expect(200);
+      expect(report.body.criteria.length).toBeGreaterThan(0);
+      expect(report.body.criteria[0]).toEqual(expect.objectContaining({ code: expect.any(String), description_en: expect.any(String) }));
+      expect(JSON.stringify(report.body)).not.toMatch(/INTERNAL-JOURNEY-NOTE|answer_key/);
+      await api().get(`/attempts/${attempt}/report`).set(bearer(candidateTwo)).expect(404);
+      expect((await rest(candidateTwo, 'POST', 'rpc/released_result_details', { p_attempt: attempt })).body).toEqual([]);
+      const notes = await api().get('/me/notifications').set(bearer(candidateOne));
+      expect(notes.body.map((n: { kind: string }) => n.kind)).toEqual(expect.arrayContaining(['submission_received', 'results_released']));
+    });
+
+    describe('interviews, against local stand-ins for Daily and Google Calendar', () => {
+      let stub: Server;
+      const seen: { path: string; method: string; body: Record<string, Record<string, unknown>>; auth?: string }[] = [];
+      const last = (test: (c: (typeof seen)[number]) => boolean) => seen.filter(test).pop();
+      let calendarFails = false;
+      const saved: Record<string, string | undefined> = {};
+      const inMinutes = (m: number) => new Date(Date.now() + m * 60_000).toISOString();
+
+      beforeAll(async () => {
+        stub = createServer((req, res) => {
+          let raw = '';
+          req.on('data', (c) => (raw += c));
+          req.on('end', () => {
+            const body = raw && req.headers['content-type']?.includes('json') ? JSON.parse(raw) : {};
+            seen.push({ path: req.url ?? '', method: req.method ?? '', body, auth: req.headers.authorization });
+            const send = (status: number, data: unknown) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(data)); };
+            if (req.url?.startsWith('/token')) return send(200, { access_token: 'google-access' });
+            if (req.url?.startsWith('/calendars')) return calendarFails ? send(500, {}) : send(200, { id: 'event-1' });
+            if (req.method === 'GET' && req.url?.startsWith('/rooms/')) return send(404, {});
+            if (req.url === '/rooms') return send(200, { url: `https://stub.daily.co/${body.name}` });
+            if (req.url === '/meeting-tokens') return send(200, { token: 'short-lived-token' });
+            return send(404, {});
+          });
+        });
+        await new Promise<void>((resolve) => stub.listen(54398, 'localhost', () => resolve()));
+        for (const key of ['DAILY_API_KEY', 'DAILY_API_URL', 'GOOGLE_API_URL', 'GOOGLE_TOKEN_URL', 'GOOGLE_CALENDAR_CLIENT_ID', 'GOOGLE_CALENDAR_CLIENT_SECRET', 'GOOGLE_CALENDAR_REFRESH_TOKEN']) saved[key] = process.env[key];
+      });
+      afterAll(async () => {
+        Object.entries(saved).forEach(([key, value]) => { if (value === undefined) delete process.env[key]; else process.env[key] = value; });
+        stub.closeAllConnections();
+        await new Promise((resolve) => stub.close(resolve));
+      });
+
+      it('says when calendar and video are not configured, and never claims an invitation was sent', async () => {
+        const made = await api().post(`${base()}/applications/${application}/interviews`).set(bearer(ownerA)).send({ scheduled_at: inMinutes(5), duration_minutes: 30, instructions_en: 'Bring examples.' }).expect(201);
+        interview = made.body.id;
+        expect(made.body.calendar_status).toBe('not_configured');
+        await api().post(`${base()}/applications/${application}/interviews`).set(bearer(ownerB)).send({ scheduled_at: inMinutes(5) }).expect(403);
+        await api().post(`${base()}/applications/${application}/interviews`).set(bearer(ownerA)).send({ scheduled_at: inMinutes(-5) }).expect(422);
+        const shown = await api().get(`/interviews/${interview}`).set(bearer(candidateOne)).expect(200);
+        expect(shown.body).toMatchObject({ video_available: false, status: 'invited', calendar_status: 'not_configured', is_candidate: true });
+        await api().get(`/interviews/${interview}`).set(bearer(candidateTwo)).expect(404);
+        await api().get(`/interviews/${interview}`).set(bearer(ownerB)).expect(404);
+      });
+
+      it('keeps the appointment until a replacement is set, and asks again after a change', async () => {
+        const original = (await api().get(`/interviews/${interview}`).set(bearer(candidateOne))).body.scheduled_at;
+        await api().post(`/interviews/${interview}/respond`).set(bearer(candidateTwo)).send({ action: 'accept' }).expect(403);
+        const asked = await api().post(`/interviews/${interview}/respond`).set(bearer(candidateOne)).send({ action: 'request_reschedule', note: 'A conflict' }).expect(201);
+        expect(asked.body).toMatchObject({ status: 'reschedule_requested', scheduled_at: original });
+        const moved = await api().patch(`${base()}/interviews/${interview}`).set(bearer(ownerA)).send({ scheduled_at: inMinutes(7) }).expect(200);
+        expect(moved.body.status).toBe('invited');
+        expect(moved.body.scheduled_at).not.toBe(original);
+        expect((await api().post(`/interviews/${interview}/respond`).set(bearer(candidateOne)).send({ action: 'accept' }).expect(201)).body.status).toBe('accepted');
+        const notes = await api().get('/me/notifications').set(bearer(candidateOne));
+        expect(notes.body.map((n: { kind: string }) => n.kind)).toEqual(expect.arrayContaining(['interview_invited', 'interview_changed']));
+        expect((await rest(candidateOne, 'PATCH', `interviews?id=eq.${interview}`, { status: 'completed' })).body).toEqual([]);
+      });
+
+      it('checks who and when before issuing a short-lived token for one room, with credentials staying on the server', async () => {
+        await api().post(`/interviews/${interview}/join`).set(bearer(candidateOne)).expect(503);
+        process.env.DAILY_API_KEY = 'stub-daily-key';
+        process.env.DAILY_API_URL = 'http://localhost:54398';
+        await api().post(`/interviews/${interview}/join`).set(bearer(candidateTwo)).expect(404);
+        await api().post(`/interviews/${interview}/join`).set(bearer(ownerB)).expect(404);
+        const joined = await api().post(`/interviews/${interview}/join`).set(bearer(candidateOne)).expect(201);
+        expect(joined.body.token).toBe('short-lived-token');
+        expect(joined.body.room_url).toContain(`midan-${interview}`);
+        expect(JSON.stringify(joined.body)).not.toContain('stub-daily-key');
+        const tokenCall = last((c) => c.path === '/meeting-tokens');
+        const properties = tokenCall?.body.properties as { room_name: string; exp: number; is_owner: boolean; enable_recording?: string };
+        expect(properties.room_name).toBe(`midan-${interview}`);
+        expect(properties.is_owner).toBe(false);
+        expect(properties.enable_recording).toBeUndefined();
+        expect(properties.exp).toBeLessThan(Date.now() / 1000 + 2 * 3600 + 5);
+        expect(last((c) => c.path === '/rooms')?.body.privacy).toBe('private');
+
+        // Leaving a call isn't completion: nothing changes until the organization says so.
+        expect((await api().get(`/interviews/${interview}`).set(bearer(candidateOne))).body.status).toBe('accepted');
+
+        const later = await api().post(`${base()}/applications/${application}/interviews`).set(bearer(ownerA)).send({ scheduled_at: inMinutes(600) }).expect(201);
+        await api().post(`/interviews/${later.body.id}/respond`).set(bearer(candidateOne)).send({ action: 'accept' }).expect(201);
+        await api().post(`/interviews/${later.body.id}/join`).set(bearer(candidateOne)).expect(403);
+        await api().patch(`${base()}/interviews/${later.body.id}`).set(bearer(ownerA)).send({ status: 'cancelled' }).expect(200);
+        await api().post(`/interviews/${later.body.id}/join`).set(bearer(candidateOne)).expect(403);
+        await api().post(`${base()}/interviews/${interview}/calendar-retry`).set(bearer(ownerB)).expect(403);
+      });
+
+      it('reports calendar results as they happened', async () => {
+        process.env.GOOGLE_API_URL = 'http://localhost:54398';
+        process.env.GOOGLE_TOKEN_URL = 'http://localhost:54398/token';
+        process.env.GOOGLE_CALENDAR_CLIENT_ID = 'stub';
+        process.env.GOOGLE_CALENDAR_CLIENT_SECRET = 'stub';
+        process.env.GOOGLE_CALENDAR_REFRESH_TOKEN = 'stub';
+        calendarFails = true;
+        const failed = await api().post(`${base()}/interviews/${interview}/calendar-retry`).set(bearer(ownerA)).expect(201);
+        expect(failed.body.calendar_status).toBe('failed');
+        expect((await api().get(`/interviews/${interview}`).set(bearer(candidateOne))).body.calendar_status).toBe('failed');
+        calendarFails = false;
+        const sent = await api().post(`${base()}/interviews/${interview}/calendar-retry`).set(bearer(ownerA)).expect(201);
+        expect(sent.body).toMatchObject({ calendar_status: 'sent', calendar_event_id: 'event-1' });
+        const event = last((c) => c.path.startsWith('/calendars') && c.method === 'POST');
+        expect(event?.path).toContain('sendUpdates=all');
+        expect(JSON.stringify(event?.body)).not.toMatch(/instructions|cover_note|profile/);
+        const completed = await api().patch(`${base()}/interviews/${interview}`).set(bearer(ownerA)).send({ status: 'completed' }).expect(200);
+        expect(completed.body.status).toBe('completed');
+      });
+    });
+
+    it('shows the decision the organization issued, to that candidate only', async () => {
+      await api().post(`${base()}/applications/${application}/outcome`).set(bearer(candidateOne)).send({ outcome: 'hired' }).expect(403);
+      await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'promoted' }).expect(400);
+      await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'on_hold', message_en: 'We need another week.' }).expect(201);
+      expect((await api().get(`/me/applications/${application}`).set(bearer(candidateOne))).body.hiring_outcomes[0]).toMatchObject({ outcome: 'on_hold', message_en: 'We need another week.' });
+      await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'hired', message_en: 'Welcome.' }).expect(201);
+      const final = await api().get(`/me/applications/${application}`).set(bearer(candidateOne)).expect(200);
+      expect(final.body.status).toBe('hired');
+      expect(final.body.hiring_outcomes[0].outcome).toBe('hired');
+      expect((await rest(candidateTwo, 'GET', `hiring_outcomes?application_id=eq.${application}`)).body).toEqual([]);
+      expect((await rest(candidateOne, 'POST', 'hiring_outcomes', { application_id: application, org_id: orgA, candidate_id: candidateOne.id, outcome: 'hired' })).status).not.toBe(201);
+      expect((await api().get('/me/notifications').set(bearer(candidateOne))).body.map((n: { kind: string }) => n.kind)).toContain('hiring_decision');
+    });
+
+    it('keeps career development independent of outcomes, and progress self-reported', async () => {
+      const family = (await api().get('/reference/job-families?sector=digital')).body[0].job_family_ar;
+      await api().put('/me/career/target').set(bearer(candidateOne)).send({ sector_code: 'digital', job_family_ar: 'invented family' }).expect(422);
+      await api().put('/me/career/target').set(bearer(candidateOne)).send({ sector_code: 'digital', job_family_ar: family }).expect(200);
+      const career = await api().get('/me/career').set(bearer(candidateOne)).expect(200);
+      expect(career.body.role_skills.length).toBeGreaterThan(0);
+      expect(career.body.role_skills[0]).toMatchObject({ evidence: 'no_evidence', resources: [] });
+      const skill = career.body.role_skills[0].id;
+
+      await api().put('/me/reference-skills').set(bearer(candidateOne)).send({ ids: [skill] }).expect(200);
+      const after = await api().get('/me/career').set(bearer(candidateOne)).expect(200);
+      expect(after.body.role_skills.find((s: { id: string }) => s.id === skill).evidence).toBe('self_reported');
+
+      await api().post('/me/career/plan').set(bearer(candidateOne)).send({ reference_skill_id: skill, kind: 'course' }).expect(422);
+      const item = await api().post('/me/career/plan').set(bearer(candidateOne)).send({ reference_skill_id: skill, kind: 'project' }).expect(201);
+      const again = await api().post('/me/career/plan').set(bearer(candidateOne)).send({ reference_skill_id: skill, kind: 'project' }).expect(201);
+      expect(again.body.id).toBe(item.body.id);
+      await api().patch(`/me/career/plan/${item.body.id}`).set(bearer(candidateTwo)).send({ status: 'completed' }).expect(404);
+      const done = await api().patch(`/me/career/plan/${item.body.id}`).set(bearer(candidateOne)).send({ status: 'completed' }).expect(200);
+      expect(done.body.completed_at).toBeTruthy();
+      // Saying it's finished doesn't make it evidence.
+      const finished = await api().get('/me/career').set(bearer(candidateOne)).expect(200);
+      expect(finished.body.role_skills.find((s: { id: string }) => s.id === skill).evidence).toBe('self_reported');
+      expect((await rest(candidateTwo, 'GET', `career_plan_items?id=eq.${item.body.id}`)).body).toEqual([]);
+    });
+  });
+
   describe('candidate profiles', () => {
     const PDF = Buffer.from('%PDF-1.4 fictional test file');
     let job: string, application: string;
@@ -859,7 +1219,10 @@ describe('Midan database foundation', () => {
     it('takes a candidate through invite, work, upload and submit, keeping rubric and answer keys hidden', async () => {
       app2 = (await api().post(`/jobs/${job}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
       await api().post(`/applications/${app2}/invite`).set(bearer(ownerB)).expect(404);
-      attempt = (await api().post(`/applications/${app2}/invite`).set(bearer(ownerA)).expect(201)).body.id;
+      // Applying assigned the approved assessment already, with no screening step.
+      await api().post(`/applications/${app2}/invite`).set(bearer(ownerA)).expect(409);
+      const assigned = await api().get('/me/applications').set(bearer(candidateTwo)).expect(200);
+      attempt = assigned.body.find((a: { id: string }) => a.id === app2).assessment_attempts[0].id;
 
       const slug = `midan-test-a-${RUN}`;
       const seen = await api().get(`/experience/${slug}/flow-${RUN}/1`).set(bearer(candidateTwo)).expect(200);

@@ -3,11 +3,12 @@ import { BadRequestException, Body, Controller, Delete, Get, Headers, NotFoundEx
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { signedUrl, storageFetch } from '../common/storage';
 import { AuthUser, DbService } from '../db/db.service';
+import { CvController } from './cv.controller';
 
 const MIN_YEAR = 1950;
 const MAX_YEAR = 2100;
@@ -17,17 +18,24 @@ const CV_TYPES: Record<string, { extension: string; signature: string }> = {
 };
 
 class EducationDto {
-  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(200) institution!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) institution?: string;
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(200) qualification!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) field?: string;
-  @ApiProperty() @IsInt() @Min(MIN_YEAR) @Max(MAX_YEAR) start_year!: number;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(MIN_YEAR) @Max(MAX_YEAR) start_year?: number | null;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(MIN_YEAR) @Max(MAX_YEAR) end_year?: number | null;
+}
+
+class TitledDto {
+  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(300) title!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) issuer?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(MIN_YEAR) @Max(MAX_YEAR) year?: number | null;
 }
 
 class ExperienceDto {
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(200) title!: string;
-  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(200) organization!: string;
-  @ApiProperty() @IsInt() @Min(MIN_YEAR) @Max(MAX_YEAR) start_year!: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) organization?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(MIN_YEAR) @Max(MAX_YEAR) start_year?: number | null;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(MIN_YEAR) @Max(MAX_YEAR) end_year?: number | null;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) description?: string;
 }
@@ -39,6 +47,13 @@ class CandidateProfileDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(4000) summary?: string | null;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) @Max(70) years_experience?: number | null;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() share_profile_consent?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(30) phone?: string | null;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(60) time_zone?: string;
+  @ApiPropertyOptional() @IsOptional() @IsObject() notification_prefs?: { deadline_reminders?: boolean };
+  @ApiPropertyOptional() @IsOptional() @IsArray() @ArrayMaxSize(100) @IsString({ each: true }) @MaxLength(100, { each: true }) self_reported_skills?: string[];
+  @ApiPropertyOptional({ type: [TitledDto] }) @IsOptional() @IsArray() @ArrayMaxSize(30) @ValidateNested({ each: true }) @Type(() => TitledDto) projects?: TitledDto[];
+  @ApiPropertyOptional({ type: [TitledDto] }) @IsOptional() @IsArray() @ArrayMaxSize(50) @ValidateNested({ each: true }) @Type(() => TitledDto) courses?: TitledDto[];
+  @ApiPropertyOptional({ type: [TitledDto] }) @IsOptional() @IsArray() @ArrayMaxSize(50) @ValidateNested({ each: true }) @Type(() => TitledDto) certifications?: TitledDto[];
   @ApiPropertyOptional({ type: [EducationDto] }) @IsOptional() @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => EducationDto) education?: EducationDto[];
   @ApiPropertyOptional({ type: [ExperienceDto] }) @IsOptional() @IsArray() @ArrayMaxSize(30) @ValidateNested({ each: true }) @Type(() => ExperienceDto) experience?: ExperienceDto[];
 }
@@ -47,8 +62,8 @@ class SkillsDto {
   @ApiProperty() @IsArray() @ArrayMaxSize(50) @IsUUID(undefined, { each: true }) skill_ids!: string[];
 }
 
-function assertYears(items: { start_year: number; end_year?: number | null }[] = []) {
-  if (items.some((i) => i.end_year != null && i.end_year < i.start_year)) {
+function assertYears(items: { start_year?: number | null; end_year?: number | null }[] = []) {
+  if (items.some((i) => i.end_year != null && i.start_year != null && i.end_year < i.start_year)) {
     throw new BadRequestException('An end year cannot be before its start year');
   }
 }
@@ -58,7 +73,7 @@ function assertYears(items: { start_year: number; end_year?: number | null }[] =
 @UseGuards(AuthGuard)
 @Controller('me')
 export class MeController {
-  constructor(private readonly db: DbService) {}
+  constructor(private readonly db: DbService, private readonly cv: CvController) {}
 
   @Get()
   get(@CurrentUser() user: AuthUser) {
@@ -81,11 +96,11 @@ export class MeController {
     assertYears(body.education);
     assertYears(body.experience);
     // Class instances out, plain JSON in, for the jsonb columns.
-    const { education, experience, ...fields } = body;
-    const json = {
-      ...(education && { education: JSON.parse(JSON.stringify(education)) as Prisma.InputJsonValue }),
-      ...(experience && { experience: JSON.parse(JSON.stringify(experience)) as Prisma.InputJsonValue }),
-    };
+    const { education, experience, projects, courses, certifications, self_reported_skills, notification_prefs, ...fields } = body;
+    const lists = { education, experience, projects, courses, certifications, self_reported_skills, notification_prefs };
+    const json = Object.fromEntries(
+      Object.entries(lists).filter(([, value]) => value !== undefined).map(([key, value]) => [key, JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue]),
+    );
     return this.db.asUser(user, async (tx) => {
       const existing = await tx.candidate_profiles.findUnique({ where: { user_id: user.id }, select: { share_profile_consent: true } });
       const consentChanged = body.share_profile_consent !== undefined && body.share_profile_consent !== (existing?.share_profile_consent ?? false);
@@ -122,9 +137,15 @@ export class MeController {
       body: new Uint8Array(file.buffer),
     });
     if (!upload.ok) throw new ServiceUnavailableException('Upload failed');
-    await this.db.asUser(user, (tx) => tx.candidate_profiles.update({ where: { user_id: user.id }, data: { cv_path: path } }));
+    const document = await this.db.asUser(user, async (tx) => {
+      await tx.candidate_profiles.update({ where: { user_id: user.id }, data: { cv_path: path } });
+      await tx.cv_documents.updateMany({ where: { candidate_id: user.id, is_current: true }, data: { is_current: false } });
+      return tx.cv_documents.create({ data: { candidate_id: user.id, storage_path: path, mime_type: file.mimetype, size_bytes: file.size } });
+    });
     if (profile.cv_path) await storageFetch(`object/candidate-documents/${profile.cv_path}`, token, { method: 'DELETE' });
-    return { cv_path: path };
+    // Extraction and redaction run from here, inside Midan. The candidate reviews the result before anything is saved.
+    const analysis = await this.cv.start(user, token, document.id, path);
+    return { cv_path: path, analysis_id: analysis.id };
   }
 
   @Get('cv/url')
@@ -141,13 +162,19 @@ export class MeController {
     if (!profile?.cv_path) throw new NotFoundException();
     const removed = await storageFetch(`object/candidate-documents/${profile.cv_path}`, token, { method: 'DELETE' });
     if (!removed.ok) throw new ServiceUnavailableException('The file could not be removed');
-    await this.db.asUser(user, (tx) => tx.candidate_profiles.update({ where: { user_id: user.id }, data: { cv_path: null } }));
+    await this.db.asUser(user, async (tx) => {
+      await tx.candidate_profiles.update({ where: { user_id: user.id }, data: { cv_path: null } });
+      // Removing a CV takes what was read from it too.
+      await tx.cv_documents.deleteMany({ where: { candidate_id: user.id } });
+    });
     return { removed: true };
   }
 
   @Get('applications')
   applications(@CurrentUser() user: AuthUser) {
-    return this.db.asUser(user, (tx) =>
+    return this.db.asUser(user, async (tx) => {
+      await tx.$queryRaw`select public.expire_my_overdue_attempts()`;
+      return (
       tx.applications.findMany({
         where: { candidate_id: user.id },
         orderBy: { created_at: 'desc' },
@@ -161,13 +188,14 @@ export class MeController {
           assessment_attempts: {
             orderBy: { created_at: 'asc' },
             select: {
-              id: true, status: true,
-              assessment_versions: { select: { id: true, version_number: true, duration_minutes: true, assessments: { select: { title_ar: true, title_en: true } } } },
+              id: true, status: true, deadline_at: true, expires_at: true, receipt_code: true,
+              assessment_versions: { select: { id: true, version_number: true, duration_minutes: true, is_timed: true, assessments: { select: { title_ar: true, title_en: true } } } },
               evaluation_results: { select: { released_to_candidate: true } },
             },
           },
         },
-      }),
-    );
+      })
+      );
+    });
   }
 }

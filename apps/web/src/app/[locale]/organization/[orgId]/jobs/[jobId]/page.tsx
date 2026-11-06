@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Arrow, Eyebrow, JourneyRail } from '@/components/brand';
 import { ApplicantStatus, JobStatusButtons } from '@/components/forms';
 import { RequirementsEditor, type Requirement } from '@/components/requirements';
-import { AssessmentSwitcher, AssessmentTitle, EmptyAssessment, FieldSelect, GenerateButton, InviteButton, JobDetailsForm, PublishPanel, TaskList } from '@/components/workspace';
+import { AssessmentSwitcher, AssessmentTitle, VersionSettings, EmptyAssessment, FieldSelect, GenerateButton, InviteButton, JobDetailsForm, PublishPanel, TaskList } from '@/components/workspace';
 import { Link, redirect } from '@/i18n/navigation';
 import { api, apiForPage } from '@/lib/api';
 import { number, pick } from '@/lib/format';
@@ -14,7 +14,7 @@ type Attempt = { id: string; status: string; assessment_versions: AttemptOf; eva
 type Job = {
   id: string; slug: string; status: string; title_ar: string; title_en: string; description_ar: string | null; description_en: string | null;
   requirements_ar: string | null; requirements_en: string | null; location: string | null;
-  employment_type: string | null; salary_min: string | null; salary_max: string | null; application_deadline: string | null;
+  employment_type: string | null; salary_min: string | null; salary_max: string | null; application_deadline: string | null; sector: string | null; experience_level: string | null;
   organizations: { slug: string };
   job_skills: { skill_id: string; required_level: number }[];
   applications: { id: string; status: string; users: { email: string; candidate_profiles: { full_name: string; headline: string | null } | null }; assessment_attempts: Attempt[] }[];
@@ -24,7 +24,7 @@ type Latest = {
   run: { mode: string } | null;
   assessments: { id: string; title_ar: string; title_en: string; assessment_versions: { id: string; version_number: number; status: string }[] }[];
   version: null | {
-    id: string; version_number: number; status: string;
+    id: string; version_number: number; status: string; scenario_ar: string | null; scenario_en: string | null; deadline_hours: number | null; duration_minutes: number | null; is_timed: boolean; rubric_shared: boolean;
     assessments: { id: string; title_ar: string; title_en: string; professional_field: string | null };
     assessment_tasks: {
       id: string; position: number; task_type: string; title_ar: string; title_en: string; instructions_ar: string; instructions_en: string; weight: string;
@@ -152,6 +152,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                 </ul>
               </div>
             )}
+            {canBuild && <VersionSettings key={version.id} orgId={orgId} version={version} canEdit={Boolean(editable)} />}
             <TaskList orgId={orgId} tasks={version.assessment_tasks} editable={Boolean(editable)} requirements={requirements ?? []} />
             {editable && canPublish && <PublishPanel orgId={orgId} versionId={version.id} />}
             {published && canBuild && <GenerateButton orgId={orgId} jobId={jobId} assessmentId={version.assessments.id} label={t('newVersion')} />}

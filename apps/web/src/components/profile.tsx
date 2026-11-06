@@ -6,7 +6,9 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useState, useTransition } from 'react';
 import { applicantCvLink, myCvLink, removeCv, saveProfile, uploadCv, type ProfilePayload } from '@/lib/actions';
 import { pick } from '@/lib/format';
+import { CvAnalysisStatus } from './candidate';
 import { ErrorText, Field, INPUT, openFileLink, PRIMARY } from './forms';
+import type { CvAnalysis } from '@/lib/candidate-actions';
 
 type Skill = { id: string; name_ar: string; name_en: string };
 type Row = Record<string, string>;
@@ -15,12 +17,19 @@ export type ProfileData = {
   full_name?: string; headline?: string | null; city?: string | null; summary?: string | null; years_experience?: string | number | null;
   share_profile_consent?: boolean; cv_path?: string | null;
   education?: Record<string, unknown>[]; experience?: Record<string, unknown>[];
+  phone?: string | null; projects?: Record<string, unknown>[]; courses?: Record<string, unknown>[]; certifications?: Record<string, unknown>[]; self_reported_skills?: string[];
 } | null;
 
 const toRows = (items: Record<string, unknown>[] = []): Row[] =>
   items.map((item) => Object.fromEntries(Object.entries(item).map(([k, v]) => [k, v == null ? '' : String(v)])));
 
 const year = (value: string) => (value ? Number(value) : null);
+const titled = (r: Row) => ({
+  title: r.title.trim(),
+  ...(r.description?.trim() && { description: r.description.trim() }),
+  ...(r.issuer?.trim() && { issuer: r.issuer.trim() }),
+  year: year(r.year),
+});
 
 function RowList({ title, addLabel, rows, setRows, blank, children }: {
   title: string; addLabel: string; rows: Row[]; setRows: (rows: Row[]) => void; blank: Row;
@@ -82,6 +91,10 @@ export function ProfileForm({ profile, skills, selected, fallbackName }: { profi
   const [consent, setConsent] = useState(profile?.share_profile_consent ?? false);
   const [experience, setExperience] = useState(() => toRows(profile?.experience));
   const [education, setEducation] = useState(() => toRows(profile?.education));
+  const [phone, setPhone] = useState(profile?.phone ?? '');
+  const [projects, setProjects] = useState(() => toRows(profile?.projects));
+  const [courses, setCourses] = useState(() => toRows(profile?.courses));
+  const [certifications, setCertifications] = useState(() => toRows(profile?.certifications));
   const [chosen, setChosen] = useState(() => new Set(selected));
   const [pending, start] = useTransition();
   const [status, setStatus] = useState<{ error?: string; ok?: boolean }>({});
@@ -91,14 +104,20 @@ export function ProfileForm({ profile, skills, selected, fallbackName }: { profi
     const payload: ProfilePayload = {
       full_name: name.trim(), headline: headline.trim() || null, city: city.trim() || null, summary: summary.trim() || null,
       years_experience: years === '' ? null : Number(years), share_profile_consent: consent,
+      phone: phone.trim() || null,
       experience: experience.map((r) => ({
-        title: r.title.trim(), organization: r.organization.trim(), start_year: Number(r.start_year), end_year: year(r.end_year),
+        title: r.title.trim(), start_year: year(r.start_year), end_year: year(r.end_year),
+        ...(r.organization?.trim() && { organization: r.organization.trim() }),
         ...(r.description?.trim() && { description: r.description.trim() }),
       })),
       education: education.map((r) => ({
-        institution: r.institution.trim(), qualification: r.qualification.trim(), start_year: Number(r.start_year), end_year: year(r.end_year),
+        qualification: r.qualification.trim(), start_year: year(r.start_year), end_year: year(r.end_year),
+        ...(r.institution?.trim() && { institution: r.institution.trim() }),
         ...(r.field?.trim() && { field: r.field.trim() }),
       })),
+      projects: projects.map(titled),
+      courses: courses.map(titled),
+      certifications: certifications.map(titled),
       skill_ids: [...chosen],
     };
     setStatus({});
@@ -112,6 +131,7 @@ export function ProfileForm({ profile, skills, selected, fallbackName }: { profi
         <Field name="full_name" required maxLength={200} autoComplete="name" label={t('fullName')} value={name} onChange={(e) => setName(e.target.value)} />
         <Field name="headline" maxLength={200} label={t('headline')} hint={t('headlineHint')} value={headline} onChange={(e) => setHeadline(e.target.value)} />
         <div className="grid gap-4 sm:grid-cols-2">
+          <Field name="phone" type="tel" dir="ltr" maxLength={30} autoComplete="tel" label={t('phone')} value={phone} onChange={(e) => setPhone(e.target.value)} />
           <Field name="city" maxLength={100} label={t('city')} value={city} onChange={(e) => setCity(e.target.value)} />
           <Field name="years_experience" type="number" min={0} max={70} step={0.5} label={t('years')} value={years} onChange={(e) => setYears(e.target.value)} />
         </div>
@@ -126,7 +146,7 @@ export function ProfileForm({ profile, skills, selected, fallbackName }: { profi
         {(row, update) => (
           <>
             <Field name="title" required maxLength={200} label={t('jobTitle')} value={row.title ?? ''} onChange={(e) => update('title', e.target.value)} />
-            <Field name="organization" required maxLength={200} label={t('organization')} value={row.organization ?? ''} onChange={(e) => update('organization', e.target.value)} />
+            <Field name="organization" maxLength={200} label={t('organization')} value={row.organization ?? ''} onChange={(e) => update('organization', e.target.value)} />
             <YearFields row={row} update={update} />
             <label className="block sm:col-span-2">
               <span className="text-sm font-medium">{t('description')}</span>
@@ -139,13 +159,47 @@ export function ProfileForm({ profile, skills, selected, fallbackName }: { profi
       <RowList title={t('education')} addLabel={t('addEducation')} rows={education} setRows={setEducation} blank={{ institution: '', qualification: '', field: '', start_year: '', end_year: '' }}>
         {(row, update) => (
           <>
-            <Field name="institution" required maxLength={200} label={t('institution')} value={row.institution ?? ''} onChange={(e) => update('institution', e.target.value)} />
+            <Field name="institution" maxLength={200} label={t('institution')} value={row.institution ?? ''} onChange={(e) => update('institution', e.target.value)} />
             <Field name="qualification" required maxLength={200} label={t('qualification')} value={row.qualification ?? ''} onChange={(e) => update('qualification', e.target.value)} />
             <div className="sm:col-span-2"><Field name="field" maxLength={200} label={t('field')} value={row.field ?? ''} onChange={(e) => update('field', e.target.value)} /></div>
             <YearFields row={row} update={update} />
           </>
         )}
       </RowList>
+
+      <RowList title={t('projects')} addLabel={t('addProject')} rows={projects} setRows={setProjects} blank={{ title: '', description: '' }}>
+        {(row, update) => (
+          <>
+            <Field name="project_title" required maxLength={300} label={t('projectTitle')} value={row.title ?? ''} onChange={(e) => update('title', e.target.value)} />
+            <Field name="project_description" maxLength={2000} label={t('description')} value={row.description ?? ''} onChange={(e) => update('description', e.target.value)} />
+          </>
+        )}
+      </RowList>
+
+      <RowList title={t('courses')} addLabel={t('addCourse')} rows={courses} setRows={setCourses} blank={{ title: '', issuer: '', year: '' }}>
+        {(row, update) => (
+          <>
+            <Field name="course_title" required maxLength={300} label={t('courseTitle')} value={row.title ?? ''} onChange={(e) => update('title', e.target.value)} />
+            <Field name="course_issuer" maxLength={200} label={t('issuer')} value={row.issuer ?? ''} onChange={(e) => update('issuer', e.target.value)} />
+          </>
+        )}
+      </RowList>
+
+      <RowList title={t('certifications')} addLabel={t('addCertification')} rows={certifications} setRows={setCertifications} blank={{ title: '', issuer: '', year: '' }}>
+        {(row, update) => (
+          <>
+            <Field name="certification_title" required maxLength={300} label={t('certificationTitle')} value={row.title ?? ''} onChange={(e) => update('title', e.target.value)} />
+            <Field name="certification_issuer" maxLength={200} label={t('issuer')} value={row.issuer ?? ''} onChange={(e) => update('issuer', e.target.value)} />
+          </>
+        )}
+      </RowList>
+
+      {(profile?.self_reported_skills?.length ?? 0) > 0 && (
+        <div>
+          <p className="text-sm font-semibold">{t('fromCv')}</p>
+          <ul className="mt-2 flex flex-wrap gap-2">{profile?.self_reported_skills?.map((s) => <li key={s} className="rounded-full border border-border px-3 py-1 text-sm"><bdi>{s}</bdi></li>)}</ul>
+        </div>
+      )}
 
       <fieldset>
         <legend className="font-display text-xl font-semibold">{t('skills')}</legend>
@@ -189,7 +243,7 @@ export function ProfileForm({ profile, skills, selected, fallbackName }: { profi
   );
 }
 
-export function CvPanel({ hasCv, hasProfile }: { hasCv: boolean; hasProfile: boolean }) {
+export function CvPanel({ hasCv, hasProfile, analysis }: { hasCv: boolean; hasProfile: boolean; analysis?: CvAnalysis | null }) {
   const t = useTranslations('profile');
   const [pending, start] = useTransition();
   const [error, setError] = useState<string>();
@@ -231,6 +285,7 @@ export function CvPanel({ hasCv, hasProfile }: { hasCv: boolean; hasProfile: boo
         <p className="mt-3 text-sm text-muted">{t('cvSaveFirst')}</p>
       )}
       <div className="mt-2"><ErrorText code={error} /></div>
+      {analysis !== undefined && <div className="mt-3"><CvAnalysisStatus analysis={analysis} compact /></div>}
     </section>
   );
 }

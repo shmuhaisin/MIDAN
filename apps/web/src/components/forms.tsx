@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { createContext, useActionState, useContext, useEffect, useId, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
 import { applyToJob, createJob, createOrganization, saveBranding, setApplicationStatus, setJobStatus, uploadLogo, withdrawApplication } from '@/lib/actions';
-import { requestPasswordReset, resetPassword, signIn, signUp, startGoogleSignIn, type FormState } from '@/lib/auth-actions';
+import { changePassword, requestPasswordReset, resetPassword, signIn, signUp, startGoogleSignIn, type FormState } from '@/lib/auth-actions';
 import { PROFESSIONAL_FIELDS, resolveHumaidan } from '@/lib/humaidan';
 import { Arrow, Humaidan } from './brand';
 
@@ -90,6 +90,19 @@ export function GoogleButton({ next }: { next?: string }) {
         {t('google')}
       </button>
     </form>
+  );
+}
+
+export function ChangePasswordForm() {
+  const t = useTranslations('auth');
+  const [state, action] = useActionState<FormState, FormData>(changePassword, {});
+  return (
+    <ActionForm action={action} className="space-y-3">
+      <ErrorText code={state.error} />
+      {state.ok && <p role="status" className="font-semibold text-primary">{t('passwordChanged')}</p>}
+      <Field name="password" type="password" autoComplete="new-password" required minLength={8} label={t('newPassword')} hint={t('passwordHint')} dir="ltr" />
+      <Submit>{t('changePassword')}</Submit>
+    </ActionForm>
   );
 }
 

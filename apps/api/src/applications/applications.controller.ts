@@ -4,7 +4,7 @@ import { IsEnum } from 'class-validator';
 import { application_status } from '@prisma/client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { requireRole } from '../common/roles';
-import { signedUrl } from '../common/storage';
+import { signedUrl, storageFetch } from '../common/storage';
 import { AuthUser, DbService } from '../db/db.service';
 
 class UpdateStatusDto {
@@ -47,11 +47,11 @@ export class ApplicationsController {
     const path = await this.db.asUser(user, async (tx) => {
       const application = await tx.applications.findFirst({
         where: { id, status: { not: 'withdrawn' } },
-        select: { org_id: true, users: { select: { candidate_profiles: { select: { cv_path: true } } } } },
+        select: { org_id: true, cv_snapshot_path: true, users: { select: { candidate_profiles: { select: { cv_path: true } } } } },
       });
       if (!application) throw new NotFoundException();
       await requireRole(tx, user, application.org_id);
-      return application.users.candidate_profiles?.cv_path;
+      return application.cv_snapshot_path ?? application.users.candidate_profiles?.cv_path;
     });
     if (!path) throw new NotFoundException();
     const url = await signedUrl('candidate-documents', path, token);
@@ -60,12 +60,15 @@ export class ApplicationsController {
   }
 
   @Post(':id/withdraw')
-  withdraw(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
-    return this.db.asUser(user, async (tx) => {
-      const [application] = await tx.$queryRaw<{ id: string; status: string }[]>`
+  async withdraw(@CurrentUser() user: AuthUser, @Headers('authorization') token: string, @Param('id', ParseUUIDPipe) id: string) {
+    const { application, snapshot } = await this.db.asUser(user, async (tx) => {
+      const before = await tx.applications.findFirst({ where: { id, candidate_id: user.id }, select: { cv_snapshot_path: true } });
+      const [withdrawn] = await tx.$queryRaw<{ id: string; status: string }[]>`
         select id, status from public.withdraw_application(${id}::uuid)`;
-      return application;
+      return { application: withdrawn, snapshot: before?.cv_snapshot_path };
     });
+    if (snapshot) await storageFetch(`object/candidate-documents/${snapshot}`, token, { method: 'DELETE' }).catch(() => undefined);
+    return application;
   }
 
   @Patch(':id/status')

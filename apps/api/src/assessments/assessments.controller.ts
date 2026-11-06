@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { IsIn, IsNumber, IsOptional, IsPositive, IsString, IsUUID, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Max, MaxLength, Min, MinLength, ValidateIf } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { AiClient } from '../ai/ai.client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
@@ -24,6 +24,15 @@ class GenerateDto {
 class UpdateAssessmentDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(200) title_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(200) title_en?: string;
+}
+
+class VersionSettingsDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(4000) scenario_ar?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(4000) scenario_en?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) @Max(2160) deadline_hours?: number;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) @Max(1440) duration_minutes?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() is_timed?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() rubric_shared?: boolean;
 }
 
 class UpdateTaskDto {
@@ -223,6 +232,17 @@ export class AssessmentsController {
       const { count } = await tx.rubric_criteria.updateMany({ where: { id, org_id: orgId }, data: body });
       if (count === 0) throw new NotFoundException();
       return tx.rubric_criteria.findUniqueOrThrow({ where: { id } });
+    });
+  }
+
+  @Patch('assessment-versions/:versionId')
+  @ApiOperation({ summary: 'What candidates are told, and the deadline and timer. Locked once published.' })
+  updateVersion(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string, @Body() body: VersionSettingsDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const { count } = await tx.assessment_versions.updateMany({ where: { id, org_id: orgId }, data: body });
+      if (count === 0) throw new NotFoundException();
+      return tx.assessment_versions.findUniqueOrThrow({ where: { id } });
     });
   }
 

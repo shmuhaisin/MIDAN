@@ -45,6 +45,8 @@ class UpdateJobDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(8000) requirements_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(8000) requirements_en?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100) location?: string;
+  @ApiPropertyOptional() @ValidateIf((o) => o.sector !== null) @IsOptional() @IsIn(['digital', 'culture_entertainment', 'tourism_hospitality', 'manufacturing', 'construction_real_estate', 'financial_services', 'wholesale_retail', 'other']) sector?: string | null;
+  @ApiPropertyOptional() @ValidateIf((o) => o.experience_level !== null) @IsOptional() @IsIn(['entry', 'junior', 'mid', 'senior', 'lead']) experience_level?: string | null;
   @ApiPropertyOptional() @ValidateIf((o) => o.employment_type !== null) @IsOptional() @IsIn(['full_time', 'part_time', 'contract', 'temporary', 'internship', 'flexible']) employment_type?: string | null;
   @ApiPropertyOptional() @ValidateIf((o) => o.salary_min !== null) @IsOptional() @IsNumber() @Min(0) salary_min?: number | null;
   @ApiPropertyOptional() @ValidateIf((o) => o.salary_max !== null) @IsOptional() @IsNumber() @Min(0) salary_max?: number | null;

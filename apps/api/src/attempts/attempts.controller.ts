@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Post, Put, ServiceUnavailableException, UnprocessableEntityException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { IsObject, IsOptional, IsUUID } from 'class-validator';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { IsInt, IsObject, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { BUILDERS, requireRole } from '../common/roles';
@@ -15,6 +15,10 @@ class SaveResponseDto {
 
 class InviteDto {
   @ApiPropertyOptional({ description: 'Required when the job has more than one published assessment.' }) @IsOptional() @IsUUID() assessment_id?: string;
+}
+
+class ReopenDto {
+  @ApiProperty() @IsInt() @Min(1) @Max(720) hours!: number;
 }
 
 const MAX_UPLOAD = 25 * 1024 * 1024;
@@ -68,10 +72,14 @@ export class AttemptsController {
     const which = UUID.test(address) ? { id: address } : /^\d{1,9}$/.test(address) ? { version_number: Number(address) } : null;
     if (!which) throw new NotFoundException();
     return this.db.asUser(user, async (tx) => {
+      await tx.$queryRaw`select public.expire_my_overdue_attempts()`;
       const version = await tx.assessment_versions.findFirst({
         where: { ...which, assessments: { jobs: { slug: jobSlug, organizations: { slug: orgSlug } } } },
         orderBy: { assessments: { created_at: 'asc' } },
-        include: { assessment_tasks: { orderBy: { position: 'asc' } }, assessments: { select: { title_ar: true, title_en: true, professional_field: true } } },
+        include: {
+          assessment_tasks: { orderBy: { position: 'asc' }, include: { task_skill_mappings: { select: { skills: { select: { id: true, name_ar: true, name_en: true } } } } } },
+          assessments: { select: { title_ar: true, title_en: true, professional_field: true } },
+        },
       });
       if (!version) throw new NotFoundException();
       const [organization, branding, job, attempt] = await Promise.all([
@@ -89,7 +97,10 @@ export class AttemptsController {
 
   @Post('attempts/:id/start')
   async start(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
-    const [attempt] = await this.db.asUser(user, (tx) => tx.$queryRaw<{ id: string; status: string }[]>`select id, status from public.start_attempt(${id}::uuid)`);
+    const [attempt] = await this.db.asUser(user, (tx) =>
+      tx.$queryRaw<{ id: string; status: string; started_at: Date; expires_at: Date | null; deadline_at: Date | null }[]>`
+        select id, status, started_at, expires_at, deadline_at from public.start_attempt(${id}::uuid)`);
+    if (attempt.status === 'expired') throw new UnprocessableEntityException('The deadline has passed');
     return attempt;
   }
 
@@ -152,8 +163,20 @@ export class AttemptsController {
   }
 
   @Post('attempts/:id/submit')
+  @ApiOperation({ summary: 'Submits and returns a receipt. A repeated request returns the same receipt.' })
   async submit(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
-    const [attempt] = await this.db.asUser(user, (tx) => tx.$queryRaw<{ id: string; status: string }[]>`select id, status from public.submit_attempt(${id}::uuid)`);
+    const [attempt] = await this.db.asUser(user, (tx) =>
+      tx.$queryRaw<{ id: string; status: string; submitted_at: Date | null; receipt_code: string | null }[]>`
+        select id, status, submitted_at, receipt_code from public.submit_attempt(${id}::uuid)`);
+    if (attempt.status === 'expired') throw new UnprocessableEntityException('The deadline has passed');
+    return attempt;
+  }
+
+  @Post('attempts/:id/reopen')
+  @ApiOperation({ summary: "Lets a candidate submit again. The organization's decision, and only before evaluation starts." })
+  async reopen(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() body: ReopenDto) {
+    const [attempt] = await this.db.asUser(user, (tx) =>
+      tx.$queryRaw<{ id: string; status: string; deadline_at: Date }[]>`select id, status, deadline_at from public.reopen_attempt(${id}::uuid, ${body.hours}::integer)`);
     return attempt;
   }
 }

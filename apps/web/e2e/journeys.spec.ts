@@ -125,7 +125,8 @@ test('organization and candidate complete a full hiring journey, isolated from a
   await candidate.goto('/en/opportunities');
   await candidate.getByRole('searchbox').fill(jobTitle);
   await candidate.getByRole('link', { name: new RegExp(jobTitle) }).click();
-  await candidate.getByRole('button', { name: 'Apply for this job' }).click();
+  await candidate.getByRole('link', { name: 'Apply for this job' }).click();
+  await candidate.getByRole('button', { name: 'Confirm application' }).click();
   await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
 
   await owner.reload();
@@ -256,7 +257,8 @@ test('the full MVP journey: details, draft, publish, work, evaluate, review, rel
   const jobId = jobPath.split('/').pop();
   await candidate.goto(`/en/opportunities/${jobId}`);
   await expect(candidate.getByText('Data analysis')).toBeVisible();
-  await candidate.getByRole('button', { name: 'Apply for this job' }).click();
+  await candidate.getByRole('link', { name: 'Apply for this job' }).click();
+  await candidate.getByRole('button', { name: 'Confirm application' }).click();
   await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
 
   await owner.reload();
@@ -405,7 +407,7 @@ test('accounts land where their role belongs', async ({ browser }) => {
   await owner.goto('/en/opportunities');
   await owner.getByRole('link', { name: /Data Analyst/ }).click();
   await expect(owner.getByText('This is an organization account')).toBeVisible();
-  await expect(owner.getByRole('button', { name: 'Apply for this job' })).toHaveCount(0);
+  await expect(owner.getByRole('link', { name: 'Apply for this job' })).toHaveCount(0);
 
   const candidate = await (await signedIn(browser, 'CANDIDATE_TWO')).newPage();
   await candidate.goto('/en/organization/new');
@@ -484,7 +486,8 @@ test('a candidate builds a full profile and CV, and only the organization applie
   const jobId = new URL(owner.url()).pathname.split('/').pop();
 
   await candidate.goto(`/en/opportunities/${jobId}`);
-  await candidate.getByRole('button', { name: 'Apply for this job' }).click();
+  await candidate.getByRole('link', { name: 'Apply for this job' }).click();
+  await candidate.getByRole('button', { name: 'Confirm application' }).click();
   await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
 
   await owner.reload();
@@ -667,7 +670,8 @@ test('several assessments: each has its own draft, invitation and address, and t
   }
 
   await candidate.goto(`/en/opportunities/${jobId}`);
-  await candidate.getByRole('button', { name: 'Apply for this job' }).click();
+  await candidate.getByRole('link', { name: 'Apply for this job' }).click();
+  await candidate.getByRole('button', { name: 'Confirm application' }).click();
   await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
 
   await owner.reload();

@@ -15,14 +15,18 @@ function text(form: FormData, name: string) {
 export type ProfilePayload = {
   full_name: string; headline: string | null; city: string | null; summary: string | null; years_experience: number | null;
   share_profile_consent: boolean;
-  education: { institution: string; qualification: string; field?: string; start_year: number; end_year?: number | null }[];
-  experience: { title: string; organization: string; start_year: number; end_year?: number | null; description?: string }[];
+  phone: string | null;
+  projects: { title: string; description?: string; year?: number | null }[];
+  courses: { title: string; issuer?: string; year?: number | null }[];
+  certifications: { title: string; issuer?: string; year?: number | null }[];
+  education: { institution?: string; qualification: string; field?: string; start_year: number | null; end_year?: number | null }[];
+  experience: { title: string; organization?: string; start_year: number | null; end_year?: number | null; description?: string }[];
   skill_ids: string[];
 };
 
 export async function saveProfile({ skill_ids, ...profile }: ProfilePayload): Promise<FormState> {
   if (!profile.full_name.trim()) return { error: 'required' };
-  const backwards = [...profile.education, ...profile.experience].some((i) => i.end_year != null && i.end_year < i.start_year);
+  const backwards = [...profile.education, ...profile.experience].some((i) => i.end_year != null && i.start_year != null && i.end_year < i.start_year);
   if (backwards) return { error: 'invalid_years' };
   try {
     await api('/me/candidate-profile', { method: 'PUT', body: profile });
@@ -152,6 +156,8 @@ export async function updateJob(orgId: string, jobId: string, _: FormState, form
         requirements_ar: text(form, 'requirements_ar'), requirements_en: text(form, 'requirements_en'),
         location: text(form, 'location'),
         employment_type: text(form, 'employment_type') || null,
+        sector: text(form, 'sector') || null,
+        experience_level: text(form, 'experience_level') || null,
         salary_min: text(form, 'salary_min') ? Number(text(form, 'salary_min')) : null,
         salary_max: text(form, 'salary_max') ? Number(text(form, 'salary_max')) : null,
         application_deadline: text(form, 'application_deadline') || null,

@@ -1,5 +1,7 @@
 """Private service. Only the Core API calls it, with a shared token. It never touches the database."""
 
+import base64
+import binascii
 import os
 import sqlite3
 from pathlib import Path
@@ -11,6 +13,7 @@ from langgraph.types import Command
 from pydantic import BaseModel
 
 from .assessment_builder import build_assessment_graph
+from .cv import analyze as analyze_cv
 from .evaluation import build_evaluation_graph
 from .providers import PROMPT_VERSION, get_provider
 from .schemas import EvaluationInput, JobInput, Provenance
@@ -45,6 +48,11 @@ class EvaluationRun(BaseModel):
     input: EvaluationInput
 
 
+class CvRun(BaseModel):
+    file_base64: str
+    known_names: list[str] = []
+
+
 class Resume(BaseModel):
     value: dict[str, Any]
 
@@ -64,6 +72,19 @@ def _result(graph, thread_id: str, state: dict[str, Any]) -> dict[str, Any]:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "midan-ai", "mode": _provider.provenance.mode}
+
+
+@app.post("/cv/analyze", dependencies=[Depends(require_token)])
+def run_cv(run: CvRun) -> dict[str, Any]:
+    """Answers with a status and a code. File contents never appear in an error, a log or a trace."""
+    try:
+        data = base64.b64decode(run.file_base64, validate=True)
+    except (binascii.Error, ValueError):
+        return {"status": "failed", "code": "unreadable", "counts": {}}
+    try:
+        return analyze_cv(data, run.known_names, getattr(_provider, "complete", None))
+    except Exception:
+        return {"status": "failed", "code": "analysis_failed", "counts": {}}
 
 
 @app.post("/graphs/assessment-builder/runs", dependencies=[Depends(require_token)])

@@ -6,6 +6,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
+from .privacy import PrivacyBlocked, assert_clean, redact
 from .providers import LLMError, Provider
 from .schemas import CriterionProposal, EvaluationInput, TaskInput
 
@@ -83,8 +84,11 @@ def make_open_evaluator(provider: Provider):
             answer = state["answers"].get(task.id, "")
             for c in task.criteria:
                 try:
-                    scored = provider.score_open(task, c, answer)
-                except LLMError:
+                    # The same protection as CVs. If anything personal is left, this criterion goes to a person instead.
+                    outbound = redact(answer, data.known_names)
+                    assert_clean(outbound, data.known_names)
+                    scored = provider.score_open(task, c, outbound)
+                except (LLMError, PrivacyBlocked):
                     failed.append(c.id)
                     continue
                 kept.append(CriterionProposal(

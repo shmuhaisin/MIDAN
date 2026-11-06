@@ -19,3 +19,14 @@ export function readableOnWhite(hex: string) {
   const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
   return 1.05 / (luminance + 0.05) >= 4.5;
 }
+
+const INTL_LOCALE = (locale: string) => (locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en-GB');
+
+/** Stored in UTC everywhere, shown in the person's own zone. Passing the zone keeps server and browser in agreement. */
+export function formatWhen(locale: string, value: string | Date, timeZone: string) {
+  return new Intl.DateTimeFormat(INTL_LOCALE(locale), { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(new Date(value));
+}
+
+export function formatDate(locale: string, value: string | Date, timeZone: string) {
+  return new Intl.DateTimeFormat(INTL_LOCALE(locale), { dateStyle: 'medium', timeZone }).format(new Date(value));
+}

@@ -22,6 +22,10 @@ export class AiClient {
     return response.json() as Promise<T>;
   }
 
+  analyzeCv<T>(body: { file_base64: string; known_names: string[] }) {
+    return this.post<T>('/cv/analyze', body);
+  }
+
   run<T>(graph: 'assessment-builder' | 'evaluation', body: unknown) {
     return this.post<GraphResult<T>>(`/graphs/${graph}/runs`, body);
   }

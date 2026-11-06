@@ -75,7 +75,8 @@ class TaskInput(BaseModel):
 
 
 class EvaluationInput(BaseModel):
-    """Deliberately carries no name, email or other personal attribute of the candidate."""
+    """Carries nothing about the candidate except names to remove, so that a name written in an answer stays here."""
+    known_names: list[str] = []  # Used only to remove these names from answers. Never sent to a provider.
 
     attempt_id: str
     attempt_status: str
