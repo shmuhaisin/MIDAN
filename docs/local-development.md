@@ -22,10 +22,10 @@ npm install
 ```
 
 ```bash
-scripts/local-setup.sh "<folder or .zip of sector workbooks>" "<ALMIDAN_Employer_Database_10_Entities.xlsx>"
+scripts/local-setup.sh
 ```
 
-This downloads Auth and PostgREST, creates the database and applies every migration, starts the Supabase gateway, writes `.env` and `.env.test.local`, creates the test accounts through real sign-up and verification, loads the demo seed and imports the official data. It replaces local data.
+This downloads Auth and PostgREST, creates the database and applies every migration, starts the Supabase gateway, writes `.env` and `.env.test.local`, creates the test accounts through real sign-up and verification, loads the demo seed and imports the official data from `data/source/`. It replaces local data.
 
 ## Every day
 

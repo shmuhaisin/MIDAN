@@ -46,13 +46,13 @@ Organization -> Jobs -> Job requirements and skills -> Assessments -> Versions -
 
 ## Reference data
 
-Two official sources, kept out of this public repository: `ALMIDAN_Employer_Database_10_Entities.xlsx` (employer registry) and `بيانات القطاعات .zip` (seven sector skills workbooks).
+Two official sources, in `data/source/` exactly as supplied (see [data/source/README.md](../../data/source/README.md)): `ALMIDAN_Employer_Database_10_Entities.xlsx` (employer registry) and `بيانات القطاعات.zip` (seven sector skills workbooks, also extracted to `data/source/sector-skills/`).
 
 ```bash
-node scripts/import-data.mjs --sectors "<folder or .zip>" --employers ALMIDAN_Employer_Database_10_Entities.xlsx
+node scripts/import-data.mjs --sectors "data/source/بيانات القطاعات.zip" --employers data/source/ALMIDAN_Employer_Database_10_Entities.xlsx
 ```
 
-- **Run it from files with their original names.** Lineage records each file's name and SHA-256.
+- **Lineage records each file's name and SHA-256.** Importing from `data/source/` keeps the original names.
 - **It connects as `midan_importer`,** which can only call the import functions. Locally its password is set by `scripts/local-db.sh`; elsewhere set `IMPORT_DATABASE_URL`. The old temporary grant to `midan_api` is no longer needed.
 - **Repeatable.** Re-running changes nothing that didn't change: rows report `unchanged`, and no row is duplicated.
 - **Lineage.** `import_runs` holds each run, its files, every sheet and how it was handled, and statistics. `import_records` holds every row: source file, sheet, row, the raw cell value, what was stored, and a status (`imported`, `updated`, `unchanged`, `duplicate`, `rejected`, `ambiguous`, `warning`). Reference rows point back to their last run.

@@ -1,5 +1,7 @@
 # Decisions
 
+**2026-11-06: The official source files are kept in the repository, in `data/source/`, at the owner's request.** This replaces the earlier decision to keep the workbooks out. The GitHub repository is public, so they become public when the branch is pushed. They are stored unmodified with SHA-256 checksums.
+
 **2026-11-06: An organization account is linked to the employer registry only by a platform administrator.** A registry entry is an identity record. Letting any organization claim "I am the Ministry of Commerce" would put an official name on unverified jobs. Demo and test organizations can never be linked. Linking never sets partnership status, which changes only through a new import of the source workbook.
 
 **2026-11-06: Employer brand assets are shown only with established permission.** The workbook marks every brand profile `permission_not_verified`, so all ten profiles use Midan's neutral identity, and the API doesn't return logo, color or font fields until the source says otherwise.
@@ -20,7 +22,7 @@
 
 **2026-11-06: The palette values in the implementation brief replace the earlier ones.** The brief both asks to keep the existing palette and lists different values as approved. The listed values were applied at token level, with gold kept as a small accent. Changing back is a few lines in `globals.css`. The owner should confirm.
 
-**2026-11-06: The employer workbook's external-jobs sheet isn't imported.** It's an empty template for a source the owner removed from scope. Only identity, alias and source sheets are read.
+**2026-11-06: The employer workbook's external-jobs sheet is read as job listings.** (Superseded the earlier "not imported".) It holds a header and no rows, which is recorded as an empty source.
 
 **2026-11-06: Applying assigns every published assessment, immediately.** A database trigger does it, whichever route creates the application. Assessments published later still use the organization's invite.
 

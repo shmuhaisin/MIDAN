@@ -3,7 +3,7 @@
 #
 #   scripts/local-setup.sh [sector workbooks folder or .zip] [employer workbook .xlsx]
 #
-# Without the two data paths the reference data stays empty; import it later with scripts/import-data.mjs.
+# Without arguments it imports the official files in data/source/.
 # Afterwards, run the services as described in docs/local-development.md.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -23,7 +23,6 @@ for _ in $(seq 1 60); do curl -fs http://localhost:54321/auth/v1/health >/dev/nu
 
 node scripts/local-env.mjs --force
 scripts/local-db.sh psql -f supabase/seed.sql >/dev/null
-if [ "$#" -ge 2 ]; then
-  node scripts/import-data.mjs --sectors "$1" --employers "$2"
-fi
+# The official files in data/source/ unless others are given.
+node scripts/import-data.mjs --sectors "${1:-data/source/بيانات القطاعات.zip}" --employers "${2:-data/source/ALMIDAN_Employer_Database_10_Entities.xlsx}"
 echo "Local stack ready. The Supabase gateway is running (log: .local/supabase.log)."
