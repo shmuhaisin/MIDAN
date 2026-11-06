@@ -15,10 +15,21 @@ browser suites were updated but **not run**: they need the Linux local stack. No
 | S1 Staff could read every file in an applicant's folder, including CV copies sent to other employers | Storage policy limited to the CV submitted to the organization | Tested here (database checks, with a control run that fails without the fix). End-to-end test written, not run |
 | S2 Staff could set any application status, including hired without a reviewed assessment | `public.set_application_status` with fixed moves; hiring needs reviewed assessments, also through outcomes; direct update revoked | Tested here (database checks, API error mapping, screen/database parity). End-to-end tests written, not run |
 | S3 Made-up bearer tokens got their own rate limits | Verified account or trusted address only; `TRUST_PROXY` | Tested here (unit tests) |
-| S5 Signed CV link kept in the queue payload | Removed when the job finishes; never logged | Tested here. Run-time signing not adopted: the owner chose to keep the 30-minute link rather than add a storage credential (`docs/DECISIONS.md`) |
+| S4 One Supabase Auth call per authenticated request | Not changed; the limiter and guards now share one call | Not applicable: kept so revoked sessions stay refused |
+| S5 Signed CV link kept in the queue payload | Kept by owner decision (accepted trade-off): only while the job waits or runs, deleted when it finishes, never logged, not readable through the Data API; an expired link gives `file_unavailable` and a retry | Tested here (worker unit tests, database checks) |
 | S6 AI service token compared with `!=` | `hmac.compare_digest` on bytes | Tested here |
 | S7 No security headers | Nonce CSP and headers on web; strict headers on API; HSTS on HTTPS | Tested here (unit tests; production build in a browser, public pages, no CSP violations). Daily interview and Google sign-in under the CSP not checked |
 | S8 Sign-up access code in the Next.js `env` map, written into builds | Runtime server variable only; build check script | Tested here (build scanned with a canary value; the check itself proven to catch a planted value) |
+
+Waiting for the owner, implemented provisionally as described: whether rejected applications can be reopened (yes
+today); whether hiring through an interview outcome needs a shortlist (no today); whether employers keep the candidate's
+current CV when an application has no copy (yes today); and the `TRUST_PROXY` value once hosting is chosen (unset).
+Hosted Supabase is unchanged, with seven migrations pending approval. See
+[docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md](docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md).
+
+Owner decisions for later phases, in [docs/DECISIONS.md](docs/DECISIONS.md): Gemini and OpenAI behind one provider
+interface; hybrid employer management; MIDAN owns assessment design (today organizations still build and publish their
+own assessments, which a later phase has to change).
 
 | Milestone | Item | Status |
 | --- | --- | --- |

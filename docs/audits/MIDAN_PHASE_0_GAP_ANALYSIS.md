@@ -29,7 +29,7 @@ this report is left as audited.
 | S2 application status | **Fixed and tested** at the database and in API error mapping; end-to-end tests written, not run | `20261107090100_application_status_transitions.sql`; `security_phase1.sql`; `database-exception.filter.spec.ts`; `application-status.test.ts`; `foundation.e2e-spec.ts` "allows only the status moves the workflow has"; `pipeline.e2e-spec.ts` "hires only once the assessment has been reviewed…" |
 | S3 rate-limit bypass | **Fixed and tested** | `common/token-throttler.guard.ts`, `auth/auth.guard.ts`, `common/configure-app.ts` (`TRUST_PROXY`); `throttle.spec.ts` |
 | S4 auth call per request | Unchanged; now one call per request (shared by the limiter and guards). JWT verification would stop catching revoked sessions | — |
-| S5 signed link in queue payload | **Mitigated and tested**: removed when the job finishes, never logged. Run-time signing not adopted by owner decision (it would need a storage credential the design deliberately doesn't have); residual risk accepted | `20261107090200_clear_finished_job_links.sql`; `jobs-queue/worker.spec.ts`; `security_phase1.sql` |
+| S5 signed link in queue payload | **Closed by owner decision (accepted trade-off), mitigations tested**: the 30-minute link stays only while the job waits or runs, is deleted when it finishes, never logged, not readable through the Data API; an expired link gives `file_unavailable` and the candidate retries. No storage credential added | `20261107090200_clear_finished_job_links.sql`; `jobs-queue/worker.spec.ts`; `security_phase1.sql` |
 | S6 AI token comparison | **Fixed and tested** | `services/ai/midan_ai/main.py`; `tests/test_service_token.py` |
 | S7 security headers | **Fixed and tested** (unit tests; production build in a browser). Daily and Google sign-in under the CSP not yet checked | `apps/web/src/lib/csp.ts`, `src/proxy.ts`, `next.config.ts`; `apps/api/src/common/security-headers.ts`; `csp.test.ts`, `security-headers.spec.ts` |
 | S8 access code in Next.js `env` | **Fixed and tested** | `next.config.ts`; `apps/web/scripts/check-bundle-secrets.mjs` |
@@ -37,8 +37,16 @@ this report is left as audited.
 | S10 leaked password protection, SECURITY DEFINER RPCs | Unchanged (dashboard / later review) | — |
 | S11 `npm audit` | Unchanged | — |
 
-Two owner decisions made since the audit are recorded in `docs/DECISIONS.md`: Gemini and OpenAI behind one provider
-interface (AI integration phase), and a hybrid employer-management model with a claim workflow (employer phase).
+Owner decisions made since the audit, recorded in `docs/DECISIONS.md`:
+- Gemini and OpenAI behind one provider interface (AI integration phase). Neither has passed a real-credential test.
+- A hybrid employer-management model with a claim workflow (employer phase).
+- MIDAN owns assessment design; employers provide job context and may review or approve. **This changes section 4E:**
+  today organizations generate, edit and publish their own assessments, so the assessment features are built but
+  assigned to the wrong party. Alignment is later-phase work.
+- S5 as above.
+
+Hosted is unchanged: 23 migrations. Pending there, none applied: the four from the base branch
+(`20261106140000`–`20261106170000`) and the three Phase 1 migrations (`20261107090000`–`20261107090200`).
 
 ---
 
