@@ -96,7 +96,7 @@ When `TRUST_PROXY` is safe is spelled out in `docs/deployment.md`. Next.js keeps
 so it's safe only behind a hosting proxy that appends the client address. Unset, signed-out visitors share the web
 server's limit.
 
-### S5 — Signed CV link in the queue (LOW) · partly fixed; the rest needs an owner decision
+### S5 — Signed CV link in the queue (LOW) · mitigated and tested; run-time signing declined by the owner
 
 **Done.** `supabase/migrations/20261107090200_clear_finished_job_links.sql` removes `file_url` from a job's payload when it
 succeeds or fails, and from jobs that had already finished. The payload was already unreadable through the Data API
@@ -105,8 +105,9 @@ short permanent code, never the payload or an error message that might contain t
 
 **Not done: "store the path and sign when the worker runs".** The worker acts as the candidate through the database, but
 Storage needs the candidate's token or a privileged key to sign a link, and the design deliberately has neither
-(`docs/DECISIONS.md`: no service-role key). The options are below (section 6). Until one is chosen, the link stays in the
-payload for up to 30 minutes while the job is queued or running.
+(`docs/DECISIONS.md`: no service-role key). **Decision (owner, 2026-11-07): keep the 30-minute link and add no storage
+credential.** The link stays in the payload while the job is queued or running, at most 30 minutes; a CV analysis still
+queued or retrying after that fails with `file_unavailable`, and the candidate retries it.
 
 ### S6 — AI service token (LOW) · fixed and tested
 
@@ -196,15 +197,11 @@ Documentation (last commit): `docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md` (
 
 ## 6. Owner decisions required
 
-1. **S5, how the worker reads CVs.** Options:
-   - (a) Keep the current approach: a 30-minute link, cleared when the job finishes, never logged or readable through the
-     Data API. No new credential. This is what's in place.
-   - (b) A storage-only server credential (for example Supabase Storage S3 access keys restricted to
-     `candidate-documents`), used by the worker to sign at run time. It bypasses storage policies, so it is privileged and
-     changes the "no service-role key" decision.
-   - (c) Hand the file to the AI service at upload time, with no queue retries for the file itself. That loses
-     retry-after-restart.
-   Recommendation: (a) now, and (b) only if the queue must survive outages longer than 30 minutes.
+1. ~~**S5, how the worker reads CVs.**~~ **Decided 2026-11-07: keep the 30-minute link (option a).** The options weighed
+   were (a) the current link, cleared when the job finishes and never logged; (b) a storage-only server credential so the
+   worker signs at run time, which bypasses storage policies and would reverse the "no service-role key" decision; and
+   (c) handing the file to the AI service at upload, losing retry after a restart. Revisit (b) only if the queue must
+   survive outages longer than 30 minutes.
 2. **S2 status rules.** Whether rejection should be reversible (it is: rejected → under review or shortlisted), and
    whether hiring through an interview outcome should also need a shortlist (it doesn't: outcomes follow evaluation).
 3. **S1 current-CV fallback** (section 2, S1).
