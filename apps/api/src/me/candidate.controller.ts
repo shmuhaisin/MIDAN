@@ -1,8 +1,9 @@
 import { Body, Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { signedUrl } from '../common/storage';
+import { listableJobs } from '../common/test-data';
 import { AuthUser, DbService, Tx } from '../db/db.service';
 
 class OnboardingDto {
@@ -13,6 +14,12 @@ class OnboardingDto {
 class ReferenceSkillsDto {
   @ApiProperty() @IsArray() @ArrayMaxSize(200) @IsUUID(undefined, { each: true }) ids!: string[];
 }
+
+class OwnSkillsDto {
+  @ApiProperty() @IsArray() @ArrayMaxSize(100) @IsString({ each: true }) @MaxLength(100, { each: true }) names!: string[];
+}
+
+type SkillOption = { id: string; name_ar: string; description_ar: string | null; sector_code: string; job_families: string[] };
 
 type NamedSkill = { id: string; name_ar: string; name_en: string | null };
 export type Match = {
@@ -39,8 +46,16 @@ async function candidateEvidence(tx: Tx, userId: string) {
     // Only released results are readable by a candidate, so this can't reveal an unreleased score.
     tx.skill_scores.findMany({ where: { evaluation_results: { released_to_candidate: true, assessment_attempts: { candidate_id: userId } } }, select: { skill_id: true, level: true } }),
   ]);
+  // A job's skill counts as listed when the candidate listed exactly that name, in the reference or in their own words.
+  const sameName = await tx.$queryRaw<{ id: string }[]>`
+    select s.id from public.skills s
+    where public.normalize_arabic(s.name_ar) in (
+      select r.name_search from public.candidate_reference_skills c join public.reference_skills r on r.id = c.reference_skill_id where c.candidate_id = ${userId}::uuid
+      union
+      select public.normalize_arabic(value) from public.candidate_profiles p, jsonb_array_elements_text(p.self_reported_skills) where p.user_id = ${userId}::uuid
+    )`;
   return {
-    listed: new Set([...listed.map((s) => s.skill_id), ...listedReference.map((s) => s.reference_skill_id)]),
+    listed: new Set([...listed.map((s) => s.skill_id), ...listedReference.map((s) => s.reference_skill_id), ...sameName.map((s) => s.id)]),
     assessed: new Set(assessed.filter((s) => s.level >= 3).map((s) => s.skill_id)),
   };
 }
@@ -69,10 +84,10 @@ async function refreshCandidateState(tx: Tx) {
   await tx.$executeRaw`select public.create_my_deadline_reminders()`;
 }
 
-export async function recommendedJobs(tx: Tx, userId: string) {
+export async function recommendedJobs(tx: Tx, userId: string, email?: string) {
   const [jobs, mine, evidence] = await Promise.all([
     tx.jobs.findMany({
-      where: { status: 'published' },
+      where: listableJobs(email),
       orderBy: { published_at: 'desc' },
       take: 200,
       select: { id: true, title_ar: true, title_en: true, location: true, is_demo: true, organizations: { select: { name_ar: true, name_en: true } }, ...JOB_SKILLS },
@@ -127,7 +142,7 @@ export class CandidateController {
         tx.notifications.findMany({ where: { user_id: user.id, read_at: null }, orderBy: { created_at: 'desc' }, take: 5 }),
         tx.career_plan_items.groupBy({ by: ['status'], where: { candidate_id: user.id }, _count: true }),
         tx.cv_analyses.findFirst({ where: { candidate_id: user.id }, orderBy: { created_at: 'desc' }, select: { id: true, status: true, failure_code: true } }),
-        recommendedJobs(tx, user.id),
+        recommendedJobs(tx, user.id, user.email),
       ]);
       return { interviews, unread, notifications: recent, plan, analysis, recommended };
     });
@@ -197,6 +212,51 @@ export class CandidateController {
     });
   }
 
+  @Put('own-skills')
+  @ApiOperation({ summary: "Skills in the candidate's own words, for those the reference doesn't have. Never treated as assessed." })
+  setOwnSkills(@CurrentUser() user: AuthUser, @Body() body: OwnSkillsDto) {
+    const names = [...new Set(body.names.map((n) => n.trim()).filter(Boolean))];
+    return this.db.asUser(user, async (tx) => {
+      const { count } = await tx.candidate_profiles.updateMany({ where: { user_id: user.id }, data: { self_reported_skills: names } });
+      if (count === 0) throw new NotFoundException();
+      return names;
+    });
+  }
+
+  @Get('skill-suggestions')
+  @ApiOperation({
+    summary: 'Skills from a reviewed CV or the profile, matched to the reference.',
+    description: 'One exact match is offered directly. Several exact or partial matches need the candidate to choose. A skill with no match stays in their own words.',
+  })
+  suggestions(@CurrentUser() user: AuthUser) {
+    return this.db.asUser(user, async (tx) => {
+      const [analysis, profile, chosen] = await Promise.all([
+        tx.cv_analyses.findFirst({ where: { candidate_id: user.id, status: 'awaiting_review' }, orderBy: { created_at: 'desc' }, select: { professional: true } }),
+        tx.candidate_profiles.findUnique({ where: { user_id: user.id }, select: { self_reported_skills: true } }),
+        tx.candidate_reference_skills.findMany({ where: { candidate_id: user.id }, select: { reference_skill_id: true } }),
+      ]);
+      const fromCv = ((analysis?.professional as { skills?: string[] } | null)?.skills ?? []).filter((s) => typeof s === 'string');
+      const own = (profile?.self_reported_skills as string[] | null) ?? [];
+      const selected = new Set(chosen.map((c) => c.reference_skill_id));
+      const results = [];
+      for (const name of [...new Set([...fromCv, ...own])].slice(0, 50)) {
+        const exact = await tx.$queryRaw<SkillOption[]>`
+          select s.id, s.name_ar, s.description_ar, s.sector_code,
+            array(select distinct c.job_family_ar from public.reference_skill_contexts c where c.skill_id = s.id limit 2) as job_families
+          from public.reference_skills s where s.name_search = public.normalize_arabic(${name}) order by s.sector_code limit 7`;
+        const options = exact.length ? exact : await tx.$queryRaw<SkillOption[]>`
+          select s.id, s.name_ar, s.description_ar, s.sector_code,
+            array(select distinct c.job_family_ar from public.reference_skill_contexts c where c.skill_id = s.id limit 2) as job_families
+          from public.reference_skills s
+          where length(public.normalize_arabic(${name})) >= 3 and s.name_search like '%' || public.normalize_arabic(${name}) || '%'
+          order by s.is_priority desc nulls last, length(s.name_ar) limit 5`;
+        if (options.some((o) => selected.has(o.id))) continue;
+        results.push({ name, source: fromCv.includes(name) ? 'cv' : 'own', status: exact.length === 1 ? 'match' : options.length ? 'choose' : 'no_match', options });
+      }
+      return results;
+    });
+  }
+
   @Get('reference-skills')
   referenceSkills(@CurrentUser() user: AuthUser) {
     return this.db.asUser(user, (tx) =>
@@ -209,7 +269,7 @@ export class CandidateController {
 
   @Get('recommended-jobs')
   recommended(@CurrentUser() user: AuthUser) {
-    return this.db.asUser(user, (tx) => recommendedJobs(tx, user.id));
+    return this.db.asUser(user, (tx) => recommendedJobs(tx, user.id, user.email));
   }
 
   @Get('jobs/:id/match')
@@ -228,6 +288,11 @@ export class CandidateController {
       await refreshCandidateState(tx);
       return tx.notifications.findMany({ where: { user_id: user.id }, orderBy: { created_at: 'desc' }, take: 100 });
     });
+  }
+
+  @Get('notifications/unread-count')
+  unreadCount(@CurrentUser() user: AuthUser) {
+    return this.db.asUser(user, async (tx) => ({ unread: await tx.notifications.count({ where: { user_id: user.id, read_at: null } }) }));
   }
 
   @Post('notifications/:id/read')

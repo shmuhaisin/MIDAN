@@ -26,6 +26,17 @@ export class AuthGuard implements CanActivate {
   }
 }
 
+/** For public routes that show a little more to a verified account. A missing or bad token just means signed out. */
+@Injectable()
+export class OptionalAuthGuard extends AuthGuard {
+  async canActivate(context: ExecutionContext) {
+    if (context.switchToHttp().getRequest<AuthedRequest>().headers.authorization) {
+      await super.canActivate(context).catch(() => undefined);
+    }
+    return true;
+  }
+}
+
 export const CurrentUser = createParamDecorator(
   (_: unknown, context: ExecutionContext) => context.switchToHttp().getRequest<AuthedRequest>().user as AuthUser,
 );

@@ -43,7 +43,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <section className="on-deep bg-deep text-deep-foreground">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
           <Eyebrow className="text-deep-muted">{t('eyebrow')}</Eyebrow>
-          <h1 className="mt-3 font-display text-4xl font-bold sm:text-5xl">{pick(locale, org.name_ar, org.name_en)}</h1>
+          <h1 className="mt-3 page-title">{pick(locale, org.name_ar, org.name_en)}</h1>
           <p className="mt-2 text-deep-muted">
             {t('yourRole', { role: td(`role.${org.my_role}`) })} ·{' '}
             <Link href={`/organization/${orgId}/settings`} className="font-semibold text-mint underline underline-offset-4">{tb('link')}</Link>
@@ -51,7 +51,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
             {metrics.map(([key, value]) => (
               <div key={key} className="border-s border-mint/30 ps-4">
-                <dd className="font-display text-4xl font-bold text-mint">{number(locale, value)}</dd>
+                <dd className="page-title text-mint">{number(locale, value)}</dd>
                 <dt className="mt-1 text-sm text-deep-muted">{t(`metrics.${key}`)}</dt>
               </div>
             ))}
@@ -63,7 +63,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <div className="mx-auto max-w-6xl space-y-14 px-4 py-10 sm:px-6">
         <section aria-labelledby="jobs">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="jobs" className="font-display text-2xl font-bold">{t('jobs')}</h2>
+            <h2 id="jobs" className="section-title">{t('jobs')}</h2>
           </div>
           {canManage && <div className="mt-4"><JobForm orgId={orgId} /></div>}
           {jobs.length === 0 ? (
@@ -86,7 +86,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         </section>
 
         <section aria-labelledby="applicants">
-          <h2 id="applicants" className="font-display text-2xl font-bold">{t('applicants')}</h2>
+          <h2 id="applicants" className="section-title">{t('applicants')}</h2>
           <p className="mt-1 text-sm text-muted">{t('humanNote')}</p>
           {applicants.length === 0 ? (
             <p className="mt-4 text-muted">{t('noApplicants')}</p>

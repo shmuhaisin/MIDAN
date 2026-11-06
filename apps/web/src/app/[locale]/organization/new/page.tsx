@@ -12,8 +12,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const t = await getTranslations({ locale, namespace: 'org' });
   return (
     <section className="mx-auto max-w-xl px-4 py-12 sm:px-6">
-      <h1 className="font-display text-4xl font-bold">{t('newTitle')}</h1>
-      <p className="mt-2 mb-8 text-lg text-muted">{t('newLead')}</p>
+      <h1 className="page-title">{t('newTitle')}</h1>
+      <p className="mt-2 mb-8 text-muted">{t('newLead')}</p>
       <OrganizationForm />
     </section>
   );

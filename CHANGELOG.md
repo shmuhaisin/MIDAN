@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-06: Repairs to data and the candidate interface
+- Fixed the import. It had skipped six of the eight tourism sheets and cut off the widest culture sheet. It now reads all 40 matrix sheets, and fails on a sheet it can't read. 5,073 skills and 39,438 sub-sector and job-family links are in the database.
+- Test records no longer reach normal views. Organizations made by test accounts are marked by the database, and listings exclude them. Demo jobs moved to their own labeled listing.
+- Fixed a misleading empty result: with no genuine jobs published, the job list says so, and links to a new employer directory.
+- New skills step: tolerant Arabic search over the reference, context on each result, skills from a reviewed CV offered for confirmation, and skills in the candidate's own words kept when nothing matches. Selections save immediately.
+- New job cards and filters, with the employer filter labeled as employers with published jobs.
+- One type scale, compact controls, one logo per page, a quiet footer, no decorative band on working pages, a compact dashboard, and one candidate navigation in the layout.
+
 ## 2026-11-06: The candidate experience
 - Approved logo, with real transparency, in `apps/web/public/assets/brand` and the reusable `Logo` component. Palette values from the implementation brief.
 - Sector skills reference and employer registry imported, with their sources. Registry entries are identity records only, and none is a partner.

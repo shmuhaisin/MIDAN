@@ -23,7 +23,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         </>
       ) : (
         <div>
-          <h2 className="font-display text-xl font-semibold">{t('closedTitle')}</h2>
+          <h2 className="subsection-title">{t('closedTitle')}</h2>
           <p className="mt-2 mb-6 text-muted">{t('closedBody')}</p>
           <Link href={audience === 'organization' ? '/login?as=organization' : '/login'} className="inline-flex rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground">{t('loginSubmit')}</Link>
         </div>

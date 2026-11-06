@@ -1,7 +1,5 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Humaidan } from '@/components/brand';
 import { CareerTargetPicker, PlanItemControls, SavePlanButton } from '@/components/candidate';
-import { CandidateNav } from '@/components/candidate-nav';
 import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { formatDate, pick } from '@/lib/format';
@@ -28,25 +26,24 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const title = (r: Resource) => pick(locale, r.title_ar ?? r.title_en ?? '', r.title_en ?? r.title_ar ?? '');
   return (
     <>
-      <CandidateNav current="development" />
-      <div className="mx-auto max-w-5xl space-y-12 px-4 py-10 sm:px-6">
-        <header className="grid items-end gap-6 sm:grid-cols-[1fr_auto]">
+      <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
+        <header>
           <div>
-            <h1 className="font-display text-4xl font-bold">{t('title')}</h1>
-            <p className="mt-2 max-w-2xl text-lg text-muted">{t('lead')}</p>
+            <h1 className="page-title">{t('title')}</h1>
+            <p className="mt-2 max-w-2xl text-muted">{t('lead')}</p>
           </div>
-          <div className="mx-auto w-24"><Humaidan sizes="96px" /></div>
+          
         </header>
 
         <section aria-labelledby="target">
-          <h2 id="target" className="mb-3 font-display text-2xl font-bold">{t('targetTitle')}</h2>
+          <h2 id="target" className="mb-3 section-title">{t('targetTitle')}</h2>
           <CareerTargetPicker families={families ?? []} target={data.target} />
           {data.target && <p className="mt-3 text-sm text-muted">{t('targetNote', { family: data.target.job_family_ar, sector: ts(data.target.sector_code) })}</p>}
         </section>
 
         {(data.demonstrated_needs.length > 0 || data.demonstrated_strengths.length > 0) && (
           <section aria-labelledby="evidence">
-            <h2 id="evidence" className="font-display text-2xl font-bold">{t('evidenceTitle')}</h2>
+            <h2 id="evidence" className="section-title">{t('evidenceTitle')}</h2>
             <p className="mt-1 text-sm text-muted">{t('evidenceNote')}</p>
             {data.demonstrated_strengths.length > 0 && <p className="mt-3"><span className="font-semibold">{t('strengths')}: </span>{data.demonstrated_strengths.map((s) => pick(locale, s.name_ar, s.name_en)).join(locale === 'ar' ? '، ' : ', ')}</p>}
             {data.demonstrated_needs.length > 0 && <p className="mt-2"><span className="font-semibold">{t('needs')}: </span>{data.demonstrated_needs.map((s) => pick(locale, s.name_ar, s.name_en)).join(locale === 'ar' ? '، ' : ', ')}</p>}
@@ -55,7 +52,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
 
         {data.target && (
           <section aria-labelledby="gaps">
-            <h2 id="gaps" className="font-display text-2xl font-bold">{t('gapsTitle')}</h2>
+            <h2 id="gaps" className="section-title">{t('gapsTitle')}</h2>
             <p className="mt-1 text-sm text-muted">{t('gapsNote')}</p>
             <ul className="mt-3 border-t border-border">
               {data.role_skills.map((s) => (
@@ -91,7 +88,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         )}
 
         <section aria-labelledby="plan">
-          <h2 id="plan" className="font-display text-2xl font-bold">{t('planTitle')}</h2>
+          <h2 id="plan" className="section-title">{t('planTitle')}</h2>
           <p className="mt-1 text-sm text-muted">{t('planNote')}</p>
           {data.plan.length === 0 ? <p className="mt-3 text-muted">{t('planEmpty')}</p> : (
             <ul className="mt-3 border-t border-border">

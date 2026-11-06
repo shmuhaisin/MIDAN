@@ -1,9 +1,9 @@
 import clsx from 'clsx';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Arrow, Eyebrow, Humaidan, JourneyRail, Parapet } from '@/components/brand';
+import { Arrow, Humaidan, JourneyRail } from '@/components/brand';
 import { CvAnalysisStatus } from '@/components/candidate';
-import { CandidateNav } from '@/components/candidate-nav';
 import { WithdrawButton } from '@/components/forms';
+import { Badge, statusTone } from '@/components/ui';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import type { CvAnalysis } from '@/lib/candidate-actions';
@@ -69,11 +69,17 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const invited = active.find((a) => open(a));
   const named = (a: MyApplication, x: MyApplication['assessment_attempts'][number], label: string) =>
     a.assessment_attempts.length > 1 ? `${label}: ${pick(locale, x.assessment_versions.assessments.title_ar, x.assessment_versions.assessments.title_en)}` : label;
+  const profile = me.candidate_profiles;
+  const profileChecks = [
+    Boolean(profile?.headline), Boolean(profile?.summary), Boolean(profile?.experience.length),
+    Boolean(profile?.education.length), me.candidate_skills.length > 0, Boolean(profile?.cv_path),
+  ];
+  const profileDone = profileChecks.filter(Boolean).length;
   const next = invited
     ? { title: t('nextInvitedTitle'), body: t('nextInvitedBody'), cta: t('startAssessment'), href: experienceHref(invited, open(invited)!) }
     : firstOrg && applications.length === 0
       ? { title: t('nextOrgTitle'), body: t('nextOrgBody'), cta: t('openOrganization'), href: `/organization/${firstOrg.org_id}` }
-      : !me.candidate_profiles && !isOrgFirst
+      : (!me.candidate_profiles || profileDone < 2) && !isOrgFirst
       ? { title: t('nextProfileTitle'), body: t('nextProfileBody'), cta: t('nextProfileCta'), href: '/profile' }
       : active.length === 0 && !isOrgFirst
         ? { title: t('nextBrowseTitle'), body: t('nextBrowseBody'), cta: t('nextBrowseCta'), href: '/opportunities' }
@@ -81,16 +87,9 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           ? { title: t('createOrganization'), body: t('createOrganizationBody'), cta: t('createOrganization'), href: '/organization/new' }
           : { title: t('nextTrackTitle'), body: t('nextTrackBody'), cta: t('nextTrackCta'), href: '/opportunities' };
 
-  const profile = me.candidate_profiles;
-  const profileChecks = [
-    Boolean(profile?.headline), Boolean(profile?.summary), Boolean(profile?.experience.length),
-    Boolean(profile?.education.length), me.candidate_skills.length > 0, Boolean(profile?.cv_path),
-  ];
-  const profileDone = profileChecks.filter(Boolean).length;
 
   // Organization staff get a formal workspace. Humaidan guides candidates here.
   const staffOnly = isOrgFirst || (me.organization_members.length > 0 && !me.candidate_profiles && applications.length === 0);
-  const showHumaidan = !staffOnly;
   const showRail = !staffOnly;
   const attempts = active.flatMap((a) => a.assessment_attempts);
   const released = attempts.some((x) => x.evaluation_results?.released_to_candidate);
@@ -113,31 +112,28 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
 
   return (
     <>
-      {!staffOnly && <CandidateNav current="dashboard" unread={dashboard?.unread ?? 0} />}
-      <section className="mx-auto grid max-w-6xl items-end gap-6 px-4 pt-10 sm:px-6 md:grid-cols-[1fr_auto]">
-        <div className="pb-8">
-          <p className="text-lg text-muted">{t('hello', { name })}</p>
-          <Eyebrow className="mt-6 text-muted">{t('nextEyebrow')}</Eyebrow>
-          <h1 className="mt-3 max-w-2xl font-display text-4xl leading-tight font-bold sm:text-5xl">{next.title}</h1>
-          <p className="mt-3 max-w-xl text-lg leading-relaxed text-muted">{next.body}</p>
+      <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+        <p className="text-sm text-muted">{t('hello', { name })}</p>
+        <section className="card mt-2 flex flex-wrap items-center justify-between gap-4" aria-labelledby="next-step">
+          {!staffOnly && <div className="w-12 shrink-0"><Humaidan sizes="48px" /></div>}
+          <div className="min-w-0 max-w-2xl flex-1">
+            <h1 id="next-step" className="page-title">{next.title}</h1>
+            <p className="mt-1 text-muted">{next.body}</p>
+          </div>
           {next.href && (
-            <Link href={next.href} className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5">
+            <Link href={next.href} className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-2 font-semibold text-primary-foreground">
               {next.cta}<Arrow />
             </Link>
           )}
-        </div>
-        {showHumaidan && <div className="mx-auto w-36 md:w-44"><Humaidan sizes="176px" priority /></div>}
-      </section>
-      {showRail && (
-        <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6"><JourneyRail label={t('flowLabel')} steps={t.raw('flow') as string[]} done={railDone} /></div>
-      )}
-      <Parapet className="text-deep" />
+        </section>
+        {showRail && <div className="mt-4"><JourneyRail label={t('flowLabel')} steps={t.raw('flow') as string[]} done={railDone} /></div>}
+      </div>
 
-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[2fr_1fr]">
-        <div className="space-y-12">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[2fr_1fr]">
+        <div className="space-y-8">
         {pendingActions.length > 0 && (
           <section aria-labelledby="deadlines">
-            <h2 id="deadlines" className="font-display text-2xl font-bold">{t('deadlines')}</h2>
+            <h2 id="deadlines" className="section-title">{t('deadlines')}</h2>
             <ul className="mt-3 border-t border-border">
               {pendingActions.map(({ a, x }) => (
                 <li key={x.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-3">
@@ -153,7 +149,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         )}
         {(dashboard?.interviews.length ?? 0) > 0 && (
           <section aria-labelledby="upcoming">
-            <h2 id="upcoming" className="font-display text-2xl font-bold">{t('upcomingInterviews')}</h2>
+            <h2 id="upcoming" className="section-title">{t('upcomingInterviews')}</h2>
             <ul className="mt-3 border-t border-border">
               {dashboard?.interviews.map((i) => (
                 <li key={i.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-3">
@@ -168,7 +164,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           </section>
         )}
         <section aria-labelledby="my-applications">
-          <h2 id="my-applications" className="font-display text-2xl font-bold">{t('applications')}</h2>
+          <h2 id="my-applications" className="section-title">{t('applications')}</h2>
           {applications.length === 0 ? (
             <p className="mt-4 text-muted">{t('noApplications')}</p>
           ) : (
@@ -181,7 +177,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                       <p className="text-sm text-muted">{pick(locale, a.jobs.organizations.name_ar, a.jobs.organizations.name_en)}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium">{ts(a.status)}</span>
+                      <Badge tone={statusTone(a.status)}>{ts(a.status)}</Badge>
                       {!['withdrawn', 'rejected'].includes(a.status) && <Progress status={a.status} />}
                     </div>
                   </div>
@@ -207,7 +203,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         </section>
         {(dashboard?.recommended.length ?? 0) > 0 && (
           <section aria-labelledby="recommended">
-            <h2 id="recommended" className="font-display text-2xl font-bold">{t('recommended')}</h2>
+            <h2 id="recommended" className="section-title">{t('recommended')}</h2>
             <p className="mt-1 text-sm text-muted">{tj('matchNote')}</p>
             <ul className="mt-3 border-t border-border">
               {dashboard?.recommended.map((job) => (
@@ -222,11 +218,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         )}
         </div>
 
-        <aside className="space-y-10">
+        <aside className="space-y-6">
           {!staffOnly && dashboard?.analysis && <CvAnalysisStatus analysis={dashboard.analysis} compact />}
           {!staffOnly && (dashboard?.notifications.length ?? 0) > 0 && (
             <section>
-              <h2 className="font-display text-xl font-bold">{tn('title')}</h2>
+              <h2 className="subsection-title">{tn('title')}</h2>
               <ul className="mt-2 space-y-2 text-sm">
                 {dashboard?.notifications.map((n) => <li key={n.id}><Link href={n.link} className="hover:text-primary">{tn(`kind.${n.kind}`, { job: pick(locale, n.params.job_ar ?? '', n.params.job_en ?? '') })}</Link></li>)}
               </ul>
@@ -235,13 +231,13 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           )}
           {!staffOnly && (
             <section>
-              <h2 className="font-display text-xl font-bold">{t('development')}</h2>
+              <h2 className="subsection-title">{t('development')}</h2>
               <p className="mt-1 text-sm text-muted">{planCount > 0 ? t('developmentPlan', { count: number(locale, planCount) }) : t('developmentNone')}</p>
               <Link href="/development" className="mt-2 inline-block font-semibold text-primary underline underline-offset-4">{t('developmentOpen')}</Link>
             </section>
           )}
           <section>
-            <h2 className="font-display text-xl font-bold">{t('profile')}</h2>
+            <h2 className="subsection-title">{t('profile')}</h2>
             {me.candidate_profiles && (
               <p className="mt-2">
                 <span className="font-medium">{me.candidate_profiles.full_name}</span>
@@ -259,7 +255,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             <Link href="/profile" className="mt-2 inline-block font-semibold text-primary underline underline-offset-4">{profileDone < profileChecks.length ? t('completeProfile') : t('editProfile')}</Link>
           </section>
           {(session.accountType !== 'candidate' || me.organization_members.length > 0) && <section>
-            <h2 className="font-display text-xl font-bold">{t('organizations')}</h2>
+            <h2 className="subsection-title">{t('organizations')}</h2>
             <ul className="mt-2 space-y-3">
               {me.organization_members.map((m) => (
                 <li key={m.org_id}>

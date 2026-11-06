@@ -10,8 +10,8 @@ import { changePassword, requestPasswordReset, resetPassword, signIn, signUp, st
 import { PROFESSIONAL_FIELDS, resolveHumaidan } from '@/lib/humaidan';
 import { Arrow, Humaidan } from './brand';
 
-export const INPUT = 'mt-1.5 block h-12 w-full rounded-lg border border-border bg-surface px-3.5 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/25';
-export const PRIMARY = 'inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:translate-y-0 disabled:opacity-60';
+export const INPUT = 'mt-1 block h-11 w-full rounded-lg border border-border bg-surface px-3.5 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/25';
+export const PRIMARY = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:translate-y-0 disabled:opacity-60';
 
 const FormPending = createContext(false);
 
@@ -86,7 +86,7 @@ export function GoogleButton({ next }: { next?: string }) {
   return (
     <form action={startGoogleSignIn}>
       {next && <input type="hidden" name="next" value={next} />}
-      <button type="submit" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-border bg-surface px-6 py-3 font-semibold transition-colors hover:bg-surface-2">
+      <button type="submit" className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-surface px-5 py-2 font-semibold transition-colors hover:bg-surface-2">
         {t('google')}
       </button>
     </form>

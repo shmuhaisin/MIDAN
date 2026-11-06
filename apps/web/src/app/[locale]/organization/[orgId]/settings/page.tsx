@@ -23,8 +23,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   return (
     <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <Link href={`/organization/${orgId}`} className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground"><Arrow className="rotate-180" />{t('back')}</Link>
-      <h1 className="mt-5 font-display text-4xl font-bold">{t('title')}</h1>
-      <p className="mt-2 mb-8 text-lg text-muted">{t('lead')}</p>
+      <h1 className="mt-5 page-title">{t('title')}</h1>
+      <p className="mt-2 mb-8 text-muted">{t('lead')}</p>
       <BrandingForm
         orgId={orgId}
         branding={org.branding}

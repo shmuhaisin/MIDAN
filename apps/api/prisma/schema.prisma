@@ -763,6 +763,7 @@ model organizations {
   is_demo                   Boolean                     @default(false)
   created_at                DateTime                    @default(now()) @db.Timestamptz(6)
   updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  is_test                   Boolean                     @default(false)
   ai_workflow_runs          ai_workflow_runs[]
   applications              applications[]
   assessment_attempts       assessment_attempts[]
@@ -814,6 +815,9 @@ model reference_skills {
   source_skill_id            String?
   proficiency_scale          Json?
   created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+  listed_subsectors          String[]                     @default([])
+  listed_job_families        String[]                     @default([])
+  name_search                String?                      @default(dbgenerated("normalize_arabic(name_ar)"))
   candidate_reference_skills candidate_reference_skills[]
   career_plan_items          career_plan_items[]
   job_reference_skills       job_reference_skills[]
@@ -821,6 +825,7 @@ model reference_skills {
   reference_skill_contexts   reference_skill_contexts[]
 
   @@unique([sector_code, skill_kind, name_ar])
+  @@index([name_search])
   @@index([sector_code])
 }
 

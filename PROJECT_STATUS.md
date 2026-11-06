@@ -38,7 +38,9 @@ Only what has been run is marked Tested. Last updated 2026-11-05.
 | 8 | Candidate report, organization review, candidate comparison | Tested |
 | 8 | Learning recommendations beyond next-level descriptors; analytics | Not Started |
 | 11 | Approved logo and reusable component | Tested on light and dark, phone and desktop |
-| 11 | Skills reference and employer registry | Imported and tested. No proficiency scale or skill IDs exist in the sources |
+| 11 | Skills reference and employer registry | Imported and checked against each workbook's stated totals. No proficiency scale or skill IDs exist in the sources |
+| 11 | Separation of test and demo data from normal views | Tested |
+| 11 | Skills step, CV suggestions, job cards and filters, employer directory | Tested |
 | 11 | Password recovery, return path, onboarding | Tested (forms against a local Auth stand-in) |
 | 11 | Google sign-in | Implemented, tested against a stand-in. Not switched on: needs an OAuth client. New accounts are refused until registration opens |
 | 11 | CV pipeline: extraction, OCR, redaction, outbound check, review | Tested with fictional data. Real AI provider never run: no key. Arabic OCR not run: language pack not installed here |

@@ -1,5 +1,11 @@
 # Decisions
 
+**2026-11-06: Fixtures stay in the shared database, marked by it, and listings exclude them.** A separate test database would be cleaner, and should come before real users. Until then the mark is set by a trigger, not by name, and enforced in backend queries.
+
+**2026-11-06: A direct link to a test job still opens.** Only listings filter. Tests use those links signed out, and a fixture's address can't be discovered from a normal view.
+
+**2026-11-06: The product addresses candidates in the masculine form it already uses,** such as "راجع مهاراتك". The brief's feminine example was adapted to match, as it asked. Moving to neutral or chosen forms would be a separate copy change.
+
 **2026-11-06: The palette values in the implementation brief replace the earlier ones.** The brief both asks to keep the existing palette and lists different values as approved. The listed values were applied at token level, with gold kept as a small accent. Changing back is a few lines in `globals.css`. The owner should confirm.
 
 **2026-11-06: The employer workbook's external-jobs sheet isn't imported.** It's an empty template for a source the owner removed from scope. Only identity, alias and source sheets are read.

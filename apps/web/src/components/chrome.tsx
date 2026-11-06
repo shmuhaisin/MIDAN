@@ -96,7 +96,7 @@ function LocaleSwitch() {
   );
 }
 
-export function Header({ signedIn, signOut }: { signedIn: boolean; signOut: () => Promise<void> }) {
+export function Header({ signedIn, candidate, signOut }: { signedIn: boolean; candidate: boolean; signOut: () => Promise<void> }) {
   const t = useTranslations();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -122,6 +122,9 @@ export function Header({ signedIn, signOut }: { signedIn: boolean; signOut: () =
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
+  // Candidates have their own navigation under the header.
+  const items = candidate ? [] : signedIn ? NAV.filter(([href]) => href === '/opportunities') : NAV;
+
   return (
     <header
       className={clsx(
@@ -131,12 +134,12 @@ export function Header({ signedIn, signOut }: { signedIn: boolean; signOut: () =
     >
       <a href="#main" className="skip-link">{t('nav.skip')}</a>
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
-        <Link href="/" className="flex shrink-0 items-center gap-2 font-display text-xl font-bold">
-          <Logo decorative priority className="h-9 sm:h-11" sizes="88px" />
-          {t('brand.name')}
+        <Link href="/" aria-label="الميدان — MIDAN" className="flex shrink-0 items-center gap-2 font-display font-bold">
+          <Logo decorative priority className="h-9 sm:h-10" sizes="80px" />
+          <span className="text-lg">{t('brand.name')}</span>
         </Link>
         <nav aria-label={t('nav.primary')} className="hidden flex-1 items-center gap-1 lg:flex">
-          {NAV.map(([href, key]) => (
+          {items.map(([href, key]) => (
             <Link
               key={href}
               href={href}
@@ -157,9 +160,11 @@ export function Header({ signedIn, signOut }: { signedIn: boolean; signOut: () =
           </div>
           {signedIn ? (
             <>
+              {!candidate && (
               <Link href="/dashboard" className="hidden h-9 items-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-px active:translate-y-0 lg:inline-flex">
                 {t('nav.dashboard')}
               </Link>
+              )}
               <form action={signOut} className="hidden lg:block">
                 <button type="submit" className="h-9 rounded-full px-3 text-sm text-muted transition-colors hover:text-foreground">{t('nav.signOut')}</button>
               </form>
@@ -200,7 +205,7 @@ export function Header({ signedIn, signOut }: { signedIn: boolean; signOut: () =
             className="overflow-hidden border-t border-border lg:hidden"
           >
             <div className="flex flex-col gap-1 px-4 py-4">
-              {NAV.map(([href, key]) => (
+              {items.map(([href, key]) => (
                 <Link
                   key={href}
                   href={href}

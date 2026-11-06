@@ -77,7 +77,7 @@ export function Logo({ className, decorative, priority, sizes = '160px' }: { cla
     <Image
       src="/assets/brand/midan-logo.png" width={1385} height={758} sizes={sizes} priority={priority}
       alt={decorative ? '' : 'الميدان — MIDAN'}
-      className={clsx('h-10 w-auto max-w-full object-contain', className)}
+      className={clsx('h-10 w-auto max-w-full shrink-0 object-contain', className)}
     />
   );
 }

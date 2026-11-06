@@ -2,15 +2,13 @@
 
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useState, useTransition } from 'react';
 import { applicantCvLink, myCvLink, removeCv, saveProfile, uploadCv, type ProfilePayload } from '@/lib/actions';
-import { pick } from '@/lib/format';
 import { CvAnalysisStatus } from './candidate';
 import { ErrorText, Field, INPUT, openFileLink, PRIMARY } from './forms';
 import type { CvAnalysis } from '@/lib/candidate-actions';
 
-type Skill = { id: string; name_ar: string; name_en: string };
 type Row = Record<string, string>;
 
 export type ProfileData = {
@@ -40,7 +38,7 @@ function RowList({ title, addLabel, rows, setRows, blank, children }: {
   const [next, setNext] = useState(rows.length);
   return (
     <fieldset>
-      <legend className="font-display text-xl font-semibold">{title}</legend>
+      <legend className="subsection-title">{title}</legend>
       <ul className="mt-3 space-y-3">
         <AnimatePresence initial={false}>
           {rows.map((row, i) => (
@@ -80,9 +78,8 @@ function YearFields({ row, update, optionalEnd = true }: { row: Row; update: (ke
   );
 }
 
-export function ProfileForm({ profile, skills, selected, fallbackName }: { profile: ProfileData; skills: Skill[]; selected: string[]; fallbackName: string }) {
+export function ProfileForm({ profile, selected, fallbackName }: { profile: ProfileData; selected: string[]; fallbackName: string }) {
   const t = useTranslations('profile');
-  const locale = useLocale();
   const [name, setName] = useState(profile?.full_name ?? fallbackName);
   const [headline, setHeadline] = useState(profile?.headline ?? '');
   const [city, setCity] = useState(profile?.city ?? '');
@@ -95,7 +92,6 @@ export function ProfileForm({ profile, skills, selected, fallbackName }: { profi
   const [projects, setProjects] = useState(() => toRows(profile?.projects));
   const [courses, setCourses] = useState(() => toRows(profile?.courses));
   const [certifications, setCertifications] = useState(() => toRows(profile?.certifications));
-  const [chosen, setChosen] = useState(() => new Set(selected));
   const [pending, start] = useTransition();
   const [status, setStatus] = useState<{ error?: string; ok?: boolean }>({});
 
@@ -118,7 +114,7 @@ export function ProfileForm({ profile, skills, selected, fallbackName }: { profi
       projects: projects.map(titled),
       courses: courses.map(titled),
       certifications: certifications.map(titled),
-      skill_ids: [...chosen],
+      skill_ids: selected,
     };
     setStatus({});
     start(async () => setStatus(await saveProfile(payload)));
@@ -127,9 +123,9 @@ export function ProfileForm({ profile, skills, selected, fallbackName }: { profi
   return (
     <form onSubmit={submit} className="space-y-10">
       <fieldset className="space-y-4">
-        <legend className="font-display text-xl font-semibold">{t('basics')}</legend>
+        <legend className="subsection-title">{t('basics')}</legend>
         <Field name="full_name" required maxLength={200} autoComplete="name" label={t('fullName')} value={name} onChange={(e) => setName(e.target.value)} />
-        <Field name="headline" maxLength={200} label={t('headline')} hint={t('headlineHint')} value={headline} onChange={(e) => setHeadline(e.target.value)} />
+        <Field name="headline" maxLength={200} label={t('headline')} value={headline} onChange={(e) => setHeadline(e.target.value)} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field name="phone" type="tel" dir="ltr" maxLength={30} autoComplete="tel" label={t('phone')} value={phone} onChange={(e) => setPhone(e.target.value)} />
           <Field name="city" maxLength={100} label={t('city')} value={city} onChange={(e) => setCity(e.target.value)} />
@@ -194,34 +190,8 @@ export function ProfileForm({ profile, skills, selected, fallbackName }: { profi
         )}
       </RowList>
 
-      {(profile?.self_reported_skills?.length ?? 0) > 0 && (
-        <div>
-          <p className="text-sm font-semibold">{t('fromCv')}</p>
-          <ul className="mt-2 flex flex-wrap gap-2">{profile?.self_reported_skills?.map((s) => <li key={s} className="rounded-full border border-border px-3 py-1 text-sm"><bdi>{s}</bdi></li>)}</ul>
-        </div>
-      )}
-
       <fieldset>
-        <legend className="font-display text-xl font-semibold">{t('skills')}</legend>
-        <p className="mt-1 mb-3 text-sm text-muted">{t('skillsHint')}</p>
-        <div className="flex flex-wrap gap-2">
-          {skills.map((skill) => {
-            const on = chosen.has(skill.id);
-            return (
-              <label key={skill.id} className={clsx('cursor-pointer rounded-full border px-3.5 py-2 text-sm font-medium transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary', on ? 'border-transparent bg-accent text-accent-foreground' : 'border-border text-muted hover:text-foreground')}>
-                <input
-                  type="checkbox" className="sr-only" checked={on}
-                  onChange={() => setChosen((all) => { const copy = new Set(all); if (on) copy.delete(skill.id); else copy.add(skill.id); return copy; })}
-                />
-                {pick(locale, skill.name_ar, skill.name_en)}
-              </label>
-            );
-          })}
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend className="font-display text-xl font-semibold">{t('sharing')}</legend>
+        <legend className="subsection-title">{t('sharing')}</legend>
         <label className="mt-3 flex items-start gap-3 rounded-lg bg-surface p-4">
           <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 size-4 accent-[var(--primary)]" />
           <span>
@@ -261,7 +231,7 @@ export function CvPanel({ hasCv, hasProfile, analysis }: { hasCv: boolean; hasPr
 
   return (
     <section aria-labelledby="cv" className="rounded-lg bg-surface p-5">
-      <h2 id="cv" className="font-display text-xl font-semibold">{t('cv')}</h2>
+      <h2 id="cv" className="subsection-title">{t('cv')}</h2>
       <p className="mt-1 font-medium">{hasCv ? t('cvOnFile') : t('cvNone')}</p>
       <p className="mt-1 text-xs text-muted">{t('cvHint')}</p>
       {hasProfile ? (

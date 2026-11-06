@@ -100,7 +100,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <Arrow className="rotate-180" />{t('back')}
         </Link>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-display text-4xl font-bold">{pick(locale, job.title_ar, job.title_en)}</h1>
+          <h1 className="page-title">{pick(locale, job.title_ar, job.title_en)}</h1>
           <div className="flex flex-wrap items-center gap-3">
             <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold">{to(`jobStatus.${job.status}`)}</span>
             {canBuild && <JobStatusButtons orgId={orgId} jobId={jobId} status={job.status} />}

@@ -3,11 +3,12 @@ import { Bricolage_Grotesque, IBM_Plex_Sans, IBM_Plex_Sans_Arabic, Noto_Kufi_Ara
 import { notFound } from 'next/navigation';
 import { hasLocale, NextIntlClientProvider, useTranslations } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Parapet } from '@/components/brand';
 import { Header, Providers } from '@/components/chrome';
 import { Link } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { signOut } from '@/lib/auth-actions';
+import { CandidateNav } from '@/components/candidate-nav';
+import { api } from '@/lib/api';
 import { getSession } from '@/lib/session';
 import '../globals.css';
 
@@ -37,6 +38,7 @@ function Footer() {
   const t = useTranslations();
   const links = [
     ['/opportunities', 'opportunities'],
+    ['/employers', 'employers'],
     ['/how-it-works', 'how'],
     ['/for-candidates', 'candidates'],
     ['/for-organizations', 'organizations'],
@@ -45,16 +47,12 @@ function Footer() {
     ['/register', 'getStarted'],
   ] as const;
   return (
-    <footer className="on-deep bg-deep text-deep-foreground">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-2">
-        <div>
-          <p className="font-display text-2xl font-bold">{t('brand.full')}</p>
-          <p className="mt-3 max-w-sm text-deep-muted">{t('footer.tagline')}</p>
-          <p className="mt-6 text-sm text-deep-muted">{t('footer.status')}</p>
-        </div>
-        <nav aria-label={t('footer.explore')} className="grid grid-cols-2 gap-x-6 gap-y-2 md:justify-self-end">
+    <footer className="border-t border-border bg-surface">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-4 text-sm sm:px-6">
+        <p className="text-muted">{t('brand.full')} · {t('footer.status')}</p>
+        <nav aria-label={t('footer.explore')} className="flex flex-wrap gap-x-4 gap-y-1">
           {links.map(([href, key]) => (
-            <Link key={href} href={href} className="py-1 hover:text-mint">
+            <Link key={href} href={href} className="text-muted hover:text-foreground">
               {t(`nav.${key}`)}
             </Link>
           ))}
@@ -69,6 +67,8 @@ export default async function LocaleLayout({ children, params }: Params & { chil
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
   const session = await getSession();
+  const isCandidate = Boolean(session) && session?.accountType !== 'organization';
+  const unread = isCandidate ? await api<{ unread: number }>('/me/notifications/unread-count').then((r) => r.unread, () => 0) : 0;
   return (
     <html
       lang={locale}
@@ -80,10 +80,10 @@ export default async function LocaleLayout({ children, params }: Params & { chil
       <body className="flex min-h-dvh flex-col">
         <NextIntlClientProvider>
           <Providers>
-            <Header signedIn={Boolean(session)} signOut={signOut} />
+            <Header signedIn={Boolean(session)} candidate={isCandidate} signOut={signOut} />
             <DemoBanner />
+            {isCandidate && <CandidateNav unread={unread} />}
             <main id="main" className="flex-1">{children}</main>
-            <Parapet className="text-deep" />
             <Footer />
           </Providers>
         </NextIntlClientProvider>

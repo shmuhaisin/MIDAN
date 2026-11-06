@@ -3,7 +3,8 @@ import { Body, Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe
 import { Prisma } from '@prisma/client';
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
-import { AuthGuard, CurrentUser } from '../auth/auth.guard';
+import { AuthGuard, CurrentUser, OptionalAuthGuard } from '../auth/auth.guard';
+import { listableJobs } from '../common/test-data';
 import { storageFetch } from '../common/storage';
 import { AuthUser, DbService } from '../db/db.service';
 
@@ -32,14 +33,17 @@ export class JobsController {
   constructor(private readonly db: DbService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Published jobs on Midan, with optional filters. No sign-in needed.' })
+  @UseGuards(OptionalAuthGuard)
+  @ApiOperation({ summary: 'Published jobs on Midan, with optional filters. Test fixtures never appear here, and demo jobs only with demo=1.' })
   list(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('demo') demo?: string,
     @Query('q') q?: string, @Query('employer') employer?: string, @Query('location') location?: string, @Query('sector') sector?: string,
     @Query('employment_type') employmentType?: string, @Query('experience_level') experienceLevel?: string,
   ) {
     const contains = (value: string) => ({ contains: value.slice(0, 100), mode: Prisma.QueryMode.insensitive });
     const where: Prisma.jobsWhereInput = {
-      status: 'published',
+      ...(demo === '1' ? { status: 'published', is_demo: true } : listableJobs(user?.email)),
       ...(q?.trim() && { OR: [{ title_ar: contains(q.trim()) }, { title_en: contains(q.trim()) }] }),
       ...(employer?.trim() && { organizations: { OR: [{ name_ar: contains(employer.trim()) }, { name_en: contains(employer.trim()) }] } }),
       ...(location?.trim() && { location: contains(location.trim()) }),
@@ -58,6 +62,7 @@ export class JobsController {
       tx.external_job_listings.findMany({
         where: {
           published: true,
+          is_demo: false,
           ...(sector && { sector }),
           ...(text && { OR: [{ title_ar: { contains: text, mode: Prisma.QueryMode.insensitive } }, { title_en: { contains: text, mode: Prisma.QueryMode.insensitive } }] }),
         },

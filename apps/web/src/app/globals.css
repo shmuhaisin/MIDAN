@@ -91,6 +91,8 @@ html[lang='en'] {
 html {
   scroll-behavior: smooth;
   color-scheme: light;
+  /* Anything scrolled to, or focused by keyboard, stops below the sticky header. */
+  scroll-padding-top: 5rem;
 }
 html[data-theme='dark'] {
   color-scheme: dark;
@@ -111,6 +113,41 @@ body {
 }
 .on-deep :focus-visible {
   outline-color: var(--brand-mint);
+}
+
+/* One type scale for the product. Marketing pages may go larger; working screens don't. */
+.page-title {
+  font-family: var(--font-display-stack);
+  font-size: 1.5rem;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.section-title {
+  font-family: var(--font-display-stack);
+  font-size: 1.1875rem;
+  line-height: 1.4;
+  font-weight: 700;
+}
+.subsection-title {
+  font-family: var(--font-display-stack);
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 600;
+}
+@media (min-width: 640px) {
+  .page-title {
+    font-size: 1.75rem;
+  }
+  .section-title {
+    font-size: 1.25rem;
+  }
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  padding: 1.25rem;
 }
 
 /* The stepped Najdi arch behind Humaidan */

@@ -17,8 +17,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   return (
     <section className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <Link href="/profile" className="text-sm font-medium text-muted hover:text-foreground">{t('back')}</Link>
-      <h1 className="mt-5 font-display text-4xl font-bold">{t('title')}</h1>
-      <p className="mt-2 mb-8 text-lg text-muted">{t('lead')}</p>
+      <h1 className="mt-5 page-title">{t('title')}</h1>
+      <p className="mt-2 mb-8 text-muted">{t('lead')}</p>
       {analysis.status === 'awaiting_review' ? <CvReview analysis={analysis} current={me?.candidate_profiles ?? null} /> : <CvAnalysisStatus analysis={analysis} />}
       {['applied', 'dismissed'].includes(analysis.status) && <p className="text-muted">{t('closed')}</p>}
     </section>

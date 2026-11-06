@@ -80,7 +80,7 @@ test('registration data to career development: the whole candidate journey', asy
 
   // Onboarding: the same page resumes, and each step saves.
   await candidate.goto('/en/onboarding?step=1');
-  await expect(candidate.getByRole('img', { name: 'الميدان — MIDAN' }).first()).toBeVisible();
+  await expect(candidate.locator('img[src*="midan-logo"]')).toHaveCount(1);
   await candidate.getByLabel('Full name').fill('Journey Candidate');
   await candidate.getByLabel('Mobile number').fill('0551112222');
   await candidate.getByRole('button', { name: 'Next' }).click();
@@ -108,22 +108,30 @@ test('registration data to career development: the whole candidate journey', asy
   await candidate.getByRole('button', { name: 'Save what I chose' }).click();
   await expect(candidate).toHaveURL(/\/en\/profile$/);
   await expect(candidate.getByLabel('Full name')).toHaveValue('Journey Candidate');
-  await expect(candidate.getByText('Skills from your CV')).toBeVisible();
+  await expect(candidate.getByRole('heading', { name: 'Your skills', exact: true })).toBeVisible();
+  await expect(candidate.getByRole('heading', { name: 'Skills from your CV' })).toBeVisible();
   if (SHOTS) await candidate.screenshot({ path: `${SHOTS}/profile.png`, fullPage: true });
 
   await candidate.goto('/en/onboarding?step=3');
-  await candidate.getByLabel('Search for a skill').fill('تحليل البيانات');
-  await candidate.locator('ul button').first().click({ timeout: 20_000 });
-  await expect(candidate.getByText('Saved')).toBeVisible();
+  // Suggestions from the reviewed CV arrive here, and search tolerates spelling differences.
+  await candidate.getByRole('searchbox', { name: 'Search for a skill' }).fill('اداره المشاريع');
+  await candidate.getByRole('button', { name: /إدارة/ }).first().click({ timeout: 20_000 });
+  await expect(candidate.getByText('Saved', { exact: true })).toBeVisible();
+  await candidate.getByRole('searchbox', { name: 'Search for a skill' }).fill(`Own skill ${RUN}`);
+  await candidate.getByRole('button', { name: `Add "Own skill ${RUN}" as you wrote it` }).click({ timeout: 20_000 });
+  await expect(candidate.getByText('Saved', { exact: true })).toBeVisible();
+  await candidate.reload();
+  await expect(candidate.getByRole('heading', { name: /Your skills \(\d+\)/ })).not.toHaveText('Your skills (0)');
+  await expect(candidate.getByText(`Own skill ${RUN}`)).toBeVisible();
   await candidate.getByRole('button', { name: 'Next' }).click();
   await expect(candidate).toHaveURL(/step=4/);
   await candidate.getByRole('button', { name: 'Browse opportunities' }).click();
   await expect(candidate).toHaveURL(/\/en\/opportunities$/);
 
   // Discovery.
-  await candidate.getByRole('combobox', { name: 'Sector' }).selectOption('digital');
-  await candidate.getByRole('combobox', { name: 'Experience level' }).selectOption('mid');
-  await candidate.getByRole('link', { name: new RegExp(name) }).click();
+  await candidate.getByLabel('Sector').selectOption('digital');
+  await candidate.getByLabel('Experience level').selectOption('mid');
+  await candidate.getByRole('link', { name: name, exact: true }).click();
   await expect(candidate.getByRole('heading', { level: 1 })).toHaveText(name);
   await expect(candidate.getByRole('heading', { name: 'Practical assessment' })).toBeVisible();
   await expect(candidate.getByText(/Salary:/)).toBeVisible();
@@ -218,6 +226,7 @@ test('registration data to career development: the whole candidate journey', asy
   await owner.reload();
   await expect(owner.getByText('Any morning next week')).toBeVisible();
   await owner.getByRole('button', { name: 'Interview took place' }).click();
+  await expect(owner.getByRole('button', { name: 'Interview took place' })).toHaveCount(0);
   await candidate.reload();
   await expect(candidate.getByText('Completed').first()).toBeVisible();
   if (SHOTS) await candidate.screenshot({ path: `${SHOTS}/interview.png`, fullPage: true });
@@ -235,8 +244,8 @@ test('registration data to career development: the whole candidate journey', asy
   // Development stays available whatever the outcome.
   await candidate.getByRole('link', { name: 'See career development' }).click();
   await expect(candidate.getByRole('heading', { level: 1 })).toHaveText('Career development');
-  await candidate.getByRole('combobox', { name: 'Sector' }).selectOption('digital');
-  await candidate.getByRole('combobox', { name: 'Job family' }).selectOption({ index: 1 });
+  await candidate.getByLabel('Sector').selectOption('digital');
+  await candidate.getByLabel('Job family').selectOption({ index: 1 });
   await candidate.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(candidate.getByRole('heading', { name: 'Skills for this role' })).toBeVisible();
   await expect(candidate.getByText("There's no verified catalog")).toBeVisible();
@@ -255,14 +264,17 @@ test('registration data to career development: the whole candidate journey', asy
   phone.on('pageerror', (e) => problems.push(e.message));
   for (const path of ['/ar/dashboard', '/ar/profile', '/ar/opportunities', `/ar/applications/${applicationId}`, '/ar/development', '/ar/notifications', '/ar/settings', '/ar/onboarding?step=2']) {
     await phone.goto(path);
+    await expect(phone.getByRole('heading', { level: 1 })).toBeVisible();
     await expect(phone.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(phone.locator('img[src*="midan-logo"]').first()).toBeVisible();
     await noOverflow(phone);
   }
   if (SHOTS) {
     await phone.goto('/ar/dashboard');
+    await expect(phone.getByRole('heading', { level: 1 })).toBeVisible();
     await phone.screenshot({ path: `${SHOTS}/dashboard-ar-phone.png`, fullPage: true });
     await candidate.goto('/ar/dashboard');
+    await expect(candidate.getByRole('heading', { level: 1 })).toBeVisible();
     await candidate.screenshot({ path: `${SHOTS}/dashboard-ar.png`, fullPage: true });
   }
   expect(problems).toEqual([]);
@@ -291,4 +303,77 @@ test('another candidate cannot open what belongs to someone else', async ({ brow
   const signedOut = await (await browser.newContext()).newPage();
   await signedOut.goto(`/en/interviews/${interview.id}`);
   await expect(signedOut).toHaveURL(new RegExp(`/en/login\\?next=.*${interview.id}`));
+});
+
+test('normal views hold no test records, and an empty list is truthful', async ({ browser }) => {
+  const visitor = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+  await visitor.goto('/ar/opportunities');
+  await expect(visitor.getByRole('heading', { level: 1 })).toBeVisible();
+  const text = await visitor.locator('main').innerText();
+  for (const fixture of ['منشأة اختبار', 'منشأة ui', 'switch-a', 'switch-b', 'multi', 'no-field', 'marketing-role', 'تجريبية']) expect(text).not.toContain(fixture);
+  await expect(visitor.getByText('لا توجد وظائف منشورة الآن')).toBeVisible();
+  if (SHOTS) await visitor.screenshot({ path: `${SHOTS}/jobs-empty-ar.png` });
+
+  await visitor.getByRole('link', { name: 'دليل جهات التوظيف' }).first().click();
+  await expect(visitor).toHaveURL(/\/ar\/employers$/);
+  await expect(visitor.getByRole('heading', { name: 'وزارة التجارة' })).toBeVisible();
+  await expect(visitor.getByRole('listitem').filter({ has: visitor.getByRole('heading', { level: 2 }) })).toHaveCount(10);
+  if (SHOTS) await visitor.screenshot({ path: `${SHOTS}/employers-ar.png`, fullPage: true });
+
+  await visitor.goto('/ar/opportunities?demo=1');
+  await expect(visitor.getByText('وظائف توضيحية')).toBeVisible();
+  await expect(visitor.getByRole('link', { name: /محلل بيانات/ }).first()).toBeVisible();
+  if (SHOTS) await visitor.screenshot({ path: `${SHOTS}/jobs-demo-ar.png` });
+
+  // Scrolled to the bottom and back, nothing sits under the sticky header.
+  await visitor.goto('/ar/login');
+  const header = await visitor.locator('header').first().boundingBox();
+  const title = await visitor.getByRole('heading', { level: 1 }).boundingBox();
+  expect((title?.y ?? 0)).toBeGreaterThanOrEqual((header?.y ?? 0) + (header?.height ?? 0));
+  const size = await visitor.getByRole('heading', { level: 1 }).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  expect(size).toBeLessThanOrEqual(32);
+  await expect(visitor.locator('img[src*="midan-logo"]')).toHaveCount(1);
+  if (SHOTS) await visitor.screenshot({ path: `${SHOTS}/login-ar.png` });
+});
+
+test('a new candidate with nothing yet: dashboard, skills and empty states', async ({ browser }) => {
+  const tokens = await session('CANDIDATE_TWO');
+  const page = await pageFor(browser, tokens);
+  const problems: string[] = [];
+  page.on('pageerror', (e) => problems.push(e.message));
+  await page.goto('/ar/onboarding?step=1');
+  await page.getByLabel('الاسم الكامل').fill('مرشح خيالي');
+  await page.getByRole('button', { name: 'التالي' }).click();
+  await expect(page).toHaveURL(/step=2/);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/onboarding-cv-ar.png`, fullPage: true });
+  await page.goto('/ar/onboarding?step=3');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('مهاراتك');
+  await expect(page.getByText('راجع مهاراتك وأضف ما ينقصها.')).toBeVisible();
+  const search = page.getByRole('searchbox', { name: 'ابحث عن مهارة' });
+  await search.fill('اداره المشاريع');
+  await expect(page.getByRole('button', { name: /إدارة المشاريع/ }).first()).toBeVisible({ timeout: 20_000 });
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/skills-search-ar.png`, fullPage: true });
+  await page.getByRole('button', { name: /إدارة المشاريع/ }).first().click();
+  await expect(page.getByText('تم الحفظ')).toBeVisible();
+  await search.fill('لا توجد مهارة بهذا الاسم أبدا');
+  await expect(page.getByText('لا توجد نتائج مطابقة.')).toBeVisible({ timeout: 20_000 });
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /مهاراتك \(/ })).not.toHaveText('مهاراتك (0)');
+  await expect(page.getByRole('button', { name: 'إزالة إدارة المشاريع' }).first()).toBeVisible();
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/skills-saved-ar.png`, fullPage: true });
+  await page.goto('/ar/dashboard');
+  await expect(page.getByRole('navigation', { name: 'حسابي' }).getByRole('link', { name: 'لوحتي' })).toHaveAttribute('aria-current', 'page');
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/dashboard-new-ar.png`, fullPage: true });
+  const phone = await pageFor(browser, tokens, { width: 390, height: 844 });
+  for (const path of ['/ar/onboarding?step=3', '/ar/dashboard', '/ar/opportunities', '/ar/employers']) {
+    await phone.goto(path);
+    await expect(phone.getByRole('heading', { level: 1 })).toBeVisible();
+    await noOverflow(phone);
+  }
+  if (SHOTS) {
+    await phone.goto('/ar/onboarding?step=3');
+    await expect(phone.getByRole('heading', { level: 1 })).toHaveText('مهاراتك');
+    await phone.screenshot({ path: `${SHOTS}/skills-phone-ar.png`, fullPage: true });
+  }
+  expect(problems).toEqual([]);
 });

@@ -92,7 +92,7 @@ export function ReviewPanel({ data }: { data: ReviewData }) {
         const files = data.evidence_files.filter((f) => f.task_id === task.id);
         return (
           <section key={task.id} aria-label={pick(locale, task.title_ar, task.title_en)} className="border-t border-border pt-6">
-            <h2 className="font-display text-xl font-semibold">{pick(locale, task.title_ar, task.title_en)}</h2>
+            <h2 className="subsection-title">{pick(locale, task.title_ar, task.title_en)}</h2>
             <h3 className="mt-3 text-sm font-medium text-muted">{t('response')}</h3>
             {task.task_type === 'objective_questions' ? (
               <ul className="mt-1 space-y-2 text-sm">
@@ -177,9 +177,9 @@ export function ReviewPanel({ data }: { data: ReviewData }) {
 
       {evaluation && reviewed && (
         <section className="on-deep rounded-lg bg-deep p-6 text-deep-foreground">
-          <h2 className="font-display text-2xl font-bold">{t('reviewedTitle')}</h2>
+          <h2 className="section-title">{t('reviewedTitle')}</h2>
           <p className="mt-3 text-deep-muted">{t('overall')}</p>
-          <p className="font-display text-5xl font-bold text-mint">{number(locale, Number(evaluation.overall_score))}</p>
+          <p className="page-title text-mint">{number(locale, Number(evaluation.overall_score))}</p>
           <h3 className="mt-5 font-semibold">{t('skills')}</h3>
           <ul className="mt-2 space-y-1 text-deep-muted">
             {evaluation.skill_scores.map((s) => <li key={s.skills.name_en}>{pick(locale, s.skills.name_ar, s.skills.name_en)}: L{s.level}</li>)}

@@ -97,7 +97,7 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
   return (
     <div className="space-y-10">
       <section aria-labelledby="hiring-interviews">
-        <h2 id="hiring-interviews" className="font-display text-2xl font-bold">{t('interviews')}</h2>
+        <h2 id="hiring-interviews" className="section-title">{t('interviews')}</h2>
         {interviews.length > 0 && <ul className="mt-2 border-t border-border">{interviews.map((i) => <InterviewRow key={i.id} orgId={orgId} interview={i} canManage={canManage} />)}</ul>}
         {canManage && (
           <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={schedule}>
@@ -110,7 +110,7 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
         )}
       </section>
       <section aria-labelledby="hiring-outcome">
-        <h2 id="hiring-outcome" className="font-display text-2xl font-bold">{t('outcome')}</h2>
+        <h2 id="hiring-outcome" className="section-title">{t('outcome')}</h2>
         <p className="mt-1 text-sm text-muted">{t('outcomeNote')}</p>
         {outcomes.length > 0 && (
           <ul className="mt-2 space-y-1">{outcomes.map((o) => <li key={o.id} className="text-sm"><span className="font-semibold">{ta(`outcome.${o.outcome}`)}</span> · {pick(locale, o.message_ar ?? '', o.message_en ?? '')}</li>)}</ul>

@@ -31,6 +31,7 @@ export class ApplicationsController {
               email: true,
               candidate_profiles: true,
               candidate_skills: { select: { skill_id: true, skills: { select: { name_ar: true, name_en: true } } } },
+              candidate_reference_skills: { select: { reference_skills: { select: { id: true, name_ar: true } } } },
             },
           },
           assessment_attempts: { orderBy: { created_at: 'asc' }, select: { id: true, status: true, assessment_versions: { select: { assessments: { select: { title_ar: true, title_en: true } } } } } },

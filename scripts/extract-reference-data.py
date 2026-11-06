@@ -5,6 +5,12 @@
 
 The workbooks are skills references, not job or course feeds. They hold skill names and descriptions, sub-sectors,
 job families, and a priority flag. Skills stay separate per sector: two sectors using the same words aren't merged.
+
+Each sub-sector sheet is a matrix: header rows name the sub-sector, job family and skill type of each column, and the
+cells below list skills. Those give exact sub-sector and job-family pairs. The unique-skills sheet lists sub-sectors and
+job families for a skill as two separate lists, which can't be paired, so they're kept as lists.
+
+The run stops with an error if a sheet can't be read, or if the workbook's own stated totals aren't accounted for.
 """
 
 import glob
@@ -27,7 +33,8 @@ SECTORS = {
 }
 NOT_SKILL_SHEETS = {"الغلاف", "الفهرس", "المقدمة", "المهارات ذات الأولوية"}
 UNIQUE_SHEETS = {"المهارات الفنية الفريدة", "المهارات", "المهارات الفريدة"}
-SCALE_WORDS = re.compile(r"مستوى|مستويات|الكفاءة|proficiency|level", re.I)
+MAX_COLUMNS = 400
+LIST_SPLIT = re.compile(r"\s*(?:;|؛|،|, )\s*")
 
 
 def clean(value) -> str:
@@ -46,22 +53,50 @@ def rows(ws, max_col):
             yield number, values
 
 
+def split_list(text: str) -> list[str]:
+    # Lists sometimes join their last items with "و", as in "التمويل، والخدمات المصرفية".
+    items = (re.sub(r"^و(?=ال)", "", part.strip()) for part in LIST_SPLIT.split(text))
+    return sorted({item for item in items if item})
+
+
+def read_matrix(ws):
+    """Finds the header rows wherever they are, since they aren't on the same row in every sheet."""
+    grid = dict(rows(ws, MAX_COLUMNS))
+    for number in sorted(grid)[:12]:
+        if "القطاع الفرعي" in grid[number]:
+            label = grid[number].index("القطاع الفرعي")
+            family, kind = grid.get(number + 1), grid.get(number + 2)
+            if not family or not kind or family[label] != "المجموعة الوظيفية" or kind[label] != "المهارات":
+                raise SystemExit(f"Unexpected header layout in sheet {ws.title!r}")
+            found = []
+            for row_number, values in grid.items():
+                if row_number <= number + 2:
+                    continue
+                for column, name in enumerate(values):
+                    if column > label and name and column < len(kind) and kind[column]:
+                        skill_kind = "technical" if "الفنية" in kind[column] else "general"
+                        found.append((skill_kind, name, grid[number][column], family[column], row_number))
+            return found
+    return None
+
+
 def extract(path):
-    name = os.path.basename(path)
+    name = unicodedata.normalize("NFC", os.path.basename(path))
     code = next(c for word, c in SECTORS.items() if word in name)
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    skills, descriptions, report = {}, {}, {"file": name, "sector": code, "scale_mentions": [], "hidden_skipped": []}
+    skills, descriptions, stated = {}, {}, {}
+    report = {"file": name, "sector": code, "hidden_sheets_skipped": [], "matrix_sheets": 0}
 
     def skill(kind, skill_name, sheet, row):
         return skills.setdefault((kind, skill_name), {
             "sector_code": code, "skill_kind": kind, "name_ar": skill_name, "description_ar": None, "is_priority": None,
-            "source_file": name, "source_sheet": sheet, "source_row": row, "contexts": set(),
+            "source_file": name, "source_sheet": sheet, "source_row": row, "contexts": set(), "listed_subsectors": [], "listed_job_families": [],
         })
 
     for ws in wb.worksheets:
         title = ws.title.strip()
         if ws.sheet_state != "visible":
-            report["hidden_skipped"].append(title)
+            report["hidden_sheets_skipped"].append(title)
             continue
         if title in NOT_SKILL_SHEETS:
             continue
@@ -78,53 +113,58 @@ def extract(path):
                 cells = values[1:]
                 if not started:
                     started = "مهارة ذات أولوية" in cells
+                    if not started and cells[0] and cells[1].isdigit():
+                        stated[cells[0]] = int(cells[1])
                     continue
                 if cells[0]:
-                    skill("technical", cells[0], ws.title, number)["is_priority"] = {"نعم": True, "لا": False}.get(cells[1])
+                    record = skill("technical", cells[0], ws.title, number)
+                    record["is_priority"] = {"نعم": True, "لا": False}.get(cells[1])
+                    record["listed_subsectors"] = split_list(cells[2])
+                    record["listed_job_families"] = split_list(cells[3])
+                    # The listing is the workbook's own home for this skill, even if a matrix mentioned it first.
+                    record["source_sheet"], record["source_row"] = ws.title, number
             continue
-        # Otherwise a sub-sector sheet: rows 2 to 4 name the sub-sector, job family and skill type of each column.
-        grid = dict(rows(ws, 60))
-        if clean((grid.get(2) or ["", ""])[1]) != "القطاع الفرعي":
-            continue
-        subsector_row, family_row, kind_row = grid[2], grid[3], grid[4]
-        for text in family_row + kind_row:
-            if SCALE_WORDS.search(text):
-                report["scale_mentions"].append([ws.title, text])
-        for number, values in grid.items():
-            if number < 5:
-                continue
-            for column, skill_name in enumerate(values):
-                if column < 2 or not skill_name or column >= len(kind_row) or not kind_row[column]:
-                    continue
-                kind = "technical" if "الفنية" in kind_row[column] else "general"
-                skill(kind, skill_name, ws.title, number)["contexts"].add((subsector_row[column], family_row[column], ws.title))
+        matrix = read_matrix(ws)
+        if matrix is None:
+            raise SystemExit(f"Sheet {ws.title!r} in {name} has no recognizable header")
+        report["matrix_sheets"] += 1
+        for kind, skill_name, subsector, family, row in matrix:
+            skill(kind, skill_name, ws.title, row)["contexts"].add((subsector, family, ws.title))
 
-    missing_description = 0
-    for key, record in skills.items():
-        found = descriptions.get(key)
-        if found:
-            record["description_ar"] = found[0]
-        else:
-            missing_description += 1
-        record["contexts"] = [{"subsector_ar": s, "job_family_ar": f, "source_sheet": sh} for s, f, sh in sorted(record["contexts"])]
-    report.update(
-        technical=sum(1 for k in skills if k[0] == "technical"), general=sum(1 for k in skills if k[0] == "general"),
-        contexts=sum(len(r["contexts"]) for r in skills.values()), without_description=missing_description,
-        descriptions_without_skill=sum(1 for k in descriptions if k not in skills),
-    )
-    # Descriptions for a skill listed nowhere else are still source data worth keeping.
     for key, (text, sheet, number) in descriptions.items():
-        if key not in skills:
-            skills[key] = {
-                "sector_code": code, "skill_kind": key[0], "name_ar": key[1], "description_ar": text, "is_priority": None,
-                "source_file": name, "source_sheet": sheet, "source_row": number, "contexts": [],
-            }
-    return list(skills.values()), report
+        if key in skills:
+            skills[key]["description_ar"] = text
+        else:
+            # A description for a skill listed nowhere else is still source data worth keeping.
+            skill(key[0], key[1], sheet, number)["description_ar"] = text
+
+    by_subsector: dict[str, set] = {}
+    for (kind, skill_name), record in skills.items():
+        if kind == "technical":
+            for subsector in {c[0] for c in record["contexts"]} | set(record["listed_subsectors"]):
+                by_subsector.setdefault(subsector, set()).add(skill_name)
+        record["contexts"] = [{"subsector_ar": s, "job_family_ar": f, "source_sheet": sh} for s, f, sh in sorted(record["contexts"])]
+
+    records = list(skills.values())
+    report["unique_skills"] = {"technical": sum(1 for k in skills if k[0] == "technical"), "general": sum(1 for k in skills if k[0] == "general")}
+    report["links"] = sum(len(r["contexts"]) for r in records)
+    report["subsectors"] = len({c["subsector_ar"] for r in records for c in r["contexts"]})
+    report["job_families"] = len({c["job_family_ar"] for r in records for c in r["contexts"]})
+    report["without_description"] = sum(1 for r in records if not r["description_ar"])
+    report["stated_vs_found"] = {}
+    for subsector, count in stated.items():
+        if subsector.startswith("عدد"):
+            continue
+        found = len(by_subsector.get(subsector, ()))
+        report["stated_vs_found"][subsector] = [count, found]
+    return records, report
 
 
 def main(folder):
     all_skills, reports = [], []
     for path in sorted(glob.glob(os.path.join(folder, "*.xlsx"))):
+        if "ALMIDAN" in path:
+            continue
         found, report = extract(path)
         all_skills += found
         reports.append(report)

@@ -120,7 +120,7 @@ describe('Midan database foundation', () => {
     });
 
     it('reads seeded public jobs, labeled as demo', async () => {
-      const res = await api().get('/jobs').expect(200);
+      const res = await api().get('/jobs?demo=1').expect(200);
       const demo = res.body.filter((j: { is_demo: boolean }) => j.is_demo);
       expect(demo.length).toBeGreaterThanOrEqual(2);
       expect(demo[0].organizations.is_demo).toBe(true);
@@ -719,10 +719,19 @@ describe('Midan database foundation', () => {
       const found = await api().get(`/reference/skills?q=${encodeURIComponent('النمذجة الثلاثية')}&sector=digital`).expect(200);
       expect(found.body.length).toBeGreaterThan(0);
       expect(found.body[0].sector_code).toBe('digital');
+      // Hamza, ta marbuta and the definite article don't get in the way of finding a skill.
+      const spelled = await api().get(`/reference/skills?q=${encodeURIComponent('اداره المشاريع')}`).expect(200);
+      expect(spelled.body.length).toBeGreaterThan(0);
+      expect(spelled.body[0].name_ar).toContain('إدارة');
+      const tourism = await rest(null, 'GET', 'reference_skill_contexts?source_sheet=eq.' + encodeURIComponent('النقل البحري') + '&select=subsector_ar&limit=1');
+      expect(tourism.body).toHaveLength(1);
       const families = await api().get('/reference/job-families?sector=digital').expect(200);
       expect(families.body.length).toBe(17);
       expect((await rest(null, 'POST', 'reference_skills', { sector_code: 'x', skill_kind: 'general', name_ar: 'x', source_file: 'x', source_sheet: 'x', source_row: 1 })).status).not.toBe(201);
       expect((await rest(candidateOne, 'PATCH', 'employer_registry?source_company_id=eq.ALM-001', { partnership_status: 'partner' })).status).not.toBe(200);
+      const directory = await api().get('/reference/employers').expect(200);
+      expect(directory.body).toHaveLength(10);
+      expect(directory.body[0].employer_aliases.length).toBeGreaterThan(0);
       const employers = await rest(null, 'GET', 'employer_registry?select=partnership_status');
       expect(employers.body).toHaveLength(10);
       expect(employers.body.every((e: { partnership_status: string }) => e.partnership_status === 'not_partner')).toBe(true);
@@ -756,6 +765,12 @@ describe('Midan database foundation', () => {
       expect((await rest(ownerA, 'GET', `cv_analyses?id=eq.${analysis.id}`)).body).toEqual([]);
       expect((await rest(null, 'GET', `cv_analyses?id=eq.${analysis.id}`)).status).not.toBe(200);
 
+      // Skills from the CV arrive as suggestions, matched to the reference only as far as that's defensible.
+      const offered = await api().get('/me/skill-suggestions').set(bearer(candidateOne)).expect(200);
+      expect(offered.body.map((o: { name: string }) => o.name)).toEqual(expect.arrayContaining(['SQL', 'Python']));
+      expect(offered.body.every((o: { status: string }) => ['match', 'choose', 'no_match'].includes(o.status))).toBe(true);
+      await api().put('/me/own-skills').set(bearer(candidateTwo)).send({ names: ['  Own Skill ', 'Own Skill'] }).expect(200).expect((r) => expect(r.body).toEqual(['Own Skill']));
+
       await api().post(`/me/cv/analyses/${analysis.id}/apply`).set(bearer(candidateOne)).send({ phone: '+966551234567', skills: ['SQL'], certifications: [{ title: 'Fictional Data Certificate' }] }).expect(201);
       const after = await api().get('/me').set(bearer(candidateOne)).expect(200);
       expect(after.body.candidate_profiles).toMatchObject({ headline: 'Set by hand', phone: '+966551234567', self_reported_skills: ['SQL'], certifications: [{ title: 'Fictional Data Certificate' }] });
@@ -788,9 +803,19 @@ describe('Midan database foundation', () => {
       await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).expect(201);
       await api().patch(`${base()}/assessment-versions/${version}`).set(bearer(ownerA)).send({ deadline_hours: 1 }).expect(422);
 
-      const filtered = await api().get(`/jobs?sector=digital&experience_level=mid&employment_type=full_time&location=${encodeURIComponent('riyadh')}&q=journey`).expect(200);
+      const filtered = await api().get(`/jobs?sector=digital&experience_level=mid&employment_type=full_time&location=${encodeURIComponent('riyadh')}&q=journey`).set(bearer(candidateOne)).expect(200);
       expect(filtered.body.map((j: { id: string }) => j.id)).toContain(job);
-      expect((await api().get('/jobs?sector=manufacturing&q=journey').expect(200)).body).toEqual([]);
+      expect((await api().get('/jobs?sector=manufacturing&q=journey').set(bearer(candidateOne)).expect(200)).body).toEqual([]);
+
+      // Test fixtures and demo jobs stay out of what everyone else sees, whatever they search for.
+      const publicList = await api().get('/jobs').expect(200);
+      expect(publicList.body.map((j: { id: string }) => j.id)).not.toContain(job);
+      expect(publicList.body.every((j: { is_demo: boolean }) => !j.is_demo)).toBe(true);
+      expect(JSON.stringify(publicList.body)).not.toContain('midan-test-');
+      const badToken = await api().get('/jobs').set('authorization', 'Bearer not-a-token').expect(200);
+      expect(badToken.body.map((j: { id: string }) => j.id)).not.toContain(job);
+      expect((await rest(ownerA, 'PATCH', `organizations?id=eq.${orgA}`, { is_test: false })).status).toBeLessThan(500);
+      expect((await rest(ownerA, 'GET', `organizations?id=eq.${orgA}&select=is_test`)).body[0].is_test).toBe(true);
       const details = await api().get(`/jobs/${job}`).expect(200);
       expect(details.body.assessments[0]).toMatchObject({ is_timed: false, deadline_hours: 72 });
       expect(JSON.stringify(details.body)).not.toMatch(/rubric|fictional team/);

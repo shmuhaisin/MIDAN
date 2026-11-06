@@ -6,7 +6,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import {
   addPlanItem, applicationCvLink, applyAnalysis, dismissAnalysis, joinInterview, readAllNotifications, readAnalysis, readNotification, removePlanItem, respondToInterview,
-  retryAnalysis, saveBasics, saveOnboarding, saveSettings, searchReferenceSkills, setCareerTarget, setPlanStatus, setReferenceSkills, submitApplication,
+  retryAnalysis, saveBasics, saveOnboarding, saveSettings, searchReferenceSkills, setCareerTarget, setOwnSkills, setPlanStatus, setReferenceSkills, submitApplication,
   type CvAnalysis, type ReferenceSkill,
 } from '@/lib/candidate-actions';
 import { formatWhen, number, pick } from '@/lib/format';
@@ -51,66 +51,170 @@ export function SubmittedCvButton({ id }: { id: string }) {
 
 // --- Choosing skills from the sector reference
 
-const SECTOR_KEYS = ['digital', 'culture_entertainment', 'tourism_hospitality', 'manufacturing', 'construction_real_estate', 'financial_services', 'wholesale_retail'] as const;
+export const SECTOR_KEYS = ['digital', 'culture_entertainment', 'tourism_hospitality', 'manufacturing', 'construction_real_estate', 'financial_services', 'wholesale_retail'] as const;
 
-export function ReferenceSkillPicker({ selected }: { selected: { id: string; name_ar: string; sector_code: string }[] }) {
-  const t = useTranslations('candidateSkills');
+type PickedSkill = { id: string; name_ar: string; sector_code: string };
+export type SkillSuggestion = {
+  name: string; source: 'cv' | 'own'; status: 'match' | 'choose' | 'no_match';
+  options: { id: string; name_ar: string; description_ar: string | null; sector_code: string; job_families: string[] }[];
+};
+
+function OptionLabel({ option }: { option: SkillSuggestion['options'][number] }) {
   const ts = useTranslations('sectors');
+  return (
+    <>
+      <span className="font-medium">{option.name_ar}</span>
+      <span className="block text-xs text-muted">{[ts(option.sector_code), ...option.job_families.slice(0, 1)].join(' · ')}</span>
+    </>
+  );
+}
+
+/**
+ * What a candidate says they can do, saved as they go. Skills from the reference and skills in their own words are kept
+ * apart, and neither counts as assessed.
+ */
+export function SkillsEditor({ selected, own, suggestions }: { selected: PickedSkill[]; own: string[]; suggestions: SkillSuggestion[] }) {
+  const t = useTranslations('candidateSkills');
   const [chosen, setChosen] = useState(selected);
+  const [mine, setMine] = useState(own);
+  const [pendingSuggestions, setPendingSuggestions] = useState(suggestions.filter((s) => s.status !== 'no_match'));
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ReferenceSkill[]>([]);
+  const [failed, setFailed] = useState(false);
+  const [searched, setSearched] = useState('');
   const [searching, startSearch] = useTransition();
   const [saving, startSave] = useTransition();
   const [state, setState] = useState<{ ok?: boolean; error?: string }>({});
 
   useEffect(() => {
-    if (query.trim().length < 2) return;
-    const timer = setTimeout(() => startSearch(async () => setResults(await searchReferenceSkills(query))), 300);
+    const text = query.trim();
+    if (text.length < 2) return;
+    const timer = setTimeout(() => startSearch(async () => {
+      const found = await searchReferenceSkills(text);
+      setFailed(Boolean(found.error));
+      setResults(found.results);
+      setSearched(text);
+    }), 300);
     return () => clearTimeout(timer);
   }, [query]);
 
-  function save(next: typeof chosen) {
+  function saveChosen(next: PickedSkill[]) {
     setChosen(next);
     setState({});
     startSave(async () => setState(await setReferenceSkills(next.map((s) => s.id))));
   }
+  function saveMine(next: string[]) {
+    setMine(next);
+    setState({});
+    startSave(async () => setState(await setOwnSkills(next)));
+  }
+  /** Confirming a match replaces the candidate's own wording with the reference skill. */
+  function confirm(suggestion: SkillSuggestion, option: SkillSuggestion['options'][number]) {
+    const next = chosen.some((c) => c.id === option.id) ? chosen : [...chosen, option];
+    const words = mine.filter((n) => n !== suggestion.name);
+    setChosen(next);
+    setMine(words);
+    setPendingSuggestions((all) => all.filter((s) => s !== suggestion));
+    setState({});
+    startSave(async () => {
+      const saved = await setReferenceSkills(next.map((c) => c.id));
+      setState(saved.error ? saved : await setOwnSkills(words));
+    });
+  }
+  /** Keeping it as written is always possible, so nothing from a CV disappears for lack of a match. */
+  function keep(suggestion: SkillSuggestion) {
+    setPendingSuggestions((all) => all.filter((s) => s !== suggestion));
+    if (!mine.includes(suggestion.name)) saveMine([...mine, suggestion.name]);
+  }
 
-  const visible = query.trim().length < 2 ? [] : results.filter((r) => !chosen.some((c) => c.id === r.id));
+  const text = query.trim();
+  const visible = text.length < 2 ? [] : results.filter((r) => !chosen.some((c) => c.id === r.id));
+  const typedAlready = mine.includes(text) || chosen.some((c) => c.name_ar === text);
+  const count = chosen.length + mine.length;
   return (
-    <div>
-      <p className="text-sm text-muted">{t('note')}</p>
-      {chosen.length > 0 && (
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {chosen.map((s) => (
-            <li key={s.id} className="inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1 text-sm font-medium text-accent-foreground">
-              {s.name_ar}
-              <button type="button" aria-label={t('removeSkill', { skill: s.name_ar })} onClick={() => save(chosen.filter((c) => c.id !== s.id))} className="font-bold">×</button>
-            </li>
-          ))}
-        </ul>
+    <div className="space-y-6">
+      {pendingSuggestions.length > 0 && (
+        <section aria-labelledby="from-cv" className="card">
+          <h2 id="from-cv" className="subsection-title">{t('fromCvTitle')}</h2>
+          <p className="text-sm text-muted">{t('fromCvLead')}</p>
+          <ul className="mt-3 divide-y divide-border">
+            {pendingSuggestions.map((s) => (
+              <li key={s.name} className="py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium"><bdi>{s.name}</bdi></p>
+                  <button type="button" onClick={() => keep(s)} className="text-sm text-muted underline underline-offset-4">{t('keepAsWritten')}</button>
+                </div>
+                <p className="mt-1 text-xs text-muted">{t(s.status === 'match' ? 'matchFound' : 'chooseMatch')}</p>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {s.options.map((o) => (
+                    <li key={o.id}>
+                      <button type="button" aria-label={t('addSkill', { skill: o.name_ar })} onClick={() => confirm(s, o)} className="rounded-lg border border-border px-3 py-1.5 text-start text-sm hover:bg-surface-2">
+                        <OptionLabel option={o} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
-      <label className="mt-3 block">
-        <span className="text-sm font-medium">{t('search')}</span>
-        <input type="search" dir="auto" value={query} onChange={(e) => setQuery(e.target.value)} className={INPUT} />
-      </label>
-      {searching && <p className="mt-2 text-sm text-muted">{t('searching')}</p>}
-      {!searching && query.trim().length >= 2 && visible.length === 0 && <p className="mt-2 text-sm text-muted">{t('noResults')}</p>}
-      {visible.length > 0 && (
-        <ul className="mt-2 max-h-72 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-surface">
-          {visible.map((r) => (
-            <li key={r.id}>
-              <button type="button" onClick={() => save([...chosen, r])} className="block w-full px-3.5 py-2.5 text-start hover:bg-surface-2">
-                <span className="font-medium">{r.name_ar}</span>
-                <span className="block text-xs text-muted">{ts(r.sector_code)}</span>
-                {r.description_ar && <span className="mt-0.5 block text-sm text-muted">{r.description_ar}</span>}
+
+      <div>
+        <label className="block">
+          <span className="sr-only">{t('search')}</span>
+          <input type="search" dir="auto" value={query} placeholder={t('search')} aria-label={t('search')} onChange={(e) => setQuery(e.target.value)} className={INPUT} />
+        </label>
+        {text.length >= 2 && (
+          <div className="mt-2" aria-live="polite">
+            {searching && <p className="text-sm text-muted">{t('searching')}</p>}
+            {!searching && failed && <p role="alert" className="text-sm text-error">{t('searchFailed')}</p>}
+            {!searching && !failed && searched === text && visible.length === 0 && <p className="text-sm text-muted">{t('noResults')}</p>}
+            {visible.length > 0 && (
+              <ul className="max-h-72 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-surface">
+                {visible.map((r) => (
+                  <li key={r.id}>
+                    <button type="button" onClick={() => saveChosen([...chosen, r])} className="block w-full px-3.5 py-2.5 text-start text-sm hover:bg-surface-2">
+                      <OptionLabel option={r} />
+                      {r.description_ar && <span className="mt-0.5 line-clamp-2 block text-xs text-muted">{r.description_ar}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!searching && !failed && searched === text && !typedAlready && (
+              <button type="button" onClick={() => { saveMine([...mine, text]); setQuery(''); }} className="mt-2 text-sm font-semibold text-primary underline underline-offset-4">
+                {t('addOwn', { skill: text })}
               </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {saving && <p className="mt-2 text-sm text-muted">{t('saving')}</p>}
-      {state.ok && !saving && <p role="status" className="mt-2 text-sm font-semibold text-primary">{t('saved')}</p>}
-      <ErrorText code={state.error} />
+            )}
+          </div>
+        )}
+      </div>
+
+      <section aria-labelledby="my-skills">
+        <h2 id="my-skills" className="subsection-title">{t('selected', { count })}</h2>
+        {count === 0 ? <p className="mt-1 text-sm text-muted">{t('none')}</p> : (
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {chosen.map((s) => (
+              <li key={s.id} className="inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1 text-sm font-medium text-accent-foreground">
+                {s.name_ar}
+                <button type="button" aria-label={t('removeSkill', { skill: s.name_ar })} onClick={() => saveChosen(chosen.filter((c) => c.id !== s.id))} className="font-bold">×</button>
+              </li>
+            ))}
+            {mine.map((name) => (
+              <li key={name} className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-sm font-medium">
+                <bdi>{name}</bdi>
+                <button type="button" aria-label={t('removeSkill', { skill: name })} onClick={() => saveMine(mine.filter((n) => n !== name))} className="font-bold">×</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-2 min-h-5 text-sm" aria-live="polite">
+          {saving && <span className="text-muted">{t('saving')}</span>}
+          {state.ok && !saving && <span className="font-semibold text-primary">{t('saved')}</span>}
+        </div>
+        <ErrorText code={state.error} />
+      </section>
     </div>
   );
 }
@@ -231,7 +335,7 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
   const group = <T extends Choice & { title?: string; qualification?: string }>(key: string, items: T[], set: (items: T[]) => void) =>
     items.length === 0 ? null : (
       <fieldset key={key}>
-        <legend className="font-display text-xl font-semibold">{t(`groups.${key}`)}</legend>
+        <legend className="subsection-title">{t(`groups.${key}`)}</legend>
         <ul className="mt-2 space-y-2">
           {items.map((item, i) => (
             <li key={i} className="flex items-start gap-3">
@@ -257,12 +361,12 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
         {missing.length > 0 && <p className="mt-2 font-medium">{t('uncertain', { sections: missing.join('، ') })}</p>}
       </div>
       <fieldset className="space-y-3">
-        <legend className="font-display text-xl font-semibold">{t('groups.personal')}</legend>
+        <legend className="subsection-title">{t('groups.personal')}</legend>
         <p className="text-sm text-muted">{t('personalNote')}</p>
         {scalar('full_name')}{scalar('phone')}{scalar('city')}
       </fieldset>
       <fieldset className="space-y-3">
-        <legend className="font-display text-xl font-semibold">{t('groups.overview')}</legend>
+        <legend className="subsection-title">{t('groups.overview')}</legend>
         {scalar('headline')}{scalar('summary', true)}
       </fieldset>
       {group('experience', experience, setExperience)}
@@ -272,7 +376,7 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
       {group('certifications', certifications, setCertifications)}
       {skills.length > 0 && (
         <fieldset>
-          <legend className="font-display text-xl font-semibold">{t('groups.skills')}</legend>
+          <legend className="subsection-title">{t('groups.skills')}</legend>
           <p className="text-sm text-muted">{t('skillsNote')}</p>
           <ul className="mt-2 flex flex-wrap gap-2">
             {skills.map((s, i) => (

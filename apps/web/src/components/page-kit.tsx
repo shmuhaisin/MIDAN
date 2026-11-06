@@ -6,11 +6,11 @@ import { Reveal } from './interactive';
 export function PageHero({ ns, outfit }: { ns: string; outfit?: HumaidanVariant }) {
   const t = useTranslations(ns);
   return (
-    <section className="mx-auto grid max-w-7xl items-end gap-6 px-4 pt-12 sm:px-6 lg:grid-cols-12 lg:pt-16">
-      <div className="pb-10 lg:col-span-8 lg:pb-16">
+    <section className="mx-auto grid max-w-7xl items-end gap-6 px-4 pt-12 sm:px-6 lg:grid-cols-12 lg:pt-12">
+      <div className="pb-8 lg:col-span-8 lg:pb-10">
         <Eyebrow className="text-muted">{t('eyebrow')}</Eyebrow>
-        <h1 className="mt-5 font-display text-4xl leading-[1.15] font-bold sm:text-6xl">{t('title')}</h1>
-        {t.has('lead') && <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted">{t('lead')}</p>}
+        <h1 className="mt-3 font-display text-3xl leading-tight font-bold sm:text-4xl">{t('title')}</h1>
+        {t.has('lead') && <p className="mt-3 max-w-2xl leading-relaxed text-muted">{t('lead')}</p>}
       </div>
       {outfit && (
         <div className="mx-auto w-48 sm:w-56 lg:col-span-4 lg:ms-auto lg:me-0 lg:w-64">

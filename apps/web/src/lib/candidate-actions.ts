@@ -51,14 +51,18 @@ export async function setReferenceSkills(ids: string[]) {
   return done(() => api('/me/reference-skills', { method: 'PUT', body: { ids } }));
 }
 
-export type ReferenceSkill = { id: string; name_ar: string; description_ar: string | null; sector_code: string; skill_kind: string };
+export async function setOwnSkills(names: string[]) {
+  return done(() => api('/me/own-skills', { method: 'PUT', body: { names } }));
+}
 
-export async function searchReferenceSkills(q: string): Promise<ReferenceSkill[]> {
-  if (q.trim().length < 2) return [];
+export type ReferenceSkill = { id: string; name_ar: string; description_ar: string | null; sector_code: string; skill_kind: string; job_families: string[] };
+
+export async function searchReferenceSkills(q: string): Promise<{ results: ReferenceSkill[]; error?: string }> {
+  if (q.trim().length < 2) return { results: [] };
   try {
-    return await api<ReferenceSkill[]>(`/reference/skills?q=${encodeURIComponent(q.trim())}`);
-  } catch {
-    return [];
+    return { results: await api<ReferenceSkill[]>(`/reference/skills?q=${encodeURIComponent(q.trim())}`) };
+  } catch (error) {
+    return { results: [], error: errorCode(error) };
   }
 }
 

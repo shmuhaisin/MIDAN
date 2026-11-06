@@ -26,11 +26,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const live = ['invited', 'accepted', 'reschedule_requested'].includes(interview.status);
   const instructions = pick(locale, interview.instructions_ar ?? '', interview.instructions_en ?? '');
   return (
-    <article className="mx-auto max-w-5xl space-y-8 px-4 py-10 sm:px-6">
+    <article className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6">
       <header>
         {interview.is_candidate && <Link href={`/applications/${interview.application_id}`} className="text-sm font-medium text-muted hover:text-foreground">{t('back')}</Link>}
-        <Eyebrow className="mt-5 text-muted">{pick(locale, job.organizations.name_ar, job.organizations.name_en)}</Eyebrow>
-        <h1 className="mt-3 font-display text-4xl font-bold">{t('title', { job: pick(locale, job.title_ar, job.title_en) })}</h1>
+        <Eyebrow className="mt-3 text-muted">{pick(locale, job.organizations.name_ar, job.organizations.name_en)}</Eyebrow>
+        <h1 className="mt-3 page-title">{t('title', { job: pick(locale, job.title_ar, job.title_en) })}</h1>
         <p className="mt-3 text-sm text-muted">{t('humanNote')}</p>
       </header>
       <dl className="grid gap-x-6 gap-y-2 rounded-lg bg-surface p-5 sm:grid-cols-[auto_1fr]">
@@ -43,7 +43,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       </dl>
       {instructions && (
         <section aria-labelledby="instructions">
-          <h2 id="instructions" className="font-display text-xl font-semibold">{t('instructions')}</h2>
+          <h2 id="instructions" className="subsection-title">{t('instructions')}</h2>
           <p className="mt-1 leading-relaxed whitespace-pre-line">{instructions}</p>
         </section>
       )}
@@ -51,7 +51,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       {interview.is_candidate && <InterviewActions id={id} status={interview.status} />}
       {live && (
         <section aria-labelledby="call">
-          <h2 id="call" className="mb-3 font-display text-xl font-semibold">{t('call')}</h2>
+          <h2 id="call" className="mb-3 subsection-title">{t('call')}</h2>
           <InterviewJoin
             id={id} opensAt={interview.join_opens_at} closesAt={interview.join_closes_at} timeZone={zone} videoAvailable={interview.video_available}
             canJoin={interview.is_candidate ? interview.status === 'accepted' : true}
@@ -59,7 +59,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         </section>
       )}
       <section aria-labelledby="updates">
-        <h2 id="updates" className="font-display text-xl font-semibold">{t('updates')}</h2>
+        <h2 id="updates" className="subsection-title">{t('updates')}</h2>
         <ol className="mt-2 space-y-1.5">
           {interview.interview_events.map((e) => (
             <li key={e.created_at + e.kind} className="flex flex-wrap justify-between gap-3 text-sm">

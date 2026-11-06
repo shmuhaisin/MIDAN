@@ -35,7 +35,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const improve = report.skill_scores.filter((s) => s.level < 3);
 
   return (
-    <article className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+    <article className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground"><Arrow className="rotate-180" />{t('back')}</Link>
       <div className="mt-6 grid items-end gap-6 sm:grid-cols-[1fr_auto]">
         <div>
@@ -43,19 +43,19 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             {t('eyebrow')} · {pick(locale, job.title_ar, job.title_en)}
             {pick(locale, assessment.title_ar, assessment.title_en) !== pick(locale, job.title_ar, job.title_en) && ` · ${pick(locale, assessment.title_ar, assessment.title_en)}`}
           </Eyebrow>
-          <h1 className="mt-3 font-display text-4xl font-bold sm:text-5xl">{t('title')}</h1>
+          <h1 className="mt-3 page-title">{t('title')}</h1>
           <p className="mt-3 text-muted">{t('reviewedNote', { org: pick(locale, job.organizations.name_ar, job.organizations.name_en) })}</p>
           {report.ai_mode === 'demo' && <p className="mt-2 border-s-2 border-gold ps-3 text-sm font-medium">{t('demoNote')}</p>}
         </div>
         <div className="on-deep rounded-lg bg-deep p-5 text-deep-foreground">
           <p className="text-sm text-deep-muted">{t('overall')}</p>
-          <p className="font-display text-5xl font-bold text-mint">{number(locale, Number(report.overall_score))}</p>
+          <p className="page-title text-mint">{number(locale, Number(report.overall_score))}</p>
           <p className="mt-1 max-w-44 text-xs text-deep-muted">{t('overallHint')}</p>
         </div>
       </div>
 
-      <section className="mt-12">
-        <h2 className="font-display text-2xl font-bold">{t('skills')}</h2>
+      <section className="mt-8">
+        <h2 className="section-title">{t('skills')}</h2>
         <ul className="mt-4 border-t border-border">
           {report.skill_scores.map((s) => (
             <li key={s.skills.id} className="grid items-center gap-3 border-b border-border py-4 sm:grid-cols-[1fr_auto]">
@@ -72,8 +72,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       </section>
 
       {report.criteria.length > 0 && (
-        <section className="mt-12" aria-labelledby="criteria">
-          <h2 id="criteria" className="font-display text-2xl font-bold">{t('criteria')}</h2>
+        <section className="mt-8" aria-labelledby="criteria">
+          <h2 id="criteria" className="section-title">{t('criteria')}</h2>
           <p className="mt-1 text-sm text-muted">{t('criteriaNote')}</p>
           <ul className="mt-4 border-t border-border">
             {report.criteria.map((c) => (
@@ -83,22 +83,22 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                   <p className="font-semibold">{pick(locale, c.description_ar, c.description_en)}</p>
                   {c.explanation && <p className="mt-1 text-muted"><bdi>{c.explanation}</bdi></p>}
                 </div>
-                <p className="font-display text-xl font-bold">{c.score == null ? '—' : number(locale, Number(c.score))} <span className="text-sm font-normal text-muted">/ {number(locale, Number(c.max_score))}</span></p>
+                <p className="subsection-title">{c.score == null ? '—' : number(locale, Number(c.score))} <span className="text-sm font-normal text-muted">/ {number(locale, Number(c.max_score))}</span></p>
               </li>
             ))}
           </ul>
         </section>
       )}
 
-      <div className="mt-12 grid gap-10 md:grid-cols-2">
+      <div className="mt-8 grid gap-8 md:grid-cols-2">
         <section>
-          <h2 className="font-display text-2xl font-bold">{t('strengths')}</h2>
+          <h2 className="section-title">{t('strengths')}</h2>
           {strengths.length === 0 ? <p className="mt-3 text-muted">{t('noStrengths')}</p> : (
             <ul className="mt-3 space-y-2">{strengths.map((s) => <li key={s.skills.id} className="font-medium">{pick(locale, s.skills.name_ar, s.skills.name_en)}</li>)}</ul>
           )}
         </section>
         <section>
-          <h2 className="font-display text-2xl font-bold">{t('improve')}</h2>
+          <h2 className="section-title">{t('improve')}</h2>
           {improve.length === 0 ? <p className="mt-3 text-muted">{t('noImprove')}</p> : (
             <ul className="mt-3 space-y-4">
               {improve.map((s) => (

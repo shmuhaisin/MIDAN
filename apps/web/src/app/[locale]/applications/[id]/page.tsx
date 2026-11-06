@@ -2,8 +2,8 @@ import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Arrow, Eyebrow } from '@/components/brand';
 import { SubmittedCvButton } from '@/components/candidate';
-import { CandidateNav } from '@/components/candidate-nav';
 import { WithdrawButton } from '@/components/forms';
+import { Badge, statusTone } from '@/components/ui';
 import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { formatDate, formatWhen, number, pick } from '@/lib/format';
@@ -39,8 +39,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const outcome = application.hiring_outcomes[0];
   return (
     <>
-      <CandidateNav current="dashboard" />
-      <article className="mx-auto max-w-4xl space-y-10 px-4 py-10 sm:px-6">
+      <article className="mx-auto max-w-4xl space-y-8 px-4 py-8 sm:px-6">
         <header>
           {fresh && (
             <div role="status" className="mb-6 rounded-lg bg-accent p-4 text-accent-foreground">
@@ -51,15 +50,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <Eyebrow className="text-muted">
             {pick(locale, job.organizations.name_ar, job.organizations.name_en)}{job.location && ` · ${job.location}`}{job.employment_type && ` · ${tj(`employment.${job.employment_type}`)}`}
           </Eyebrow>
-          <h1 className="mt-3 font-display text-4xl font-bold">{pick(locale, job.title_ar, job.title_en)}</h1>
+          <h1 className="mt-3 page-title">{pick(locale, job.title_ar, job.title_en)}</h1>
           <p className="mt-3 text-muted">{t('appliedOn', { date: formatDate(locale, application.created_at, zone) })}</p>
-          <p className="mt-2"><span className="text-sm text-muted">{t('recruitmentStatus')}: </span><span className="font-semibold">{ts(application.status)}</span></p>
+          <p className="mt-2"><span className="text-sm text-muted">{t('recruitmentStatus')}: </span><Badge tone={statusTone(application.status)}>{ts(application.status)}</Badge></p>
           <Link href={`/opportunities/${job.id}`} className="mt-2 inline-block text-sm font-semibold text-primary underline underline-offset-4">{t('viewJob')}</Link>
         </header>
 
         {outcome && (
           <section aria-labelledby="outcome" className="rounded-lg bg-surface p-5">
-            <h2 id="outcome" className="font-display text-2xl font-bold">{t('outcomeTitle')}</h2>
+            <h2 id="outcome" className="section-title">{t('outcomeTitle')}</h2>
             <p className="mt-2 text-lg font-semibold">{t(`outcome.${outcome.outcome}`)}</p>
             {pick(locale, outcome.message_ar ?? '', outcome.message_en ?? '') && <p className="mt-2 leading-relaxed whitespace-pre-line">{pick(locale, outcome.message_ar ?? '', outcome.message_en ?? '')}</p>}
             <p className="mt-2 text-sm text-muted">{t('decidedBy', { date: formatDate(locale, outcome.issued_at, zone) })}</p>
@@ -68,7 +67,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         )}
 
         <section aria-labelledby="assessments">
-          <h2 id="assessments" className="font-display text-2xl font-bold">{t('assessments')}</h2>
+          <h2 id="assessments" className="section-title">{t('assessments')}</h2>
           {application.assessment_attempts.length === 0 ? <p className="mt-2 text-muted">{t('noAssessment')}</p> : (
             <ul className="mt-3 border-t border-border">
               {application.assessment_attempts.map((a) => (
@@ -95,7 +94,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         </section>
 
         <section aria-labelledby="interviews">
-          <h2 id="interviews" className="font-display text-2xl font-bold">{t('interviews')}</h2>
+          <h2 id="interviews" className="section-title">{t('interviews')}</h2>
           {application.interviews.length === 0 ? <p className="mt-2 text-muted">{t('noInterview')}</p> : (
             <ul className="mt-3 border-t border-border">
               {application.interviews.map((i) => (
@@ -112,14 +111,14 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         </section>
 
         <section aria-labelledby="submitted">
-          <h2 id="submitted" className="font-display text-2xl font-bold">{t('submitted')}</h2>
+          <h2 id="submitted" className="section-title">{t('submitted')}</h2>
           <p className="mt-1 text-sm text-muted">{t('submittedNote')}</p>
           <div className="mt-2">{application.has_cv ? <SubmittedCvButton id={application.id} /> : <p className="text-muted">{t('noCv')}</p>}</div>
           {application.cover_note && <p className="mt-3 whitespace-pre-line">{application.cover_note}</p>}
         </section>
 
         <section aria-labelledby="history">
-          <h2 id="history" className="font-display text-2xl font-bold">{t('history')}</h2>
+          <h2 id="history" className="section-title">{t('history')}</h2>
           <ol className="mt-3 space-y-1.5">
             {application.application_status_history.map((h) => (
               <li key={h.created_at + h.to_status} className="flex flex-wrap justify-between gap-3 text-sm">

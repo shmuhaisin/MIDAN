@@ -31,8 +31,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   return (
     <section className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <Link href={`/opportunities/${id}`} className="text-sm font-medium text-muted hover:text-foreground">{t('back')}</Link>
-      <h1 className="mt-5 font-display text-4xl font-bold">{t('title', { job: pick(locale, job.title_ar, job.title_en) })}</h1>
-      <p className="mt-2 text-lg text-muted">{pick(locale, job.organizations.name_ar, job.organizations.name_en)}</p>
+      <h1 className="mt-5 page-title">{t('title', { job: pick(locale, job.title_ar, job.title_en) })}</h1>
+      <p className="mt-2 text-muted">{pick(locale, job.organizations.name_ar, job.organizations.name_en)}</p>
       {!profile ? (
         <div className="mt-8 space-y-3">
           <p>{t('needProfile')}</p>
@@ -41,7 +41,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       ) : (
         <div className="mt-8 space-y-8">
           <section aria-labelledby="review-info" className="rounded-lg bg-surface p-5">
-            <h2 id="review-info" className="font-display text-xl font-semibold">{t('reviewInfo')}</h2>
+            <h2 id="review-info" className="subsection-title">{t('reviewInfo')}</h2>
             <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-[auto_1fr]">
               <dt className="text-sm text-muted">{t('name')}</dt><dd className="font-medium">{profile.full_name}</dd>
               <dt className="text-sm text-muted">{t('email')}</dt><dd className="font-medium" dir="ltr">{me?.email}</dd>
@@ -55,7 +55,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           </section>
           {job.assessments.length > 0 && (
             <section aria-labelledby="next-assessment">
-              <h2 id="next-assessment" className="font-display text-xl font-semibold">{t('nextTitle')}</h2>
+              <h2 id="next-assessment" className="subsection-title">{t('nextTitle')}</h2>
               <p className="mt-1 text-muted">{t('nextBody')}</p>
               <ul className="mt-2 list-disc space-y-1 ps-5">
                 {job.assessments.map((a) => (

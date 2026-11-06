@@ -22,7 +22,8 @@
     "opportunities": "Opportunities",
     "dashboard": "My dashboard",
     "login": "Sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "employers": "Employers"
   },
   "theme": {
     "label": "Appearance",
@@ -510,7 +511,7 @@
   "jobs": {
     "eyebrow": "Opportunities",
     "title": "Opportunities to prove your work",
-    "lead": "Every opportunity here leads to a practical work simulation built from the role's responsibilities. What's listed now is demo data.",
+    "lead": "Published jobs you apply to directly, with a practical assessment that shows your skill.",
     "search": "Search a job or organization",
     "location": "City",
     "allLocations": "All cities",
@@ -519,8 +520,8 @@
     "emptyTitle": "Nothing matches that search",
     "emptyBody": "Try another word or choose all cities.",
     "clear": "Clear search",
-    "noneTitle": "No opportunities published right now",
-    "noneBody": "New opportunities appear here as soon as they're published.",
+    "noneTitle": "No jobs are published right now",
+    "noneBody": "Jobs appear here as soon as organizations publish them. For now you can complete your profile, or visit the careers pages of Saudi employers.",
     "demoNote": "This is a fictional job for demonstration, not a real opportunity.",
     "about": "About the job",
     "noDescription": "The organization hasn't added a description yet.",
@@ -575,7 +576,16 @@
       "assessed": "shown by an assessment",
       "self_reported": "you listed it"
     },
-    "viewApplication": "View your application"
+    "viewApplication": "View your application",
+    "browseEmployers": "Employer directory",
+    "seeDemo": "See a demo example",
+    "demoTitle": "Demo jobs",
+    "demoLead": "Fictional examples showing how Midan works, not real opportunities.",
+    "backToReal": "Back to jobs",
+    "employerWithJobs": "Employers with published jobs",
+    "clearFilters": "Clear filters",
+    "viewDetails": "Details",
+    "viewDetailsOf": "Details of {job}"
   },
   "dashboard": {
     "hello": "Welcome, {name}",
@@ -692,7 +702,8 @@
     "certificationTitle": "Certification name",
     "issuer": "Issued by",
     "fromCv": "Skills from your CV (not proven by an assessment)",
-    "referenceSkills": "My skills from the sector reference"
+    "referenceSkills": "My skills from the sector reference",
+    "skillsLead": "Review your skills and add what's missing."
   },
   "org": {
     "newTitle": "Create your organization",
@@ -1094,13 +1105,22 @@
     "settings": "Settings"
   },
   "candidateSkills": {
-    "note": "Choose from the sector skills reference. These are skills you report yourself, and they aren't proven until a practical assessment shows them.",
     "search": "Search for a skill",
     "searching": "Searching…",
-    "noResults": "No results.",
+    "searchFailed": "Search didn't work just now. Try again.",
+    "noResults": "No matching results.",
+    "addOwn": "Add \"{skill}\" as you wrote it",
+    "addSkill": "Add {skill}",
     "removeSkill": "Remove {skill}",
     "saving": "Saving…",
-    "saved": "Saved"
+    "saved": "Saved",
+    "fromCvTitle": "Skills from your CV",
+    "fromCvLead": "Confirm the ones that fit.",
+    "matchFound": "We found this skill:",
+    "chooseMatch": "Choose the closest:",
+    "keepAsWritten": "Keep as written",
+    "selected": "Your skills ({count})",
+    "none": "You haven't added any skills yet. Start with the search above."
   },
   "onboarding": {
     "progress": "Step {step} of {total}",
@@ -1111,8 +1131,8 @@
     "step1Lead": "Each step saves, so you can finish later.",
     "step2Title": "Upload your CV",
     "step2Lead": "We read it and suggest details, and nothing is saved until you approve. You can skip this step.",
-    "step3Title": "What are your skills?",
-    "step3Lead": "Search the sector skills reference and choose what fits you.",
+    "step3Title": "Your skills",
+    "step3Lead": "Review your skills and add what's missing.",
     "step4Title": "You're ready for the field",
     "step4Lead": "Skill proves itself. Browse opportunities or finish your profile.",
     "browse": "Browse opportunities",
@@ -1396,5 +1416,16 @@
     "messageAr": "Message to the candidate in Arabic",
     "messageEn": "Message to the candidate in English",
     "issue": "Issue the decision"
+  },
+  "employers": {
+    "title": "Employer directory",
+    "lead": "Saudi employers with links to their official pages. Being listed doesn't mean a partnership with Midan or jobs published here.",
+    "jobs": "Published jobs",
+    "careers": "Careers page",
+    "website": "Official website",
+    "status": {
+      "verified_official": "Official source verified",
+      "pending_live_verification": "Being verified"
+    }
   }
 }

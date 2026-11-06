@@ -71,12 +71,11 @@ test('the dashboard works for an account with no profile, no applications and no
 test('signed-out visitors can browse, and private pages send them to sign-in', async ({ page }) => {
   await page.goto('/ar/opportunities');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('فرص تثبت فيها عملك');
-  await expect(page.getByRole('link', { name: /محلل بيانات/ })).toBeVisible();
-
   await page.getByRole('searchbox').fill('لا يوجد شيء بهذا الاسم');
   await expect(page.getByText('ما لقيت شي بهذا البحث')).toBeVisible();
   await page.getByRole('button', { name: 'مسح البحث' }).click();
-  await page.getByRole('link', { name: /محلل بيانات/ }).click();
+  await page.goto('/ar/opportunities?demo=1');
+  await page.getByRole('link', { name: /محلل بيانات/ }).first().click();
   await expect(page.getByText('هذه وظيفة خيالية')).toBeVisible();
   await page.getByRole('link', { name: 'سجّل دخولك للتقديم' }).click();
   await expect(page).toHaveURL(/\/ar\/login(\?next=.*)?$/);
@@ -419,8 +418,8 @@ test('accounts land where their role belongs', async ({ browser }) => {
   const owner = await (await signedIn(browser, 'ORG_B_OWNER')).newPage();
   await owner.goto('/en/dashboard');
   await expect(owner).toHaveURL(/\/en\/organization\/(new|[0-9a-f-]{36})$/);
-  await owner.goto('/en/opportunities');
-  await owner.getByRole('link', { name: /Data Analyst/ }).click();
+  await owner.goto('/en/opportunities?demo=1');
+  await owner.getByRole('link', { name: /Data Analyst/ }).first().click();
   await expect(owner.getByText('This is an organization account')).toBeVisible();
   await expect(owner.getByRole('link', { name: 'Apply for this job' })).toHaveCount(0);
 

@@ -40,14 +40,14 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const skillName = (s: { name_ar: string; name_en: string | null }) => pick(locale, s.name_ar, s.name_en ?? s.name_ar);
   const description = pick(locale, job.description_ar ?? '', job.description_en ?? '');
   return (
-    <article className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:py-16">
+    <article className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
       <Link href="/opportunities" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground">
         <Arrow className="rotate-180 rtl:rotate-0 rtl:scale-x-100" />{t('back')}
       </Link>
-      <Eyebrow className="mt-8 text-muted">
+      <Eyebrow className="mt-4 text-muted">
         {pick(locale, job.organizations.name_ar, job.organizations.name_en)}{job.location && ` · ${job.location}`}{job.employment_type && ` · ${t(`employment.${job.employment_type}`)}`}
       </Eyebrow>
-      <h1 className="mt-4 font-display text-4xl leading-tight font-bold sm:text-5xl">{pick(locale, job.title_ar, job.title_en)}</h1>
+      <h1 className="mt-2 page-title">{pick(locale, job.title_ar, job.title_en)}</h1>
       <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm font-medium text-muted">
         {job.sector && <li>{ts(job.sector)}</li>}
         {job.experience_level && <li>{t(`level.${job.experience_level}`)}</li>}
@@ -55,20 +55,20 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         {salary && <li>{t('salary', { range: salary })}</li>}
       </ul>
       {job.is_demo && <p className="mt-5 border-s-2 border-gold ps-4 text-sm font-medium">{t('demoNote')}</p>}
-      <h2 className="mt-10 font-display text-xl font-semibold">{t('about')}</h2>
-      <p className="mt-2 max-w-2xl text-lg leading-relaxed whitespace-pre-line text-muted">{description || t('noDescription')}</p>
+      <h2 className="mt-6 subsection-title">{t('about')}</h2>
+      <p className="mt-1 leading-relaxed whitespace-pre-line text-muted">{description || t('noDescription')}</p>
       {pick(locale, job.requirements_ar ?? '', job.requirements_en ?? '') && (
         <>
-          <h2 className="mt-8 font-display text-xl font-semibold">{t('requirements')}</h2>
-          <p className="mt-2 max-w-2xl text-lg leading-relaxed whitespace-pre-line text-muted">{pick(locale, job.requirements_ar ?? '', job.requirements_en ?? '')}</p>
+          <h2 className="mt-6 subsection-title">{t('requirements')}</h2>
+          <p className="mt-1 leading-relaxed whitespace-pre-line text-muted">{pick(locale, job.requirements_ar ?? '', job.requirements_en ?? '')}</p>
         </>
       )}
       {job.job_requirements.length > 0 && (
-        <section aria-label={tr('publicTitle')} className="mt-8 space-y-5">
+        <section aria-label={tr('publicTitle')} className="mt-6 space-y-4">
           {REQUIREMENT_TYPES.filter((k) => job.job_requirements.some((r) => r.requirement_type === k)).map((k) => (
             <div key={k}>
-              <h2 className="font-display text-xl font-semibold">{tr(`type.${k}`)}</h2>
-              <ul className="mt-2 max-w-2xl list-disc space-y-1 ps-5 text-lg leading-relaxed text-muted">
+              <h2 className="subsection-title">{tr(`type.${k}`)}</h2>
+              <ul className="mt-1 list-disc space-y-1 ps-5 leading-relaxed text-muted">
                 {job.job_requirements.filter((r) => r.requirement_type === k).map((r) => (
                   <li key={r.id}>
                     <bdi>{requirementText(locale, r)}</bdi>
@@ -83,7 +83,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       )}
       {job.job_skills.length > 0 && (
         <>
-          <h2 className="mt-8 font-display text-xl font-semibold">{t('skills')}</h2>
+          <h2 className="mt-6 subsection-title">{t('skills')}</h2>
           <ul className="mt-3 flex flex-wrap gap-2">
             {job.job_skills.map((s) => (
               <li key={s.skills.id} className="rounded-full bg-accent px-3 py-1 text-sm font-medium text-accent-foreground">{pick(locale, s.skills.name_ar, s.skills.name_en)}</li>
@@ -97,8 +97,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         </ul>
       )}
       {job.assessments.length > 0 && (
-        <section aria-labelledby="assessment-overview" className="mt-8">
-          <h2 id="assessment-overview" className="font-display text-xl font-semibold">{t('assessmentTitle')}</h2>
+        <section aria-labelledby="assessment-overview" className="mt-6">
+          <h2 id="assessment-overview" className="subsection-title">{t('assessmentTitle')}</h2>
           <p className="mt-1 text-muted">{t('assessmentNote')}</p>
           <ul className="mt-2 space-y-1.5">
             {job.assessments.map((a) => (
@@ -115,8 +115,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         </section>
       )}
       {match && match.total > 0 && (
-        <section aria-labelledby="your-match" className="mt-8 rounded-lg bg-surface p-5">
-          <h2 id="your-match" className="font-display text-xl font-semibold">{t('matchTitle')}</h2>
+        <section aria-labelledby="your-match" className="card mt-6">
+          <h2 id="your-match" className="subsection-title">{t('matchTitle')}</h2>
           {match.percentage != null && <p className="mt-1 font-semibold">{t('matchLine', { matched: number(locale, match.matched.length), total: number(locale, match.total) })}</p>}
           <p className="mt-1 text-sm text-muted">{t('matchNote')}</p>
           {match.matched.length > 0 && (
@@ -125,7 +125,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           {match.gaps.length > 0 && <p className="mt-1 text-sm"><span className="font-semibold">{t('matchGaps')}: </span>{match.gaps.map(skillName).join(locale === 'ar' ? '، ' : ', ')}</p>}
         </section>
       )}
-      <div className="mt-10">
+      <div className="mt-6">
         {applied ? (
           <p role="status" className="font-semibold text-primary">
             {t('applied')}. <Link href={`/applications/${application?.id}`} className="underline underline-offset-4">{t('viewApplication')}</Link>

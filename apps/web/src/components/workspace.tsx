@@ -167,7 +167,7 @@ export function EmptyAssessment({ orgId, jobId }: { orgId: string; jobId: string
   const t = useTranslations('workspace');
   return (
     <div className="rounded-lg bg-surface p-6">
-      <h3 className="font-display text-xl font-semibold">{t('noAssessmentTitle')}</h3>
+      <h3 className="subsection-title">{t('noAssessmentTitle')}</h3>
       <p className="mt-1 mb-4 text-muted">{t('noAssessmentBody')}</p>
       <GenerateButton orgId={orgId} jobId={jobId} label={t('generate')} />
     </div>
@@ -282,7 +282,7 @@ export function AssessmentTitle({ orgId, jobId, assessment, canEdit, canRemove }
   return (
     <div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h3 className="font-display text-2xl font-semibold">{pick(locale, assessment.title_ar, assessment.title_en)}</h3>
+        <h3 className="section-title">{pick(locale, assessment.title_ar, assessment.title_en)}</h3>
         {canEdit && <button type="button" onClick={() => setRenaming(true)} className="text-sm font-semibold underline underline-offset-4">{t('renameAssessment')}</button>}
         {canRemove && (confirming ? (
           <span className="flex items-center gap-3 text-sm">

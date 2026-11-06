@@ -22,7 +22,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         <Arrow className="rotate-180" />{t('back')}
       </Link>
       <div>
-        <h1 className="font-display text-4xl font-bold">{t('title', { name })}</h1>
+        <h1 className="page-title">{t('title', { name })}</h1>
         <p className="mt-2 text-muted">{pick(locale, data.assessment_versions.assessments.title_ar, data.assessment_versions.assessments.title_en)}</p>
       </div>
       {data.status !== 'submitted' ? (

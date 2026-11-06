@@ -165,7 +165,7 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {logoUrl && <img src={logoUrl} alt="" className="h-11 w-auto max-w-32 rounded object-contain" />}
           <div>
-            <p className="font-display text-lg font-bold">{orgName}</p>
+            <p className="subsection-title">{orgName}</p>
             <p className="text-sm text-muted">
               {pick(locale, data.job.title_ar, data.job.title_en)}
               {pick(locale, data.version.assessments.title_ar, data.version.assessments.title_en) !== pick(locale, data.job.title_ar, data.job.title_en) && ` · ${pick(locale, data.version.assessments.title_ar, data.version.assessments.title_en)}`}
@@ -183,10 +183,10 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
     return (
       <>
         {header}
-        <section className="mx-auto flex max-w-xl flex-col items-center px-4 py-14 text-center">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-36"><Humaidan outfit={variant} sizes="144px" /></motion.div>
-          <h1 className="mt-6 font-display text-3xl font-bold">{t('doneTitle')}</h1>
-          <p className="mt-3 text-lg text-muted">{t('doneBody', { org: orgName })}</p>
+        <section className="mx-auto flex max-w-xl flex-col items-center px-4 py-10 text-center">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-24"><Humaidan outfit={variant} sizes="96px" /></motion.div>
+          <h1 className="mt-6 page-title">{t('doneTitle')}</h1>
+          <p className="mt-3 text-muted">{t('doneBody', { org: orgName })}</p>
           {attempt?.receipt_code && attempt.submitted_at && (
             <p role="status" className="mt-4 rounded-lg bg-surface p-4 text-sm">{t('receipt', { code: attempt.receipt_code, date: formatWhen(locale, attempt.submitted_at, 'Asia/Riyadh') })}</p>
           )}
@@ -201,8 +201,8 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
       <>
         {header}
         <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-          <h1 className="font-display text-3xl font-bold">{t('expiredTitle')}</h1>
-          <p className="mt-2 text-lg text-muted">{t('expiredBody')}</p>
+          <h1 className="page-title">{t('expiredTitle')}</h1>
+          <p className="mt-2 text-muted">{t('expiredBody')}</p>
           <Link href="/dashboard" className="mt-6 inline-block font-semibold text-primary underline underline-offset-4">{t('backToDashboard')}</Link>
         </section>
       </>
@@ -215,22 +215,22 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
       <>
         {header}{banner}
         <section className="on-deep text-white" style={{ background: bandColor }}>
-          <div className="mx-auto grid max-w-5xl items-end gap-6 px-4 pt-10 sm:px-6 md:grid-cols-[1fr_auto]">
-            <div className="pb-10">
-              <h1 className="font-display text-3xl leading-tight font-bold sm:text-4xl">{t('introTitle', { job: pick(locale, data.job.title_ar, data.job.title_en) })}</h1>
-              {welcome && <p className="mt-3 text-lg leading-relaxed opacity-90">{welcome}</p>}
+          <div className="mx-auto grid max-w-5xl items-end gap-4 px-4 pt-6 sm:px-6 sm:grid-cols-[1fr_auto]">
+            <div className="pb-6">
+              <h1 className="page-title">{t('introTitle', { job: pick(locale, data.job.title_ar, data.job.title_en) })}</h1>
+              {welcome && <p className="mt-3 leading-relaxed opacity-90">{welcome}</p>}
             </div>
-            <div className="mx-auto w-40 sm:w-44"><Humaidan outfit={variant} sizes="176px" priority idle /></div>
+            <div className="mx-auto w-20 sm:w-24"><Humaidan outfit={variant} sizes="96px" priority idle /></div>
           </div>
         </section>
         <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
           {pick(locale, data.version.scenario_ar ?? '', data.version.scenario_en ?? '') && (
             <div className="mb-6 rounded-lg bg-surface p-4">
-              <h2 className="font-display text-xl font-semibold">{t('scenario')}</h2>
+              <h2 className="subsection-title">{t('scenario')}</h2>
               <p className="mt-1 leading-relaxed whitespace-pre-line">{pick(locale, data.version.scenario_ar ?? '', data.version.scenario_en ?? '')}</p>
             </div>
           )}
-          <p className="text-lg leading-relaxed text-muted">{pick(locale, data.version.instructions_ar ?? '', data.version.instructions_en ?? '')}</p>
+          <p className="leading-relaxed text-muted">{pick(locale, data.version.instructions_ar ?? '', data.version.instructions_en ?? '')}</p>
           <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-1 font-medium">
             {data.version.duration_minutes && <li>{t(data.version.is_timed ? 'timedFor' : 'estimated', { minutes: number(locale, data.version.duration_minutes) })}</li>}
             <li>{t('tasksCount', { count: number(locale, tasks.length) })}</li>
@@ -253,7 +253,7 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
               ))}
             </details>
           )}
-          <h2 className="mt-7 font-display text-xl font-semibold">{t('rulesTitle')}</h2>
+          <h2 className="mt-7 subsection-title">{t('rulesTitle')}</h2>
           <ul className="mt-2 space-y-1.5 text-muted">{(t.raw('rules') as string[]).map((r) => <li key={r}>{r}</li>)}</ul>
           <div className="mt-7">
             {preview ? (
@@ -298,7 +298,7 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
         {header}{banner}
         <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
           {nav}
-          <h1 className="mt-8 font-display text-3xl font-bold">{t('reviewTitle')}</h1>
+          <h1 className="mt-8 page-title">{t('reviewTitle')}</h1>
           <p className="mt-3 text-lg">{t('answered', { answered: number(locale, answered), total: number(locale, tasks.length) })}</p>
           {missing.length > 0 && (
             <p className="mt-1 text-muted">{t('unanswered', { tasks: list(locale, missing.map((m) => pick(locale, m.title_ar, m.title_en))) })}</p>
@@ -346,8 +346,8 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
             </p>
           </div>
         </div>
-        <h1 className="mt-2 font-display text-2xl leading-snug font-bold sm:text-3xl">{pick(locale, task.title_ar, task.title_en)}</h1>
-        <p className="mt-3 text-lg leading-relaxed whitespace-pre-line">{pick(locale, task.instructions_ar, task.instructions_en)}</p>
+        <h1 className="mt-2 section-title">{pick(locale, task.title_ar, task.title_en)}</h1>
+        <p className="mt-3 leading-relaxed whitespace-pre-line">{pick(locale, task.instructions_ar, task.instructions_en)}</p>
 
         {(task.config.deliverables_en?.length || task.config.deliverables_ar?.length || task.config.materials?.length || task.config.accepted_formats?.length) ? (
           <div className="mt-4 space-y-2 rounded-lg bg-surface p-4 text-sm">

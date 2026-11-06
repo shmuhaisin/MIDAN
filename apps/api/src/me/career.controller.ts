@@ -1,7 +1,6 @@
 import { Body, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, Query, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
-import { Prisma } from '@prisma/client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { AuthUser, DbService } from '../db/db.service';
 
@@ -29,19 +28,35 @@ export class ReferenceController {
   constructor(private readonly db: DbService) {}
 
   @Get('skills')
+  @ApiOperation({ summary: 'Searches skill names, tolerating Arabic spelling differences such as hamza forms and ta marbuta.' })
   skills(@Query('q') q?: string, @Query('sector') sector?: string, @Query('family') family?: string) {
-    const text = q?.trim().slice(0, 100);
-    if (!text && !family) return [];
+    const text = q?.trim().slice(0, 100) ?? '';
+    if (text.length < 2 && !family) return [];
+    return this.db.asAnon((tx) => tx.$queryRaw`
+      with needle as (select public.normalize_arabic(${text}) as value)
+      select s.id, s.name_ar, s.description_ar, s.sector_code, s.skill_kind, s.is_priority,
+        array(select distinct c.job_family_ar from public.reference_skill_contexts c where c.skill_id = s.id limit 2) as job_families
+      from public.reference_skills s, needle
+      where (needle.value = '' or (
+          select bool_and(s.name_search like '%' || word || '%') from unnest(string_to_array(needle.value, ' ')) as word
+        ))
+        and (${sector ?? null}::text is null or s.sector_code = ${sector ?? null})
+        and (${family ?? null}::text is null or ${family ?? null} = any(s.listed_job_families)
+          or exists (select 1 from public.reference_skill_contexts c where c.skill_id = s.id and c.job_family_ar = ${family ?? null}))
+      order by (s.name_search = needle.value) desc, (s.name_search like needle.value || '%') desc, s.is_priority desc nulls last, length(s.name_ar), s.name_ar
+      limit 30`);
+  }
+
+  @Get('employers')
+  @ApiOperation({ summary: 'The employer reference directory. An entry is an identity record: not a partner, an account or a source of vacancies.' })
+  employers() {
     return this.db.asAnon((tx) =>
-      tx.reference_skills.findMany({
-        where: {
-          ...(text && { name_ar: { contains: text, mode: Prisma.QueryMode.insensitive } }),
-          ...(sector && { sector_code: sector }),
-          ...(family && { reference_skill_contexts: { some: { job_family_ar: family } } }),
+      tx.employer_registry.findMany({
+        orderBy: { source_company_id: 'asc' },
+        select: {
+          id: true, name_ar: true, name_en: true, entity_type: true, sector: true, official_website: true, career_url: true, verification_status: true,
+          employer_aliases: { select: { name_variant: true } },
         },
-        orderBy: [{ is_priority: { sort: 'desc', nulls: 'last' } }, { name_ar: 'asc' }],
-        take: 30,
-        select: { id: true, name_ar: true, description_ar: true, sector_code: true, skill_kind: true, is_priority: true },
       }),
     );
   }
@@ -92,7 +107,10 @@ export class CareerController {
       ]);
       const selfReported = new Set(listed.map((s) => s.reference_skill_id));
       const skills = !target ? [] : await tx.reference_skills.findMany({
-        where: { sector_code: target.sector_code, skill_kind: 'technical', reference_skill_contexts: { some: { job_family_ar: target.job_family_ar } } },
+        where: {
+          sector_code: target.sector_code, skill_kind: 'technical',
+          OR: [{ reference_skill_contexts: { some: { job_family_ar: target.job_family_ar } } }, { listed_job_families: { has: target.job_family_ar } }],
+        },
         orderBy: [{ is_priority: { sort: 'desc', nulls: 'last' } }, { name_ar: 'asc' }],
         take: SKILL_LIMIT,
         select: {
