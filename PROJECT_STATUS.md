@@ -1,6 +1,24 @@
 # Project status
 
-Only what has been run is marked Tested. Last updated 2026-11-05.
+Only what has been run is marked Tested. The milestone table was last updated 2026-11-05; several of its "Not Started"
+rows were since built on `feature/midan-complete-data-jobs-assessment`. The verified state as of 2026-11-07 is in
+[docs/audits/MIDAN_PHASE_0_GAP_ANALYSIS.md](docs/audits/MIDAN_PHASE_0_GAP_ANALYSIS.md).
+
+## Phase 1 security fixes (2026-11-07, branch `feature/midan-phase-1-security`)
+
+"Tested here" means run on a Windows machine without the local Supabase stack: unit tests, a scratch PostgreSQL 18
+with every migration and a stand-in `auth` schema, and the production web build in a browser. The API end-to-end and
+browser suites were updated but **not run**: they need the Linux local stack. Nothing was applied to hosted Supabase.
+
+| Finding | Fix | Status |
+| --- | --- | --- |
+| S1 Staff could read every file in an applicant's folder, including CV copies sent to other employers | Storage policy limited to the CV submitted to the organization | Tested here (database checks, with a control run that fails without the fix). End-to-end test written, not run |
+| S2 Staff could set any application status, including hired without a reviewed assessment | `public.set_application_status` with fixed moves; hiring needs reviewed assessments, also through outcomes; direct update revoked | Tested here (database checks, API error mapping, screen/database parity). End-to-end tests written, not run |
+| S3 Made-up bearer tokens got their own rate limits | Verified account or trusted address only; `TRUST_PROXY` | Tested here (unit tests) |
+| S5 Signed CV link kept in the queue payload | Removed when the job finishes; never logged | Partly: tested here. Signing at run time is waiting for an owner decision on a storage credential |
+| S6 AI service token compared with `!=` | `hmac.compare_digest` on bytes | Tested here |
+| S7 No security headers | Nonce CSP and headers on web; strict headers on API; HSTS on HTTPS | Tested here (unit tests; production build in a browser, public pages, no CSP violations). Daily interview and Google sign-in under the CSP not checked |
+| S8 Sign-up access code in the Next.js `env` map, written into builds | Runtime server variable only; build check script | Tested here (build scanned with a canary value; the check itself proven to catch a planted value) |
 
 | Milestone | Item | Status |
 | --- | --- | --- |

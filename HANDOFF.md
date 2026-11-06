@@ -1,5 +1,11 @@
 # Handoff
 
+> **Superseded.** This file describes the `candidate-portal` branch as of 2026-11-05. For the current state read, in
+> order: [docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md](docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md) (branch
+> `feature/midan-phase-1-security`), [docs/audits/MIDAN_PHASE_0_GAP_ANALYSIS.md](docs/audits/MIDAN_PHASE_0_GAP_ANALYSIS.md)
+> and [docs/handoffs/MIDAN_COMPLETE_IMPLEMENTATION_HANDOFF.md](docs/handoffs/MIDAN_COMPLETE_IMPLEMENTATION_HANDOFF.md).
+> The text below is kept as it was.
+
 **Branch:** `candidate-portal`, on GitHub and unmerged. It includes the job requirements and several-assessments work it depends on. `main` doesn't have this work, but the live database already has its migration. **Remote:** https://github.com/shmuhaisin/MIDAN (public).
 
 ## What exists

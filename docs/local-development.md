@@ -67,6 +67,24 @@ npm run test:e2e -w @midan/api
 
 Stop the dev API first (or start it with `BACKGROUND_WORKER=off`): the queue test needs its own worker to be the only one.
 
+The database-level security checks (candidate documents, status transitions, queue links) run in one transaction and roll back, so they leave nothing behind. Local database only:
+
+```bash
+scripts/local-db.sh psql -f supabase/tests/security_phase1.sql
+```
+
+Restart `node scripts/local-supabase.mjs` after pulling this change: its Storage stand-in gained the folder listing that the cross-employer document test uses.
+
+A production web build must not contain the development sign-up code:
+
+```bash
+DEV_TEST_ACCESS_CODE=bundle-canary-7f3a npm run build -w @midan/web
+```
+
+```bash
+DEV_TEST_ACCESS_CODE=bundle-canary-7f3a npm run check:bundle -w @midan/web
+```
+
 ```bash
 cd services/ai && TEST_CHECKPOINT_DATABASE_URL=postgresql://midan_ai:midan-ai-local@127.0.0.1:54322/midan uv run pytest
 ```

@@ -17,6 +17,31 @@ and read-only queries on the hosted database. Claims taken from earlier handoffs
 
 ---
 
+## Update after Phase 1 (2026-11-07)
+
+The security findings in section 7 were worked on in branch `feature/midan-phase-1-security`. Details, tests and exact
+results: [docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md](../handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md). The rest of
+this report is left as audited.
+
+| Finding | Now | Evidence |
+| --- | --- | --- |
+| S1 cross-employer candidate documents | **Fixed and tested** at the database; end-to-end test written, not run | `20261107090000_scope_candidate_document_access.sql`; `supabase/tests/security_phase1.sql` (fails without the fix); `foundation.e2e-spec.ts` "gives each organization only the CV copy submitted to it…" |
+| S2 application status | **Fixed and tested** at the database and in API error mapping; end-to-end tests written, not run | `20261107090100_application_status_transitions.sql`; `security_phase1.sql`; `database-exception.filter.spec.ts`; `application-status.test.ts`; `foundation.e2e-spec.ts` "allows only the status moves the workflow has"; `pipeline.e2e-spec.ts` "hires only once the assessment has been reviewed…" |
+| S3 rate-limit bypass | **Fixed and tested** | `common/token-throttler.guard.ts`, `auth/auth.guard.ts`, `common/configure-app.ts` (`TRUST_PROXY`); `throttle.spec.ts` |
+| S4 auth call per request | Unchanged; now one call per request (shared by the limiter and guards). JWT verification would stop catching revoked sessions | — |
+| S5 signed link in queue payload | **Partly fixed**: removed when the job finishes, never logged. Run-time signing **needs an owner decision** (it requires a storage credential the design doesn't have) | `20261107090200_clear_finished_job_links.sql`; `jobs-queue/worker.spec.ts`; `security_phase1.sql` |
+| S6 AI token comparison | **Fixed and tested** | `services/ai/midan_ai/main.py`; `tests/test_service_token.py` |
+| S7 security headers | **Fixed and tested** (unit tests; production build in a browser). Daily and Google sign-in under the CSP not yet checked | `apps/web/src/lib/csp.ts`, `src/proxy.ts`, `next.config.ts`; `apps/api/src/common/security-headers.ts`; `csp.test.ts`, `security-headers.spec.ts` |
+| S8 access code in Next.js `env` | **Fixed and tested** | `next.config.ts`; `apps/web/scripts/check-bundle-secrets.mjs` |
+| S9 evidence uploads, malware scanning | Unchanged | — |
+| S10 leaked password protection, SECURITY DEFINER RPCs | Unchanged (dashboard / later review) | — |
+| S11 `npm audit` | Unchanged | — |
+
+Two owner decisions made since the audit are recorded in `docs/DECISIONS.md`: Gemini and OpenAI behind one provider
+interface (AI integration phase), and a hybrid employer-management model with a claim workflow (employer phase).
+
+---
+
 ## 1. Executive summary
 
 MIDAN is a working, well-structured three-service MVP (Next.js web, NestJS API, FastAPI/LangGraph AI service on Supabase
