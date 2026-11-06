@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Arrow, Eyebrow, JourneyRail } from '@/components/brand';
 import { ApplicantStatus, JobStatusButtons } from '@/components/forms';
 import { RequirementsEditor, type Requirement } from '@/components/requirements';
+import { JobAnalysisPanel, type Analysis } from '@/components/job-analysis';
 import { AssessmentSwitcher, AssessmentTitle, VersionSettings, EmptyAssessment, FieldSelect, GenerateButton, InviteButton, JobDetailsForm, PublishPanel, TaskList } from '@/components/workspace';
 import { Link, redirect } from '@/i18n/navigation';
 import { api, apiForPage } from '@/lib/api';
@@ -12,6 +13,7 @@ import { getSession } from '@/lib/session';
 type AttemptOf = { id: string; version_number: number; assessment_id: string; assessments: { title_ar: string; title_en: string } };
 type Attempt = { id: string; status: string; assessment_versions: AttemptOf; evaluation_results: { id: string; status: string; released_to_candidate: boolean } | null };
 type Job = {
+  job_reference_skills?: { is_required: boolean; reference_skills: { id: string; name_ar: string; sector_code: string } }[];
   id: string; slug: string; status: string; title_ar: string; title_en: string; description_ar: string | null; description_en: string | null;
   requirements_ar: string | null; requirements_en: string | null; location: string | null;
   employment_type: string | null; salary_min: string | null; salary_max: string | null; application_deadline: string | null; sector: string | null; experience_level: string | null;
@@ -47,19 +49,21 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   setRequestLocale(locale);
   if (!(await getSession())) return redirect({ href: '/login', locale });
   if (!/^[0-9a-f-]{36}$/.test(orgId) || !/^[0-9a-f-]{36}$/.test(jobId)) notFound();
-  const [org, job, skills, latest, compared, requirements] = await Promise.all([
+  const [org, job, skills, latest, compared, requirements, analysis] = await Promise.all([
     apiForPage<{ my_role: string }>(`/organizations/${orgId}`),
     apiForPage<Job>(`/organizations/${orgId}/jobs/${jobId}`),
     api<Skill[]>('/skills'),
     apiForPage<Latest>(`/organizations/${orgId}/jobs/${jobId}/assessment${chosen && /^[0-9a-f-]{36}$/.test(chosen) ? `?assessment=${chosen}` : ''}`),
     apiForPage<Compared[]>(`/organizations/${orgId}/jobs/${jobId}/report`),
     apiForPage<Requirement[]>(`/organizations/${orgId}/jobs/${jobId}/requirements`),
+    apiForPage<Analysis | null>(`/organizations/${orgId}/jobs/${jobId}/analyses/latest`),
   ]);
   if (!org || !job || !latest) notFound();
   const t = await getTranslations({ locale, namespace: 'workspace' });
   const ts = await getTranslations({ locale, namespace: 'applicationStatus' });
   const to = await getTranslations({ locale, namespace: 'org' });
   const tr = await getTranslations({ locale, namespace: 'requirements' });
+  const tj = await getTranslations({ locale, namespace: 'jobAnalysis' });
 
   const canBuild = ['owner', 'admin', 'recruiter'].includes(org.my_role);
   const canPublish = ['owner', 'admin'].includes(org.my_role);
@@ -119,6 +123,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <RequirementsEditor orgId={orgId} jobId={jobId} requirements={requirements ?? []} versionIds={assessments.flatMap((a) => a.assessment_versions[0]?.id ?? [])} canEdit={canBuild} />
       </section>
 
+      <section aria-labelledby="reference-skills">
+        <Eyebrow className="mb-4 text-muted"><span id="reference-skills">{tj('title')}</span></Eyebrow>
+        <JobAnalysisPanel key={analysis?.id ?? 'none'} orgId={orgId} jobId={jobId} analysis={analysis ?? null} linked={job.job_reference_skills ?? []} canEdit={canBuild} />
+      </section>
+
       <section aria-labelledby="assessment">
         <Eyebrow className="mb-4 text-muted"><span id="assessment">{t('assessment')}</span></Eyebrow>
         {!version ? (
@@ -153,7 +162,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               </div>
             )}
             {canBuild && <VersionSettings key={version.id} orgId={orgId} version={version} canEdit={Boolean(editable)} />}
-            <TaskList orgId={orgId} tasks={version.assessment_tasks} editable={Boolean(editable)} requirements={requirements ?? []} />
+            <TaskList orgId={orgId} versionId={version.id} tasks={version.assessment_tasks} editable={Boolean(editable)} requirements={requirements ?? []} />
             {editable && canPublish && <PublishPanel orgId={orgId} versionId={version.id} />}
             {published && canBuild && <GenerateButton orgId={orgId} jobId={jobId} assessmentId={version.assessments.id} label={t('newVersion')} />}
           </div>

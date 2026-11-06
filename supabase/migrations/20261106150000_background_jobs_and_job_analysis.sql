@@ -226,11 +226,11 @@ begin
 
   select coalesce(jsonb_agg(p order by (p ->> 'basis'), (p ->> 'required')::boolean desc, p ->> 'name_ar'), '[]') into v_proposals from (
     select jsonb_build_object('reference_skill_id', s.id, 'name_ar', s.name_ar, 'sector_code', s.sector_code, 'basis', 'mentioned',
-      'evidence', trim(private.match_text(s.name_ar)), 'required', strpos(private.match_text(v_mandatory), private.match_text(s.name_ar)) > 0,
+      'evidence', trim(private.match_text(s.name_ar)), 'required', private.mentions(private.match_text(v_mandatory), s.name_ar),
       'is_priority', s.is_priority, 'source', jsonb_build_object('file', s.source_file, 'sheet', s.source_sheet, 'row', s.source_row)) as p
     from public.reference_skills s
     where s.sector_code = v_sector and (strpos(s.name_search, ' ') > 0 or length(s.name_search) >= 8)
-      and strpos(private.match_text(v_text), private.match_text(s.name_ar)) > 0
+      and private.mentions(private.match_text(v_text), s.name_ar)
     union all
     select jsonb_build_object('reference_skill_id', s.id, 'name_ar', s.name_ar, 'sector_code', s.sector_code, 'basis', 'family',
       'evidence', v_family, 'required', false, 'is_priority', true,
@@ -238,7 +238,7 @@ begin
     from public.reference_skills s
     where v_family is not null and s.sector_code = v_sector and s.skill_kind = 'technical' and s.is_priority
       and exists (select 1 from public.reference_skill_contexts x where x.skill_id = s.id and x.job_family_ar = v_family)
-      and not (strpos(private.match_text(v_text), private.match_text(s.name_ar)) > 0)
+      and not private.mentions(private.match_text(v_text), s.name_ar)
     limit 60
   ) x;
 

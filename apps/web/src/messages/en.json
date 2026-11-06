@@ -878,7 +878,15 @@
     "durationMinutes": "Duration in minutes",
     "isTimed": "Timed once started",
     "shareRubric": "Share the rubric with the candidate",
-    "saveSettings": "Save settings"
+    "saveSettings": "Save settings",
+    "removeCriterion": "Remove criterion",
+    "removeTask": "Remove this task",
+    "addCriterion": "Add a criterion",
+    "addTask": "Add a task",
+    "newTaskType": "Task type",
+    "criterionAr": "First criterion in Arabic",
+    "criterionEn": "First criterion in English",
+    "rubricPrivate": "Candidates see the title and instructions only. The criteria stay internal."
   },
   "experience": {
     "poweredBy": "Powered by Midan",
@@ -1860,5 +1868,27 @@
       "system": "System",
       "older": "Older entries"
     }
+  },
+  "jobAnalysis": {
+    "title": "Skills from the sector workbooks",
+    "lead": "Find which skills from the official sector skills workbooks this job's own text and requirements name. Nothing changes until you accept. Accepted skills shape the match candidates see and the assessment draft.",
+    "linked": "Linked to this job: {count}",
+    "noneLinked": "No workbook skills are linked to this job yet.",
+    "required": "Required",
+    "preferred": "Preferred",
+    "result": "Sector: {sector}",
+    "family": "job family: {family}",
+    "confidence": "confidence {value}",
+    "noSector": "not determined: the text names fewer than two workbook skills",
+    "noProposals": "No workbook skill is named in this job's text. Add a description or requirements, then analyze again.",
+    "mentioned": "The job says: {words}",
+    "fromFamily": "A priority skill of the job family {family}, not named in the job",
+    "row": "row {row}",
+    "setSector": "Also set the job's sector to {sector}",
+    "accept": "Accept {count} skills",
+    "dismiss": "Dismiss",
+    "analyze": "Analyze against the workbooks",
+    "analyzeAgain": "Analyze again",
+    "analyzing": "Analyzing…"
   }
 }

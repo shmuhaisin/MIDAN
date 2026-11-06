@@ -716,3 +716,67 @@ test('several assessments: each has its own draft, invitation and address, and t
   if (SHOTS) await candidate.screenshot({ path: `${SHOTS}/two-assessments-candidate.png` });
   expect(problems).toEqual([]);
 });
+
+test('workbook skills: analyze a job, accept the skills, build the assessment from them, and edit its tasks', async ({ browser }) => {
+  test.setTimeout(240_000);
+  const token = async (who: string) => (await (await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST', headers: { apikey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY as string, 'content-type': 'application/json' },
+    body: JSON.stringify({ email: env[`TEST_${who}_EMAIL`], password: env[`TEST_${who}_PASSWORD`] }),
+  })).json()).access_token as string;
+  const owner = await token('ORG_A_OWNER');
+  const call = async (method: string, path: string, body?: unknown) => {
+    const res = await fetch(`http://localhost:4000/v1${path}`, { method, headers: { authorization: `Bearer ${owner}`, 'content-type': 'application/json' }, body: body && JSON.stringify(body) });
+    expect(res.ok, `${method} ${path} ${res.status}`).toBe(true);
+    return res.json();
+  };
+  // Two digital skills, taken from the workbook data itself.
+  const skills = await (await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/reference_skills?sector_code=eq.digital&skill_kind=eq.technical&description_ar=not.is.null&name_ar=like.*%20*&select=id,name_ar&order=name_ar&limit=2`,
+    { headers: { apikey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY as string } })).json() as { id: string; name_ar: string }[];
+  const org = await call('POST', '/organizations', { slug: `midan-test-workbook-ui-${RUN}`, name_ar: 'واجهة المصنفات', name_en: 'Workbook UI' });
+  const job = await call('POST', `/organizations/${org.id}/jobs`, { slug: 'platform', title_ar: 'مهندس منصات', title_en: `Platform engineer ${RUN}` });
+  await call('PATCH', `/organizations/${org.id}/jobs/${job.id}`, { sector: 'digital', description_ar: `يعمل على ${skills[0].name_ar} و${skills[1].name_ar}.` });
+
+  const page = await (await signedIn(browser, 'ORG_A_OWNER', { viewport: { width: 1280, height: 900 } })).newPage();
+  const problems: string[] = [];
+  page.on('pageerror', (e) => problems.push(e.message));
+  await page.goto(`/en/organization/${org.id}/jobs/${job.id}`);
+  await expect(page.getByText('No workbook skills are linked to this job yet.')).toBeVisible();
+  await page.getByRole('button', { name: 'Analyze against the workbooks' }).click();
+  await expect(page.getByText(`The job says: `).first()).toBeVisible({ timeout: 30_000 });
+  for (const k of skills) await expect(page.getByText(k.name_ar, { exact: true }).first()).toBeVisible();
+  // No stated requirement names them, so they're proposed as preferred; the employer decides they're required.
+  for (const k of skills) {
+    await page.getByRole('listitem').filter({ hasText: k.name_ar }).getByRole('checkbox', { name: 'Required' }).check();
+  }
+  await page.getByRole('button', { name: /^Accept \d+ skills$/ }).click();
+  await expect(page.getByText('Linked to this job: 2')).toBeVisible({ timeout: 30_000 });
+
+  await page.getByRole('button', { name: 'Create assessment draft' }).click();
+  await expect(page.getByText('Version 1 · Draft')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('button', { name: new RegExp(`Apply a skill: ${skills[0].name_ar}`) })).toBeVisible();
+
+  await page.locator('summary', { hasText: 'Add a task' }).click();
+  await page.getByLabel('Title in Arabic').last().fill('مهمة مكتوبة يدويًا');
+  await page.getByLabel('Title in English').last().fill(`Hand-written task ${RUN}`);
+  await page.getByLabel('Instructions in Arabic').last().fill('اشرح خطواتك.');
+  await page.getByLabel('Instructions in English').last().fill('Explain your steps.');
+  await page.getByLabel('First criterion in Arabic').fill('وضوح الخطوات');
+  await page.getByLabel('First criterion in English').fill('Clear steps');
+  await page.getByRole('button', { name: 'Add a task' }).click();
+  const added = page.getByRole('button', { name: new RegExp(`Hand-written task ${RUN}`) });
+  await expect(added).toBeVisible({ timeout: 30_000 });
+  await added.click();
+  await page.getByRole('button', { name: 'Remove this task' }).click();
+  await expect(added).toHaveCount(0, { timeout: 30_000 });
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/workbook-skills-en.png`, fullPage: true });
+  await page.goto(`/ar/organization/${org.id}/jobs/${job.id}`);
+  await expect(page.getByText('المهارات من مصنفات القطاعات')).toBeVisible();
+  await expect(page.getByText('المرتبطة بهذه الوظيفة: 2')).toBeVisible();
+
+  // Published, the job shows candidates the workbook skills it requires.
+  await call('PATCH', `/organizations/${org.id}/jobs/${job.id}/status`, { status: 'published' });
+  const visitor = await (await browser.newContext()).newPage();
+  await visitor.goto(`/en/opportunities/${job.id}`);
+  for (const k of skills) await expect(visitor.getByText(k.name_ar).first()).toBeVisible();
+  expect(problems).toEqual([]);
+});

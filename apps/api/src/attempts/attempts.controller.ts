@@ -91,7 +91,9 @@ export class AttemptsController {
           include: { task_responses: true, evidence_files: { select: { id: true, task_id: true, file_name: true, size_bytes: true } } },
         }),
       ]);
-      return { mode: attempt ? 'attempt' : 'preview', organization, branding, job, version, attempt };
+      // Candidates get instructions only. Which reference skills a task measures belongs with the rubric, on the employer side.
+      const tasks = version.assessment_tasks.map(({ reference_skill_ids: _measured, ...task }) => task);
+      return { mode: attempt ? 'attempt' : 'preview', organization, branding, job, version: { ...version, assessment_tasks: tasks }, attempt };
     });
   }
 

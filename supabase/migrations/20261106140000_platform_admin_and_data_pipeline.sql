@@ -462,6 +462,17 @@ language sql immutable parallel safe set search_path = '' as $$
   select ' ' || public.normalize_arabic(regexp_replace(coalesce(p, ''), '[.,;:!?()\[\]{}"''«»،؛؟/\\|_+=*&^%$#@~`<>\-]+', ' ', 'g')) || ' '
 $$;
 
+/** True when prepared text (from private.match_text) names the skill as whole words, alone or after the conjunction «و»
+ * (also «وال», since the article is removed from names but not after «و»). Other attached letters aren't treated as prefixes:
+ * «ب» or «ل» begin too many ordinary words. */
+create function private.mentions(p_body text, p_name text) returns boolean
+language sql immutable parallel safe set search_path = '' as $$
+  with n as (select trim(private.match_text(p_name)) as v)
+  -- The «و» forms only for names long enough that «و» + name can't be an ordinary word (as «وصف» is not «و» + «صف»).
+  select n.v <> '' and (strpos(p_body, ' ' || n.v || ' ') > 0
+    or ((strpos(n.v, ' ') > 0 or length(n.v) >= 6) and (strpos(p_body, ' و' || n.v || ' ') > 0 or strpos(p_body, ' وال' || n.v || ' ') > 0))) from n
+$$;
+
 /**
  * Classifies text against the sector skills reference by literal mentions, after public.normalize_arabic.
  * Only skill names of at least two words or eight letters count, so short common words don't match everything.
@@ -475,7 +486,7 @@ returns jsonb language sql stable security definer set search_path = '' as $$
   hits as (
     select s.id, s.sector_code, s.name_ar, trim(private.match_text(s.name_ar)) as name_search from public.reference_skills s, t
     where (strpos(s.name_search, ' ') > 0 or length(s.name_search) >= 8)
-      and strpos(t.body, private.match_text(s.name_ar)) > 0
+      and private.mentions(t.body, s.name_ar)
   ),
   by_sector as (select sector_code, count(*) n from hits group by sector_code),
   best as (select sector_code, n from by_sector order by n desc, sector_code limit 1),

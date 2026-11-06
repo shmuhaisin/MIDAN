@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useActionState, useState, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
-import { addAssessment, generateAssessment, inviteCandidate, publishVersion, removeAssessment, renameAssessment, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
+import { addAssessment, addCriterion, addTask, generateAssessment, inviteCandidate, publishVersion, removeAssessment, removeCriterion, removeTask, renameAssessment, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
 import type { FormState } from '@/lib/auth-actions';
 import { list, pick } from '@/lib/format';
 import { PROFESSIONAL_FIELDS } from '@/lib/humaidan';
@@ -338,9 +338,10 @@ type Task = {
   rubric_criteria: Criterion[]; task_skill_mappings: { skills: Skill }[]; task_requirement_mappings: { requirement_id: string }[];
 };
 
-function CriterionEditor({ orgId, criterion, editable }: { orgId: string; criterion: Criterion; editable: boolean }) {
+function CriterionEditor({ orgId, criterion, editable, canRemove }: { orgId: string; criterion: Criterion; editable: boolean; canRemove: boolean }) {
   const t = useTranslations('workspace');
   const [state, action] = useActionState<FormState, FormData>(updateCriterion.bind(null, orgId, criterion.id), {});
+  const remove = useAction(() => removeCriterion(orgId, criterion.id));
   return (
     <ActionForm action={action} className="rounded-lg border border-border p-3">
       <fieldset disabled={!editable} className="space-y-3">
@@ -353,21 +354,24 @@ function CriterionEditor({ orgId, criterion, editable }: { orgId: string; criter
           <Field name="weight" type="number" min="0.1" step="0.1" required label={t('weight')} defaultValue={Number(criterion.weight)} />
         </div>
         {editable && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button type="submit" className="rounded-full border border-border px-3 py-1.5 text-sm font-semibold hover:bg-surface-2">{t('saveCriterion')}</button>
             <Saved show={state.ok} label={t('saved')} />
+            {canRemove && <button type="button" onClick={remove.fire} disabled={remove.pending} className="text-sm text-muted underline underline-offset-4 disabled:opacity-60">{t('removeCriterion')}</button>}
           </div>
         )}
+        <ErrorText code={remove.error} />
       </fieldset>
     </ActionForm>
   );
 }
 
-function TaskEditor({ orgId, task, editable, requirements }: { orgId: string; task: Task; editable: boolean; requirements: Requirement[] }) {
+function TaskEditor({ orgId, task, editable, requirements, canRemoveTask }: { orgId: string; task: Task; editable: boolean; requirements: Requirement[]; canRemoveTask: boolean }) {
   const t = useTranslations('workspace');
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [state, action] = useActionState<FormState, FormData>(updateTask.bind(null, orgId, task.id), {});
+  const removeIt = useAction(() => removeTask(orgId, task.id));
   return (
     <li className="border-b border-border">
       <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-4 py-4 text-start">
@@ -409,9 +413,18 @@ function TaskEditor({ orgId, task, editable, requirements }: { orgId: string; ta
               <div>
                 <p className="mb-2 text-sm font-semibold">{t('rubric')}</p>
                 <div className="space-y-3">
-                  {task.rubric_criteria.map((c) => <CriterionEditor key={c.id} orgId={orgId} criterion={c} editable={editable} />)}
+                  {task.rubric_criteria.map((c) => (
+                    <CriterionEditor key={c.id} orgId={orgId} criterion={c} editable={editable} canRemove={editable && task.rubric_criteria.length > 1 && !c.answer_key} />
+                  ))}
                 </div>
+                {editable && task.task_type !== 'objective_questions' && <AddCriterionForm orgId={orgId} taskId={task.id} />}
               </div>
+              {editable && canRemoveTask && (
+                <div>
+                  <button type="button" onClick={removeIt.fire} disabled={removeIt.pending} className="text-sm font-semibold text-error underline underline-offset-4 disabled:opacity-60">{t('removeTask')}</button>
+                  <ErrorText code={removeIt.error} />
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -420,8 +433,67 @@ function TaskEditor({ orgId, task, editable, requirements }: { orgId: string; ta
   );
 }
 
-export function TaskList({ orgId, tasks, editable, requirements }: { orgId: string; tasks: Task[]; editable: boolean; requirements: Requirement[] }) {
-  return <ul className="border-t border-border">{tasks.map((task) => <TaskEditor key={task.id} orgId={orgId} task={task} editable={editable} requirements={requirements} />)}</ul>;
+export function TaskList({ orgId, versionId, tasks, editable, requirements }: { orgId: string; versionId: string; tasks: Task[]; editable: boolean; requirements: Requirement[] }) {
+  return (
+    <div className="space-y-4">
+      <ul className="border-t border-border">
+        {tasks.map((task) => <TaskEditor key={task.id} orgId={orgId} task={task} editable={editable} requirements={requirements} canRemoveTask={tasks.length > 1} />)}
+      </ul>
+      {editable && <AddTaskForm orgId={orgId} versionId={versionId} />}
+    </div>
+  );
+}
+
+/** A criterion written by hand. The rubric stays internal: candidates never see it. */
+function AddCriterionForm({ orgId, taskId }: { orgId: string; taskId: string }) {
+  const t = useTranslations('workspace');
+  const [state, action] = useActionState<FormState, FormData>(addCriterion.bind(null, orgId, taskId), {});
+  return (
+    <details className="mt-3">
+      <summary className="cursor-pointer text-sm font-semibold text-primary">{t('addCriterion')}</summary>
+      <ActionForm action={action} className="mt-2 space-y-3 rounded-lg border border-border p-3">
+        <ErrorText code={state.error} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TextArea name="description_ar" rows={2} dir="rtl" required label={t('descriptionAr').split(' ')[0]} aria-label={t('criterionAr')} />
+          <TextArea name="description_en" rows={2} dir="ltr" required label={t('descriptionEn').split(' ')[0]} aria-label={t('criterionEn')} />
+          <Field name="max_score" type="number" min="1" max="100" step="1" required defaultValue={10} label={t('maxScore')} />
+        </div>
+        <Submit>{t('addCriterion')}</Submit>
+      </ActionForm>
+    </details>
+  );
+}
+
+/** A task written by hand, with its first rubric criterion. Open-answer types only: objective questions need an answer key. */
+function AddTaskForm({ orgId, versionId }: { orgId: string; versionId: string }) {
+  const t = useTranslations('workspace');
+  const [state, action] = useActionState<FormState, FormData>(addTask.bind(null, orgId, versionId), {});
+  return (
+    <details className="rounded-xl border border-border p-4">
+      <summary className="cursor-pointer font-semibold">{t('addTask')}</summary>
+      <ActionForm action={action} className="mt-3 space-y-3">
+        <ErrorText code={state.error} />
+        <label className="block">
+          <span className="text-sm font-medium">{t('newTaskType')}</span>
+          <select name="task_type" className={INPUT} defaultValue="written_case_study">
+            <option value="written_case_study">{t('taskType.written_case_study')}</option>
+            <option value="file_submission">{t('taskType.file_submission')}</option>
+          </select>
+        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field name="title_ar" required dir="rtl" label={t('taskTitleAr')} />
+          <Field name="title_en" required dir="ltr" label={t('taskTitleEn')} />
+          <TextArea name="instructions_ar" required dir="rtl" rows={4} label={t('instructionsAr')} />
+          <TextArea name="instructions_en" required dir="ltr" rows={4} label={t('instructionsEn')} />
+          <TextArea name="criterion_ar" required dir="rtl" rows={2} label={t('criterionAr')} />
+          <TextArea name="criterion_en" required dir="ltr" rows={2} label={t('criterionEn')} />
+          <Field name="max_score" type="number" min="1" max="100" step="1" required defaultValue={10} label={t('maxScore')} />
+        </div>
+        <p className="text-sm text-muted">{t('rubricPrivate')}</p>
+        <Submit>{t('addTask')}</Submit>
+      </ActionForm>
+    </details>
+  );
 }
 
 export function PublishPanel({ orgId, versionId }: { orgId: string; versionId: string }) {

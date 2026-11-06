@@ -412,6 +412,116 @@ describe('Midan administration and data pipeline', () => {
     });
   });
 
+  describe('the complete journey on the sector workbooks: browse, apply, job-specific assessment, evaluation', () => {
+    let org: string, orgSlug: string, job: string, version: string, application: string, attempt: string, evaluation: string;
+    let skills: { id: string; name_ar: string }[];
+    let ownerB: Session, candidateTwo: Session;
+    const base = () => `/organizations/${org}`;
+
+    beforeAll(async () => {
+      [ownerB, candidateTwo] = await Promise.all(['ORG_B_OWNER', 'CANDIDATE_TWO'].map(signIn));
+    });
+
+    it('builds a job whose skills come from the workbooks, through job analysis', async () => {
+      // Two multi-word digital skills that no other workbook names, so classification has one right answer.
+      const pool = (await rest(null, 'GET', `reference_skills?sector_code=eq.digital&skill_kind=eq.technical&description_ar=not.is.null&name_search=like.*${encodeURIComponent(' ')}*&select=id,name_ar,name_search&order=name_ar&limit=40`)).body as { id: string; name_ar: string; name_search: string }[];
+      const elsewhere = new Set((await rest(null, 'GET', `reference_skills?sector_code=neq.digital&name_search=in.(${pool.map((c) => `"${encodeURIComponent(c.name_search)}"`).join(',')})&select=name_search`)).body
+        .map((r: { name_search: string }) => r.name_search));
+      skills = pool.filter((c) => !elsewhere.has(c.name_search)).slice(0, 2);
+      expect(skills).toHaveLength(2);
+
+      orgSlug = `midan-test-journey-${RUN}`;
+      org = (await api().post('/organizations').set(bearer(ownerA)).send({ slug: orgSlug, name_ar: 'رحلة كاملة', name_en: 'Full journey' }).expect(201)).body.id;
+      job = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: 'engineer', title_ar: 'مهندس منصات', title_en: 'Platform engineer' }).expect(201)).body.id;
+      await api().patch(`${base()}/jobs/${job}`).set(bearer(ownerA)).send({ description_ar: `يعمل على ${skills[0].name_ar} و${skills[1].name_ar}.` }).expect(200);
+      await api().post(`${base()}/jobs/${job}/requirements`).set(bearer(ownerA))
+        .send({ requirement_type: 'responsibility', description_ar: 'تشغيل المنصات الرقمية ومتابعة أعطالها', description_en: 'Run digital platforms and follow up their incidents' }).expect(201);
+
+      const analysis = (await api().post(`${base()}/jobs/${job}/analyses`).set(bearer(ownerA)).expect(201)).body;
+      expect(analysis.sector_code).toBe('digital');
+      const mentioned = analysis.proposals.filter((p: { basis: string }) => p.basis === 'mentioned').map((p: { reference_skill_id: string }) => p.reference_skill_id);
+      expect(mentioned).toEqual(expect.arrayContaining(skills.map((k) => k.id)));
+      await api().post(`${base()}/jobs/${job}/analyses/${analysis.id}/accept`).set(bearer(ownerA))
+        .send({ skills: skills.map((k) => k.id), required: skills.map((k) => k.id), set_sector: true }).expect(201);
+    });
+
+    it('generates an assessment from the job, approved by the employer before anyone can take it', async () => {
+      const generated = (await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({}).expect(201)).body;
+      version = generated.version_id;
+      const view = (await api().get(`${base()}/jobs/${job}/assessment`).set(bearer(ownerA)).expect(200)).body;
+      const tasks = view.version.assessment_tasks as { id: string; title_ar: string; instructions_en: string; task_requirement_mappings: unknown[] }[];
+      expect(tasks[0].instructions_en).toContain('Run digital platforms');
+      expect(tasks[0].task_requirement_mappings).toHaveLength(1);
+      for (const k of skills) {
+        const task = tasks.find((t) => t.title_ar.includes(k.name_ar));
+        expect(task).toBeDefined();
+        const [criterion] = (await rest(ownerA, 'GET', `rubric_criteria?task_id=eq.${task!.id}&code=eq.C1&select=reference_skill_id,description_ar`)).body;
+        expect(criterion.reference_skill_id).toBe(k.id);
+      }
+      await api().patch(`${base()}/jobs/${job}/status`).set(bearer(ownerA)).send({ status: 'published' }).expect(200);
+      // The employer's approval: only a published version is ever assigned to a candidate.
+      await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).expect(201);
+    });
+
+    it('lets a candidate browse the job, see their workbook-skill match, and apply', async () => {
+      await api().put('/me/candidate-profile').set(bearer(candidateTwo)).send({ full_name: 'Test Candidate Two' }).expect(200);
+      await api().put('/me/reference-skills').set(bearer(candidateTwo)).send({ ids: [skills[0].id] }).expect(200);
+      const listed = (await api().get('/jobs').set(bearer(candidateTwo)).expect(200)).body;
+      expect(listed.map((j: { id: string }) => j.id)).toContain(job);
+      const detail = (await api().get(`/jobs/${job}`).expect(200)).body;
+      expect(detail.organizations.name_en).toBe('Full journey');
+      expect(detail.job_reference_skills.map((s: { reference_skills: { id: string } }) => s.reference_skills.id).sort()).toEqual(skills.map((k) => k.id).sort());
+      const recommended = (await api().get('/me/dashboard').set(bearer(candidateTwo)).expect(200)).body.recommended.find((j: { id: string }) => j.id === job);
+      expect(recommended.match).toMatchObject({ total: 2, percentage: 50 });
+
+      application = (await api().post(`/jobs/${job}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
+      // A second click gets the same application.
+      expect((await api().post(`/jobs/${job}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id).toBe(application);
+      const mine = (await api().get('/me/applications').set(bearer(candidateTwo)).expect(200)).body.find((a: { id: string }) => a.id === application);
+      expect(mine).toMatchObject({ job_id: job, org_id: org, candidate_id: candidateTwo.id });
+      // The approved assessment was assigned at the moment of applying.
+      expect(mine.assessment_attempts).toHaveLength(1);
+      attempt = mine.assessment_attempts[0].id;
+    });
+
+    it('shows the candidate the instructions only, and saves their answers against the application', async () => {
+      const seen = (await api().get(`/experience/${orgSlug}/engineer/1`).set(bearer(candidateTwo)).expect(200)).body;
+      expect(JSON.stringify(seen)).not.toMatch(/rubric_criteria|answer_key|reference_skill_id/);
+      await api().post(`/attempts/${attempt}/start`).set(bearer(candidateTwo)).expect(201);
+      for (const t of seen.version.assessment_tasks) {
+        const answer = t.task_type === 'objective_questions' ? { choices: { q1: 'b', q2: 'a' } } : { text: `My approach: I would check the logs, isolate the failing service, fix it, and confirm with monitoring. Task ${t.position}.` };
+        await api().put(`/attempts/${attempt}/responses/${t.id}`).set(bearer(candidateTwo)).send({ answer }).expect(200);
+      }
+      await api().post(`/attempts/${attempt}/submit`).set(bearer(candidateTwo)).expect(201);
+    });
+
+    it('gives the employer the application, the answers and an evaluation against its own rubric, and nobody else', async () => {
+      const apps = (await api().get(`${base()}/applications`).set(bearer(ownerA)).expect(200)).body;
+      expect(apps.map((a: { id: string }) => a.id)).toContain(application);
+      await api().get(`${base()}/applications`).set(bearer(ownerB)).expect(403);
+
+      evaluation = (await api().post(`/attempts/${attempt}/evaluate`).set(bearer(ownerA)).expect(201)).body.id;
+      const full = (await api().get(`/attempts/${attempt}/evaluation`).set(bearer(ownerA)).expect(200)).body;
+      expect(full.task_responses.length).toBeGreaterThan(0);
+      // The answers and the evaluation belong to this application, for this job.
+      expect(full.application_id).toBe(application);
+      expect(full.applications.job_id).toBe(job);
+      expect(full.task_responses.every((r: { attempt_id: string }) => r.attempt_id === attempt)).toBe(true);
+      const scored = full.evaluation_results.criterion_scores as { criterion_id: string }[];
+      expect(scored.length).toBeGreaterThan(0);
+      await api().get(`/attempts/${attempt}/evaluation`).set(bearer(ownerB)).expect(404);
+      await api().get(`/attempts/${attempt}/evaluation`).set(bearer(candidateTwo)).expect(403);
+
+      const reviewed = (await api().post(`/evaluations/${evaluation}/review`).set(bearer(ownerA)).send({ scores: [], notes: 'Checked against the rubric' }).expect(201)).body;
+      expect(reviewed.status).toBe('reviewed');
+      await api().post(`/evaluations/${evaluation}/release`).set(bearer(ownerA)).expect(201);
+      const report = (await api().get(`/attempts/${attempt}/report`).set(bearer(candidateTwo)).expect(200)).body;
+      expect(JSON.stringify(report)).not.toContain('Checked against the rubric');
+      const mine = (await api().get('/me/applications').set(bearer(candidateTwo)).expect(200)).body.find((a: { id: string }) => a.id === application);
+      expect(mine.status).toBe('evaluated');
+    });
+  });
+
   describe('background queue', () => {
     it('refuses work queued for someone else, and queues the same work only once', async () => {
       const other = await signIn('CANDIDATE_TWO');

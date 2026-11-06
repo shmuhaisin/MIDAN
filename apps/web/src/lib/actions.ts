@@ -317,3 +317,39 @@ export async function removeRequirement(orgId: string, id: string) {
 export async function setTaskRequirements(orgId: string, taskId: string, requirementIds: string[]) {
   return result(() => api(`/organizations/${orgId}/assessment-tasks/${taskId}/requirements`, { method: 'PUT', body: { requirement_ids: requirementIds } }));
 }
+
+export async function analyzeJob(orgId: string, jobId: string) {
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/analyses`, { method: 'POST' }));
+}
+
+export async function acceptJobAnalysis(orgId: string, jobId: string, analysisId: string, skills: string[], required: string[], setSector: boolean) {
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/analyses/${analysisId}/accept`, { method: 'POST', body: { skills, required, set_sector: setSector } }));
+}
+
+export async function dismissJobAnalysis(orgId: string, jobId: string, analysisId: string) {
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/analyses/${analysisId}/dismiss`, { method: 'POST' }));
+}
+
+export async function addTask(orgId: string, versionId: string, _: FormState, form: FormData): Promise<FormState> {
+  const body = {
+    task_type: text(form, 'task_type'), title_ar: text(form, 'title_ar'), title_en: text(form, 'title_en'),
+    instructions_ar: text(form, 'instructions_ar'), instructions_en: text(form, 'instructions_en'),
+    criteria: [{ description_ar: text(form, 'criterion_ar'), description_en: text(form, 'criterion_en'), max_score: Number(form.get('max_score')) }],
+  };
+  if (!body.title_ar || !body.title_en || !body.instructions_ar || !body.instructions_en || !body.criteria[0].description_ar || !body.criteria[0].description_en) return { error: 'required' };
+  return result(() => api(`/organizations/${orgId}/assessment-versions/${versionId}/tasks`, { method: 'POST', body }));
+}
+
+export async function removeTask(orgId: string, taskId: string) {
+  return result(() => api(`/organizations/${orgId}/assessment-tasks/${taskId}`, { method: 'DELETE' }));
+}
+
+export async function addCriterion(orgId: string, taskId: string, _: FormState, form: FormData): Promise<FormState> {
+  const body = { description_ar: text(form, 'description_ar'), description_en: text(form, 'description_en'), max_score: Number(form.get('max_score')) };
+  if (!body.description_ar || !body.description_en || !(body.max_score > 0)) return { error: 'required' };
+  return result(() => api(`/organizations/${orgId}/assessment-tasks/${taskId}/criteria`, { method: 'POST', body }));
+}
+
+export async function removeCriterion(orgId: string, criterionId: string) {
+  return result(() => api(`/organizations/${orgId}/rubric-criteria/${criterionId}`, { method: 'DELETE' }));
+}
