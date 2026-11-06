@@ -66,7 +66,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         ))}
       </header>
 
-      {hiring && <HiringPanel orgId={orgId} applicationId={applicationId} interviews={hiring.interviews} outcomes={hiring.outcomes} canManage={canManage} />}
+      {hiring && <HiringPanel orgId={orgId} applicationId={applicationId} interviews={hiring.interviews} outcomes={hiring.outcomes} canManage={canManage} hired={data.status === 'hired'} />}
 
       {!profile && <p className="text-muted">{t('noProfile')}</p>}
       {profile?.summary && <p className="max-w-3xl leading-relaxed whitespace-pre-line">{profile.summary}</p>}

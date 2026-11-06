@@ -208,7 +208,9 @@ describe('Midan database foundation', () => {
 
       // Never by hand: the assessment stages, "evaluated", and hiring straight from submitted.
       for (const status of ['evaluated', 'assessment_submitted', 'hired']) await move(ownerA, status).expect(422);
-      await move(recruiterA, 'under_review').expect(200);
+      // Not a member yet: the roles tests below add this account to the organization.
+      await move(recruiterA, 'under_review').expect(404);
+      await move(ownerA, 'under_review').expect(200);
       await move(ownerA, 'submitted').expect(422);
       await move(ownerA, 'shortlisted').expect(200);
       // Straight to the table, the rules can't be stepped around: the application is still shortlisted afterwards.
@@ -290,6 +292,10 @@ describe('Midan database foundation', () => {
       expect(job.status).toBe(201);
       const promote = await rest(recruiterA, 'PATCH', `organization_members?user_id=eq.${recruiterA.id}&org_id=eq.${orgA}`, { role: 'owner' });
       expect(promote.body).toEqual([]);
+      const published = (await api().post(`/organizations/${orgA}/jobs`).set(bearer(recruiterA))
+        .send({ slug: `recruiter-decides-${RUN}`, title_ar: 'ق', title_en: 'Recruiter decides', status: 'published' }).expect(201)).body.id;
+      const applied = (await api().post(`/jobs/${published}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
+      await api().patch(`/applications/${applied}/status`).set(bearer(recruiterA)).send({ status: 'under_review' }).expect(200);
     });
 
     it('never leaves an organization without an owner', async () => {
@@ -1059,6 +1065,9 @@ describe('Midan database foundation', () => {
       const final = await api().get(`/me/applications/${application}`).set(bearer(candidateOne)).expect(200);
       expect(final.body.status).toBe('hired');
       expect(final.body.hiring_outcomes[0].outcome).toBe('hired');
+      // Hired is final here too: a later outcome can't quietly move the candidate to rejected.
+      await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'not_selected' }).expect(422);
+      expect((await api().get(`/me/applications/${application}`).set(bearer(candidateOne)).expect(200)).body.status).toBe('hired');
       expect((await rest(candidateTwo, 'GET', `hiring_outcomes?application_id=eq.${application}`)).body).toEqual([]);
       expect((await rest(candidateOne, 'POST', 'hiring_outcomes', { application_id: application, org_id: orgA, candidate_id: candidateOne.id, outcome: 'hired' })).status).not.toBe(201);
       expect((await api().get('/me/notifications').set(bearer(candidateOne))).body.map((n: { kind: string }) => n.kind)).toContain('hiring_decision');

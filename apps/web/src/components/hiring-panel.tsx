@@ -53,7 +53,7 @@ function InterviewRow({ orgId, interview, canManage }: { orgId: string; intervie
 }
 
 /** What the candidate journey needs from the organization side: scheduling a person-to-person interview and issuing a decision. */
-export function HiringPanel({ orgId, applicationId, interviews, outcomes, canManage }: { orgId: string; applicationId: string; interviews: Interview[]; outcomes: Outcome[]; canManage: boolean }) {
+export function HiringPanel({ orgId, applicationId, interviews, outcomes, canManage, hired }: { orgId: string; applicationId: string; interviews: Interview[]; outcomes: Outcome[]; canManage: boolean; hired: boolean }) {
   const t = useTranslations('hiring');
   const ta = useTranslations('application');
   const locale = useLocale();
@@ -115,7 +115,8 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
         {outcomes.length > 0 && (
           <ul className="mt-2 space-y-1">{outcomes.map((o) => <li key={o.id} className="text-sm"><span className="font-semibold">{ta(`outcome.${o.outcome}`)}</span> · {pick(locale, o.message_ar ?? '', o.message_en ?? '')}</li>)}</ul>
         )}
-        {canManage && (
+        {/* The database refuses another outcome once the candidate is hired. */}
+        {canManage && !hired && (
           <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={issue}>
             <label className="block sm:col-span-2">
               <span className="text-sm font-medium">{t('decision')}</span>
