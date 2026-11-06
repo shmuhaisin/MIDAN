@@ -13,6 +13,7 @@ for (const f of ['.env', '.env.test.local']) {
 const RUN = Date.now().toString(36);
 const SHOTS = process.env.SHOTS;
 const API = 'http://localhost:4000/v1';
+const NOT_FOUND = JSON.parse(readFileSync(resolve(__dirname, '../src/messages/en.json'), 'utf8')).notFound.title;
 
 async function session(who: string) {
   const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -253,7 +254,7 @@ test('registration data to career development: the whole candidate journey', asy
   await candidate.getByRole('button', { name: 'Save as a goal' }).first().click();
   const progress = candidate.getByRole('combobox', { name: /^Progress:/ }).first();
   await expect(progress).toBeVisible();
-  await progress.selectOption('completed');
+  await Promise.all([candidate.waitForResponse((r) => r.request().method() === 'POST'), progress.selectOption('completed')]);
   await candidate.reload();
   await expect(candidate.getByRole('combobox', { name: /^Progress:/ }).first()).toHaveValue('completed');
   await expect(candidate.getByText("doesn't verify a certificate")).toBeVisible();
@@ -297,8 +298,11 @@ test('another candidate cannot open what belongs to someone else', async ({ brow
 
   const stranger = await pageFor(browser, second);
   for (const path of [`/en/applications/${application.id}`, `/en/interviews/${interview.id}`]) {
-    const response = await stranger.goto(path);
-    expect(response?.status()).toBe(404);
+    // The loading screen means headers go out before the answer, so what counts is what the page shows.
+    await stranger.goto(path);
+    await expect(stranger.getByRole('heading', { level: 1 })).toHaveText(NOT_FOUND);
+    await expect(stranger.locator('main')).not.toContainText('Private Candidate');
+    await expect(stranger.locator('main')).not.toContainText('Midan Test Private');
   }
   const signedOut = await (await browser.newContext()).newPage();
   await signedOut.goto(`/en/interviews/${interview.id}`);

@@ -1,6 +1,6 @@
 # Handoff
 
-**Branch:** `feat/candidate-experience`, local and unmerged, on top of `feat/job-requirements-foundation`. `main` doesn't have this work, but the live database already has its migration. **Remote:** https://github.com/shmuhaisin/MIDAN (public).
+**Branch:** `candidate-portal`, on GitHub and unmerged. It includes the job requirements and several-assessments work it depends on. `main` doesn't have this work, but the live database already has its migration. **Remote:** https://github.com/shmuhaisin/MIDAN (public).
 
 ## What exists
 - `apps/web` (port 3100): public pages, role-aware auth, opportunities, candidate dashboard, profile, branded assessment experience, candidate report, organization dashboard, branding settings, job workspace, review.
@@ -17,9 +17,9 @@ Project `al-midan-ya-hamidan`, ref `squpszwbrqkflezfltoj`, region `eu-central-1`
 Not reachable with the available tools; needs the dashboard: custom SMTP, leaked password protection, Auth Site URL and redirect URLs. The owner chose to continue without SMTP for now, so confirmation email reaches only Supabase project team members, a few per hour. The default Site URL points at localhost:3000, which is a different app on this machine, so confirmation links land there until it's changed to port 3100.
 
 ## Tests that were run
-- API, live database, real AI service: 66 end-to-end, 7 for job requirements and 7 for several assessments. API unit: 7.
-- Browser (Playwright, live database): 17 journeys, including the whole flow from job to released report, the requirements flow, and two assessments on one job, and 6 character tests covering all 17 Humaidan scenarios by checking the actual image files. Forms against a local Auth stand-in: 6.
-- AI: 23, including interrupt and resume, bounded repair, deterministic scoring, invented evidence, prompt injection.
+- API, live database, real AI service: 80 end-to-end. API unit: 7.
+- Browser (Playwright, live database): 17 journeys, 4 candidate journey tests including the whole path from onboarding to career development, and 6 character tests. Forms against a local Auth stand-in: 9. The browser suites ran in batches, because long runs were interrupted when the machine slept.
+- AI: 85, including the CV privacy pipeline. Originally 23: including interrupt and resume, bounded repair, deterministic scoring, invented evidence, prompt injection.
 - Web: type check, production build, 7 unit tests.
 - By eye: job requirements and two assessments in Arabic, the candidate's assessment intro on a phone, profile, applicant profile, login, employer login, assessment screens (legal, technology on mobile), home, review, report.
 

@@ -71,10 +71,12 @@ test('the dashboard works for an account with no profile, no applications and no
 test('signed-out visitors can browse, and private pages send them to sign-in', async ({ page }) => {
   await page.goto('/ar/opportunities');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('فرص تثبت فيها عملك');
+  // With no genuine jobs the page says so, and demo jobs have their own labeled list.
+  await expect(page.getByText('لا توجد وظائف منشورة الآن')).toBeVisible();
+  await page.goto('/ar/opportunities?demo=1');
   await page.getByRole('searchbox').fill('لا يوجد شيء بهذا الاسم');
   await expect(page.getByText('ما لقيت شي بهذا البحث')).toBeVisible();
-  await page.getByRole('button', { name: 'مسح البحث' }).click();
-  await page.goto('/ar/opportunities?demo=1');
+  await page.getByRole('button', { name: 'مسح التصفية' }).last().click();
   await page.getByRole('link', { name: /محلل بيانات/ }).first().click();
   await expect(page.getByText('هذه وظيفة خيالية')).toBeVisible();
   await page.getByRole('link', { name: 'سجّل دخولك للتقديم' }).click();
@@ -140,7 +142,7 @@ test('organization and candidate complete a full hiring journey, isolated from a
 
   await candidate.goto('/en/opportunities');
   await candidate.getByRole('searchbox').fill(jobTitle);
-  await candidate.getByRole('link', { name: new RegExp(jobTitle) }).click();
+  await candidate.getByRole('link', { name: jobTitle, exact: true }).click();
   await applyFromJobPage(candidate);
   await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
 
@@ -455,7 +457,6 @@ test('a candidate builds a full profile and CV, and only the organization applie
   await candidate.getByLabel('Institution', { exact: true }).last().fill('Fictional University');
   await candidate.getByLabel('Qualification', { exact: true }).last().fill('BSc');
   await candidate.getByRole('group', { name: 'Education' }).getByLabel('Start year').last().fill('2015');
-  await candidate.getByRole('group', { name: 'Your skills' }).getByRole('checkbox', { name: 'Data analysis' }).check({ force: true });
 
   await candidate.getByRole('button', { name: 'Save profile' }).click();
   await expect(candidate.getByRole('alert').filter({ hasText: 'Check the years' })).toBeVisible();
@@ -464,6 +465,11 @@ test('a candidate builds a full profile and CV, and only the organization applie
   await experience.getByLabel('End year').last().fill('');
   await candidate.getByRole('button', { name: 'Save profile' }).click();
   await expect(candidate.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
+
+  await candidate.getByRole('searchbox', { name: 'Search for a skill' }).fill('تحليل البيانات');
+  await candidate.getByRole('button', { name: /تحليل البيانات/ }).first().click({ timeout: 20_000 });
+  await expect(candidate.getByRole('heading', { name: 'Your skills (1)' })).toBeVisible();
+  await expect(candidate.getByText('Saved', { exact: true }).last()).toBeVisible();
 
   await candidate.locator('input[type=file]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('x') });
   await expect(candidate.getByRole('alert').filter({ hasText: 'Upload a PDF or Word file' })).toBeVisible();
@@ -474,7 +480,7 @@ test('a candidate builds a full profile and CV, and only the organization applie
   await candidate.reload();
   await expect(candidate.getByLabel('Job title', { exact: true }).last()).toHaveValue('Junior Analyst');
   await expect(candidate.getByLabel('Institution', { exact: true }).last()).toHaveValue('Fictional University');
-  await expect(candidate.getByRole('checkbox', { name: 'Data analysis' })).toBeChecked();
+  await expect(candidate.getByRole('heading', { name: 'Your skills (1)' })).toBeVisible();
   await expect(candidate.getByText('You have a CV on file')).toBeVisible();
 
   await candidate.goto('/ar/profile');

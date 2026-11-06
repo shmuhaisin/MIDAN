@@ -83,6 +83,8 @@ async function createAssessment(who: string, org: { id: string }, slug: string, 
 
 /** The Humaidan files actually on the page, and proof they loaded. */
 async function shown(page: Page) {
+  // Pages stream behind a loading screen, so wait for the real content first.
+  await page.getByRole('heading', { level: 1 }).first().waitFor();
   await page.waitForLoadState('load');
   return page.evaluate(async () => {
     const images = [...document.images].filter((i) => /Humaidan/.test(decodeURIComponent(i.src)));

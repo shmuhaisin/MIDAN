@@ -1,4 +1,4 @@
-Continue building Midan (الميدان يا حميدان) from https://github.com/shmuhaisin/MIDAN on branch `feat/candidate-experience`, which builds on `feat/job-requirements-foundation`. Neither is merged. Don't change `main`, push or merge without the owner's approval. The master build prompt and the product correction brief from the project owner remain the source of truth; ask for them if they aren't in this conversation.
+Continue building Midan (الميدان يا حميدان) from https://github.com/shmuhaisin/MIDAN on branch `candidate-portal`, which isn't merged. Don't change `main`, push or merge without the owner's approval. The master build prompt and the product correction brief from the project owner remain the source of truth; ask for them if they aren't in this conversation.
 
 Read HANDOFF.md, PROJECT_STATUS.md, docs/DECISIONS.md and docs/database/README.md first. Don't redo what's marked Tested.
 

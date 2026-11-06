@@ -21,7 +21,7 @@ type Applicant = {
     candidate_reference_skills: { reference_skills: { id: string; name_ar: string } }[];
     candidate_profiles: null | {
       full_name: string; headline: string | null; city: string | null; summary: string | null; years_experience: string | null;
-      cv_path: string | null; experience: Experience[]; education: Education[];
+      cv_path: string | null; experience: Experience[]; education: Education[]; self_reported_skills?: string[];
     };
   };
 };
@@ -74,9 +74,10 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <section aria-labelledby="skills">
         <h2 id="skills" className="section-title">{t('skills')}</h2>
         <p className="mt-1 text-sm text-muted">{t('skillsNote')}</p>
-        {data.users.candidate_skills.length + data.users.candidate_reference_skills.length === 0 ? <p className="mt-3 text-muted">{t('none')}</p> : (
+        {data.users.candidate_skills.length + data.users.candidate_reference_skills.length + (profile?.self_reported_skills?.length ?? 0) === 0 ? <p className="mt-3 text-muted">{t('none')}</p> : (
           <ul className="mt-3 flex flex-wrap gap-2">
             {data.users.candidate_reference_skills.map((s) => <li key={s.reference_skills.id} className="rounded-full border border-border px-3 py-1 text-sm">{s.reference_skills.name_ar}</li>)}
+            {profile?.self_reported_skills?.map((name) => <li key={name} className="rounded-full border border-border px-3 py-1 text-sm"><bdi>{name}</bdi></li>)}
             {data.users.candidate_skills.map((s) => (
               <li key={s.skill_id} className={required.has(s.skill_id) ? 'rounded-full bg-accent px-3 py-1 text-sm font-medium text-accent-foreground' : 'rounded-full bg-surface-2 px-3 py-1 text-sm'}>
                 {pick(locale, s.skills.name_ar, s.skills.name_en)}
