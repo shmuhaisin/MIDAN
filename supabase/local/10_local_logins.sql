@@ -8,3 +8,7 @@ select encode(sha256(convert_to('local-dev-access', 'UTF8')), 'hex'), 'Local dev
 where not exists (
   select 1 from private.signup_access where code_hash = encode(sha256(convert_to('local-dev-access', 'UTF8')), 'hex')
 );
+-- The importer, which can only call the import functions (see scripts/import-data.mjs).
+alter role midan_importer login password 'midan-importer-local';
+-- The AI service's checkpoint login (LangGraph state only).
+alter role midan_ai login password 'midan-ai-local';

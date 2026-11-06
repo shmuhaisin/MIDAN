@@ -43,6 +43,19 @@ export class DbService extends PrismaClient implements OnModuleDestroy {
   }
 
   /**
+   * Only for claiming and settling background jobs. midan_worker can execute the queue functions and nothing else;
+   * the work itself then runs through asUser, as the person who queued it.
+   */
+  asWorker<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
+    return this.withRetry(() =>
+      this.$transaction(async (tx) => {
+        await tx.$queryRaw`select set_config('role', 'midan_worker', true), set_config('request.jwt.claims', '{"role":"midan_worker"}', true)`;
+        return work(tx);
+      }, TX_OPTIONS),
+    );
+  }
+
+  /**
    * The connection pooler occasionally stalls long enough for a transaction to expire. An expired
    * transaction has rolled back, so running it once more is safe. Keep transaction callbacks to
    * database work for this reason: calls to other services belong outside them.

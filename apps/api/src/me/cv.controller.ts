@@ -6,7 +6,8 @@ import { ArrayMaxSize, IsArray, IsInt, IsNotEmpty, IsNumber, IsOptional, IsStrin
 import { Prisma } from '@prisma/client';
 import { AiClient } from '../ai/ai.client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
-import { storageFetch } from '../common/storage';
+import { signedUrl } from '../common/storage';
+import { PermanentJobError } from '../jobs-queue/errors';
 import { AuthUser, DbService } from '../db/db.service';
 
 class ApprovedExperience {
@@ -76,40 +77,60 @@ export class CvController {
 
   constructor(private readonly db: DbService, private readonly ai: AiClient) {}
 
-  /** Runs after the response is sent, and its state is what the candidate polls. */
-  async run(user: AuthUser, token: string, analysisId: string, storagePath: string, knownNames: string[]) {
+  /**
+   * Runs from the background queue, as the candidate. The file arrives through a short-lived signed link made when the
+   * job was queued, so no session token is stored. Failures that retrying can fix are thrown; the rest are recorded.
+   */
+  async process(user: AuthUser, analysisId: string, fileUrl: string) {
     const finish = (data: Prisma.cv_analysesUpdateInput) =>
-      this.db.asUser(user, (tx) => tx.cv_analyses.update({ where: { id: analysisId }, data: { ...data, finished_at: new Date() } }));
-    try {
-      const file = await storageFetch(`object/authenticated/candidate-documents/${storagePath}`, token);
-      if (!file.ok) {
-        await finish({ status: 'failed', failure_code: 'file_unavailable' });
-        return;
-      }
-      const bytes = Buffer.from(await file.arrayBuffer());
-      const result = await this.ai.analyzeCv<AnalyzeResult>({ file_base64: bytes.toString('base64'), known_names: knownNames });
-      this.logger.log(`CV analysis ${analysisId}: ${result.status} ${result.code ?? ''} redactions=${Object.values(result.counts ?? {}).reduce((a, b) => a + b, 0)}`);
-      if (result.status === 'ok') {
-        await finish({ status: 'awaiting_review', mode: result.mode, personal: result.personal, professional: result.professional, redaction_counts: result.counts ?? {} });
-      } else {
-        await finish({ status: result.status, failure_code: result.code ?? 'analysis_failed', redaction_counts: result.counts ?? {} });
-      }
-    } catch {
-      this.logger.warn(`CV analysis ${analysisId}: the AI service was unavailable`);
-      await finish({ status: 'failed', failure_code: 'analysis_unavailable' }).catch(() => undefined);
+      this.db.asUser(user, (tx) => tx.cv_analyses.updateMany({ where: { id: analysisId, status: 'pending' }, data: { ...data, finished_at: new Date() } }));
+    const pending = await this.db.asUser(user, (tx) => tx.cv_analyses.findFirst({ where: { id: analysisId, status: 'pending' }, select: { id: true } }));
+    // Dismissed, or settled by an earlier attempt: nothing to do, and running it again would change nothing.
+    if (!pending) return { skipped: true };
+    const file = fileUrl ? await fetch(fileUrl).catch(() => null) : null;
+    if (!file) throw new Error('StorageUnavailable');
+    if (!file.ok) {
+      await finish({ status: 'failed', failure_code: 'file_unavailable' });
+      throw new PermanentJobError('file_unavailable');
     }
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const names = await this.knownNames(user);
+    // An unavailable AI service throws here, and the queue retries with a growing delay.
+    const result = await this.ai.analyzeCv<AnalyzeResult>({ file_base64: bytes.toString('base64'), known_names: names });
+    this.logger.log(`CV analysis ${analysisId}: ${result.status} ${result.code ?? ''} redactions=${Object.values(result.counts ?? {}).reduce((a, b) => a + b, 0)}`);
+    if (result.status === 'ok') {
+      await finish({ status: 'awaiting_review', mode: result.mode, personal: result.personal, professional: result.professional, redaction_counts: result.counts ?? {} });
+    } else {
+      await finish({ status: result.status, failure_code: result.code ?? 'analysis_failed', redaction_counts: result.counts ?? {} });
+    }
+    return { status: result.status };
   }
 
-  /** Starts the pipeline for a document. Used after an upload and for a retry. */
+  /** Called when the queue gives up, so the candidate sees a failure instead of a spinner. */
+  async markFailed(user: AuthUser, analysisId: string, code: string | null) {
+    await this.db.asUser(user, (tx) => tx.cv_analyses.updateMany({
+      where: { id: analysisId, status: 'pending' },
+      data: { status: 'failed', failure_code: code === 'file_unavailable' ? code : 'analysis_unavailable', finished_at: new Date() },
+    }));
+  }
+
+  /** Names the redaction step removes. Read when the job runs, so the queue never stores them. */
+  private async knownNames(user: AuthUser) {
+    const profile = await this.db.asUser(user, (tx) => tx.candidate_profiles.findUnique({ where: { user_id: user.id }, select: { full_name: true } }));
+    return [profile?.full_name ?? '', user.email.split('@')[0].replace(/[._\d-]+/g, ' ')].filter((n) => n.trim().length >= 3);
+  }
+
+  /** Starts the pipeline for a document: the analysis row first, then a queued job. Used after an upload and for a retry. */
   async start(user: AuthUser, token: string, documentId: string, storagePath: string) {
-    const { analysis, names } = await this.db.asUser(user, async (tx) => {
-      const profile = await tx.candidate_profiles.findUnique({ where: { user_id: user.id }, select: { full_name: true } });
-      return {
-        analysis: await tx.cv_analyses.create({ data: { document_id: documentId, candidate_id: user.id } }),
-        names: [profile?.full_name ?? '', user.email.split('@')[0].replace(/[._\d-]+/g, ' ')].filter((n) => n.trim().length >= 3),
-      };
-    });
-    void this.run(user, token, analysis.id, storagePath, names);
+    const analysis = await this.db.asUser(user, (tx) => tx.cv_analyses.create({ data: { document_id: documentId, candidate_id: user.id } }));
+    // Long enough for the queue's retries; a later retry from the candidate makes a fresh link.
+    const fileUrl = await signedUrl('candidate-documents', storagePath, token, 30 * 60);
+    if (!fileUrl) {
+      await this.markFailed(user, analysis.id, 'file_unavailable');
+      return { ...analysis, status: 'failed' };
+    }
+    await this.db.asUser(user, (tx) =>
+      tx.$queryRaw`select id from public.enqueue_background_job('cv_analysis', ${analysis.id}::uuid, ${JSON.stringify({ file_url: fileUrl })}::jsonb)`);
     return analysis;
   }
 

@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { AdminController, PlatformAdminGuard } from './admin/admin.controller';
 import { ApplicationsController } from './applications/applications.controller';
+import { BackgroundWorker } from './jobs-queue/worker';
 import { TokenThrottlerGuard } from './common/token-throttler.guard';
 import { AiClient } from './ai/ai.client';
 import { AssessmentsController } from './assessments/assessments.controller';
@@ -22,11 +24,11 @@ import { OrganizationsController } from './organizations/organizations.controlle
 
 @Module({
   imports: [DbModule, ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }])],
-  providers: [AiClient, DailyClient, CalendarClient, CvController, { provide: APP_GUARD, useClass: TokenThrottlerGuard }],
+  providers: [AiClient, DailyClient, CalendarClient, CvController, BackgroundWorker, PlatformAdminGuard, { provide: APP_GUARD, useClass: TokenThrottlerGuard }],
   controllers: [
     HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, MeController,
     AssessmentsController, AttemptsController, EvaluationsController, RequirementsController,
-    CandidateController, CvController, CareerController, ReferenceController, InterviewsController,
+    CandidateController, CvController, CareerController, ReferenceController, InterviewsController, AdminController,
   ],
 })
 export class AppModule {}
