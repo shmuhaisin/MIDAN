@@ -596,14 +596,13 @@ test('requirements: a job gets structured requirements, tasks measure them, and 
 
   await owner.getByRole('button', { name: 'Create assessment draft' }).click();
   await expect(owner.getByText('Version 1 · Draft')).toBeVisible({ timeout: 60_000 });
-  await expect(owner.getByText('0 of 2 required items are measured by a task')).toBeVisible();
-  await expect(owner.getByText('No task measures this yet').first()).toBeVisible();
-
-  await owner.getByRole('button', { name: /A case study from the role/ }).first().click();
-  await owner.getByRole('group', { name: 'Requirements this task measures' }).getByLabel('Analyze campaign performance').check();
-  await owner.getByRole('button', { name: 'Save links' }).click();
+  // The draft is built from the stated responsibility, so its case study already measures it. Experience is screened
+  // from the profile, not by a task, so it stays unmeasured.
   await expect(owner.getByText('1 of 2 required items are measured by a task')).toBeVisible();
   await expect(owner.getByText('Measured by:')).toBeVisible();
+  await expect(owner.getByText('No task measures this yet').first()).toBeVisible();
+  await owner.getByRole('button', { name: /A case study from the role/ }).first().click();
+  await expect(owner.getByRole('group', { name: 'Requirements this task measures' }).getByLabel('Analyze campaign performance')).toBeChecked();
 
   await owner.getByRole('button', { name: 'Approve and publish this version' }).click();
   await owner.getByRole('button', { name: 'Confirm publishing' }).click();

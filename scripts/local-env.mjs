@@ -63,6 +63,8 @@ for (const name of ACCOUNTS) {
 
   const signIn = await fetch(`${LOCAL.url}/auth/v1/token?grant_type=password`, { method: 'POST', headers, body: JSON.stringify({ email, password }) });
   if (signIn.ok) continue;
+  // The unverified fixture already exists if Auth says its email isn't confirmed.
+  if ((await signIn.json()).error_code === 'email_not_confirmed') continue;
   const signUp = await fetch(`${LOCAL.url}/auth/v1/signup`, {
     method: 'POST', headers,
     body: JSON.stringify({ email, password, data: { display_name: `Midan test: ${name}`, midan_test_access: 'local-dev-access' } }),
@@ -88,6 +90,13 @@ const { createRequire } = await import('node:module');
 const { Client } = createRequire(new URL('../apps/api/package.json', import.meta.url))('pg');
 const db = new Client({ connectionString: `postgresql://postgres@127.0.0.1:${process.env.LOCAL_PG_PORT ?? 54322}/midan` });
 await db.connect();
+// Organization test accounts carry account_type, which steers screens (not security), as on the hosted project.
+await db.query(`update auth.users set raw_user_meta_data = raw_user_meta_data || '{"account_type":"organization"}'
+  where email in ('midan.test.org-a-owner@example.com', 'midan.test.org-b-owner@example.com')`);
+// The recruiter fixture has no account type: it stands for an account with no profile and no organization of its own.
+await db.query(`update auth.users set raw_user_meta_data = raw_user_meta_data - 'account_type' where email = 'midan.test.org-a-recruiter@example.com'`);
+await db.query(`update auth.users set raw_user_meta_data = raw_user_meta_data || '{"account_type":"candidate"}'
+  where email in ('midan.test.candidate-one@example.com', 'midan.test.candidate-two@example.com')`);
 await db.query(`insert into private.platform_admins (user_id, note) select id, 'local test administrator' from public.users
   where email = 'midan.test.platform-admin@example.com' on conflict do nothing`);
 await db.end();

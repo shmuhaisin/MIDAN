@@ -70,10 +70,10 @@ cd services/ai && TEST_CHECKPOINT_DATABASE_URL=postgresql://midan_ai:midan-ai-lo
 ```
 
 ```bash
-CHROMIUM_PATH=/opt/pw-browsers/chromium npm run test:e2e -w @midan/web
+CHROMIUM_PATH=/opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell npm run test:e2e -w @midan/web
 ```
 
-`CHROMIUM_PATH` is only needed where Playwright's own browser download isn't available. After API tests, `scripts/local-db.sh psql -f supabase/test-cleanup.sql` removes their fixtures.
+`CHROMIUM_PATH` is only needed where Playwright's own browser download isn't available. Use a headless shell build: with full Chromium, off-screen lazy images never load and one character test waits forever. After API tests, `scripts/local-db.sh psql -f supabase/test-cleanup.sql` removes their fixtures.
 
 ## Local-only values
 
