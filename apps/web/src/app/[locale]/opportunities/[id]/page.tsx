@@ -9,7 +9,7 @@ import { getSession } from '@/lib/session';
 
 type Job = {
   id: string; status: string; title_ar: string; title_en: string; description_ar: string | null; description_en: string | null;
-  location: string | null; is_demo: boolean; organizations: { name_ar: string; name_en: string };
+  location: string | null; is_demo: boolean; organizations: { name_ar: string; name_en: string; employer_registry: { id: string; name_ar: string; name_en: string } | null };
   requirements_ar: string | null; requirements_en: string | null;
   employment_type: string | null; application_deadline: string | null; sector: string | null; experience_level: string | null; salary_min: string | null; salary_max: string | null;
   job_reference_skills: { is_required: boolean; reference_skills: { id: string; name_ar: string; description_ar: string | null } }[];
@@ -48,6 +48,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         {pick(locale, job.organizations.name_ar, job.organizations.name_en)}{job.location && ` · ${job.location}`}{job.employment_type && ` · ${t(`employment.${job.employment_type}`)}`}
       </Eyebrow>
       <h1 className="mt-2 page-title">{pick(locale, job.title_ar, job.title_en)}</h1>
+      {job.organizations.employer_registry && (
+        <p className="mt-2 text-sm">
+          <Link href={`/employers/${job.organizations.employer_registry.id}`} className="font-semibold text-primary underline underline-offset-4">{t('employerProfile')}</Link>
+        </p>
+      )}
       <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm font-medium text-muted">
         {job.sector && <li>{ts(job.sector)}</li>}
         {job.experience_level && <li>{t(`level.${job.experience_level}`)}</li>}

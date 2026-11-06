@@ -52,3 +52,7 @@ export async function searchReferenceSkills(q: string): Promise<{ id: string; na
     return [];
   }
 }
+
+export async function linkOrganizationEmployer(orgId: string, registryId: string | null) {
+  return run(() => api(`/admin/organizations/${orgId}/employer`, { method: 'POST', body: { registry_id: registryId } }));
+}

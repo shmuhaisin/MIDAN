@@ -324,6 +324,16 @@ test('normal views hold no test records, and an empty list is truthful', async (
   await expect(visitor.getByRole('listitem').filter({ has: visitor.getByRole('heading', { level: 2 }) })).toHaveCount(10);
   if (SHOTS) await visitor.screenshot({ path: `${SHOTS}/employers-ar.png`, fullPage: true });
 
+  // Search by an alias finds the entity and says it matched an alias, not the official name.
+  await visitor.getByRole('searchbox').or(visitor.getByLabel('ابحث في جهات العمل')).first().fill('سدايا');
+  await visitor.getByRole('button', { name: 'بحث' }).click();
+  await expect(visitor.getByText('يطابق الاسم «سدايا» (اسم متداول)')).toBeVisible();
+  await visitor.getByRole('link', { name: 'عرض الملف' }).click();
+  await expect(visitor.getByRole('heading', { level: 1 })).toContainText('سدايا');
+  await expect(visitor.getByText('ليست شريكًا لميدان').first()).toBeVisible();
+  await expect(visitor.getByText(/هوية ميدان المحايدة/)).toBeVisible();
+  await expect(visitor.getByText(/ALMIDAN_Employer_Database_10_Entities\.xlsx/)).toBeVisible();
+
   await visitor.goto('/ar/opportunities?demo=1');
   await expect(visitor.getByText('وظائف توضيحية')).toBeVisible();
   await expect(visitor.getByRole('link', { name: /محلل بيانات/ }).first()).toBeVisible();

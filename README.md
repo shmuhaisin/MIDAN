@@ -16,6 +16,8 @@ Current state: **core MVP workflows work with fictional data, in demo AI mode**.
 
 ## Run
 
+The whole stack, including the database, Auth and Storage, runs locally: see [docs/local-development.md](docs/local-development.md). Below is the shorter path against an already configured `.env`.
+
 Needs Node 20+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash

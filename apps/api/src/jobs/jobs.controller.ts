@@ -24,7 +24,13 @@ const PUBLIC_JOB = {
     orderBy: [{ requirement_type: 'asc' }, { position: 'asc' }],
     select: { id: true, requirement_type: true, description_ar: true, description_en: true, is_mandatory: true, min_years: true },
   },
-  organizations: { select: { id: true, slug: true, name_ar: true, name_en: true, is_demo: true } },
+  organizations: {
+    select: {
+      id: true, slug: true, name_ar: true, name_en: true, is_demo: true,
+      // The official registry entity this account was confirmed as, if any. Not a partnership.
+      employer_registry: { select: { id: true, source_company_id: true, name_ar: true, name_en: true, verification_status: true, partnership_status: true } },
+    },
+  },
 } satisfies Prisma.jobsSelect;
 
 @ApiTags('jobs')
@@ -40,12 +46,14 @@ export class JobsController {
     @Query('demo') demo?: string,
     @Query('q') q?: string, @Query('employer') employer?: string, @Query('location') location?: string, @Query('sector') sector?: string,
     @Query('employment_type') employmentType?: string, @Query('experience_level') experienceLevel?: string,
+    @Query('registry', new ParseUUIDPipe({ optional: true })) registry?: string,
   ) {
     const contains = (value: string) => ({ contains: value.slice(0, 100), mode: Prisma.QueryMode.insensitive });
     const where: Prisma.jobsWhereInput = {
       ...(demo === '1' ? { status: 'published', is_demo: true } : listableJobs(user?.email)),
       ...(q?.trim() && { OR: [{ title_ar: contains(q.trim()) }, { title_en: contains(q.trim()) }] }),
       ...(employer?.trim() && { organizations: { OR: [{ name_ar: contains(employer.trim()) }, { name_en: contains(employer.trim()) }] } }),
+      ...(registry && { organizations: { employer_registry_id: registry } }),
       ...(location?.trim() && { location: contains(location.trim()) }),
       ...(sector && { sector }),
       ...(employmentType && { employment_type: employmentType }),

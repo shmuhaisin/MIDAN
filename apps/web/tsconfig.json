@@ -37,7 +37,9 @@
     ".next-forms-on/types/**/*.ts",
     ".next-forms-on/dev/types/**/*.ts",
     ".next-forms-off/types/**/*.ts",
-    ".next-forms-off/dev/types/**/*.ts"
+    ".next-forms-off/dev/types/**/*.ts",
+    ".next-build/types/**/*.ts",
+    ".next-build/dev/types/**/*.ts"
   ],
   "exclude": [
     "e2e",

@@ -405,6 +405,7 @@ model employer_registry {
   import_runs           import_runs?            @relation(fields: [last_import_run_id], references: [id], onUpdate: NoAction)
   employer_sources      employer_sources[]
   external_job_listings external_job_listings[]
+  organizations         organizations?
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -817,6 +818,9 @@ model organizations {
   created_at                DateTime                    @default(now()) @db.Timestamptz(6)
   updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
   is_test                   Boolean                     @default(false)
+  employer_registry_id      String?                     @unique @db.Uuid
+  employer_linked_by        String?                     @db.Uuid
+  employer_linked_at        DateTime?                   @db.Timestamptz(6)
   ai_workflow_runs          ai_workflow_runs[]
   applications              applications[]
   assessment_attempts       assessment_attempts[]
@@ -835,6 +839,8 @@ model organizations {
   organization_branding     organization_branding?
   organization_invitations  organization_invitations[]
   organization_members      organization_members[]
+  users                     users?                      @relation(fields: [employer_linked_by], references: [id], onUpdate: NoAction)
+  employer_registry         employer_registry?          @relation(fields: [employer_registry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   rubric_criteria           rubric_criteria[]
   skill_scores              skill_scores[]
   task_requirement_mappings task_requirement_mappings[]
@@ -1083,6 +1089,7 @@ model users {
   notifications                                               notifications[]
   organization_invitations                                    organization_invitations[]
   organization_members                                        organization_members[]
+  organizations                                               organizations[]
   task_responses                                              task_responses[]
 }
 

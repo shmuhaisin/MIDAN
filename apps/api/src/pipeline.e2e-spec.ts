@@ -237,6 +237,80 @@ describe('Midan administration and data pipeline', () => {
     });
   });
 
+  describe('employer registry in the application', () => {
+    it('lists all ten prepared entities with their source IDs, and none as a partner', async () => {
+      const res = await api().get('/reference/employers').expect(200);
+      expect(res.body.map((e: { source_company_id: string }) => e.source_company_id)).toEqual(
+        ['ALM-001', 'ALM-002', 'ALM-003', 'ALM-004', 'ALM-005', 'ALM-006', 'ALM-007', 'ALM-008', 'ALM-009', 'ALM-010']);
+      expect(res.body.every((e: { partnership_status: string }) => e.partnership_status === 'not_partner')).toBe(true);
+      expect(res.body.find((e: { source_company_id: string }) => e.source_company_id === 'ALM-001')).toMatchObject({ name_ar: 'وزارة التجارة', name_en: 'Ministry of Commerce' });
+      // The fictional demo organizations never appear in the registry.
+      expect(JSON.stringify(res.body)).not.toMatch(/demo|تجريبية/i);
+    });
+
+    it('finds employers by official name, alias, spelling variant and company ID, and says which', async () => {
+      const search = async (q: string) => (await api().get(`/reference/employers?q=${encodeURIComponent(q)}`).expect(200)).body;
+      const [sdaia] = await search('سدايا');
+      expect(sdaia).toMatchObject({ source_company_id: 'ALM-006', match: { matched_by: 'alias', matched_text: 'سدايا', alias_status: 'common', exact: true } });
+      const [gea] = await search('هيئه الترفيه');
+      expect(gea).toMatchObject({ source_company_id: 'ALM-002', match: { matched_by: 'alias' } });
+      const [mof] = await search('Ministry of Finance');
+      expect(mof).toMatchObject({ source_company_id: 'ALM-009', match: { matched_by: 'official_name', exact: true } });
+      expect((await search('alm-004'))[0]).toMatchObject({ source_company_id: 'ALM-004', match: { matched_by: 'company_id' } });
+      expect((await search('Ministry')).map((e: { source_company_id: string }) => e.source_company_id).sort()).toEqual(['ALM-001', 'ALM-009']);
+      expect(await search('لا توجد جهة بهذا الاسم')).toEqual([]);
+    });
+
+    it('shows a profile as the source states it: aliases apart, brand neutral without permission, missing values missing', async () => {
+      const id = (await api().get('/reference/employers?q=ALM-004').expect(200)).body[0].id;
+      const p = (await api().get(`/reference/employers/${id}`).expect(200)).body;
+      expect(p).toMatchObject({ source_company_id: 'ALM-004', partnership_status: 'not_partner', verification_status: 'verified_official' });
+      expect(p.aliases).toEqual(expect.arrayContaining([
+        expect.objectContaining({ name_variant: 'بوابة الدرعية', alias_status: 'ambiguous_manual_review' }),
+        expect.objectContaining({ alias_status: 'official' }),
+      ]));
+      expect(p.brand).toMatchObject({ usable: false, usage_permission: 'permission_not_verified' });
+      expect(p.brand).not.toHaveProperty('logo_asset_url');
+      expect(p.lineage).toMatchObject({ source_sheet: 'Employers', source_row: 5 });
+      expect(p.lineage.source_file).toMatch(/\.xlsx$/);
+      expect(p.sources[0]).toMatchObject({ source_type: 'official_source', checked_on: '2026-11-05T00:00:00.000Z' });
+      const gea = (await api().get('/reference/employers?q=ALM-002').expect(200)).body[0];
+      expect(gea.career_url).toBeNull();
+      await api().get('/reference/employers/00000000-0000-0000-0000-000000000000').expect(404);
+    });
+
+    it('links an organization account to a registry entity only through a platform administrator, never for test or demo organizations', async () => {
+      const org = (await api().post('/organizations').set(bearer(ownerA)).send({ slug: `midan-test-link-${RUN}`, name_ar: 'ربط', name_en: 'Link' }).expect(201)).body.id;
+      const registry = (await api().get('/reference/employers?q=ALM-003').expect(200)).body[0].id;
+      expect((await rest(ownerA, 'PATCH', `organizations?id=eq.${org}`, { employer_registry_id: registry })).status).not.toBe(200);
+      await api().post(`/admin/organizations/${org}/employer`).set(bearer(ownerA)).send({ registry_id: registry }).expect(403);
+      // Test organizations can't be linked, so fixtures never attach to a real employer.
+      await api().post(`/admin/organizations/${org}/employer`).set(bearer(admin)).send({ registry_id: registry }).expect(422);
+    });
+
+    it('connects reviewed external listings to the employer profile and directory count', async () => {
+      const importer = new Client({ connectionString: IMPORTER });
+      await importer.connect();
+      const run = (await importer.query(`select private.begin_import('job_listings', '[]', 'e2e') as id`)).rows[0].id;
+      await importer.query('select private.import_listing_batch($1, $2, $3)', [run, 'employer_provided', JSON.stringify([{
+        source_job_id: `midan-test-${RUN}-employer`, employer_name_raw: 'سبكيم', job_title: 'وظيفة اختبار لملف الجهة', job_url: `https://example.com/midan-test/${RUN}/employer`,
+      }])]);
+      await importer.query(`select private.finish_import($1, '{}')`, [run]);
+      await importer.end();
+      const listing = (await api().get('/admin/listings').set(bearer(admin)).expect(200)).body.find((l: { source_job_id: string }) => l.source_job_id === `midan-test-${RUN}-employer`);
+      expect(listing).toMatchObject({ source_company_id: 'ALM-007', match_status: 'matched' });
+      const id = listing.registry_id;
+      expect((await api().get(`/reference/employers/${id}`).expect(200)).body.jobs).toEqual([]);
+      await api().post(`/admin/listings/${listing.id}/review`).set(bearer(admin)).send({ action: 'approve' }).expect(201);
+      await api().post(`/admin/listings/${listing.id}/review`).set(bearer(admin)).send({ action: 'publish' }).expect(201);
+      const jobs = (await api().get(`/reference/employers/${id}`).expect(200)).body.jobs;
+      expect(jobs).toEqual([expect.objectContaining({ kind: 'external', id: listing.id, title_original: 'وظيفة اختبار لملف الجهة' })]);
+      const listed = (await api().get('/reference/employers?q=ALM-007').expect(200)).body[0];
+      expect(listed.open_jobs).toBe(1);
+      await api().post(`/admin/listings/${listing.id}/review`).set(bearer(admin)).send({ action: 'unpublish' }).expect(201);
+    });
+  });
+
   describe('job analysis', () => {
     let org: string, job: string;
     it('proposes reference skills with the words that matched, and changes nothing until accepted', async () => {
@@ -314,6 +388,27 @@ describe('Midan administration and data pipeline', () => {
       await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(ownerA)).send(task).expect(422);
       const view = await api().get(`${base()}/jobs/${job}/assessment`).set(bearer(ownerA)).expect(200);
       await api().delete(`${base()}/assessment-tasks/${view.body.version.assessment_tasks[0].id}`).set(bearer(ownerA)).expect(422);
+    });
+  });
+
+  describe('the seven sector workbooks in matching', () => {
+    const SECTORS = ['construction_real_estate', 'culture_entertainment', 'digital', 'financial_services', 'manufacturing', 'tourism_hospitality', 'wholesale_retail'];
+
+    it('classifies a job to the sector whose workbook names its skills, for every one of the seven', async () => {
+      const org = (await api().post('/organizations').set(bearer(ownerA)).send({ slug: `midan-test-sectors-${RUN}`, name_ar: 'قطاعات', name_en: 'Sectors' }).expect(201)).body.id;
+      for (const [i, sector] of SECTORS.entries()) {
+        const candidates = (await rest(null, 'GET', `reference_skills?sector_code=eq.${sector}&skill_kind=eq.technical&name_search=like.*${encodeURIComponent(' ')}*&select=name_ar,name_search&order=name_ar&limit=40`)).body as { name_ar: string; name_search: string }[];
+        const elsewhere = new Set((await rest(null, 'GET', `reference_skills?sector_code=neq.${sector}&name_search=in.(${candidates.map((c) => `"${encodeURIComponent(c.name_search)}"`).join(',')})&select=name_search`)).body
+          .map((r: { name_search: string }) => r.name_search));
+        const unique = candidates.filter((c) => !elsewhere.has(c.name_search)).slice(0, 3);
+        expect(unique).toHaveLength(3);
+        const job = (await api().post(`/organizations/${org}/jobs`).set(bearer(ownerA)).send({ slug: `sector-${i}`, title_ar: 'وظيفة', title_en: 'Job' }).expect(201)).body.id;
+        await api().patch(`/organizations/${org}/jobs/${job}`).set(bearer(ownerA)).send({ description_ar: unique.map((u) => u.name_ar).join('، ') }).expect(200);
+        const analysis = (await api().post(`/organizations/${org}/jobs/${job}/analyses`).set(bearer(ownerA)).expect(201)).body;
+        expect([sector, analysis.sector_code]).toEqual([sector, sector]);
+        expect(analysis.job_family_ar).toBeTruthy();
+        expect(analysis.proposals.filter((p: { basis: string }) => p.basis === 'mentioned').length).toBeGreaterThanOrEqual(3);
+      }
     });
   });
 

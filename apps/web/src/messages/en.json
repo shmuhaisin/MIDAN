@@ -586,7 +586,8 @@
     "employerWithJobs": "Employers with published jobs",
     "clearFilters": "Clear filters",
     "viewDetails": "Details",
-    "viewDetailsOf": "Details of {job}"
+    "viewDetailsOf": "Details of {job}",
+    "employerProfile": "Employer profile"
   },
   "dashboard": {
     "hello": "Welcome, {name}",
@@ -1420,14 +1421,74 @@
   },
   "employers": {
     "title": "Employer directory",
-    "lead": "Saudi employers with links to their official pages. Being listed doesn't mean a partnership with Midan or jobs published here.",
+    "lead": "The official employer registry: Saudi entities with their official names, aliases and sources. Being listed doesn't mean a partnership with Midan or jobs published here.",
     "jobs": "Published jobs",
     "careers": "Careers page",
     "website": "Official website",
     "status": {
       "verified_official": "Official source verified",
-      "pending_live_verification": "Being verified"
-    }
+      "pending_live_verification": "Awaiting live verification"
+    },
+    "searchLabel": "Search employers",
+    "searchPlaceholder": "Name, alias or company ID",
+    "search": "Search",
+    "clear": "Clear",
+    "count": "{count} employers",
+    "resultCount": "{count} results for “{q}”",
+    "noneTitle": "No employer matches",
+    "noneBody": "Try the official name, a common name or the company ID.",
+    "matchedName": "Matches the official name",
+    "matchedAlias": "Matches the alias “{alias}” ({status})",
+    "matchedId": "Matches company ID {id}",
+    "alsoKnownAs": "Also known as",
+    "openJobs": "Open opportunities: {count}",
+    "profile": "View profile",
+    "partnership": {
+      "not_partner": "Not a Midan partner",
+      "partner": "Midan partner"
+    },
+    "aliasStatus": {
+      "official": "Official name",
+      "common": "Common name",
+      "admin_confirmed": "Confirmed by Midan",
+      "ambiguous_manual_review": "Ambiguous: under review",
+      "common_manual_review": "Common name: under review"
+    },
+    "back": "All employers",
+    "notProvided": "Not provided in the source",
+    "identityNote": "This is an identity record from the official registry. It doesn't mean a partnership, an account on Midan or open jobs.",
+    "identity": "Identity",
+    "officialNameAr": "Official name (Arabic)",
+    "officialNameEn": "Official name (English)",
+    "entityType": "Entity type",
+    "sector": "Sector",
+    "verificationSource": "Verification source",
+    "sourceNotes": "Notes in the source",
+    "statedInEnglish": "Entity type, sector and notes are shown as the source states them.",
+    "names": "Official names and aliases",
+    "namesLead": "Aliases are other names people use. They are kept apart from the official name, with the status the source gives them.",
+    "brand": "Brand identity",
+    "brandUsable": "The source establishes permission to use this employer's brand.",
+    "brandNeutral": "Shown in Midan's neutral identity: the source doesn't establish permission to use this employer's logo, colors or fonts.",
+    "identityStatus": "Brand assets",
+    "usagePermission": "Usage permission",
+    "brandNotes": "Brand notes in the source",
+    "brandStatus": {
+      "not_verified": "Not verified",
+      "verified": "Verified",
+      "permission_not_verified": "Permission not verified",
+      "permission_verified": "Permission verified"
+    },
+    "opportunities": "Opportunities",
+    "noJobs": "No opportunities connected to this employer on Midan right now. That doesn't mean the employer has no vacancies.",
+    "viewJob": "View job",
+    "onSource": "On {source}",
+    "sources": "Sources",
+    "checkedOn": "checked {date}",
+    "sourceType": {
+      "official_source": "Official source"
+    },
+    "lineage": "Source: {file}, sheet {sheet}, row {row} ({id})."
   },
   "admin": {
     "eyebrow": "Platform administration",
@@ -1751,7 +1812,11 @@
       "demo": "Demo",
       "real": "Real",
       "members": "Members",
-      "jobs": "Published / all jobs"
+      "jobs": "Published / all jobs",
+      "employerLink": "Registry employer",
+      "noLink": "Not linked",
+      "link": "Save link",
+      "linkLead": "Link a real organization account to the registry entity it is, after checking. This never makes it a partner."
     },
     "queue": {
       "title": "Background jobs",

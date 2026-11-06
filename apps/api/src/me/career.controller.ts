@@ -48,17 +48,69 @@ export class ReferenceController {
   }
 
   @Get('employers')
-  @ApiOperation({ summary: 'The employer reference directory. An entry is an identity record: not a partner, an account or a source of vacancies.' })
-  employers() {
-    return this.db.asAnon((tx) =>
-      tx.employer_registry.findMany({
+  @ApiOperation({
+    summary: 'The official employer registry, with search by official name, alias or company ID.',
+    description: 'An entry is an identity record: not a partner, an account or a source of vacancies. With q, each result says whether it matched an official name, an alias (with the status the source gives the alias) or the company ID.',
+  })
+  async employers(@Query('q') q?: string) {
+    const text = q?.trim().slice(0, 100) ?? '';
+    return this.db.asAnon(async (tx) => {
+      const hits = text ? await tx.$queryRaw<{ registry_id: string; matched_by: string; matched_text: string; alias_status: string | null; exact: boolean }[]>`
+        select * from public.search_employers(${text})` : null;
+      const rows = await tx.employer_registry.findMany({
+        where: hits ? { id: { in: hits.map((h) => h.registry_id) } } : undefined,
         orderBy: { source_company_id: 'asc' },
         select: {
-          id: true, name_ar: true, name_en: true, entity_type: true, sector: true, official_website: true, career_url: true, verification_status: true,
-          employer_aliases: { select: { name_variant: true } },
+          id: true, source_company_id: true, name_ar: true, name_en: true, entity_type: true, sector: true, official_website: true, career_url: true,
+          verification_status: true, partnership_status: true,
+          employer_aliases: { select: { name_variant: true, language: true, alias_status: true }, orderBy: { name_variant: 'asc' } },
         },
-      }),
-    );
+      });
+      const counts = await tx.$queryRaw<{ registry_id: string; n: number }[]>`
+        select e.id as registry_id, (select count(*)::int from public.employer_jobs(e.id)) as n from public.employer_registry e`;
+      const open = new Map(counts.map((c) => [c.registry_id, c.n]));
+      const why = new Map((hits ?? []).map((h) => [h.registry_id, h]));
+      const withJobs = rows.map((r) => ({ ...r, open_jobs: open.get(r.id) ?? 0, match: why.get(r.id) ?? null }));
+      // Exact matches first, then official names before aliases.
+      return hits ? withJobs.sort((a, b) => Number(b.match!.exact) - Number(a.match!.exact) || Number(b.match!.matched_by === 'official_name') - Number(a.match!.matched_by === 'official_name')) : withJobs;
+    });
+  }
+
+  @Get('employers/:id')
+  @ApiOperation({
+    summary: "One employer's profile, as the official registry states it.",
+    description: 'Identity, verification and partnership as the source states them, aliases kept apart from official names, sources with the date they were checked, where each value came from, and the opportunities connected to the employer. Brand assets are returned only when the source establishes permission to use them.',
+  })
+  employer(@Param('id', ParseUUIDPipe) id: string) {
+    return this.db.asAnon(async (tx) => {
+      const e = await tx.employer_registry.findUnique({
+        where: { id },
+        include: {
+          employer_aliases: { select: { name_variant: true, language: true, alias_status: true, source_row: true, added_by: true }, orderBy: { name_variant: 'asc' } },
+          employer_sources: { select: { source_url: true, source_type: true, checked_on: true, source_row: true }, orderBy: { source_url: 'asc' } },
+        },
+      });
+      if (!e) throw new NotFoundException();
+      const jobs = await tx.$queryRaw`select * from public.employer_jobs(${id}::uuid)`;
+      const usable = e.usage_permission === 'permission_verified' && e.identity_status === 'verified';
+      return {
+        id: e.id, source_company_id: e.source_company_id, name_ar: e.name_ar, name_en: e.name_en, entity_type: e.entity_type, sector: e.sector,
+        official_website: e.official_website, career_url: e.career_url, verification_status: e.verification_status, verification_source: e.verification_source,
+        partnership_status: e.partnership_status, notes: e.notes,
+        brand: {
+          usable, identity_status: e.identity_status, usage_permission: e.usage_permission, notes: e.brand_notes,
+          // Logos, colors and fonts only with established permission. Otherwise screens use Midan's neutral identity.
+          ...(usable && { logo_asset_url: e.brand_logo_asset_url, primary_hex: e.brand_primary_hex, secondary_hex: e.brand_secondary_hex, official_font: e.brand_official_font }),
+        },
+        aliases: e.employer_aliases.map(({ added_by, ...a }) => ({ ...a, added_by_admin: Boolean(added_by) })),
+        sources: e.employer_sources,
+        lineage: {
+          source_file: e.source_file, source_sheet: e.source_sheet, source_row: e.source_row, brand_source_row: e.brand_source_row,
+          imported_at: e.updated_at ?? e.created_at,
+        },
+        jobs,
+      };
+    });
   }
 
   @Get('job-families')

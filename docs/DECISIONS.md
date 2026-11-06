@@ -1,5 +1,17 @@
 # Decisions
 
+**2026-11-06: An organization account is linked to the employer registry only by a platform administrator.** A registry entry is an identity record. Letting any organization claim "I am the Ministry of Commerce" would put an official name on unverified jobs. Demo and test organizations can never be linked. Linking never sets partnership status, which changes only through a new import of the source workbook.
+
+**2026-11-06: Employer brand assets are shown only with established permission.** The workbook marks every brand profile `permission_not_verified`, so all ten profiles use Midan's neutral identity, and the API doesn't return logo, color or font fields until the source says otherwise.
+
+**2026-11-06: Aliases the source marks for review never match automatically.** "بوابة الدرعية" is marked ambiguous (the workbook warns not to confuse the authority with Diriyah Company), and "هيئة البحر الأحمر" is marked for review. An exact hit on either is an uncertain match that a person confirms.
+
+**2026-11-06: Imports run as their own role and record every row.** `midan_importer` can only call the import functions. Runs, sheets, rows, raw values and issues are kept in `import_runs` and `import_records`, replacing the temporary grant the first import needed.
+
+**2026-11-06: Long-running work goes through a Postgres queue, and the worker acts as the person who queued it.** `midan_worker` can only claim and settle jobs. The work runs through `asUser`, so row security applies. CV files reach the worker through a 30-minute signed link, never a stored session token.
+
+**2026-11-06: The whole stack runs locally without Docker.** PostgreSQL 16 with a small Supabase compatibility layer, the real Supabase Auth and PostgREST binaries, and a local Storage implementation that writes rows as the caller so the storage policies decide. See docs/local-development.md.
+
 **2026-11-06: Fixtures stay in the shared database, marked by it, and listings exclude them.** A separate test database would be cleaner, and should come before real users. Until then the mark is set by a trigger, not by name, and enforced in backend queries.
 
 **2026-11-06: A direct link to a test job still opens.** Only listings filter. Tests use those links signed out, and a fixture's address can't be discovered from a normal view.

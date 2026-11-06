@@ -193,7 +193,7 @@ begin
     v_status := case
       when v_old.id is null then 'imported'
       when v_old.description_ar is not distinct from r ->> 'description_ar' and v_old.is_priority is not distinct from (r ->> 'is_priority')::boolean
-        and v_old.source_sheet = r ->> 'source_sheet' and v_old.source_row = (r ->> 'source_row')::integer
+        and v_old.source_file = r ->> 'source_file' and v_old.source_sheet = r ->> 'source_sheet' and v_old.source_row = (r ->> 'source_row')::integer
         and v_old.listed_subsectors = array(select jsonb_array_elements_text(coalesce(r -> 'listed_subsectors', '[]')))
         and v_old.priority_listed = coalesce((r ->> 'priority_listed')::boolean, false) then 'unchanged'
       else 'updated' end;
@@ -242,7 +242,7 @@ begin
     returning id into v_id;
     v_status := case
       when v_old.id is null then 'imported'
-      when v_old.source_value is not distinct from r -> 'source_value' and v_old.identity_status is not distinct from r ->> 'identity_status'
+      when v_old.source_value is not distinct from r -> 'source_value' and v_old.source_file = r ->> 'source_file' and v_old.identity_status is not distinct from r ->> 'identity_status'
         and v_old.usage_permission is not distinct from r ->> 'usage_permission' and v_old.brand_notes is not distinct from r -> 'brand' ->> 'notes' then 'unchanged'
       else 'updated' end;
     perform private.record_import(p_run, 'employer', r ->> 'source_file', r ->> 'source_sheet', (r ->> 'source_row')::integer,

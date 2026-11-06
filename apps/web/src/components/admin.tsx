@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useState, useTransition } from 'react';
 import { Link, usePathname } from '@/i18n/navigation';
 import {
-  addEmployerAlias, addLearningResource, resolveImportRecord, retryBackgroundJob, reviewListing, searchReferenceSkills, setPlatformAdmin,
+  addEmployerAlias, addLearningResource, linkOrganizationEmployer, resolveImportRecord, retryBackgroundJob, reviewListing, searchReferenceSkills, setPlatformAdmin,
 } from '@/lib/admin-actions';
 import { ErrorText, INPUT, PRIMARY, useAction } from './forms';
 
@@ -222,6 +222,25 @@ export function ResourceForm() {
       <ErrorText code={error} />
       {saved && <p role="status" className="text-sm font-semibold text-primary">{t('saved')}</p>}
       <button type="submit" disabled={pending} className={PRIMARY}>{t('save')}</button>
+    </form>
+  );
+}
+
+export function EmployerLinkForm({ orgId, current, employers }: { orgId: string; current: string | null; employers: { id: string; source_company_id: string; name_ar: string; name_en: string }[] }) {
+  const t = useTranslations('admin.accounts');
+  const [value, setValue] = useState(current ?? '');
+  const { pending, error, fire } = useAction(() => linkOrganizationEmployer(orgId, value || null));
+  return (
+    <form className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); fire(); }}>
+      <label className="min-w-0 max-w-full">
+        <span className="sr-only">{t('employerLink')}</span>
+        <select value={value} onChange={(e) => setValue(e.target.value)} className="h-9 w-full min-w-0 max-w-64 truncate rounded-lg border border-border bg-surface px-2 text-sm">
+          <option value="">{t('noLink')}</option>
+          {employers.map((e) => <option key={e.id} value={e.id}>{e.source_company_id} · {e.name_ar}</option>)}
+        </select>
+      </label>
+      <button type="submit" disabled={pending || value === (current ?? '')} className="text-sm font-semibold text-primary underline underline-offset-4 disabled:opacity-50">{t('link')}</button>
+      <ErrorText code={error} />
     </form>
   );
 }

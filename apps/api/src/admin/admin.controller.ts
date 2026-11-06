@@ -36,6 +36,10 @@ class AdminDto {
   @ApiProperty() @IsEmail() email!: string;
   @ApiProperty() @IsBoolean() grant!: boolean;
 }
+class EmployerLinkDto {
+  @ApiPropertyOptional({ nullable: true, description: 'The registry entity this organization account is, or null to remove the link.' })
+  @IsOptional() @IsUUID() registry_id?: string | null;
+}
 class ResourceDto {
   @ApiProperty({ enum: ['course', 'certification'] }) @IsIn(['course', 'certification']) kind!: 'course' | 'certification';
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(300) title_ar?: string;
@@ -153,11 +157,21 @@ export class AdminController {
   @Get('organizations')
   organizations(@CurrentUser() user: AuthUser) {
     return this.db.asUser(user, (tx) => tx.$queryRaw`
-      select o.id, o.slug, o.name_ar, o.name_en, o.is_demo, o.is_test, o.created_at,
+      select o.id, o.slug, o.name_ar, o.name_en, o.is_demo, o.is_test, o.created_at, o.employer_registry_id,
+        (select e.source_company_id from public.employer_registry e where e.id = o.employer_registry_id) as employer_company_id,
         (select count(*)::int from public.organization_members m where m.org_id = o.id) as members,
         (select count(*)::int from public.jobs j where j.org_id = o.id) as jobs,
         (select count(*)::int from public.jobs j where j.org_id = o.id and j.status = 'published') as published_jobs
       from public.organizations o order by o.is_test, o.created_at desc limit 500`);
+  }
+
+  @Post('organizations/:id/employer')
+  @ApiOperation({ summary: 'Confirms an organization account as one official registry entity, after a person has checked it. Never a partnership.' })
+  linkEmployer(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() body: EmployerLinkDto) {
+    return this.db.asUser(user, async (tx) => {
+      const [row] = await tx.$queryRaw<unknown[]>`select * from public.admin_link_organization_employer(${id}::uuid, ${body.registry_id ?? null}::uuid)`;
+      return row;
+    });
   }
 
   @Get('users')
