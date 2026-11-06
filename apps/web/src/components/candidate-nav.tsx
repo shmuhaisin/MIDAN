@@ -11,7 +11,7 @@ const OWNS = { '/dashboard': ['/dashboard', '/applications', '/interviews', '/re
 export function CandidateNav({ unread = 0 }: { unread?: number }) {
   const t = useTranslations('candidateNav');
   const pathname = usePathname();
-  if (pathname.startsWith('/experience') || pathname.startsWith('/onboarding') || pathname.startsWith('/organization')) return null;
+  if (pathname.startsWith('/experience') || pathname.startsWith('/onboarding') || pathname.startsWith('/organization') || pathname.startsWith('/admin')) return null;
   const isCurrent = (href: string) => (OWNS[href] ?? [href]).some((p) => pathname === p || pathname.startsWith(`${p}/`));
   return (
     <nav aria-label={t('label')} className="border-b border-border">

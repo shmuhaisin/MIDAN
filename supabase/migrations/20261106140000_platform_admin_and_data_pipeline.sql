@@ -385,6 +385,7 @@ create trigger guard_external_listing before insert or update on public.external
  *   1.000  the source gave a company_id that exists, and the name agrees with that entity
  *   1.000  exact name, or an alias the workbook marks official
  *   0.900  an alias the workbook marks common, or one an administrator confirmed
+ *   0.600  an alias the workbook marks for manual review or as ambiguous (uncertain: a person decides)
  *   0.600  one entity whose name contains, or is contained in, the collected name (uncertain)
  *   0.400  several entities match that way (uncertain)
  * Names are compared after public.normalize_arabic, and English names case-insensitively.
@@ -420,11 +421,18 @@ begin
   if v_hit.id is null then
     select a.registry_id as id, 'alias_' || a.alias_status as rule, a.name_variant as matched into v_hit from public.employer_aliases a
     where public.normalize_arabic(a.name_variant) = n or lower(a.name_variant) = lower(trim(p_name))
-    order by (a.alias_status = 'official') desc limit 1;
+    order by (a.alias_status = 'official') desc, (a.alias_status in ('common', 'admin_confirmed')) desc limit 1;
   end if;
   if v_hit.id is not null then
-    return query select v_hit.id, (case when v_hit.rule in ('official_name', 'alias_official') then 1.000 else 0.900 end)::numeric, 'matched',
-      jsonb_build_object('rule', v_hit.rule, 'matched_text', v_hit.matched);
+    if v_hit.rule in ('official_name', 'alias_official', 'alias_common', 'alias_admin_confirmed') then
+      return query select v_hit.id, (case when v_hit.rule in ('official_name', 'alias_official') then 1.000 else 0.900 end)::numeric, 'matched',
+        jsonb_build_object('rule', v_hit.rule, 'matched_text', v_hit.matched);
+    else
+      -- The source itself says this name needs a person, for example a name two different entities share.
+      return query select v_hit.id, 0.600::numeric, 'uncertain',
+        jsonb_build_object('rule', 'alias_needs_review', 'alias_status', substr(v_hit.rule, 7), 'matched_text', v_hit.matched,
+          'candidates', (select jsonb_agg(jsonb_build_object('id', c.id, 'name_ar', c.name_ar, 'name_en', c.name_en)) from public.employer_registry c where c.id = v_hit.id));
+    end if;
     return;
   end if;
 

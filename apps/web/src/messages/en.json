@@ -494,7 +494,8 @@
     "invalid_years": "Check the years: an end year can't be before its start year.",
     "google_failed": "Signing in with Google didn't finish. Try again.",
     "same_password": "Choose a password different from your current one.",
-    "reset_link_invalid": "This link isn't valid or has expired. Request a new one."
+    "reset_link_invalid": "This link isn't valid or has expired. Request a new one.",
+    "https_only": "Use a link that starts with https://."
   },
   "applicationStatus": {
     "submitted": "Submitted",
@@ -1426,6 +1427,373 @@
     "status": {
       "verified_official": "Official source verified",
       "pending_live_verification": "Being verified"
+    }
+  },
+  "admin": {
+    "eyebrow": "Platform administration",
+    "title": "Administration",
+    "nav": {
+      "label": "Administration sections",
+      "overview": "Overview",
+      "review": "Review",
+      "imports": "Imports",
+      "employers": "Employers",
+      "listings": "Job listings",
+      "reference": "Skills reference",
+      "learning": "Learning catalog",
+      "accounts": "Accounts",
+      "queue": "Background jobs",
+      "audit": "Audit log"
+    },
+    "overview": {
+      "counts": {
+        "openReview": "Items waiting for review",
+        "listingsPending": "Listings waiting for review",
+        "uncertainMatches": "Uncertain employer matches",
+        "failedJobs": "Failed background jobs",
+        "failedImports": "Failed imports",
+        "employers": "Employers in the registry",
+        "referenceSkills": "Reference skills",
+        "externalListings": "External listings",
+        "learningResources": "Learning catalog entries",
+        "users": "Accounts",
+        "organizations": "Organizations",
+        "publishedJobs": "Published jobs",
+        "importRuns": "Import runs",
+        "testOrganizations": "Test organizations"
+      },
+      "integrations": "Integrations",
+      "integrationsLead": "Configured means credentials are present on this server. It doesn't mean a real call has been verified.",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "unreachable": "Unreachable",
+      "ai": "AI service",
+      "aiMode": {
+        "live": "Live model",
+        "demo": "Demo mode: no AI model"
+      },
+      "daily": "Daily video interviews",
+      "calendar": "Google Calendar",
+      "email": "Email",
+      "emailState": "In-app notifications only",
+      "worker": "Background worker"
+    },
+    "imports": {
+      "title": "Import runs",
+      "lead": "Every import of the official data, with its source files, every sheet and how it was handled, and each row's status. Imports run from the command line with scripts/import-data.mjs; the workbooks stay out of the repository.",
+      "empty": "No imports yet.",
+      "kind": "Import",
+      "status": "Status",
+      "sources": "Files",
+      "counts": "Records",
+      "startedBy": "Started by",
+      "when": "When",
+      "noRows": "No rows",
+      "back": "All imports",
+      "kinds": {
+        "sector_skills": "Sector skills",
+        "employer_registry": "Employer registry",
+        "job_listings": "Job listings"
+      },
+      "statuses": {
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "recordStatus": {
+        "imported": "Imported",
+        "updated": "Updated",
+        "unchanged": "Unchanged",
+        "duplicate": "Duplicate",
+        "rejected": "Rejected",
+        "ambiguous": "Needs review",
+        "warning": "Warning"
+      },
+      "groups": {
+        "by_status": "By status",
+        "by_entity": "By record type",
+        "issues": "Issues found"
+      },
+      "issues": {
+        "duplicate_row": "Repeated row",
+        "duplicate_in_run": "Repeated in this import",
+        "matrix_only_skill": "Only in a sub-sector sheet",
+        "near_duplicate_name": "Near-identical spelling",
+        "stated_count_mismatch": "Stated total differs",
+        "description_without_listing": "Description for an unlisted skill",
+        "priority_skill_not_in_skill_list": "Priority skill missing from the skill list",
+        "priority_flag_disagrees": "Priority list and flag disagree",
+        "priority_flag_not_on_priority_list": "Flagged priority, not on the priority list",
+        "conflicting_description": "Two different descriptions",
+        "malformed_record": "Malformed row",
+        "unknown_company_id": "Unknown company ID",
+        "duplicate_company_id": "Repeated company ID",
+        "invalid_url": "Invalid link",
+        "missing_brand_profile": "No brand profile row",
+        "unrecognized_sheet": "Unrecognized sheet",
+        "uncertain_employer_match": "Uncertain employer match",
+        "employer_not_in_registry": "Employer not in the registry",
+        "cross_source_duplicate": "Same job from another source"
+      },
+      "issueHelp": {
+        "near_duplicate_name": "Two skills in the same sector whose names differ only in hamza, ta marbuta, diacritics or the article. They stay separate. Accept if they are different skills; dismiss if this is only noise.",
+        "matrix_only_skill": "A skill that appears in a sub-sector sheet but not in the workbook's skill list, often a spelling variant. It is kept as written.",
+        "priority_skill_not_in_skill_list": "Listed on the priority sheet but missing from the skill list. Kept as its own record, from the priority list.",
+        "description_without_listing": "A description whose skill isn't listed anywhere else. Kept as its own record.",
+        "uncertain_employer_match": "Confirm or change the employer on the listings screen."
+      },
+      "sourcesTitle": "Source files and sheets",
+      "recordsTitle": "Records",
+      "filter": "Filter records",
+      "needsAttention": "Changes and issues",
+      "noRecords": "No records match.",
+      "entity": "Type",
+      "where": "Source",
+      "original": "Original value",
+      "issue": "Issue",
+      "row": "row {row}",
+      "handling": {
+        "read": "Read",
+        "subsector_matrix": "Sub-sector matrix",
+        "unique_skill_list": "Skill list",
+        "descriptions": "Descriptions",
+        "priority_list_cross_checked": "Priority list, cross-checked",
+        "informational_not_imported": "Informational, not imported",
+        "hidden_not_read": "Hidden, not read",
+        "notes_kept_in_report": "Notes kept",
+        "not_recognized_not_read": "Not recognized, not read"
+      },
+      "resolution": {
+        "open": "Open",
+        "accepted": "Accepted",
+        "dismissed": "Dismissed"
+      },
+      "emptySourceNote": "This source had no rows. That means none were supplied, not that no jobs exist."
+    },
+    "review": {
+      "lead": "Items an import couldn't settle by itself. Nothing here was merged or discarded; deciding records your judgment and who made it.",
+      "accept": "Accept",
+      "dismiss": "Dismiss",
+      "empty": "Nothing is waiting for review.",
+      "listings": "Listings waiting for review: {count}",
+      "openListings": "Review listings",
+      "noListings": "No listings are waiting."
+    },
+    "employers": {
+      "lead": "The official employer registry, as imported. An entry is an identity record: it isn't a partnership, an account or a source of vacancies. Identity fields and partnership status change only through a new import of the source workbook.",
+      "entityType": "Entity type",
+      "sector": "Sector",
+      "website": "Official website",
+      "careers": "Careers page",
+      "none": "Not supplied",
+      "verificationSource": "Verification source",
+      "identity": "Brand identity and permission",
+      "notes": "Notes",
+      "brandNotes": "Brand notes",
+      "lineage": "Source",
+      "row": "row {row}",
+      "listings": "Linked listings",
+      "aliases": "Names and aliases",
+      "sources": "Sources",
+      "aliasName": "Add a name variant",
+      "aliasLanguage": "Language",
+      "addAlias": "Add",
+      "brandAllowed": "Brand use permitted",
+      "brandNeutral": "Neutral Midan identity",
+      "verification": {
+        "verified_official": "Official source verified",
+        "pending_live_verification": "Awaiting live verification"
+      },
+      "partnership": {
+        "not_partner": "Not a partner",
+        "partner": "Partner"
+      },
+      "aliasStatus": {
+        "official": "Official",
+        "common": "Common",
+        "admin_confirmed": "Confirmed by an administrator",
+        "ambiguous_manual_review": "Ambiguous: needs manual review",
+        "common_manual_review": "Common: needs manual review"
+      }
+    },
+    "listings": {
+      "lead": "Jobs collected from authorized sources, as collected. Each is matched to the employer registry with a stated confidence and classified against the skills reference. None is published until reviewed.",
+      "filter": "Filter listings",
+      "filters": {
+        "all": "All",
+        "pending": "Waiting",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "empty": "No listings.",
+      "emptyBody": "Listings arrive through imports from authorized sources. None have been supplied yet.",
+      "match": {
+        "matched": "Matched",
+        "uncertain": "Uncertain",
+        "unmatched": "No match",
+        "confirmed": "Confirmed",
+        "rejected": "Match rejected"
+      },
+      "review": {
+        "pending": "Waiting for review",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "published": "Published",
+      "duplicate": "Possible duplicate",
+      "collectedName": "Employer as collected",
+      "registry": "Registry entry",
+      "rule": "Match rule",
+      "source": "Source",
+      "classification": "Classification",
+      "unclassified": "Not classified: fewer than two reference skills mentioned",
+      "confidence": "confidence {value}, {mentions} mentions",
+      "skills": "Reference skills mentioned",
+      "rules": {
+        "official_name": "Exact official name",
+        "alias_official": "Official alias",
+        "alias_common": "Common alias",
+        "alias_admin_confirmed": "Confirmed alias",
+        "source_company_id": "Company ID from the source",
+        "source_company_id_name_disagrees": "Company ID given, name differs",
+        "partial_name": "Partial name",
+        "no_registry_match": "No registry match",
+        "no_name": "No employer name",
+        "alias_needs_review": "Alias the source marks for review"
+      },
+      "sourceTypes": {
+        "jadarat": "Jadarat",
+        "employer_career_site": "Employer careers site",
+        "employer_provided": "Provided by the employer",
+        "other_authorized": "Other authorized source"
+      },
+      "chooseEmployer": "Employer",
+      "confirmEmployer": "Confirm employer",
+      "rejectEmployer": "Reject match",
+      "approve": "Approve",
+      "reject": "Reject",
+      "notDuplicate": "Not a duplicate",
+      "publish": "Publish",
+      "unpublish": "Unpublish",
+      "sectors": {
+        "digital": "Digital",
+        "culture_entertainment": "Culture and entertainment",
+        "tourism_hospitality": "Tourism and hospitality",
+        "manufacturing": "Manufacturing",
+        "construction_real_estate": "Construction and real estate",
+        "financial_services": "Financial services and insurance",
+        "wholesale_retail": "Wholesale and retail"
+      }
+    },
+    "reference": {
+      "title": "Skills reference",
+      "lead": "The sector skills workbooks as imported. Priority is shown two ways because the workbooks state it twice: a flag in the skill list, and a separate priority list.",
+      "sector": "Sector",
+      "technical": "Technical",
+      "general": "General",
+      "priorityFlagged": "Priority (flag)",
+      "priorityListed": "Priority (list)",
+      "noDescription": "No description",
+      "contexts": "Sub-sector and family links",
+      "subsectors": "Sub-sectors",
+      "families": "Job families",
+      "file": "Workbook",
+      "total": "Total",
+      "note": "The workbooks hold no proficiency levels or skill identifiers, so none are shown or invented. Names are in Arabic only."
+    },
+    "learning": {
+      "title": "Learning catalog",
+      "lead": "Courses and certifications shown to candidates next to a skill. Each entry needs a link a person opened and checked, and the date they checked it. The sector workbooks are not course catalogs, so nothing here comes from them.",
+      "empty": "The catalog is empty.",
+      "emptyBody": "Candidates see skill goals and practical projects until checked entries are added.",
+      "kind": "Kind",
+      "course": "Course",
+      "certification": "Certification",
+      "titleCol": "Title",
+      "provider": "Provider",
+      "skill": "Reference skill",
+      "verifiedOn": "Checked on",
+      "add": "Add a checked entry",
+      "rule": "Open the provider's page, check the title and that it's current, then add it with today's date. Don't add prices or durations.",
+      "titleAr": "Title in Arabic",
+      "titleEn": "Title in English",
+      "url": "Link (https)",
+      "chosen": "Chosen: {name}",
+      "noneChosen": "Search for a skill and choose one.",
+      "save": "Add to catalog",
+      "saved": "Added."
+    },
+    "accounts": {
+      "admins": "Platform administrators",
+      "adminsLead": "Administrators manage reference data, imports, listings and the catalog. They can't see CVs, assessment answers or scores.",
+      "email": "Email",
+      "change": "Change",
+      "grant": "Grant administration",
+      "revoke": "Remove administration",
+      "apply": "Apply",
+      "users": "Accounts",
+      "search": "Search by email or name",
+      "searchButton": "Search",
+      "name": "Name",
+      "roles": "Roles",
+      "joined": "Joined",
+      "platformAdmin": "Platform administrator",
+      "orgRoles": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "recruiter": "Recruiter",
+        "reviewer": "Reviewer"
+      },
+      "organizations": "Organizations",
+      "organization": "Organization",
+      "kind": "Kind",
+      "test": "Test",
+      "demo": "Demo",
+      "real": "Real",
+      "members": "Members",
+      "jobs": "Published / all jobs"
+    },
+    "queue": {
+      "title": "Background jobs",
+      "lead": "Long-running work such as CV analysis. Jobs retry by themselves with a growing delay; a job that runs out of attempts stays here for a person.",
+      "filter": "Filter jobs",
+      "empty": "No jobs.",
+      "kind": "Kind",
+      "status": "Status",
+      "attempts": "Attempts",
+      "error": "Last error",
+      "created": "Queued",
+      "retry": "Retry",
+      "statuses": {
+        "all": "All",
+        "queued": "Queued",
+        "running": "Running",
+        "succeeded": "Succeeded",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "kinds": {
+        "cv_analysis": "CV analysis",
+        "job_analysis": "Job analysis",
+        "assessment_generation": "Assessment generation",
+        "evaluation": "Evaluation",
+        "learning_recommendations": "Learning recommendations",
+        "data_import": "Data import"
+      }
+    },
+    "audit": {
+      "title": "Audit log",
+      "lead": "Changes to applications, organizations, assessments, results, interviews, decisions and administration, with who made them.",
+      "entity": "Record type",
+      "entityPlaceholder": "e.g. external_job_listings",
+      "filter": "Filter",
+      "empty": "No entries.",
+      "when": "When",
+      "actor": "By",
+      "action": "Action",
+      "details": "Details",
+      "system": "System",
+      "older": "Older entries"
     }
   }
 }

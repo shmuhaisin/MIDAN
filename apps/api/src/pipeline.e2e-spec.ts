@@ -169,9 +169,11 @@ describe('Midan administration and data pipeline', () => {
         listing('exact', 'وزارة التجارة'),
         listing('partial', 'التجارة'),
         listing('unknown', 'شركة غير موجودة في السجل'),
+        // The workbook marks this alias ambiguous: Diriyah Gate Development Authority, not Diriyah Company.
+        listing('ambiguous', 'بوابة الدرعية'),
         listing('bad', 'وزارة التجارة', { job_url: 'http://example.com/not-https' }),
       ]);
-      expect(counts).toMatchObject({ imported: 3, rejected: 1 });
+      expect(counts).toMatchObject({ imported: 4, rejected: 1 });
       const exact = await find('exact');
       expect(exact).toMatchObject({ match_status: 'matched', source_company_id: 'ALM-001', review_status: 'pending', published: false, sector_code: 'digital' });
       expect(Number(exact.match_confidence)).toBe(1);
@@ -184,6 +186,9 @@ describe('Midan administration and data pipeline', () => {
       expect(partial.match_status).toBe('uncertain');
       expect(Number(partial.match_confidence)).toBeLessThan(0.9);
       expect((await find('unknown')).match_status).toBe('unmatched');
+      const ambiguous = await find('ambiguous');
+      expect(ambiguous).toMatchObject({ match_status: 'uncertain', source_company_id: 'ALM-004' });
+      expect(ambiguous.match_evidence).toMatchObject({ rule: 'alias_needs_review', alias_status: 'ambiguous_manual_review' });
       const review = await api().get('/admin/review').set(bearer(admin)).expect(200);
       expect(review.body.listings.map((l: { id: string }) => l.id)).toEqual(expect.arrayContaining([exact.id, partial.id]));
     });
