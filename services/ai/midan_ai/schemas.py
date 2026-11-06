@@ -21,6 +21,23 @@ class SkillRef(BaseModel):
     synonyms: list[str] = []
 
 
+class RequirementRef(BaseModel):
+    """A requirement the employer stated or approved. Only these shape the tasks."""
+    id: str
+    requirement_type: str
+    description_ar: str | None = None
+    description_en: str | None = None
+    is_mandatory: bool = True
+
+
+class ReferenceSkillRef(BaseModel):
+    """A skill from the official sector workbooks that the organization linked to the job. Names are Arabic only."""
+    id: str
+    name_ar: str
+    description_ar: str | None = None
+    is_required: bool = True
+
+
 class JobInput(BaseModel):
     title_ar: str
     title_en: str
@@ -30,6 +47,8 @@ class JobInput(BaseModel):
     requirements_en: str | None = None
     required_skills: list[SkillRef] = []
     taxonomy: list[SkillRef] = []
+    requirements: list[RequirementRef] = []
+    reference_skills: list[ReferenceSkillRef] = []
 
 
 class CriterionDraft(BaseModel):
@@ -39,6 +58,8 @@ class CriterionDraft(BaseModel):
     max_score: float = Field(gt=0, le=100)
     weight: float = Field(default=1, gt=0)
     answer_key: dict[str, str] | None = None
+    requirement_id: str | None = None
+    reference_skill_id: str | None = None
 
 
 class TaskDraft(BaseModel):
@@ -51,6 +72,8 @@ class TaskDraft(BaseModel):
     weight: float = Field(default=1, gt=0)
     config: dict[str, Any] = {}
     skill_ids: list[str] = []
+    requirement_ids: list[str] = []
+    reference_skill_ids: list[str] = []
     criteria: list[CriterionDraft] = []
 
 

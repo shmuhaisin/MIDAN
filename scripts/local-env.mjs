@@ -34,7 +34,7 @@ API_URL=http://localhost:4000
 AI_SERVICE_URL=http://localhost:8000
 AI_SERVICE_TOKEN=${aiToken ?? randomBytes(32).toString('hex')}
 # Postgres-backed LangGraph checkpoints, so interrupted evaluations survive a restart.
-CHECKPOINT_DATABASE_URL=postgresql://postgres@127.0.0.1:${process.env.LOCAL_PG_PORT ?? 54322}/midan
+CHECKPOINT_DATABASE_URL=postgresql://midan_ai:midan-ai-local@127.0.0.1:${process.env.LOCAL_PG_PORT ?? 54322}/midan
 AI_PROVIDER=gemini
 GEMINI_API_KEY=
 GEMINI_MODEL=

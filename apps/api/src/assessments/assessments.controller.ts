@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Max, MaxLength, Min, MinLength, ValidateIf } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { AiClient } from '../ai/ai.client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
@@ -51,11 +52,35 @@ class UpdateCriterionDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() @IsPositive() weight?: number;
 }
 
+class NewCriterionDto {
+  @ApiPropertyOptional() @IsString() @MinLength(1) @MaxLength(2000) description_ar!: string;
+  @ApiPropertyOptional() @IsString() @MinLength(1) @MaxLength(2000) description_en!: string;
+  @ApiPropertyOptional() @IsNumber() @IsPositive() @Max(100) max_score!: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @IsPositive() weight?: number;
+  @ApiPropertyOptional() @IsOptional() @IsUUID() requirement_id?: string;
+}
+
+/** A task an organization writes by hand. Open-answer types only: objective questions need an answer key built with them. */
+class NewTaskDto {
+  @ApiPropertyOptional({ enum: ['written_case_study', 'file_submission'] }) @IsIn(['written_case_study', 'file_submission']) task_type!: 'written_case_study' | 'file_submission';
+  @ApiPropertyOptional() @IsString() @MinLength(1) @MaxLength(200) title_ar!: string;
+  @ApiPropertyOptional() @IsString() @MinLength(1) @MaxLength(200) title_en!: string;
+  @ApiPropertyOptional() @IsString() @MinLength(1) @MaxLength(8000) instructions_ar!: string;
+  @ApiPropertyOptional() @IsString() @MinLength(1) @MaxLength(8000) instructions_en!: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @IsPositive() weight?: number;
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @ArrayMaxSize(10) @IsUUID('all', { each: true }) requirement_ids?: string[];
+  @ApiPropertyOptional({ type: [NewCriterionDto] })
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(10) @ValidateNested({ each: true }) @Type(() => NewCriterionDto) criteria!: NewCriterionDto[];
+}
+
 type DraftTask = {
   position: number; task_type: Prisma.assessment_tasksCreateManyInput['task_type'];
   title_ar: string; title_en: string; instructions_ar: string; instructions_en: string;
-  weight: number; config: Prisma.InputJsonValue; skill_ids: string[];
-  criteria: { code: string; description_ar: string; description_en: string; max_score: number; weight: number; answer_key: Prisma.InputJsonValue | null }[];
+  weight: number; config: Prisma.InputJsonValue; skill_ids: string[]; requirement_ids?: string[]; reference_skill_ids?: string[];
+  criteria: {
+    code: string; description_ar: string; description_en: string; max_score: number; weight: number; answer_key: Prisma.InputJsonValue | null;
+    requirement_id?: string | null; reference_skill_id?: string | null;
+  }[];
 };
 type Draft = { tasks: DraftTask[]; warnings: string[] };
 
@@ -114,7 +139,12 @@ export class AssessmentsController {
       await requireRole(tx, user, orgId, BUILDERS);
       const found = await tx.jobs.findFirst({
         where: { id: jobId, org_id: orgId },
-        include: { job_skills: { include: { skills: true } } },
+        include: {
+          job_skills: { include: { skills: true } },
+          // Only what the employer stated or approved shapes the draft.
+          job_requirements: { where: { retired_at: null, review_status: 'approved' }, orderBy: { position: 'asc' } },
+          job_reference_skills: { include: { reference_skills: { select: { id: true, name_ar: true, description_ar: true } } } },
+        },
       });
       if (!found) throw new NotFoundException();
       const assessment = body.assessment_id
@@ -140,6 +170,12 @@ export class AssessmentsController {
         requirements_ar: job.requirements_ar, requirements_en: job.requirements_en,
         required_skills: job.job_skills.map((j) => toRef(j.skills)),
         taxonomy: taxonomy.map(toRef),
+        requirements: job.job_requirements.map((r) => ({
+          id: r.id, requirement_type: r.requirement_type, description_ar: r.description_ar, description_en: r.description_en, is_mandatory: r.is_mandatory,
+        })),
+        reference_skills: job.job_reference_skills.map((r) => ({
+          id: r.reference_skills.id, name_ar: r.reference_skills.name_ar, description_ar: r.reference_skills.description_ar, is_required: r.is_required,
+        })),
       },
     });
     if (result.status !== 'awaiting_human_review') throw new UnprocessableEntityException('The draft could not be generated');
@@ -161,15 +197,19 @@ export class AssessmentsController {
           data: {
             version_id: version.id, org_id: orgId, position: task.position, task_type: task.task_type,
             title_ar: task.title_ar, title_en: task.title_en, instructions_ar: task.instructions_ar, instructions_en: task.instructions_en,
-            weight: task.weight, config: task.config,
+            weight: task.weight, config: task.config, reference_skill_ids: task.reference_skill_ids ?? [],
           },
         });
         await tx.rubric_criteria.createMany({
           data: task.criteria.map((c) => ({
             task_id: created.id, org_id: orgId, code: c.code, description_ar: c.description_ar, description_en: c.description_en,
             max_score: c.max_score, weight: c.weight, answer_key: c.answer_key ?? Prisma.DbNull,
+            requirement_id: c.requirement_id ?? null, reference_skill_id: c.reference_skill_id ?? null,
           })),
         });
+        if (task.requirement_ids?.length) {
+          await tx.task_requirement_mappings.createMany({ data: task.requirement_ids.map((requirement_id) => ({ task_id: created.id, requirement_id, org_id: orgId })) });
+        }
         await tx.task_skill_mappings.createMany({
           data: [...new Set(task.skill_ids)].map((skill_id) => ({ task_id: created.id, org_id: orgId, skill_id })),
         });
@@ -212,6 +252,76 @@ export class AssessmentsController {
       const { count } = await tx.assessments.updateMany({ where: { id, org_id: orgId }, data: { professional_field: body.professional_field ?? null } });
       if (count === 0) throw new NotFoundException();
       return tx.assessments.findUniqueOrThrow({ where: { id } });
+    });
+  }
+
+  @Post('assessment-versions/:versionId/tasks')
+  @ApiOperation({ summary: 'Adds a task by hand to a draft, with its rubric. A published version refuses it.' })
+  addTask(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) versionId: string, @Body() body: NewTaskDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const version = await tx.assessment_versions.findFirst({ where: { id: versionId, org_id: orgId }, select: { id: true, assessment_tasks: { select: { position: true } } } });
+      if (!version) throw new NotFoundException();
+      const position = Math.max(0, ...version.assessment_tasks.map((t) => t.position)) + 1;
+      const task = await tx.assessment_tasks.create({
+        data: {
+          version_id: versionId, org_id: orgId, position, task_type: body.task_type, title_ar: body.title_ar, title_en: body.title_en,
+          instructions_ar: body.instructions_ar, instructions_en: body.instructions_en, weight: body.weight ?? 1, config: {},
+        },
+      });
+      await tx.rubric_criteria.createMany({
+        data: body.criteria.map((c, i) => ({
+          task_id: task.id, org_id: orgId, code: `C${i + 1}`, description_ar: c.description_ar, description_en: c.description_en,
+          max_score: c.max_score, weight: c.weight ?? 1, requirement_id: c.requirement_id ?? null,
+        })),
+      });
+      if (body.requirement_ids?.length) {
+        await tx.task_requirement_mappings.createMany({ data: body.requirement_ids.map((requirement_id) => ({ task_id: task.id, requirement_id, org_id: orgId })) });
+      }
+      return tx.assessment_tasks.findUniqueOrThrow({ where: { id: task.id }, include: { rubric_criteria: true, task_requirement_mappings: { select: { requirement_id: true } } } });
+    });
+  }
+
+  @Delete('assessment-tasks/:taskId')
+  @ApiOperation({ summary: 'Removes a task from a draft, with its rubric and links. The last task stays: a version needs at least one.' })
+  removeTask(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('taskId', ParseUUIDPipe) taskId: string) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const task = await tx.assessment_tasks.findFirst({ where: { id: taskId, org_id: orgId }, select: { version_id: true, position: true } });
+      if (!task) throw new NotFoundException();
+      const remaining = await tx.assessment_tasks.count({ where: { version_id: task.version_id } });
+      if (remaining <= 1) throw new UnprocessableEntityException('A version needs at least one task');
+      await tx.assessment_tasks.delete({ where: { id: taskId } });
+      // Keep positions continuous so candidates see 1, 2, 3.
+      const later = await tx.assessment_tasks.findMany({ where: { version_id: task.version_id, position: { gt: task.position } }, orderBy: { position: 'asc' }, select: { id: true, position: true } });
+      for (const t of later) await tx.assessment_tasks.update({ where: { id: t.id }, data: { position: t.position - 1 } });
+      return { removed: true };
+    });
+  }
+
+  @Post('assessment-tasks/:taskId/criteria')
+  addCriterion(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('taskId', ParseUUIDPipe) taskId: string, @Body() body: NewCriterionDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const task = await tx.assessment_tasks.findFirst({ where: { id: taskId, org_id: orgId }, select: { task_type: true, rubric_criteria: { select: { code: true } } } });
+      if (!task) throw new NotFoundException();
+      if (task.task_type === 'objective_questions') throw new UnprocessableEntityException('Objective questions are scored by their answer key');
+      const next = Math.max(0, ...task.rubric_criteria.map((c) => Number(c.code.replace(/\D/g, '')) || 0)) + 1;
+      return tx.rubric_criteria.create({
+        data: { task_id: taskId, org_id: orgId, code: `C${next}`, description_ar: body.description_ar, description_en: body.description_en, max_score: body.max_score, weight: body.weight ?? 1, requirement_id: body.requirement_id ?? null },
+      });
+    });
+  }
+
+  @Delete('rubric-criteria/:criterionId')
+  removeCriterion(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('criterionId', ParseUUIDPipe) id: string) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const criterion = await tx.rubric_criteria.findFirst({ where: { id, org_id: orgId }, select: { task_id: true } });
+      if (!criterion) throw new NotFoundException();
+      if ((await tx.rubric_criteria.count({ where: { task_id: criterion.task_id } })) <= 1) throw new UnprocessableEntityException('A task needs at least one criterion');
+      await tx.rubric_criteria.delete({ where: { id } });
+      return { removed: true };
     });
   }
 

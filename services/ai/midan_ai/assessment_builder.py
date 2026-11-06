@@ -7,9 +7,12 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
 from .schemas import CriterionDraft, JobInput, SkillRef, TaskDraft
-from .templates import DATA_SKILL_SLUGS, TEMPLATES
+from .templates import DATA_SKILL_SLUGS, SKILL_TASK, TEMPLATES
 
 MAX_REPAIRS = 2
+MAX_RESPONSIBILITIES = 4
+MAX_SKILL_TASKS = 3
+TASK_TYPES = {"responsibility", "daily_task"}
 _SPLIT = re.compile(r"[\n.;؛]+")
 
 
@@ -38,14 +41,21 @@ def parse_job_description(state: State) -> State:
 
 
 def extract_responsibilities(state: State) -> State:
+    """Structured responsibilities and daily tasks come first: they're what the employer stated. Free text is the fallback."""
+    job = JobInput.model_validate(state["job"])
+    stated = [r for r in job.requirements if r.requirement_type in TASK_TYPES and (r.description_ar or r.description_en)]
+    if stated:
+        pairs = [{"ar": r.description_ar or r.description_en or "", "en": r.description_en or r.description_ar or "", "requirement_id": r.id}
+                 for r in stated[:MAX_RESPONSIBILITIES]]
+        warnings = state["warnings"] + (["responsibilities_truncated"] if len(stated) > MAX_RESPONSIBILITIES else [])
+        return {"responsibilities": pairs, "warnings": warnings}
     split = lambda text: [line.strip(" -•\t") for line in _SPLIT.split(text) if len(line.strip()) > 8]
     ar, en = split(state["text_ar"]), split(state["text_en"])
-    job = JobInput.model_validate(state["job"])
     pairs = [
-        {"ar": ar[i] if i < len(ar) else job.title_ar, "en": en[i] if i < len(en) else job.title_en}
+        {"ar": ar[i] if i < len(ar) else job.title_ar, "en": en[i] if i < len(en) else job.title_en, "requirement_id": None}
         for i in range(max(len(ar), len(en), 1))
     ][:2]
-    warnings = state["warnings"] + ([] if ar or en else ["no_description"])
+    warnings = state["warnings"] + ([] if ar or en else ["no_description"]) + ["no_structured_responsibilities"]
     return {"responsibilities": pairs, "warnings": warnings}
 
 
@@ -83,7 +93,18 @@ def generate_tasks(state: State) -> State:
             title_ar=t["title_ar"], title_en=t["title_en"],
             instructions_ar=t["instructions_ar"].format(responsibility_ar=r["ar"]),
             instructions_en=t["instructions_en"].format(responsibility_en=r["en"]),
-            weight=2, skill_ids=other_skills,
+            weight=2, skill_ids=other_skills, requirement_ids=[r["requirement_id"]] if r.get("requirement_id") else [],
+        ))
+    job = JobInput.model_validate(state["job"])
+    # One task for each required skill the organization linked from the sector workbooks, up to a few.
+    context = state["responsibilities"][0] if state["responsibilities"] else {"ar": job.title_ar, "en": job.title_en}
+    for ref in [r for r in job.reference_skills if r.is_required][:MAX_SKILL_TASKS]:
+        tasks.append(TaskDraft(
+            position=len(tasks) + 1, task_type=SKILL_TASK["task_type"],
+            title_ar=SKILL_TASK["title_ar"].format(skill_ar=ref.name_ar), title_en=SKILL_TASK["title_en"].format(skill_ar=ref.name_ar),
+            instructions_ar=SKILL_TASK["instructions_ar"].format(skill_ar=ref.name_ar, context_ar=f"في سياق: {context['ar']}"),
+            instructions_en=SKILL_TASK["instructions_en"].format(skill_ar=ref.name_ar, context_en=f"In the context of: {context['en']}"),
+            weight=2, skill_ids=[s.id for s in skills], reference_skill_ids=[ref.id],
         ))
     if data_skills:
         t = templates["data_analysis"]
@@ -113,14 +134,29 @@ def generate_rubrics(state: State) -> State:
                 code="C1", description_ar="الإجابات الصحيحة", description_en="Correct answers",
                 max_score=len(key), answer_key=key,
             )]
+        elif task.reference_skill_ids:
+            job = JobInput.model_validate(state["job"])
+            ref = next(r for r in job.reference_skills if r.id == task.reference_skill_ids[0])
+            # The descriptor is the workbook's own description of the skill. Without one, the criterion says so plainly.
+            described = ref.description_ar or "كما تصفها مصنفات المهارات القطاعية"
+            task.criteria = [
+                CriterionDraft(code="C1", description_ar=f"يُظهر «{ref.name_ar}»: {described}",
+                               description_en=f'Shows the skill "{ref.name_ar}" as the sector skills reference describes it',
+                               max_score=10, weight=3, reference_skill_id=ref.id),
+                CriterionDraft(code="C2", description_ar="يصف خطوات عملية واضحة ومرتبة", description_en="Describes clear, ordered, practical steps",
+                               max_score=10, weight=1),
+                CriterionDraft(code="C3", description_ar="يحدد كيف يتحقق من جودة النتيجة", description_en="Says how they would check the quality of the result",
+                               max_score=10, weight=1),
+            ]
         else:
+            requirement = task.requirement_ids[0] if task.requirement_ids else None
             task.criteria = [
                 CriterionDraft(code="C1", description_ar="يحدد المشكلة أو النمط الصحيح ويدعمه بدليل",
                                description_en="Identifies the right problem or pattern and supports it with evidence",
-                               max_score=10, weight=2),
+                               max_score=10, weight=2, requirement_id=requirement),
                 CriterionDraft(code="C2", description_ar="يقدم خطوات أو توصية عملية يمكن تنفيذها",
                                description_en="Gives practical steps or a recommendation that can be acted on",
-                               max_score=10, weight=2),
+                               max_score=10, weight=2, requirement_id=requirement),
                 CriterionDraft(code="C3", description_ar="يكتب بوضوح لمن سيعمل بما كتبه",
                                description_en="Writes clearly for the people who will act on it",
                                max_score=10, weight=1),
@@ -138,6 +174,9 @@ def validate_assessment(state: State) -> State:
     for skill in state["skills"]:
         if skill["id"] not in covered:
             errors.append(f"uncovered_skill:{skill['id']}")
+    stated = {r["requirement_id"] for r in state["responsibilities"] if r.get("requirement_id")}
+    for missing in stated - {req for t in tasks for req in t.requirement_ids}:
+        errors.append(f"uncovered_requirement:{missing}")
     for t in tasks:
         if not t.criteria:
             errors.append(f"no_criteria:{t.position}")

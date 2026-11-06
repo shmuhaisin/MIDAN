@@ -3,6 +3,7 @@
 import io
 import json
 import logging
+import os
 import shutil
 import zipfile
 
@@ -376,3 +377,40 @@ def test_assessment_answers_are_protected_the_same_way():
     for value in ("Fahad", "Testperson", "0551234567", "fahad@example.com"):
         assert value not in sent[0]
     assert "SQL" in sent[0]
+
+
+ARABIC_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+
+
+def scanned_arabic_pdf(lines: list[str]) -> bytes:
+    """A scanned page in Arabic and English, shaped right to left as a printed CV would be. Fictional data."""
+    from PIL import features
+    image = Image.new("RGB", (1600, 1200), "white")
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.truetype(ARABIC_FONT, 46, layout_engine=ImageFont.Layout.RAQM if features.check("raqm") else ImageFont.Layout.BASIC)
+    for row, line in enumerate(lines):
+        arabic = any("؀" <= ch <= "ۿ" for ch in line)
+        width = draw.textlength(line, font=font, direction="rtl" if arabic else "ltr")
+        x = 1540 - width if arabic else 60
+        draw.text((x, 60 + row * 80), line, fill="black", font=font, direction="rtl" if arabic else "ltr")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PDF", resolution=200)
+    return buffer.getvalue()
+
+
+@pytest.mark.skipif(not shutil.which("tesseract") or not os.path.exists(ARABIC_FONT), reason="needs tesseract with the Arabic pack, and an Arabic font")
+def test_scanned_arabic_cv_is_read_locally_and_redacted():
+    provider = Recorder()
+    pdf = scanned_arabic_pdf([
+        "فهد التجريبي", "fahad.fiction@example.com", "0551234567",
+        "الملخص", "محلل بيانات لديه خبرة في إعداد التقارير",
+        "المهارات", "SQL, Python, Excel",
+    ])
+    result = cv.analyze(pdf, ["فهد التجريبي"], provider)
+    assert result["status"] == "ok", result
+    outbound = provider.calls[0][1]
+    # Read locally with OCR, then redacted before anything left: no name, phone or email reached the provider.
+    for value in ("فهد", "0551234567", "fahad.fiction", "%PDF"):
+        assert value not in outbound
+    # Arabic text was actually recognized, not just the English lines.
+    assert any("؀" <= ch <= "ۿ" for ch in outbound)

@@ -20,16 +20,34 @@ from .schemas import EvaluationInput, JobInput, Provenance
 
 app = FastAPI(title="Midan AI Service", version="0.2.0")
 
-_path = Path(os.environ.get("CHECKPOINT_DB", Path(__file__).parent.parent / ".checkpoints.sqlite"))
-_connection = sqlite3.connect(_path, check_same_thread=False)
-_saver = SqliteSaver(_connection)
-_saver.setup()
+def _checkpointer():
+    """Postgres when CHECKPOINT_DATABASE_URL is set, so a workflow waiting for a reviewer survives restarts and runs on
+    several instances. Otherwise a local SQLite file, which is for development only."""
+    url = os.environ.get("CHECKPOINT_DATABASE_URL")
+    if url:
+        from langgraph.checkpoint.postgres import PostgresSaver
+        from psycopg import Connection
+        from psycopg.rows import dict_row
+
+        # Tables live in the ai_checkpoints schema, which only the AI service's own login reaches.
+        connection = Connection.connect(url, autocommit=True, prepare_threshold=0, row_factory=dict_row,
+                                        options="-c search_path=ai_checkpoints")
+        saver = PostgresSaver(connection)
+        saver.setup()
+        return saver, "postgres"
+    path = Path(os.environ.get("CHECKPOINT_DB", Path(__file__).parent.parent / ".checkpoints.sqlite"))
+    saver = SqliteSaver(sqlite3.connect(path, check_same_thread=False))
+    saver.setup()
+    return saver, "sqlite"
+
+
+_saver, CHECKPOINTER = _checkpointer()
 
 _provider = get_provider()
 _builder = build_assessment_graph(_saver)
 _evaluator = build_evaluation_graph(_provider, _saver)
 
-BUILDER_PROVENANCE = Provenance(mode="demo", model_version="templates-v1", prompt_version="none")
+BUILDER_PROVENANCE = Provenance(mode="demo", model_version="templates-v2-requirements", prompt_version="none")
 
 
 def require_token(x_service_token: str = Header(default="")) -> None:
@@ -71,7 +89,7 @@ def _result(graph, thread_id: str, state: dict[str, Any]) -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "midan-ai", "mode": _provider.provenance.mode}
+    return {"status": "ok", "service": "midan-ai", "mode": _provider.provenance.mode, "checkpointer": CHECKPOINTER}
 
 
 @app.post("/cv/analyze", dependencies=[Depends(require_token)])

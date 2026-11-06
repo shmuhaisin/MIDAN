@@ -158,6 +158,9 @@ def _docx_text(data: bytes) -> str:
         raise CvFailure("unreadable") from error
 
 
+_BIDI_CONTROLS = re.compile("[\u200e\u200f\u061c\u202a-\u202e\u2066-\u2069]")
+
+
 def extract_text(data: bytes) -> str:
     if data[:5] == b"%PDF-":
         text = _pdf_text(data)
@@ -165,7 +168,9 @@ def extract_text(data: bytes) -> str:
         text = _docx_text(data)
     else:
         raise CvFailure("unsupported_format")
-    text = text.replace("\r", "\n").replace("\x00", "")[:MAX_TEXT]
+    # Bidi controls (OCR wraps every Arabic line in them, and some editors add them) would hide section headings
+    # and split names and numbers from the patterns that find them. They carry no content.
+    text = _BIDI_CONTROLS.sub("", text.replace("\r", "\n").replace("\x00", ""))[:MAX_TEXT]
     if len(text.strip()) < MIN_PAGE_TEXT:
         raise CvFailure("no_text")
     return text

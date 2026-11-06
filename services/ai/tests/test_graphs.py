@@ -80,7 +80,8 @@ def test_builder_gives_up_after_bounded_repairs():
 def test_builder_warns_when_job_has_no_description():
     graph = build_assessment_graph(InMemorySaver())
     graph.invoke({"job": {"title_ar": "س", "title_en": "X"}}, cfg())
-    assert set(waiting(graph)[0]["warnings"]) == {"no_description", "no_skills"}
+    # It also says the draft came from free text, because the job has no structured responsibilities.
+    assert set(waiting(graph)[0]["warnings"]) == {"no_description", "no_skills", "no_structured_responsibilities"}
 
 
 def test_checkpoint_survives_a_new_graph_instance():
@@ -267,4 +268,5 @@ def test_http_interrupt_and_resume():
 
 
 def test_health_reports_mode():
-    assert client.get("/health").json() == {"status": "ok", "service": "midan-ai", "mode": "demo"}
+    # The tests run with the local SQLite checkpointer; production sets CHECKPOINT_DATABASE_URL for Postgres.
+    assert client.get("/health").json() == {"status": "ok", "service": "midan-ai", "mode": "demo", "checkpointer": "sqlite"}

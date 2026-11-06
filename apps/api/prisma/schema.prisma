@@ -1,4 +1,3 @@
-// Generated from the live database with `npm run db:pull` (see docs/database/README.md). Do not edit by hand.
 generator client {
   provider = "prisma-client-js"
 }
@@ -124,6 +123,7 @@ model assessment_tasks {
   config                    Json                        @default("{}")
   created_at                DateTime                    @default(now()) @db.Timestamptz(6)
   updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  reference_skill_ids       String[]                    @default([]) @db.Uuid
   organizations             organizations               @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   assessment_versions       assessment_versions         @relation(fields: [version_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
   evidence_files            evidence_files[]
@@ -357,11 +357,16 @@ model cv_documents {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model employer_aliases {
   registry_id       String            @db.Uuid
   name_variant      String
   language          String
   alias_status      String
+  source_row        Int?
+  added_by          String?           @db.Uuid
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+  users             users?            @relation(fields: [added_by], references: [id], onUpdate: NoAction)
   employer_registry employer_registry @relation(fields: [registry_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([registry_id, name_variant])
@@ -385,7 +390,19 @@ model employer_registry {
   notes                 String?
   source_file           String
   created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  source_sheet          String?
+  source_row            Int?
+  source_value          Json?
+  brand_logo_asset_url  String?
+  brand_primary_hex     String?
+  brand_secondary_hex   String?
+  brand_official_font   String?
+  brand_notes           String?
+  brand_source_row      Int?
+  last_import_run_id    String?                 @db.Uuid
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
   employer_aliases      employer_aliases[]
+  import_runs           import_runs?            @relation(fields: [last_import_run_id], references: [id], onUpdate: NoAction)
   employer_sources      employer_sources[]
   external_job_listings external_job_listings[]
 }
@@ -396,6 +413,7 @@ model employer_sources {
   source_url        String
   source_type       String
   checked_on        DateTime?         @db.Date
+  source_row        Int?
   employer_registry employer_registry @relation(fields: [registry_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([registry_id, source_url])
@@ -475,21 +493,52 @@ model evidence_files {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model external_job_listings {
-  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  employer_registry_id String?            @db.Uuid
-  employer_name_ar     String?
-  employer_name_en     String?
-  title_ar             String
-  title_en             String
-  location             String?
-  sector               String?
-  employment_type      String?
-  source_name          String
-  source_url           String
-  published            Boolean            @default(false)
-  is_demo              Boolean            @default(false)
-  created_at           DateTime           @default(now()) @db.Timestamptz(6)
-  employer_registry    employer_registry? @relation(fields: [employer_registry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employer_registry_id        String?                 @db.Uuid
+  employer_name_ar            String?
+  employer_name_en            String?
+  title_ar                    String?
+  title_en                    String?
+  location                    String?
+  sector                      String?
+  employment_type             String?
+  source_name                 String
+  source_url                  String
+  published                   Boolean                 @default(false)
+  is_demo                     Boolean                 @default(false)
+  created_at                  DateTime                @default(now()) @db.Timestamptz(6)
+  title_original              String?
+  description_original        String?
+  requirements_original       String?
+  employer_name_raw           String?
+  source_type                 String                  @default("other_authorized")
+  source_job_id               String?
+  collected_at                DateTime?               @db.Timestamptz(6)
+  raw_record                  Json?
+  import_run_id               String?                 @db.Uuid
+  dedupe_key                  String?
+  duplicate_of                String?                 @db.Uuid
+  match_status                String                  @default("unmatched")
+  match_confidence            Decimal?                @db.Decimal(4, 3)
+  match_evidence              Json?
+  sector_code                 String?
+  subsector_ar                String?
+  job_family_ar               String?
+  classification              Json?
+  review_status               String                  @default("pending")
+  reviewed_by                 String?                 @db.Uuid
+  reviewed_at                 DateTime?               @db.Timestamptz(6)
+  review_note                 String?
+  updated_at                  DateTime                @default(now()) @db.Timestamptz(6)
+  external_job_listings       external_job_listings?  @relation("external_job_listingsToexternal_job_listings", fields: [duplicate_of], references: [id], onUpdate: NoAction)
+  other_external_job_listings external_job_listings[] @relation("external_job_listingsToexternal_job_listings")
+  employer_registry           employer_registry?      @relation(fields: [employer_registry_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  import_runs                 import_runs?            @relation(fields: [import_run_id], references: [id], onUpdate: NoAction)
+  users                       users?                  @relation(fields: [reviewed_by], references: [id], onUpdate: NoAction)
+  external_job_skills         external_job_skills[]
+
+  @@index([employer_registry_id])
+  @@index([review_status])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -660,6 +709,7 @@ model jobs {
   experience_level     String?
   applications         applications[]
   assessments          assessments[]
+  job_analyses         job_analyses[]
   job_reference_skills job_reference_skills[]
   job_requirements     job_requirements[]
   job_skills           job_skills[]
@@ -682,7 +732,10 @@ model learning_resources {
   verified_on        DateTime            @db.Date
   reference_skill_id String?             @db.Uuid
   created_at         DateTime            @default(now()) @db.Timestamptz(6)
+  added_by           String?             @db.Uuid
+  notes              String?
   career_plan_items  career_plan_items[]
+  users              users?              @relation(fields: [added_by], references: [id], onUpdate: NoAction)
   reference_skills   reference_skills?   @relation(fields: [reference_skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([reference_skill_id])
@@ -770,6 +823,7 @@ model organizations {
   assessment_tasks          assessment_tasks[]
   assessment_versions       assessment_versions[]
   assessments               assessments[]
+  background_jobs           background_jobs[]
   criterion_scores          criterion_scores[]
   evaluation_results        evaluation_results[]
   evaluation_reviews        evaluation_reviews[]
@@ -818,11 +872,17 @@ model reference_skills {
   listed_subsectors          String[]                     @default([])
   listed_job_families        String[]                     @default([])
   name_search                String?                      @default(dbgenerated("normalize_arabic(name_ar)"))
+  source_value               String?
+  priority_listed            Boolean                      @default(false)
+  last_import_run_id         String?                      @db.Uuid
   candidate_reference_skills candidate_reference_skills[]
   career_plan_items          career_plan_items[]
+  external_job_skills        external_job_skills[]
   job_reference_skills       job_reference_skills[]
   learning_resources         learning_resources[]
   reference_skill_contexts   reference_skill_contexts[]
+  import_runs                import_runs?                 @relation(fields: [last_import_run_id], references: [id], onUpdate: NoAction)
+  rubric_criteria            rubric_criteria[]
 
   @@unique([sector_code, skill_kind, name_ar])
   @@index([name_search])
@@ -832,28 +892,31 @@ model reference_skills {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model rubric_criteria {
-  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  task_id          String             @db.Uuid
-  org_id           String             @db.Uuid
-  code             String
-  description_ar   String
-  description_en   String
-  max_score        Decimal            @db.Decimal(6, 2)
-  weight           Decimal            @default(1) @db.Decimal(6, 3)
-  answer_key       Json?
-  created_at       DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
-  requirement_id   String?            @db.Uuid
-  criterion_scores criterion_scores[]
-  organizations    organizations      @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  job_requirements job_requirements?  @relation(fields: [requirement_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
-  assessment_tasks assessment_tasks   @relation(fields: [task_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id            String             @db.Uuid
+  org_id             String             @db.Uuid
+  code               String
+  description_ar     String
+  description_en     String
+  max_score          Decimal            @db.Decimal(6, 2)
+  weight             Decimal            @default(1) @db.Decimal(6, 3)
+  answer_key         Json?
+  created_at         DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime           @default(now()) @db.Timestamptz(6)
+  requirement_id     String?            @db.Uuid
+  reference_skill_id String?            @db.Uuid
+  criterion_scores   criterion_scores[]
+  organizations      organizations      @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reference_skills   reference_skills?  @relation(fields: [reference_skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  job_requirements   job_requirements?  @relation(fields: [requirement_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  assessment_tasks   assessment_tasks   @relation(fields: [task_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([id, org_id])
   @@unique([task_id, code])
   @@index([org_id])
   @@index([requirement_id, org_id])
   @@index([task_id, org_id])
+  @@index([reference_skill_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -995,6 +1058,7 @@ model users {
   assessment_attempts_assessment_attempts_invited_byTousers   assessment_attempts[]        @relation("assessment_attempts_invited_byTousers")
   assessment_attempts_assessment_attempts_reopened_byTousers  assessment_attempts[]        @relation("assessment_attempts_reopened_byTousers")
   assessment_versions                                         assessment_versions[]
+  background_jobs                                             background_jobs[]
   candidate_profiles                                          candidate_profiles?
   candidate_reference_skills                                  candidate_reference_skills[]
   candidate_skills                                            candidate_skills[]
@@ -1003,18 +1067,130 @@ model users {
   criterion_scores                                            criterion_scores[]
   cv_analyses                                                 cv_analyses[]
   cv_documents                                                cv_documents[]
+  employer_aliases                                            employer_aliases[]
   evaluation_reviews                                          evaluation_reviews[]
   evidence_files                                              evidence_files[]
+  external_job_listings                                       external_job_listings[]
   hiring_outcomes_hiring_outcomes_candidate_idTousers         hiring_outcomes[]            @relation("hiring_outcomes_candidate_idTousers")
   hiring_outcomes_hiring_outcomes_issued_byTousers            hiring_outcomes[]            @relation("hiring_outcomes_issued_byTousers")
+  import_records                                              import_records[]
   interview_events_interview_events_actorTousers              interview_events[]           @relation("interview_events_actorTousers")
   interview_events_interview_events_candidate_idTousers       interview_events[]           @relation("interview_events_candidate_idTousers")
   interviews_interviews_candidate_idTousers                   interviews[]                 @relation("interviews_candidate_idTousers")
   interviews_interviews_created_byTousers                     interviews[]                 @relation("interviews_created_byTousers")
+  job_analyses                                                job_analyses[]
+  learning_resources                                          learning_resources[]
   notifications                                               notifications[]
   organization_invitations                                    organization_invitations[]
   organization_members                                        organization_members[]
   task_responses                                              task_responses[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model background_jobs {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind           String
+  status         String         @default("queued")
+  acting_user_id String         @db.Uuid
+  org_id         String?        @db.Uuid
+  subject_id     String?        @db.Uuid
+  attempts       Int            @default(0)
+  max_attempts   Int            @default(3)
+  run_after      DateTime       @default(now()) @db.Timestamptz(6)
+  locked_at      DateTime?      @db.Timestamptz(6)
+  last_error     String?
+  result         Json?
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime       @default(now()) @db.Timestamptz(6)
+  finished_at    DateTime?      @db.Timestamptz(6)
+  users          users          @relation(fields: [acting_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organizations  organizations? @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([acting_user_id, created_at(sort: Desc)])
+  @@index([org_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model external_job_skills {
+  listing_id            String                @db.Uuid
+  reference_skill_id    String                @db.Uuid
+  evidence              String
+  external_job_listings external_job_listings @relation(fields: [listing_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reference_skills      reference_skills      @relation(fields: [reference_skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([listing_id, reference_skill_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model import_records {
+  id               BigInt      @id @default(autoincrement())
+  run_id           String      @db.Uuid
+  entity           String
+  source_file      String?
+  source_sheet     String?
+  source_row       Int?
+  original_value   Json?
+  normalized_value Json?
+  status           String
+  issue_kind       String?
+  detail           String?
+  target_id        String?     @db.Uuid
+  review_status    String?
+  reviewed_by      String?     @db.Uuid
+  reviewed_at      DateTime?   @db.Timestamptz(6)
+  created_at       DateTime    @default(now()) @db.Timestamptz(6)
+  users            users?      @relation(fields: [reviewed_by], references: [id], onUpdate: NoAction)
+  import_runs      import_runs @relation(fields: [run_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([run_id, status])
+  @@index([target_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model import_runs {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind                  String
+  status                String                  @default("running")
+  sources               Json                    @default("[]")
+  stats                 Json                    @default("{}")
+  report                Json                    @default("{}")
+  started_by            String
+  started_at            DateTime                @default(now()) @db.Timestamptz(6)
+  finished_at           DateTime?               @db.Timestamptz(6)
+  failure               String?
+  employer_registry     employer_registry[]
+  external_job_listings external_job_listings[]
+  import_records        import_records[]
+  reference_skills      reference_skills[]
+
+  @@index([kind, started_at(sort: Desc)])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model job_analyses {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_id        String    @db.Uuid
+  org_id        String    @db.Uuid
+  method        String
+  status        String    @default("proposed")
+  sector_code   String?
+  confidence    Decimal?  @db.Decimal(4, 3)
+  subsector_ar  String?
+  job_family_ar String?
+  proposals     Json      @default("[]")
+  stated        Json      @default("{}")
+  created_by    String?   @db.Uuid
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  decided_at    DateTime? @db.Timestamptz(6)
+  users         users?    @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  jobs          jobs      @relation(fields: [job_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([job_id, created_at(sort: Desc)])
+  @@index([org_id])
 }
 
 enum application_status {

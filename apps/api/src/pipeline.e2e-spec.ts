@@ -267,6 +267,56 @@ describe('Midan administration and data pipeline', () => {
     });
   });
 
+  describe('assessments built from requirements', () => {
+    let org: string, job: string, version: string, skill: { id: string; name_ar: string };
+    const base = () => `/organizations/${org}`;
+
+    it('builds tasks from stated responsibilities and linked workbook skills, and links them back', async () => {
+      skill = (await rest(null, 'GET', `reference_skills?sector_code=eq.digital&skill_kind=eq.technical&description_ar=not.is.null&select=id,name_ar&order=name_ar&limit=1`)).body[0];
+      org = (await api().post('/organizations').set(bearer(ownerA)).send({ slug: `midan-test-build-${RUN}`, name_ar: 'بناء', name_en: 'Build' }).expect(201)).body.id;
+      job = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: 'builder', title_ar: 'مطور', title_en: 'Developer' }).expect(201)).body.id;
+      const responsibility = (await api().post(`${base()}/jobs/${job}/requirements`).set(bearer(ownerA))
+        .send({ requirement_type: 'responsibility', description_ar: 'بناء واجهات برمجية لخدمة الطلبات', description_en: 'Build APIs that serve orders' }).expect(201)).body;
+      await api().post(`${base()}/jobs/${job}/requirements`).set(bearer(ownerA)).send({ requirement_type: 'education', description_en: 'A degree in computing' }).expect(201);
+      expect((await rest(ownerA, 'POST', 'job_reference_skills', { job_id: job, org_id: org, reference_skill_id: skill.id, is_required: true })).status).toBe(201);
+
+      const generated = await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({}).expect(201);
+      version = generated.body.version_id;
+      const view = await api().get(`${base()}/jobs/${job}/assessment?assessment=${generated.body.assessment_id}`).set(bearer(ownerA)).expect(200);
+      const tasks = view.body.version.assessment_tasks as { id: string; title_ar: string; instructions_en: string; reference_skill_ids?: string[]; task_requirement_mappings: { requirement_id: string }[] }[];
+      expect(tasks[0].instructions_en).toContain('Build APIs that serve orders');
+      expect(tasks[0].task_requirement_mappings).toEqual([{ requirement_id: responsibility.id }]);
+      const skillTask = tasks.find((t) => t.title_ar.includes(skill.name_ar));
+      expect(skillTask).toBeDefined();
+      const criteria = (await rest(ownerA, 'GET', `rubric_criteria?task_id=eq.${skillTask!.id}&select=code,reference_skill_id,description_ar&order=code`)).body;
+      expect(criteria[0].reference_skill_id).toBe(skill.id);
+      // A candidate never sees the rubric.
+      expect((await rest(candidate, 'GET', `rubric_criteria?task_id=eq.${skillTask!.id}`)).body).toEqual([]);
+    });
+
+    it('lets the organization add and remove tasks and criteria on a draft, and refuses it once published', async () => {
+      await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(candidate)).send({}).expect(400);
+      const task = {
+        task_type: 'written_case_study', title_ar: 'مهمة يدوية', title_en: 'A hand-written task', instructions_ar: 'اشرح', instructions_en: 'Explain',
+        criteria: [{ description_ar: 'وضوح', description_en: 'Clarity', max_score: 5 }],
+      };
+      await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(candidate)).send(task).expect(403);
+      const added = (await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(ownerA)).send(task).expect(201)).body;
+      expect(added.rubric_criteria).toHaveLength(1);
+      const extra = (await api().post(`${base()}/assessment-tasks/${added.id}/criteria`).set(bearer(ownerA))
+        .send({ description_ar: 'دقة', description_en: 'Accuracy', max_score: 5 }).expect(201)).body;
+      expect(extra.code).toBe('C2');
+      await api().delete(`${base()}/rubric-criteria/${extra.id}`).set(bearer(ownerA)).expect(200);
+      await api().delete(`${base()}/rubric-criteria/${added.rubric_criteria[0].id}`).set(bearer(ownerA)).expect(422);
+      await api().delete(`${base()}/assessment-tasks/${added.id}`).set(bearer(ownerA)).expect(200);
+
+      await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).expect(201);
+      await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(ownerA)).send(task).expect(422);
+      const view = await api().get(`${base()}/jobs/${job}/assessment`).set(bearer(ownerA)).expect(200);
+      await api().delete(`${base()}/assessment-tasks/${view.body.version.assessment_tasks[0].id}`).set(bearer(ownerA)).expect(422);
+    });
+  });
+
   describe('background queue', () => {
     it('refuses work queued for someone else, and queues the same work only once', async () => {
       const other = await signIn('CANDIDATE_TWO');

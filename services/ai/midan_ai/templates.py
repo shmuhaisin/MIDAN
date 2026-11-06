@@ -56,3 +56,13 @@ TEMPLATES = {
 }
 
 DATA_SKILL_SLUGS = {"data-analysis", "sql", "spreadsheets"}
+
+# A written task built around one skill from the official sector workbooks. The skill name stays in Arabic in both
+# languages, because the workbooks hold no English names and none is invented.
+SKILL_TASK = {
+    "task_type": "written_case_study",
+    "title_ar": "تطبيق مهارة: {skill_ar}",
+    "title_en": "Apply a skill: {skill_ar}",
+    "instructions_ar": "المهارة: {skill_ar}\n{context_ar}\n\nصف موقفًا عمليًا من هذا الدور تحتاج فيه هذه المهارة، ثم اشرح خطواتك بالتفصيل، والأدوات أو المعايير التي تعتمد عليها، وكيف تتحقق من جودة النتيجة.",
+    "instructions_en": "The skill: {skill_ar}\n{context_en}\n\nDescribe a practical situation in this role that calls for this skill, then explain your steps in detail, the tools or standards you would rely on, and how you would check the quality of the result.",
+}
