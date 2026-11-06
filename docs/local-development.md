@@ -15,6 +15,8 @@ Everything runs on one machine, with no hosted service and no Docker. Nothing he
 
 ## First time, or to start over
 
+On macOS (tested on arm64 with Homebrew): `brew install postgresql@16 postgrest go`, then build Auth v2.177.0 from https://github.com/supabase/auth, and put the binary as `.local/bin/auth`, its `migrations` folder as `.local/bin/migrations`, and `postgrest` as `.local/bin/postgrest`. Run with `PGBIN=/opt/homebrew/opt/postgresql@16/bin`. Homebrew's PostgREST is newer than the v12.2.3 the Linux script pins. Keep the checkout on a path without spaces: several scripts read theirs from `URL.pathname`.
+
 Needs Node 20+, PostgreSQL 16 binaries, [uv](https://docs.astral.sh/uv/), and on Linux x86-64 nothing else (Auth and PostgREST are downloaded). For Arabic OCR of scanned CVs, install tesseract with the Arabic pack (`apt-get install tesseract-ocr tesseract-ocr-ara`).
 
 ```bash
@@ -65,7 +67,11 @@ npm test && npm run lint
 npm run test:e2e -w @midan/api
 ```
 
-Stop the dev API first (or start it with `BACKGROUND_WORKER=off`): the queue test needs its own worker to be the only one.
+Stop any dev API first, or start it with `BACKGROUND_WORKER=off`: the queue test needs its own worker to be the only one. Don't set `BACKGROUND_WORKER=off` on the test command itself, because the suite waits for its own worker to finish CV analyses. Start from clean test data, since a repeat run fails on what the last one left behind:
+
+```bash
+scripts/local-db.sh psql -f supabase/test-cleanup.sql
+```
 
 The database-level security checks (candidate documents, status transitions, queue links) run in one transaction and roll back, so they leave nothing behind. Local database only:
 
@@ -87,6 +93,12 @@ DEV_TEST_ACCESS_CODE=bundle-canary-7f3a npm run check:bundle -w @midan/web
 
 ```bash
 cd services/ai && TEST_CHECKPOINT_DATABASE_URL=postgresql://midan_ai:midan-ai-local@127.0.0.1:54322/midan uv run pytest
+```
+
+The CSP check needs a production build, because development relaxes the policy (`npm run build -w @midan/web`, then `npm run start -w @midan/web`):
+
+```bash
+cd apps/web && npx playwright test e2e/security-headers.spec.ts
 ```
 
 ```bash

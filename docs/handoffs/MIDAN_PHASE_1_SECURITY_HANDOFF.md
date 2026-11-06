@@ -8,6 +8,11 @@ the architecture and the state of every feature.
 Status words used below: **Completed** (implemented, and tested here), **Partial** (some of it done), **Unverified**
 (written but not run). "Tested here" means run in this environment, described in section B.0.
 
+**Verification update, 2026-11-07.** The work below was re-audited and completed on the local branch
+`midan-security-completion`, from `feature/midan-phase-1-security` at `cb1c0e8`, with the whole local stack running. Section
+B.0a holds those results and replaces the "Not run" rows of B.0. Each finding's heading shows its verified status. Nothing
+on that branch is pushed or merged, and nothing has been applied to hosted Supabase.
+
 ---
 
 ## A. Project and Git state
@@ -21,6 +26,7 @@ Status words used below: **Completed** (implemented, and tested here), **Partial
 | Base commit | `e86932b` "Add the complete implementation handoff for this branch" |
 | Current HEAD | The commit that adds this version of this document (the last one in the list below). Check with `git log -1` |
 | Push | Pushed with `git push -u origin feature/midan-phase-1-security` when this handoff was made, with the owner's authorization. The local branch tracks `origin/feature/midan-phase-1-security`. Nothing was force-pushed, and nothing was merged |
+| Continuation branch | `midan-security-completion`, local only, from `cb1c0e8`. Not pushed; it has no remote copy |
 | Other remote branches | `main` `8f0235b`, `candidate-portal` `2523115`, `feature/midan-complete-data-jobs-assessment` `e86932b`, `feat/company-workflow` `c5cb1af`. The last was created by someone else during this work; it wasn't reviewed or touched, and may overlap with this branch |
 
 Phase 1 commits, oldest first:
@@ -70,7 +76,56 @@ Results (final run, on the code as pushed):
 | API end-to-end | `npm run test:e2e -w @midan/api` | **Not run** (blocked: needs the local stack) |
 | Browser end-to-end and forms | `npm run test:e2e -w @midan/web`, `npm run test:forms -w @midan/web` | **Not run** (blocked: same) |
 
-### S1 — Cross-employer candidate documents (HIGH) · Completed at the database; end-to-end Unverified
+### B.0a Verification on the local stack
+
+macOS arm64, Node 24, PostgreSQL 16.15, Auth (GoTrue) v2.177.0 built from source, the local gateway, PostgREST 16.5 from
+Homebrew (newer than the pinned v12.2.3), the AI service in demo mode, tesseract without the Arabic pack. `.env` held only
+local values. No test touched hosted Supabase; the only hosted calls were read-only (section E).
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Database security checks | `scripts/local-db.sh psql -f supabase/tests/security_phase1.sql` | **All passed**, including the new S2 and S5 checks |
+| API unit tests | `npm test -w @midan/api` | **47 / 47**, 8 suites |
+| Web unit tests | `npm test -w @midan/web` | **15 / 15** |
+| AI service tests | `TEST_CHECKPOINT_DATABASE_URL=… uv run pytest` | **126 passed, 1 skipped** (Arabic OCR) |
+| API end-to-end | `npm run test:e2e -w @midan/api` | Before changes **110 / 111**. After them **112 / 112** |
+| Browser journeys and CSP | `npx playwright test` against `next start` | **34 / 34** |
+| Forms | `npm run test:forms -w @midan/web` | **9 / 9** |
+| Type checks, builds | `npm run lint`, `npm run build` | **Passed** |
+| Build secret scan | `npm run check:bundle -w @midan/web` with a canary | **Passed**, 990 files |
+
+The one failure before changes was a test bug: the status test used the recruiter before a later test made it a member.
+
+**CSP evidence.** During the browser run, a test-only local proxy added a report address to the policy. Chromium reported
+exactly two blocks across all 34 tests, both of them deliberate controls (a blocked image, a framing attempt). That run
+covered assessment work, reports, applicant and review screens, the interview screen, and every admin area. Traces were
+tried first and abandoned: they hold no console messages here, so a clean scan of them would have proved nothing.
+
+**Not verified:** a real Daily call, a real Google sign-in, real Gemini or OpenAI calls, real Supabase Storage's answer to
+an expired link (the local gateway returns 400; any 4xx is treated the same), HSTS and `TRUST_PROXY` behind real hosting.
+These suites prove the code on a local stack. They say nothing about production readiness.
+
+### B.0b Defects the re-audit found, and fixed
+
+Each was reproduced first, in a rolled-back transaction or a real run. None is live on hosted, where the queue doesn't
+exist yet and these migrations aren't applied.
+
+| Finding | Reproduced | Fix |
+| --- | --- | --- |
+| S5: a candidate who knew another candidate's analysis id could read that job's signed CV link and email, by passing its deduplication key to `enqueue_background_job` | The function returned the other person's link | `20261107100000`: the key is always derived, and the function returns no payload, email or worker |
+| S5: a candidate could queue their own analysis with any URL, and the worker would fetch it, including internal addresses | The metadata address was accepted | The database accepts only a signed link to the caller's folder. `isOwnFileLink` in `cv.controller.ts` also checks host and path; no redirects, 60-second limit |
+| S5: a temporary Storage 5xx or 429 was recorded as a permanent `file_unavailable` | By reading, then a unit test | Only a 4xx is final. Others are retried |
+| S5: a failed CV job retried by an administrator reported success while doing nothing, since its link was gone | By reading | Refused with a reason, and the button is gone from the queue screen. The candidate's own retry still makes a fresh link |
+| S5: a job whose worker kept dying was reclaimed forever and kept its link | By reading | Past `max_attempts` it fails, loses the link, and the candidate sees a failure |
+| S2: a "not selected" outcome moved a hired application to rejected | Reproduced in SQL | `20261107100100`: no outcomes once hired; the form is hidden |
+| S3: made-up tokens past the rate limit still cost one Supabase Auth call each | By reading, then a unit test | After 60 rejections a minute from an address, Auth isn't asked and private routes answer 429, not 401 |
+| Auth check: a fetch failure gave a 500, and Nest's default handler **wrote the raw request, with the caller's session token, to the logs** | Seen in a real run's API log, with a local test token | Mapped to 503, and `UnexpectedErrorFilter` logs only the class of an unexpected error |
+| S7: Chromium blocked the last hop of Google sign-in submitted as a plain form post (before hydration, or without JavaScript) | Reproduced with a three-server test in Chromium | `https://accounts.google.com` added to `form-action` |
+
+Test fixes: the recruiter ordering above, and `journeys.spec.ts` now clears the skills it counts, because other specs share
+that account. `scripts/local-db.sh` now works on macOS.
+
+### S1 — Cross-employer candidate documents (HIGH) · Completed and verified on the local stack
 
 - **Original issue.** The staff read policy on the `candidate-documents` bucket checked only the first folder of an
   object's path (`private.can_view_candidate_path`). Any organization with an active application from a candidate could
@@ -91,10 +146,10 @@ Results (final run, on the code as pushed):
   the candidate's alone", which replaces a test that expected the old, too-wide access.
 - **Test support.** `scripts/local-supabase.mjs`: the local Storage stand-in gained `POST /storage/v1/object/list/:bucket`,
   answering through the caller's policies as Supabase does, for the listing test. Restart the stand-in after pulling.
-- **Results.** Database checks passed, and the control run proves they detect the old policy. End-to-end: not run.
+- **Results.** Database checks passed, and the control run proves they detect the old policy. End-to-end: passed, including "gives each organization only the CV copy submitted to it, never another employer's".
 - **Limitations.** The current-CV fallback is kept provisionally (question D.3).
 
-### S2 — Application status transitions (MEDIUM) · Completed at the database and API; end-to-end Unverified
+### S2 — Application status transitions (MEDIUM) · Completed and verified on the local stack; D.1 and D.2 open
 
 - **Original issue.** `PATCH /v1/applications/:id/status` wrote any status straight to `applications`, so "hired" could
   be set without any evaluation, and "evaluated" with nothing evaluated.
@@ -136,11 +191,11 @@ Results (final run, on the code as pushed):
   `apps/web/src/lib/application-status.test.ts` (2); `foundation.e2e-spec.ts` "allows only the status moves the
   workflow has"; `pipeline.e2e-spec.ts` hiring refused before review, then "hires only once the assessment has been
   reviewed, and only by the owning organization".
-- **Results.** Database, unit and web tests passed. End-to-end: not run.
+- **Results.** Database, unit, web and end-to-end tests passed, after the additions in B.0b.
 - **Limitations.** D.1 and D.2 are open; the current behaviour is provisional. Deploy this migration together with the
   matching API: the old API writes the table directly and would get a 403.
 
-### S3 — Rate-limit bypass (MEDIUM) · Completed
+### S3 — Rate-limit bypass (MEDIUM) · Completed and verified with a stand-in for Auth; D.4 open
 
 - **Original issue.** The limiter keyed on a hash of whatever `Authorization` header arrived, so every made-up token got
   a fresh 300-requests-a-minute limit.
@@ -159,12 +214,14 @@ Results (final run, on the code as pushed):
 - **Limitations.** When `TRUST_PROXY` is safe depends on hosting (D.4, `docs/deployment.md`). Unset, all signed-out
   visitors share the web server's limit.
 
-### S4 — Supabase Auth call per request · not changed (by design)
+### S4 — Supabase Auth call per request · Open: not changed, needs a decision (D.5)
 
-Kept: verifying JWTs locally would stop catching revoked sessions, which a foundation test relies on. Phase 1 only made
-the limiter share the guards' single call.
+Every authenticated request still makes one network call to Supabase Auth, so an Auth outage means 503s across the API.
+This is a trade-off, not a fix: verifying JWTs locally or caching the answer means a signed-out token keeps working for a
+while, and "rejects a token after sign-out" tests the opposite. Phase 1 made the limiter share the guards' call, and added
+the rejection budget and the 503 (B.0b). Those reduce the damage but don't close the finding.
 
-### S5 — Signed CV link in the queue (LOW) · Completed under the owner's decision (section C.1)
+### S5 — Signed CV link in the queue (LOW) · Completed under the owner's decision (C.1), after the fixes in B.0b
 
 - **Original issue.** CV analysis jobs carry a 30-minute signed Storage link in `background_jobs.payload`, which stayed
   there after the job finished.
@@ -176,7 +233,12 @@ the limiter share the guards' single call.
   finished job keeps no link). `apps/api/src/jobs-queue/worker.spec.ts` (3): the link reaches the work; logs and the
   settle call never contain it, even when an error message does; a permanent failure keeps its short code.
 - **Results.** Passed.
-- **Limitations.** None open: run-time signing was declined (C.1).
+- **Verified on the local stack.** Lifecycle: the link stays between retries and goes on success, failure and exhausted
+  attempts. Logs: a real expired-link run logs no link or token. Data API: the payload column isn't readable and no function
+  returns it. Expiry: a real expired link gives one attempt, `failed` / `file_unavailable`, and the candidate's retry makes a
+  fresh link. No storage credential was added.
+- **Limitations.** Supabase Storage's own access logs can contain signed URLs; that part of the accepted trade-off is outside
+  this code. The retry button is shown in a browser test, but the expired-link retry itself is tested through the API.
 
 ### S6 — AI service token comparison (LOW) · Completed
 
@@ -187,7 +249,7 @@ the limiter share the guards' single call.
 - **Tests added.** `services/ai/tests/test_service_token.py` (36 cases).
 - **Results.** Passed.
 
-### S7 — Security headers (LOW) · Completed; some screens Unverified
+### S7 — Security headers (LOW) · Completed; Daily, real Google sign-in and HTTPS unverified
 
 - **Original issue.** No CSP, HSTS or framing protection on web or API.
 - **Files.** `apps/web/src/lib/csp.ts` (new), `apps/web/src/proxy.ts`, `apps/web/src/app/[locale]/layout.tsx`,
@@ -209,8 +271,10 @@ the limiter share the guards' single call.
 - **Tests added.** `apps/web/src/lib/csp.test.ts` (6), `apps/api/src/common/security-headers.spec.ts` (2), and the
   browser check in B.0.
 - **Results.** Passed.
-- **Limitations (Unverified).** A Daily interview, Google sign-in, an assessment page and the admin area haven't been
-  opened under the CSP. Daily might call an origin the policy doesn't list. `style-src 'unsafe-inline'` stays.
+- **Added on verification.** `apps/web/e2e/security-headers.spec.ts` opens the public, candidate, organization and admin
+  screens under a production build, and proves that it notices a block and that another origin can't frame the site.
+- **Limitations (Unverified).** A real Daily call and a real Google sign-in need credentials. Daily might call an origin the
+  policy doesn't list. HSTS and `upgrade-insecure-requests` need HTTPS. `style-src 'unsafe-inline'` stays.
 
 ### S8 — Development sign-up code in builds (LOW) · Completed
 
@@ -305,6 +369,18 @@ Each is implemented provisionally as stated, so nothing is blocked. None should 
 4. **What should `TRUST_PROXY` be once the hosting environment is chosen?** Today: unset. Safe only when every hop it
    names appends the address it received the request from; see `docs/deployment.md`, "Client addresses and rate
    limits".
+5. **Added on verification: should S4 stay as it is?** Today: every request asks Supabase Auth, so sign-out takes effect at
+   once and an Auth outage stops the API. The alternative is a short cache of accepted tokens (for example 30 seconds, keyed
+   by a hash of the token), where a signed-out token keeps working for that long. Recommendation: keep it until real traffic
+   shows a need, since the budget and the 503 now cover the abuse case.
+
+Also for the owner, none of it changed here:
+- The owner removed the external job platform named in the employer workbook from scope, yet `scripts/import-data.mjs`,
+  `scripts/extract-employers.py`, `20261106140000`, `docs/database/README.md` and the admin messages on this branch still
+  name it as a source. Removing it is a separate change, and should come before that migration reaches hosted.
+- The official workbooks are committed under `data/source/` in a public repository. Is that intended?
+- `feat/company-workflow` (`c5cb1af`, one commit on `main`, by another developer) shares 13 of its 19 files with Phase 1,
+  including `auth-actions.ts` and `next.config.ts`. Compare them before merging either.
 
 ---
 
@@ -318,7 +394,13 @@ Each is implemented provisionally as stated, so nothing is blocked. None should 
   `20261106140000_platform_admin_and_data_pipeline`, `20261106150000_background_jobs_and_job_analysis`,
   `20261106160000_assessment_reference_skills`, `20261106170000_employer_profiles_and_job_links`. Plus the three Phase 1
   migrations: `20261107090000_scope_candidate_document_access`, `20261107090100_application_status_transitions`,
-  `20261107090200_clear_finished_job_links`. Seven in all, to be applied in that order.
+  `20261107090200_clear_finished_job_links`, and from verification `20261107100000_queue_link_isolation` and
+  `20261107100100_hired_is_final_for_outcomes`. **Nine in all**, to be applied in that order.
+- **Read-only check, 2026-11-07:** still 23 migrations, all with matching files in the repository. The old S1 storage policy
+  and the old "org updates status" policy are **still live there**. Hosted has no applications, 7 accounts and no queue table,
+  so nothing is exposed today, but S1 and S2 are not fixed on hosted until those migrations are applied. Advisors: one
+  SECURITY DEFINER function callable while signed out (`job_assessment_overview`), ten while signed in, leaked password
+  protection off (S10, not in Phase 1).
 - Do not apply them without the owner's explicit approval.
 - Do not change hosted Supabase settings (auth, SMTP, URLs, storage, roles).
 - Do not deploy anything.
@@ -329,22 +411,16 @@ Each is implemented provisionally as stated, so nothing is blocked. None should 
 
 ### F.1 Remaining Phase 1 work, in order
 
-1. **Run the end-to-end suites on the Linux local stack** (first task; F.2). That is the only Phase 1 verification
-   still outstanding for S1 and S2. Fix any failures on this branch.
-2. Open a Daily interview, Google sign-in, an assessment page and the admin area in a production build
-   (`npm run build -w @midan/web`, then `npm run start -w @midan/web`), and check the browser console for CSP
-   violations. Add any genuinely needed origin to `apps/web/src/lib/csp.ts` and its test.
-3. Bring the owner the questions in section D. If an answer differs from the provisional behaviour, change it in a new
-   migration (never edit an applied one) with tests.
-4. Ask the owner whether `feat/company-workflow` (created by someone else during Phase 1) overlaps with this branch,
-   before anything is merged.
-5. With approval, open a pull request from `feature/midan-phase-1-security` into
-   `feature/midan-complete-data-jobs-assessment`.
+1. The owner answers D.1 to D.5. If an answer differs from today's behaviour, change it in a new migration with tests.
+2. With credentials, open a real Daily interview and a real Google sign-in in a production build, and check for CSP
+   violations. Add any origin they need to `apps/web/src/lib/csp.ts` and its test.
+3. Compare with `feat/company-workflow` before anything is merged.
+4. With approval, push `midan-security-completion` and open a pull request. It is local only today.
 
 ### F.2 Required tests
 
-On Linux x86-64 (or WSL) with PostgreSQL 16 binaries, Node 20+, `uv`, and tesseract with Arabic for the OCR tests
-(see `docs/local-development.md`):
+On Linux x86-64, WSL or macOS with PostgreSQL 16 binaries, Node 20+, `uv`, and tesseract with Arabic for the OCR tests
+(see `docs/local-development.md`, which has the macOS steps):
 
 ```bash
 npm install
@@ -358,8 +434,9 @@ scripts/local-setup.sh
 scripts/local-db.sh psql -f supabase/tests/security_phase1.sql
 ```
 
-Start the AI service, `node scripts/local-supabase.mjs`, the API with `BACKGROUND_WORKER=off` and the web app as
-described in `docs/local-development.md`, then:
+Start the AI service and `node scripts/local-supabase.mjs`. Stop any dev API for the first command below, and don't set
+`BACKGROUND_WORKER=off` on the test command itself: the suite needs its own worker. Clean up between runs (last command
+below), or repeat runs fail on leftovers. Start the API and web app for the browser suites.
 
 ```bash
 npm run test:e2e -w @midan/api
@@ -388,13 +465,10 @@ DEV_TEST_ACCESS_CODE=bundle-canary-7f3a npm run build -w @midan/web
 DEV_TEST_ACCESS_CODE=bundle-canary-7f3a npm run check:bundle -w @midan/web
 ```
 
-New end-to-end cases to watch: `foundation.e2e-spec.ts` "allows only the status moves the workflow has", "stores files
+All of these passed in B.0a. End-to-end cases Phase 1 added: `foundation.e2e-spec.ts` "allows only the status moves the workflow has", "stores files
 privately: a file that isn't an application's CV is the candidate's alone", "gives each organization only the CV copy
 submitted to it, never another employer's"; `pipeline.e2e-spec.ts` hiring refused before review, and "hires only once
-the assessment has been reviewed, and only by the owning organization". One older case now depends on the new
-hiring rule: `foundation.e2e-spec.ts` "shows the decision the organization issued, to that candidate only" hires through
-an outcome. Traced by reading (not run): its application has one assessment, reviewed in the earlier "shows released
-scores by criterion" case, so it should still pass. If the suite runs that case on its own, it will get a 422 instead.
+the assessment has been reviewed, and only by the owning organization".
 
 ### F.3 Database checks without the Linux stack
 
@@ -437,8 +511,8 @@ database named `midan`, apply in order:
 ### F.5 Phase 2 (hosted parity) prerequisites
 
 Phase 2 brings hosted Supabase up to the repository. Before it starts:
-1. Phase 1 merged (F.1.5), with the end-to-end suites green.
-2. The owner's explicit approval to apply the seven migrations of section E, in order.
+1. Phase 1 merged (F.1.4), with the end-to-end suites green.
+2. The owner's explicit approval to apply the nine migrations of section E, in order.
 3. A deployment plan in which the API containing `set_application_status` goes live together with
    `20261107090100` (it revokes the direct update the old API uses).
 4. Owner-held values set outside the repository: the `midan_importer` password (`IMPORT_DATABASE_URL`) to re-run the
@@ -451,10 +525,9 @@ Phase 2 brings hosted Supabase up to the repository. Before it starts:
 
 | Blocker | Blocks | Owner |
 | --- | --- | --- |
-| A Linux machine or WSL with the local stack | End-to-end verification of S1 and S2 | Next developer |
-| Answers to D.1–D.4 | Final status rules, CV fallback, rate limiting in production | Owner |
+| Answers to D.1–D.5 | Final status rules, CV fallback, rate limiting in production, S4 | Owner |
 | Approval for hosted migrations | Phase 2 | Owner |
 | Hosting choice | `TRUST_PROXY`, HSTS, real CSP check over HTTPS | Owner |
 | Gemini and OpenAI keys | Any real AI verification (C.2) | Owner |
-| Job dataset (the Jadarat sheet is empty) | Real job listings | Owner |
+| An authorized job data source | Real job listings | Owner |
 | Daily and Google credentials | Interview and calendar checks, including under the CSP | Owner |

@@ -31,6 +31,19 @@ async function signedIn(browser: Browser, who: string, options: Parameters<Brows
   return context;
 }
 
+/** This journey counts the skills it adds, and the suite's other specs use the same account. */
+async function clearSkills(who: string) {
+  const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY as string, 'content-type': 'application/json' },
+    body: JSON.stringify({ email: env[`TEST_${who}_EMAIL`], password: env[`TEST_${who}_PASSWORD`] }),
+  });
+  const { access_token } = await res.json();
+  const headers = { authorization: `Bearer ${access_token}`, 'content-type': 'application/json' };
+  expect((await fetch(`${env.API_URL}/v1/me/reference-skills`, { method: 'PUT', headers, body: JSON.stringify({ ids: [] }) })).ok).toBe(true);
+  expect((await fetch(`${env.API_URL}/v1/me/own-skills`, { method: 'PUT', headers, body: JSON.stringify({ names: [] }) })).ok).toBe(true);
+}
+
 /** Applying goes through a review page, and needs a profile with a name. */
 async function applyFromJobPage(page: Page) {
   await page.getByRole('link', { name: 'Apply for this job' }).click();
@@ -432,6 +445,7 @@ test('accounts land where their role belongs', async ({ browser }) => {
 });
 
 test('a candidate builds a full profile and CV, and only the organization applied to can see it', async ({ browser }) => {
+  await clearSkills('CANDIDATE_ONE');
   const candidate = await (await signedIn(browser, 'CANDIDATE_ONE', { viewport: { width: 1280, height: 900 } })).newPage();
   const owner = await (await signedIn(browser, 'ORG_A_OWNER')).newPage();
   const outsider = await (await signedIn(browser, 'ORG_B_OWNER')).newPage();

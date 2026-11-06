@@ -16,6 +16,8 @@ DATA="$ROOT/.local/pg"
 PORT="${LOCAL_PG_PORT:-54322}"
 DB=midan
 PGBIN="${PGBIN:-$(ls -d /usr/lib/postgresql/16/bin 2>/dev/null || dirname "$(command -v pg_ctl)")}"
+# PostgreSQL on macOS stops at startup ("postmaster became multithreaded") without a valid locale in the environment.
+if [ "$(uname)" = "Darwin" ]; then export LC_ALL="${LC_ALL:-en_US.UTF-8}"; fi
 
 # initdb refuses to run as root, so a root shell (as in some containers) runs the server as "postgres".
 as_pg() {
@@ -52,7 +54,7 @@ migrate() {
     local base version name md5
     base="$(basename "$file" .sql)"; version="${base%%_*}"; name="${base#*_}"
     if sql -d "$DB" -tAc "select 1 from supabase_migrations.schema_migrations where version = '$version'" | grep -q 1; then continue; fi
-    md5="$(md5sum "$file" | cut -d' ' -f1)"
+    md5="$( { command -v md5sum >/dev/null && md5sum "$file" || md5 -r "$file"; } | cut -d' ' -f1)"
     # Each migration runs in one transaction, as Supabase applies them.
     sql -d "$DB" -1 -f "$file"
     sql -d "$DB" -c "insert into supabase_migrations.schema_migrations (version, name, statements_md5) values ('$version', '$name', '$md5')"
