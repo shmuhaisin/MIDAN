@@ -428,6 +428,8 @@ describe('Midan administration and data pipeline', () => {
       expect((await rest(other, 'GET', `background_jobs?id=eq.${first.body.id}&select=id,status`)).body).toHaveLength(1);
     });
 
+    // Needs this test's worker to be the only one on the database: stop any other API process, or run it with
+    // BACKGROUND_WORKER=off. Another worker with a working AI service would correctly finish the job first.
     it('retries when the AI service is down, then finishes when it is back, as the candidate', async () => {
       const worker = app.get(BackgroundWorker);
       const saved = process.env.AI_SERVICE_URL;
