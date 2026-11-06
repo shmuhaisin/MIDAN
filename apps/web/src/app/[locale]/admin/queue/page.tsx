@@ -35,7 +35,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               <Cell className="tabular-nums">{number(locale, j.attempts)} / {number(locale, j.max_attempts)}</Cell>
               <Cell ltr className="text-xs">{j.last_error}</Cell>
               <Cell>{formatWhen(locale, j.created_at, 'Asia/Riyadh')}</Cell>
-              <Cell>{j.status === 'failed' && <RetryJobButton id={j.id} />}</Cell>
+              <Cell>{j.status === 'failed' && j.kind !== 'cv_analysis' && <RetryJobButton id={j.id} />}</Cell>
             </tr>
           ))}
         </DataTable>

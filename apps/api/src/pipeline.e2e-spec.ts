@@ -3,7 +3,7 @@
 // Everything it creates is synthetic and marked (midan-test-*, started_by 'e2e'); supabase/test-cleanup.sql removes it.
 import 'reflect-metadata';
 import { createRequire } from 'node:module';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from './app.module';
@@ -540,9 +540,16 @@ describe('Midan administration and data pipeline', () => {
       const upload = await api().post('/me/cv').set(bearer(other)).attach('file', pdf, { filename: 'x.pdf', contentType: 'application/pdf' }).expect(201);
       const forged = await rest(candidate, 'POST', 'rpc/enqueue_background_job', { p_kind: 'cv_analysis', p_subject: upload.body.analysis_id });
       expect(forged.status).toBe(403);
-      const first = await rest(other, 'POST', 'rpc/enqueue_background_job', { p_kind: 'cv_analysis', p_subject: upload.body.analysis_id, p_dedupe: `midan-test-${RUN}` });
-      const second = await rest(other, 'POST', 'rpc/enqueue_background_job', { p_kind: 'cv_analysis', p_subject: upload.body.analysis_id, p_dedupe: `midan-test-${RUN}` });
+      const first = await rest(other, 'POST', 'rpc/enqueue_background_job', { p_kind: 'cv_analysis', p_subject: upload.body.analysis_id });
+      const second = await rest(other, 'POST', 'rpc/enqueue_background_job', { p_kind: 'cv_analysis', p_subject: upload.body.analysis_id });
       expect(second.body.id).toBe(first.body.id);
+      // What the function returns holds no link, and a caller can't name another job's key or queue a URL of their choosing.
+      expect(first.body.payload).toEqual({});
+      expect(first.body.acting_email).toBeNull();
+      const named = await rest(other, 'POST', 'rpc/enqueue_background_job', { p_kind: 'cv_analysis', p_subject: upload.body.analysis_id, p_dedupe: `cv_analysis:${upload.body.analysis_id}` });
+      expect(named.status).not.toBe(200);
+      const elsewhere = await rest(other, 'POST', 'rpc/enqueue_background_job', { p_kind: 'cv_analysis', p_subject: upload.body.analysis_id, p_payload: { file_url: 'http://169.254.169.254/latest/meta-data/' } });
+      expect(elsewhere.status).toBe(400);
       // The payload, which can hold a file link, isn't readable through the Data API, even by its owner.
       expect((await rest(other, 'GET', `background_jobs?id=eq.${first.body.id}&select=payload`)).status).not.toBe(200);
       expect((await rest(other, 'GET', `background_jobs?id=eq.${first.body.id}&select=id,status`)).body).toHaveLength(1);
@@ -578,6 +585,55 @@ describe('Midan administration and data pipeline', () => {
         expect(analysis.body.status).not.toBe('pending');
       } finally {
         process.env.AI_SERVICE_URL = saved;
+      }
+    });
+
+    it('reports an expired link as a failure the candidate can retry, and logs no link', async () => {
+      const lines: string[] = [];
+      const spies = (['log', 'warn', 'error', 'debug', 'verbose'] as const).map((level) =>
+        jest.spyOn(Logger.prototype, level).mockImplementation((...args: unknown[]) => void lines.push(args.map(String).join(' '))));
+      const worker = app.get(BackgroundWorker);
+      const until = async <T>(read: () => Promise<T>, done: (value: T) => boolean) => {
+        let value = await read();
+        for (let i = 0; i < 60 && !done(value); i++) {
+          await worker.tick();
+          await new Promise((r) => setTimeout(r, 500));
+          value = await read();
+        }
+        return value;
+      };
+      try {
+        const pdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF');
+        const upload = await api().post('/me/cv').set(bearer(candidate)).attach('file', pdf, { filename: 'expiry.pdf', contentType: 'application/pdf' }).expect(201);
+        const analysis = (id: string) => () => api().get(`/me/cv/analyses/${id}`).set(bearer(candidate)).then((r) => r.body as { status: string; failure_code: string | null });
+        await until(analysis(upload.body.analysis_id), (a) => a.status !== 'pending');
+
+        const document = (await rest(candidate, 'GET', 'cv_documents?is_current=eq.true&select=id,storage_path')).body[0];
+        const row = (await rest(candidate, 'POST', 'cv_analyses', { document_id: document.id, candidate_id: candidate.id })).body[0];
+        const signed = await fetch(`${BASE}/storage/v1/object/sign/candidate-documents/${document.storage_path}`, {
+          method: 'POST',
+          headers: { apikey: KEY, authorization: `Bearer ${candidate.token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ expiresIn: 1 }),
+        });
+        const link = `${BASE}/storage/v1${((await signed.json()) as { signedURL: string }).signedURL}`;
+        await new Promise((r) => setTimeout(r, 2100));
+        expect((await rest(candidate, 'POST', 'rpc/enqueue_background_job', { p_kind: 'cv_analysis', p_subject: row.id, p_payload: { file_url: link } })).status).toBe(200);
+
+        const failed = await until(analysis(row.id), (a) => a.status !== 'pending');
+        expect(failed).toMatchObject({ status: 'failed', failure_code: 'file_unavailable' });
+        const job = (await rest(candidate, 'GET', `background_jobs?subject_id=eq.${row.id}&select=status,attempts,last_error`)).body[0];
+        // One attempt: retrying can't bring an expired link back, so the queue doesn't try.
+        expect(job).toMatchObject({ status: 'failed', attempts: 1, last_error: 'file_unavailable' });
+
+        const again = await api().post('/me/cv/analyses').set(bearer(candidate)).expect(201);
+        const fresh = await until(analysis(again.body.id), (a) => a.status !== 'pending');
+        expect(fresh.failure_code).not.toBe('file_unavailable');
+
+        const token = new URL(link).searchParams.get('token') as string;
+        expect(lines.join('\n')).not.toContain(token);
+        expect(lines.join('\n')).not.toMatch(/token=|object\/sign/);
+      } finally {
+        spies.forEach((spy) => spy.mockRestore());
       }
     });
   });

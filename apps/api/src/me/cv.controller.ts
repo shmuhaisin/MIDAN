@@ -48,6 +48,21 @@ class ApplyAnalysisDto {
 }
 
 const STALE_MS = 2 * 60 * 1000;
+const FILE_TIMEOUT_MS = 60_000;
+
+/**
+ * Whether a queued link is a signed link to this person's own file on our Storage. Anything else is never fetched: the
+ * queue can be written through the Data API, and this server can reach addresses the outside world can't.
+ */
+export function isOwnFileLink(link: string, userId: string) {
+  try {
+    const url = new URL(link);
+    return url.origin === new URL(process.env.NEXT_PUBLIC_SUPABASE_URL as string).origin
+      && url.pathname.startsWith(`/storage/v1/object/sign/candidate-documents/${userId}/`);
+  } catch {
+    return false;
+  }
+}
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 
 function merged<T>(existing: unknown, added: T[] | undefined, key: (item: T) => string): T[] | undefined {
@@ -87,8 +102,13 @@ export class CvController {
     const pending = await this.db.asUser(user, (tx) => tx.cv_analyses.findFirst({ where: { id: analysisId, status: 'pending' }, select: { id: true } }));
     // Dismissed, or settled by an earlier attempt: nothing to do, and running it again would change nothing.
     if (!pending) return { skipped: true };
-    const file = fileUrl ? await fetch(fileUrl).catch(() => null) : null;
-    if (!file) throw new Error('StorageUnavailable');
+    if (!isOwnFileLink(fileUrl, user.id)) {
+      await finish({ status: 'failed', failure_code: 'file_unavailable' });
+      throw new PermanentJobError('file_unavailable');
+    }
+    const file = await fetch(fileUrl, { redirect: 'error', signal: AbortSignal.timeout(FILE_TIMEOUT_MS) }).catch(() => null);
+    // Storage having a bad moment says nothing about the link, so the queue tries again. An expired link stays expired.
+    if (!file || file.status >= 500 || file.status === 429) throw new Error('StorageUnavailable');
     if (!file.ok) {
       await finish({ status: 'failed', failure_code: 'file_unavailable' });
       throw new PermanentJobError('file_unavailable');

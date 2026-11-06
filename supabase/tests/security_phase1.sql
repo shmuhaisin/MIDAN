@@ -283,7 +283,7 @@ values ('00000000-0000-4000-8000-0000000006c2', '00000000-0000-4000-8000-0000000
 insert into public.cv_analyses (id, document_id, candidate_id)
 values ('00000000-0000-4000-8000-0000000007c2', '00000000-0000-4000-8000-0000000006c2', '00000000-0000-4000-8000-00000000c002');
 set local role authenticated;
-select id as job_id from public.enqueue_background_job('cv_analysis', '00000000-0000-4000-8000-0000000007c2', '{"file_url": "https://storage.test/signed?token=secret"}') \gset
+select id as job_id from public.enqueue_background_job('cv_analysis', '00000000-0000-4000-8000-0000000007c2', '{"file_url": "https://storage.test/storage/v1/object/sign/candidate-documents/00000000-0000-4000-8000-00000000c002/cv-current.pdf?token=secret"}') \gset
 do $$ begin
   begin
     perform payload from public.background_jobs;
@@ -299,6 +299,153 @@ reset role;
 do $$ begin
   assert not exists (select 1 from public.background_jobs where payload ? 'file_url' and status in ('succeeded', 'failed')),
     'S5: a finished job keeps no file link';
+end $$;
+
+-- A second candidate, for what one person's calls may reach of another's job.
+do $$ begin
+  assert to_regprocedure('public.enqueue_background_job(text, uuid, jsonb, text)') is null,
+    'S5: callers can no longer name a deduplication key, which could return another job';
+  assert not exists (select 1 from pg_trigger where tgrelid = 'public.background_jobs'::regclass and tgname = 'write_audit'),
+    'S5: queue rows are not copied into the audit log';
+  assert not has_column_privilege('authenticated', 'public.background_jobs', 'payload', 'select'),
+    'S5: no Data API role reads the payload';
+  assert not has_column_privilege('anon', 'public.background_jobs', 'payload', 'select'),
+    'S5: no Data API role reads the payload';
+end $$;
+do $$ begin
+  perform set_config('phase1.link', '{"file_url": "https://storage.test/storage/v1/object/sign/candidate-documents/00000000-0000-4000-8000-00000000c002/cv-current.pdf?token=secret"}', true);
+end $$;
+insert into public.cv_analyses (id, document_id, candidate_id) values
+  ('00000000-0000-4000-8000-0000000007d1', '00000000-0000-4000-8000-0000000006c2', '00000000-0000-4000-8000-00000000c002'),
+  ('00000000-0000-4000-8000-0000000007d2', '00000000-0000-4000-8000-0000000006c2', '00000000-0000-4000-8000-00000000c002'),
+  ('00000000-0000-4000-8000-0000000007d3', '00000000-0000-4000-8000-0000000006c2', '00000000-0000-4000-8000-00000000c002');
+set local role authenticated;
+do $$ declare first public.background_jobs; again public.background_jobs; begin
+  select * into first from public.enqueue_background_job('cv_analysis', '00000000-0000-4000-8000-0000000007d1', current_setting('phase1.link')::jsonb);
+  assert first.payload = '{}', 'S5: the function returns no payload';
+  assert first.acting_email is null and first.locked_by is null, 'S5: the function returns no email or worker';
+  select * into again from public.enqueue_background_job('cv_analysis', '00000000-0000-4000-8000-0000000007d1', '{}');
+  assert again.id = first.id, 'S5: the same work is queued once';
+  perform public.enqueue_background_job('cv_analysis', '00000000-0000-4000-8000-0000000007d2', current_setting('phase1.link')::jsonb);
+end $$;
+do $$ begin
+  begin
+    perform public.enqueue_background_job('cv_analysis', '00000000-0000-4000-8000-0000000007d3', '{"file_url": "http://169.254.169.254/latest/meta-data/?token=x"}');
+    assert false, 'S5: a URL outside Storage is refused';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.enqueue_background_job('cv_analysis', '00000000-0000-4000-8000-0000000007d3', '{"file_url": "https://storage.test/storage/v1/object/sign/candidate-documents/00000000-0000-4000-8000-00000000c001/cv.pdf?token=x"}');
+    assert false, 'S5: a link into someone else''s folder is refused';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.enqueue_background_job('cv_analysis', '00000000-0000-4000-8000-0000000007d3', '{"file_url": "https://storage.test/storage/v1/object/sign/candidate-documents/00000000-0000-4000-8000-00000000c002/cv.pdf?token=x", "other": 1}');
+    assert false, 'S5: a CV job takes nothing but the link';
+  exception when invalid_parameter_value then null;
+  end;
+end $$;
+reset role;
+-- Another candidate who knows the analysis id gets nothing from it, and can't reach that job.
+set local request.jwt.claims to '{"sub": "00000000-0000-4000-8000-00000000c001", "role": "authenticated"}';
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.enqueue_background_job('cv_analysis', '00000000-0000-4000-8000-0000000007d1', '{}');
+    assert false, 'S5: another candidate''s analysis is refused';
+  exception when insufficient_privilege then null;
+  end;
+  assert not exists (select 1 from public.background_jobs where id = '00000000-0000-4000-8000-0000000007d1' or subject_id = '00000000-0000-4000-8000-0000000007d1'),
+    'S5: another candidate''s job is not visible';
+end $$;
+reset role;
+
+-- Between retries the link stays, since the job needs it. When retries run out, or the failure is permanent, it goes.
+do $$ declare j record; begin
+  update public.background_jobs set run_after = now() - interval '1 second', created_at = now() - interval '1 hour' where subject_id = '00000000-0000-4000-8000-0000000007d1';
+end $$;
+set local role midan_worker;
+do $$ declare claimed record; settled record; begin
+  select * into claimed from private.claim_background_job('phase1-worker', array['cv_analysis']);
+  assert claimed.subject_id = '00000000-0000-4000-8000-0000000007d1', 'S5: the older job is claimed first';
+  assert claimed.payload ? 'file_url', 'S5: the worker receives the link';
+  select * into settled from private.settle_background_job(claimed.id, 'phase1-worker', false, null, 'TypeError', true);
+  assert settled.status = 'queued' and settled.payload ? 'file_url', 'S5: a job waiting to retry keeps its link';
+  assert settled.last_error = 'TypeError', 'S5: the error keeps its class';
+end $$;
+reset role;
+do $$ begin
+  update public.background_jobs set run_after = now() - interval '1 second' where subject_id = '00000000-0000-4000-8000-0000000007d1';
+end $$;
+set local role midan_worker;
+do $$ declare claimed record; settled record; begin
+  select * into claimed from private.claim_background_job('phase1-worker', array['cv_analysis']);
+  select * into settled from private.settle_background_job(claimed.id, 'phase1-worker', false, null, 'file_unavailable', false);
+  assert settled.status = 'failed', 'S5: a permanent failure is final';
+  assert not settled.payload ? 'file_url', 'S5: a failed job keeps no link';
+  assert settled.last_error = 'file_unavailable', 'S5: the short code is kept';
+end $$;
+reset role;
+
+-- A worker that dies keeps the job's link only while attempts remain.
+do $$ begin
+  update public.background_jobs set created_at = now() - interval '2 hours', run_after = now() - interval '1 second', max_attempts = 2 where subject_id = '00000000-0000-4000-8000-0000000007d2';
+end $$;
+set local role midan_worker;
+select id as crash_claimed from private.claim_background_job('dying-worker', array['cv_analysis']) \gset
+reset role;
+do $$ declare j record; begin
+  update public.background_jobs set locked_at = now() - interval '1 hour' where subject_id = '00000000-0000-4000-8000-0000000007d2';
+end $$;
+set local role midan_worker;
+select id as crash_claimed2 from private.claim_background_job('dying-worker', array['cv_analysis'], interval '5 minutes') \gset
+reset role;
+do $$ declare j public.background_jobs; begin
+  select * into j from public.background_jobs where subject_id = '00000000-0000-4000-8000-0000000007d2';
+  assert j.status = 'running' and j.attempts = 2 and j.payload ? 'file_url', 'S5: a reclaimed job with attempts left keeps its link';
+  update public.background_jobs set locked_at = now() - interval '1 hour' where id = j.id;
+end $$;
+set local role midan_worker;
+select count(*) as nothing_left from private.claim_background_job('dying-worker', array['nothing'], interval '5 minutes') \gset
+reset role;
+do $$ declare j public.background_jobs; a public.cv_analyses; begin
+  select * into j from public.background_jobs where subject_id = '00000000-0000-4000-8000-0000000007d2';
+  assert j.status = 'failed' and not j.payload ? 'file_url', 'S5: a job whose worker died on its last attempt ends, without its link';
+  select * into a from public.cv_analyses where id = '00000000-0000-4000-8000-0000000007d2';
+  assert a.status = 'failed' and a.failure_code = 'analysis_unavailable', 'S5: the candidate sees a failure, not a spinner';
+  assert not exists (select 1 from public.background_jobs where status in ('succeeded', 'failed') and payload ? 'file_url'), 'S5: no finished job keeps a link';
+  assert not exists (select 1 from public.background_jobs where coalesce(last_error, '') ~ 'token=|object/sign'), 'S5: no error holds a link';
+  assert not exists (select 1 from public.audit_logs where details::text ~ 'token=|object/sign'), 'S5: the audit log holds no link';
+end $$;
+
+-- An administrator's retry can't bring the link back, and says so instead of reporting a success that did nothing.
+insert into private.platform_admins (user_id) values ('00000000-0000-4000-8000-00000000a001') on conflict do nothing;
+set local request.jwt.claims to '{"sub": "00000000-0000-4000-8000-00000000a001", "role": "authenticated"}';
+set local role authenticated;
+do $$ declare failed uuid := (select id from public.background_jobs where subject_id = '00000000-0000-4000-8000-0000000007d1'); begin
+  begin
+    perform public.admin_retry_background_job(failed);
+    assert false, 'S5: a CV job cannot be retried by an administrator';
+  exception when check_violation then null;
+  end;
+end $$;
+reset role;
+
+\echo 'S2: hired is final for outcomes too'
+do $$ declare app uuid; begin
+  select id into app from public.applications where status = 'hired' limit 1;
+  assert app is not null, 'S2: the checks above left a hired application';
+  perform set_config('phase1.hired', app::text, true);
+end $$;
+do $$ declare o uuid; a record; begin
+  select id, org_id, candidate_id, status into a from public.applications where id = current_setting('phase1.hired')::uuid;
+  perform set_config('request.jwt.claims', json_build_object('sub', (select user_id from public.organization_members where org_id = a.org_id and role = 'owner' limit 1), 'role', 'authenticated')::text, true);
+  begin
+    insert into public.hiring_outcomes (application_id, org_id, candidate_id, outcome) values (a.id, a.org_id, a.candidate_id, 'not_selected');
+    assert false, 'S2: an outcome cannot undo a hire';
+  exception when check_violation then null;
+  end;
+  assert (select status from public.applications where id = a.id) = 'hired', 'S2: the application stays hired';
 end $$;
 
 \echo 'All Phase 1 database checks passed.'
