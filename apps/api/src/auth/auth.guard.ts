@@ -1,4 +1,4 @@
-import { CanActivate, createParamDecorator, ExecutionContext, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, createParamDecorator, ExecutionContext, HttpException, HttpStatus, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import type { Request } from 'express';
 import type { AuthUser } from '../db/db.service';
 
@@ -9,19 +9,53 @@ type AuthedRequest = Request & { user?: AuthUser; verified?: Promise<AuthUser | 
  * for a missing or rejected token. Done once per request: the rate limiter and the guards share the answer.
  */
 export function authenticate(request: AuthedRequest): Promise<AuthUser | null> {
-  request.verified ??= verify(request.headers.authorization);
+  request.verified ??= verify(request.headers.authorization, request.ip ?? 'unknown');
   return request.verified;
 }
 
-async function verify(header: string | undefined): Promise<AuthUser | null> {
+// The rate limiter needs to know who is calling before it can count them, so a made-up token reaches Supabase Auth even
+// past the limit. An address that keeps sending rejected tokens stops being passed on, or it could get this API limited
+// at Auth for everyone. Per process, like the rate limiter.
+const MAX_FAILED_CHECKS = 60;
+const FAILED_CHECK_WINDOW_MS = 60_000;
+const failedChecks = new Map<string, { count: number; resetAt: number }>();
+
+function recordFailedCheck(address: string) {
+  const now = Date.now();
+  if (failedChecks.size >= 10_000) {
+    for (const [key, entry] of failedChecks) if (entry.resetAt <= now) failedChecks.delete(key);
+    if (failedChecks.size >= 10_000) failedChecks.clear();
+  }
+  const entry = failedChecks.get(address);
+  if (entry && entry.resetAt > now) entry.count += 1;
+  else failedChecks.set(address, { count: 1, resetAt: now + FAILED_CHECK_WINDOW_MS });
+}
+
+function tooManyFailedChecks(address: string) {
+  const entry = failedChecks.get(address);
+  return Boolean(entry && entry.resetAt > Date.now() && entry.count >= MAX_FAILED_CHECKS);
+}
+
+export function resetFailedChecks() {
+  failedChecks.clear();
+}
+
+async function verify(header: string | undefined, address: string): Promise<AuthUser | null> {
   if (!header?.startsWith('Bearer ')) return null;
+  // Not "signed out": a real session behind the same address shouldn't lose its cookies over someone else's traffic.
+  if (tooManyFailedChecks(address)) throw new HttpException('Too many rejected tokens', HttpStatus.TOO_MANY_REQUESTS);
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const apikey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!base || !apikey) throw new ServiceUnavailableException('Authentication is not configured');
 
-  const response = await fetch(`${base}/auth/v1/user`, { headers: { apikey, authorization: header } });
+  // An error from fetch can hold the raw request, token included, so it goes no further than this.
+  const response = await fetch(`${base}/auth/v1/user`, { headers: { apikey, authorization: header } }).catch(() => null);
+  if (!response) throw new ServiceUnavailableException('Authentication is unavailable');
   if (response.status >= 500) throw new ServiceUnavailableException('Authentication is unavailable');
-  if (!response.ok) return null;
+  if (!response.ok) {
+    recordFailedCheck(address);
+    return null;
+  }
   const { id, email } = (await response.json()) as AuthUser;
   return { id, email };
 }

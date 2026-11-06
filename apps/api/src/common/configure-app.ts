@@ -1,7 +1,9 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DatabaseExceptionFilter } from './database-exception.filter';
 import { securityHeaders } from './security-headers';
+import { UnexpectedErrorFilter } from './unexpected-error.filter';
 
 /**
  * Express "trust proxy": which hops in front of the API may report the caller's address in X-Forwarded-For, which the
@@ -22,5 +24,6 @@ export function configureApp(app: INestApplication) {
   express.disable('x-powered-by');
   app.use(securityHeaders);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
-  app.useGlobalFilters(new DatabaseExceptionFilter());
+  // The catch-all goes first: Nest tries global filters from last to first.
+  app.useGlobalFilters(new UnexpectedErrorFilter(app.get(HttpAdapterHost).httpAdapter), new DatabaseExceptionFilter());
 }
