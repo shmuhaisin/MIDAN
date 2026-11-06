@@ -14,7 +14,7 @@ Project `al-midan-ya-hamidan`, ref `squpszwbrqkflezfltoj`, region `eu-central-1`
 
 28 tables, all with RLS. 3 buckets. 5 test accounts (`midan.test.*@example.com`) whose passwords exist only in the local `.env.test.local`. `.env` and `.env.test.local` are git-ignored and exist only on this machine: a new checkout must regenerate them with `scripts/provision-db-credentials.mjs`.
 
-Not reachable with the available tools; needs the dashboard: custom SMTP, leaked password protection, Auth Site URL and redirect URLs. The owner chose to continue without SMTP for now, so confirmation email reaches only Supabase project team members, a few per hour. The default Site URL points at localhost:3000, which is a different app on this machine, so confirmation links land there until it's changed to port 3100.
+Not reachable with the available tools; needs the dashboard: custom SMTP, leaked password protection, and Auth redirect URLs. The owner chose to continue without SMTP for now, so confirmation email reaches only Supabase project team members, a few per hour. Confirmation returns to `{APP_URL}/{locale}/auth/confirmed`. Locally `APP_URL` is `http://localhost:3100` in `.env`, and the code has no fixed host. The Site URL was still `http://localhost:3000` at handoff, so an unlisted redirect falls back there. Add `http://localhost:3100/ar/auth/confirmed` and `http://localhost:3100/en/auth/confirmed` to Redirect URLs. Leave the Site URL and any production redirect unchanged.
 
 ## Tests that were run
 - API, live database, real AI service: 50 end-to-end. API unit: 5.

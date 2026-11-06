@@ -26,7 +26,7 @@ npm install
 npm run dev:web
 ```
 
-Web runs on http://localhost:3100, with routes under `/ar` and `/en`. Job and account pages need the API running too.
+Web runs on http://localhost:3100, with routes under `/ar` and `/en`. Set `APP_URL=http://localhost:3100` in `.env`; email confirmation returns to `/ar/auth/confirmed` and `/en/auth/confirmed` on that origin. Job and account pages need the API running too.
 
 ```bash
 npm run dev:api

@@ -4,6 +4,7 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.sdaia-demo.example
 .venv/
 __pycache__/
 *.pyc

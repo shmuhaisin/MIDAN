@@ -22,7 +22,8 @@ const config: NextConfig = {
     DEV_TEST_SIGNUP: process.env.DEV_TEST_SIGNUP ?? env.DEV_TEST_SIGNUP ?? 'false',
     // Referenced only in server actions, so it stays out of browser bundles.
     DEV_TEST_ACCESS_CODE: process.env.DEV_TEST_ACCESS_CODE ?? env.DEV_TEST_ACCESS_CODE ?? '',
-    APP_URL: process.env.APP_URL ?? env.APP_URL ?? 'http://localhost:3100',
+    // No host default: the verification link must be the configured origin, or sign-up stops.
+    APP_URL: process.env.APP_URL ?? env.APP_URL ?? '',
   },
   turbopack: { root: path.join(__dirname, '../..') },
 };

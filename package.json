@@ -16,5 +16,8 @@
   },
   "overrides": {
     "multer": "2.5.0"
+  },
+  "devDependencies": {
+    "supabase": "3.0.0"
   }
 }

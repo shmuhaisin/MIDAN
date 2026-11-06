@@ -42,7 +42,7 @@ test('organization sign-up is formal, has no mascot, and sends the organization 
   await page.getByLabel('Email').fill('admin.fictional@gmail.com');
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page).toHaveURL(/\/en\/check-email$/);
+  await expect(page).toHaveURL(/\/en\/check-email\?as=organization$/);
   const signup = (await calls()).findLast((c) => c.path === '/auth/v1/signup');
   expect(signup?.data).toMatchObject({ account_type: 'organization', org_name_ar: 'منشأة خيالية', org_name_en: 'Fictional Org' });
 });

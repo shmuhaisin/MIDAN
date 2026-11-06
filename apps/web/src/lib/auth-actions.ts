@@ -38,6 +38,13 @@ function text(form: FormData, name: string) {
   return String(form.get(name) ?? '').trim();
 }
 
+/** Where a verification email may return. Comes only from APP_URL, so no host is fixed in code. */
+function confirmationRedirect(locale: string) {
+  const origin = process.env.APP_URL?.trim().replace(/\/+$/, '');
+  if (!origin || !/^https?:\/\//.test(origin)) return null;
+  return `${origin}/${locale}/auth/confirmed`;
+}
+
 export async function signIn(_: FormState, form: FormData): Promise<FormState> {
   const email = text(form, 'email');
   const password = String(form.get('password') ?? '');
@@ -67,10 +74,12 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   if (accountType === 'organization' && (!orgNameAr || !orgNameEn)) return { error: 'required' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'email_address_invalid' };
   if (password.length < 8) return { error: 'weak_password' };
+  const locale = await getLocale();
+  const confirmation = confirmationRedirect(locale);
+  if (!confirmation) return { error: 'unavailable' };
   let result;
   try {
-    const locale = await getLocale();
-    const back = encodeURIComponent(`${process.env.APP_URL}/${locale}/auth/confirmed`);
+    const back = encodeURIComponent(confirmation);
     result = await gotrue(`signup?redirect_to=${back}`, {
       email,
       password,
@@ -85,12 +94,11 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
     return { error: 'unavailable' };
   }
   if (!result.ok) return { error: authError(result.data) };
-  const locale = await getLocale();
   if (result.data.access_token) {
     await setSessionCookies(result.data.access_token, result.data.refresh_token);
     redirect({ href: await homeFor(accountType, result.data.access_token), locale });
   }
-  redirect({ href: '/check-email', locale });
+  redirect({ href: accountType === 'organization' ? '/check-email?as=organization' : '/check-email', locale });
   return {};
 }
 
