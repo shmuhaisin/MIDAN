@@ -16,13 +16,15 @@ const NAV = [
   ['/faq', 'faq'],
 ] as const;
 
-export function Providers({ children }: { children: React.ReactNode }) {
+/** nonce: this request's Content-Security-Policy nonce, which the theme script needs to run. */
+export function Providers({ children, nonce }: { children: React.ReactNode; nonce?: string }) {
   return (
     <ThemeProvider
       attribute="data-theme"
       defaultTheme="system"
       enableSystem
       disableTransitionOnChange
+      nonce={nonce}
       // The theme script only needs to run from the server's HTML. React 19 reports an error if
       // an executable script is rendered again on the client, which layout refreshes do.
       scriptProps={{ type: typeof window === 'undefined' ? 'text/javascript' : 'application/json' }}

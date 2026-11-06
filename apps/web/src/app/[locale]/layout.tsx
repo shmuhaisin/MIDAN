@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Bricolage_Grotesque, IBM_Plex_Sans, IBM_Plex_Sans_Arabic, Noto_Kufi_Arabic } from 'next/font/google';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { hasLocale, NextIntlClientProvider, useTranslations } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
@@ -69,6 +70,8 @@ export default async function LocaleLayout({ children, params }: Params & { chil
   const session = await getSession();
   const isCandidate = Boolean(session) && session?.accountType !== 'organization';
   const unread = isCandidate ? await api<{ unread: number }>('/me/notifications/unread-count').then((r) => r.unread, () => 0) : 0;
+  // Set by src/proxy.ts with the page's Content-Security-Policy.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     <html
       lang={locale}
@@ -79,7 +82,7 @@ export default async function LocaleLayout({ children, params }: Params & { chil
     >
       <body className="flex min-h-dvh flex-col">
         <NextIntlClientProvider>
-          <Providers>
+          <Providers nonce={nonce}>
             <Header signedIn={Boolean(session)} candidate={isCandidate} signOut={signOut} />
             <DemoBanner />
             {isCandidate && <CandidateNav unread={unread} />}

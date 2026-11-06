@@ -2,6 +2,7 @@
 
 import base64
 import binascii
+import hmac
 import os
 import sqlite3
 from pathlib import Path
@@ -51,8 +52,10 @@ BUILDER_PROVENANCE = Provenance(mode="demo", model_version="templates-v2-require
 
 
 def require_token(x_service_token: str = Header(default="")) -> None:
-    expected = os.environ.get("AI_SERVICE_TOKEN")
-    if not expected or x_service_token != expected:
+    """Constant-time, so response timing says nothing about how much of a guess was right. Compared as bytes, which
+    also handles a header that isn't ASCII. With no token configured, every call is refused."""
+    expected = os.environ.get("AI_SERVICE_TOKEN", "")
+    if not expected or not hmac.compare_digest(x_service_token.encode(), expected.encode()):
         raise HTTPException(status_code=401)
 
 

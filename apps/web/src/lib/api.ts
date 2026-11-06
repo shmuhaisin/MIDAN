@@ -1,4 +1,5 @@
 import 'server-only';
+import { headers } from 'next/headers';
 import { getLocale } from 'next-intl/server';
 import { redirect } from '@/i18n/navigation';
 import { getAccessToken } from './session';
@@ -9,13 +10,27 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The browser's address as this server received it, so the API can rate-limit signed-out visitors one by one. The API
+ * believes it only with TRUST_PROXY set (see docs/deployment.md); otherwise it counts all of them as this server.
+ */
+async function clientAddress() {
+  try {
+    return (await headers()).get('x-forwarded-for') ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function api<T>(path: string, init?: { method?: string; body?: unknown; form?: FormData }): Promise<T> {
   const token = await getAccessToken();
+  const forwarded = await clientAddress();
   const response = await fetch(`${process.env.API_URL}/v1${path}`, {
     method: init?.method ?? 'GET',
     cache: 'no-store',
     headers: {
       ...(token && { authorization: `Bearer ${token}` }),
+      ...(forwarded && { 'x-forwarded-for': forwarded }),
       ...(init?.body !== undefined && { 'content-type': 'application/json' }),
     },
     body: init?.form ?? (init?.body === undefined ? undefined : JSON.stringify(init.body)),

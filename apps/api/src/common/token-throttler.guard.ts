@@ -1,16 +1,17 @@
-import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import type { Request } from 'express';
+import { authenticate } from '../auth/auth.guard';
 
 /**
  * Traffic arrives through the Next.js server, so one IP can mean many people.
- * Signed-in callers are limited per token, everyone else per IP.
+ * Verified callers are limited per account, everyone else per IP. Only a token Supabase Auth accepts earns its own
+ * limit: keying on the raw header would give every made-up token a fresh one.
  */
 @Injectable()
 export class TokenThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Request) {
-    const token = req.headers.authorization;
-    return token ? createHash('sha256').update(token).digest('hex') : (req.ip ?? 'unknown');
+    const user = await authenticate(req).catch(() => null);
+    return user ? `user:${user.id}` : (req.ip ?? 'unknown');
   }
 }
