@@ -6,7 +6,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
   return Number(this);
 };
 
-export type AuthUser = { id: string; email: string };
+export type AuthUser = { id: string; email: string; emailConfirmed?: boolean };
 export type Tx = Prisma.TransactionClient;
 
 const TX_OPTIONS = { maxWait: 10_000, timeout: 20_000 };

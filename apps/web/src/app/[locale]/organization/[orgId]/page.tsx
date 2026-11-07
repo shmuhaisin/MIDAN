@@ -29,6 +29,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   if (!org || !jobs || !applicants) notFound();
   const t = await getTranslations({ locale, namespace: 'org' });
   const td = await getTranslations({ locale, namespace: 'dashboard' });
+  const tm = await getTranslations({ locale, namespace: 'members' });
   const tb = await getTranslations({ locale, namespace: 'branding' });
   const canManage = ['owner', 'admin', 'recruiter'].includes(org.my_role);
   const metrics = [
@@ -45,6 +46,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           <Eyebrow className="text-deep-muted">{t('eyebrow')}</Eyebrow>
           <h1 className="mt-3 font-display text-4xl font-bold sm:text-5xl">{pick(locale, org.name_ar, org.name_en)}</h1>
           <p className="mt-2 text-deep-muted">
+            <Link href={`/organization/${orgId}/members`} className="font-semibold text-mint underline underline-offset-4">{tm('title')}</Link> ·{' '}
             {t('yourRole', { role: td(`role.${org.my_role}`) })} ·{' '}
             <Link href={`/organization/${orgId}/settings`} className="font-semibold text-mint underline underline-offset-4">{tb('link')}</Link>
           </p>

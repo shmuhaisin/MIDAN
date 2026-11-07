@@ -2,6 +2,7 @@
 
 import { getLocale } from 'next-intl/server';
 import { redirect } from '@/i18n/navigation';
+import { clearInvitationContext, getInvitationContext, inspectInvitation, InvitationUnavailable } from './invitation-context';
 import { homeFor } from './home';
 import { clearSessionCookies, decodeToken, getAccessToken, setSessionCookies } from './session';
 
@@ -57,23 +58,34 @@ export async function signIn(_: FormState, form: FormData): Promise<FormState> {
   }
   if (!result.ok) return { error: authError(result.data) };
   await setSessionCookies(result.data.access_token, result.data.refresh_token);
+  if (form.get('return_to_invitation') === 'true' || await getInvitationContext()) redirect({ href: '/invitations/accept', locale: await getLocale() });
   redirect({ href: await homeFor(decodeToken(result.data.access_token)?.accountType, result.data.access_token), locale: await getLocale() });
   return {};
 }
 
 export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   // Off anywhere public. The database separately refuses every address outside the synthetic domain.
-  if (process.env.DEV_TEST_SIGNUP !== 'true') return { error: 'registration_closed' };
+  const invitation = await getInvitationContext();
+  const invitationRequested = form.get('return_to_invitation') === 'true' || Boolean(invitation);
+  if (invitationRequested && !invitation) { await clearInvitationContext(); return { error: 'invitation_unavailable' }; }
+  if (!invitation && process.env.DEV_TEST_SIGNUP !== 'true') return { error: 'registration_closed' };
   const email = text(form, 'email');
   const password = String(form.get('password') ?? '');
   const displayName = text(form, 'display_name');
-  const accountType = form.get('account_type') === 'organization' ? 'organization' : 'candidate';
+  const accountType = invitation ? 'organization' : form.get('account_type') === 'organization' ? 'organization' : 'candidate';
   const orgNameAr = text(form, 'org_name_ar');
   const orgNameEn = text(form, 'org_name_en');
   if (!email || !password || !displayName) return { error: 'required' };
-  if (accountType === 'organization' && (!orgNameAr || !orgNameEn)) return { error: 'required' };
+  if (!invitation && accountType === 'organization' && (!orgNameAr || !orgNameEn)) return { error: 'required' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'email_address_invalid' };
   if (password.length < 8) return { error: 'weak_password' };
+  if (invitation) {
+    try { await inspectInvitation(invitation.token, email); }
+    catch (error) {
+      if (error instanceof InvitationUnavailable) await clearInvitationContext();
+      return { error: error instanceof InvitationUnavailable ? 'invitation_unavailable' : 'unavailable' };
+    }
+  }
   const locale = await getLocale();
   const confirmation = confirmationRedirect(locale);
   if (!confirmation) return { error: 'unavailable' };
@@ -86,7 +98,7 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
       data: {
         display_name: displayName,
         account_type: accountType,
-        ...(accountType === 'organization' && { org_name_ar: orgNameAr, org_name_en: orgNameEn }),
+        ...(invitation ? { invitation_signup: true } : accountType === 'organization' ? { org_name_ar: orgNameAr, org_name_en: orgNameEn } : {}),
         midan_test_access: process.env.DEV_TEST_ACCESS_CODE,
       },
     });
@@ -96,9 +108,9 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   if (!result.ok) return { error: authError(result.data) };
   if (result.data.access_token) {
     await setSessionCookies(result.data.access_token, result.data.refresh_token);
-    redirect({ href: await homeFor(accountType, result.data.access_token), locale });
+    redirect({ href: invitation ? '/invitations/accept' : await homeFor(accountType, result.data.access_token), locale });
   }
-  redirect({ href: accountType === 'organization' ? '/check-email?as=organization' : '/check-email', locale });
+  redirect({ href: invitation ? '/check-email?as=organization&returnTo=invitation' : accountType === 'organization' ? '/check-email?as=organization' : '/check-email', locale });
   return {};
 }
 

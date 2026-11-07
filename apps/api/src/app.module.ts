@@ -1,3 +1,6 @@
+import { InvitationContextController } from './organizations/invitation-context.controller';
+import { MembersController } from './organizations/members.controller';
+import { InvitationMailer } from './organizations/invitation-mailer';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -16,9 +19,9 @@ import { OrganizationsController } from './organizations/organizations.controlle
 
 @Module({
   imports: [DbModule, ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }])],
-  providers: [AiClient, { provide: APP_GUARD, useClass: TokenThrottlerGuard }],
+  providers: [InvitationMailer, AiClient, { provide: APP_GUARD, useClass: TokenThrottlerGuard }],
   controllers: [
-    HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, MeController,
+    InvitationContextController, MembersController, HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, MeController,
     AssessmentsController, AttemptsController, EvaluationsController,
   ],
 })

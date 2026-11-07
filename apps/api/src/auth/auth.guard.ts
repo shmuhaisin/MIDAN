@@ -20,8 +20,8 @@ export class AuthGuard implements CanActivate {
     if (response.status >= 500) throw new ServiceUnavailableException('Authentication is unavailable');
     if (!response.ok) throw new UnauthorizedException();
 
-    const { id, email } = (await response.json()) as AuthUser;
-    request.user = { id, email };
+    const { id, email, email_confirmed_at } = (await response.json()) as AuthUser & { email_confirmed_at?: string | null };
+    request.user = { id, email, emailConfirmed: Boolean(email_confirmed_at) };
     return true;
   }
 }

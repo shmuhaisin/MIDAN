@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Bricolage_Grotesque, IBM_Plex_Sans, IBM_Plex_Sans_Arabic, Noto_Kufi_Arabic } from 'next/font/google';
+import localFont from 'next/font/local';
 import { notFound } from 'next/navigation';
 import { hasLocale, NextIntlClientProvider, useTranslations } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
@@ -11,10 +11,20 @@ import { signOut } from '@/lib/auth-actions';
 import { getSession } from '@/lib/session';
 import '../globals.css';
 
-const plexArabic = IBM_Plex_Sans_Arabic({ subsets: ['arabic'], weight: ['400', '500', '600', '700'], variable: '--font-plex-arabic', display: 'swap' });
-const plex = IBM_Plex_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-plex', display: 'swap' });
-const kufi = Noto_Kufi_Arabic({ subsets: ['arabic'], variable: '--font-kufi', display: 'swap' });
-const bricolage = Bricolage_Grotesque({ subsets: ['latin'], variable: '--font-bricolage', display: 'swap' });
+// Same approved families, weights and CSS variables; build without Google network access.
+// Sources, licenses and pinned upstream checksums are in src/fonts/manifest.json.
+const plexArabic = localFont({
+  src: [
+    { path: '../../fonts/IBMPlexSansArabic-Regular.ttf', weight: '400', style: 'normal' },
+    { path: '../../fonts/IBMPlexSansArabic-Medium.ttf', weight: '500', style: 'normal' },
+    { path: '../../fonts/IBMPlexSansArabic-SemiBold.ttf', weight: '600', style: 'normal' },
+    { path: '../../fonts/IBMPlexSansArabic-Bold.ttf', weight: '700', style: 'normal' },
+  ],
+  variable: '--font-plex-arabic', display: 'swap',
+});
+const plex = localFont({ src: '../../fonts/IBMPlexSans.ttf', weight: '400 700', style: 'normal', variable: '--font-plex', display: 'swap' });
+const kufi = localFont({ src: '../../fonts/NotoKufiArabic.woff2', weight: '100 900', style: 'normal', variable: '--font-kufi', display: 'swap' });
+const bricolage = localFont({ src: '../../fonts/BricolageGrotesque.woff2', weight: '200 800', style: 'normal', variable: '--font-bricolage', display: 'swap' });
 
 type Params = { params: Promise<{ locale: string }> };
 

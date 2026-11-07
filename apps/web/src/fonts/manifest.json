@@ -1,0 +1,66 @@
+{
+  "repository": "https://github.com/google/fonts",
+  "commit": "86aced91de05cd4f96a06838124cca45be337b2b",
+  "files": [
+    {
+      "file": "IBMPlexSans.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/86aced91de05cd4f96a06838124cca45be337b2b/ofl/ibmplexsans/IBMPlexSans%5Bwdth%2Cwght%5D.ttf",
+      "source_sha256": "3b031aa4216174205bd8471f88a49b91f093169e9e87bd5262242bc5967fe2e3",
+      "sha256": "3b031aa4216174205bd8471f88a49b91f093169e9e87bd5262242bc5967fe2e3",
+      "family": "ibmplexsans",
+      "transformation": "Unmodified upstream TTF"
+    },
+    {
+      "file": "NotoKufiArabic.woff2",
+      "source": "https://raw.githubusercontent.com/google/fonts/86aced91de05cd4f96a06838124cca45be337b2b/ofl/notokufiarabic/NotoKufiArabic%5Bwght%5D.ttf",
+      "source_sha256": "494f6b61469d7a02a2d63f0fc4930bb007388d8cfe551de5eb98354e100889f3",
+      "sha256": "3a9581881819a816ad503b7a3bee82fbbf922376132884f13dee2cee9c4175e5",
+      "family": "notokufiarabic",
+      "transformation": "WOFF2 conversion only"
+    },
+    {
+      "file": "BricolageGrotesque.woff2",
+      "source": "https://raw.githubusercontent.com/google/fonts/86aced91de05cd4f96a06838124cca45be337b2b/ofl/bricolagegrotesque/BricolageGrotesque%5Bopsz%2Cwdth%2Cwght%5D.ttf",
+      "source_sha256": "413e7357809ddd12fd80a96a8a396de0e401638d4acd3cb3e37532f0472ac682",
+      "sha256": "e41d813e56bfef4953948a1c44993231793e5a5fc978be0ac3eee2e3e2fe50e3",
+      "family": "bricolagegrotesque",
+      "transformation": "WOFF2 conversion; pin opsz=14 and wdth=100, retain variable wght"
+    },
+    {
+      "file": "IBMPlexSansArabic-Regular.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/86aced91de05cd4f96a06838124cca45be337b2b/ofl/ibmplexsansarabic/IBMPlexSansArabic-Regular.ttf",
+      "source_sha256": "6f611412270a132bbac838da9259d4c68569b4175f3b3b8fa3fa36a30b56dab9",
+      "sha256": "6f611412270a132bbac838da9259d4c68569b4175f3b3b8fa3fa36a30b56dab9",
+      "family": "ibmplexsansarabic",
+      "transformation": "Unmodified upstream TTF"
+    },
+    {
+      "file": "IBMPlexSansArabic-Medium.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/86aced91de05cd4f96a06838124cca45be337b2b/ofl/ibmplexsansarabic/IBMPlexSansArabic-Medium.ttf",
+      "source_sha256": "b8363ab9f733dfa4f8e96b8b2102c24b5cf4110fb96d1d3d9a9412f6fb49cf74",
+      "sha256": "b8363ab9f733dfa4f8e96b8b2102c24b5cf4110fb96d1d3d9a9412f6fb49cf74",
+      "family": "ibmplexsansarabic",
+      "transformation": "Unmodified upstream TTF"
+    },
+    {
+      "file": "IBMPlexSansArabic-SemiBold.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/86aced91de05cd4f96a06838124cca45be337b2b/ofl/ibmplexsansarabic/IBMPlexSansArabic-SemiBold.ttf",
+      "source_sha256": "597bd5502e5997be4414e4c9c88834b30ff3784250c84f20bce2b20e53ebd467",
+      "sha256": "597bd5502e5997be4414e4c9c88834b30ff3784250c84f20bce2b20e53ebd467",
+      "family": "ibmplexsansarabic",
+      "transformation": "Unmodified upstream TTF"
+    },
+    {
+      "file": "IBMPlexSansArabic-Bold.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/86aced91de05cd4f96a06838124cca45be337b2b/ofl/ibmplexsansarabic/IBMPlexSansArabic-Bold.ttf",
+      "source_sha256": "691e0c891a38637ae6bbdb69700f8042cb0724a137bee615068ffdb92244f61f",
+      "sha256": "691e0c891a38637ae6bbdb69700f8042cb0724a137bee615068ffdb92244f61f",
+      "family": "ibmplexsansarabic",
+      "transformation": "Unmodified upstream TTF"
+    }
+  ],
+  "toolchain": {
+    "fontTools": "4.61.1",
+    "brotli": "1.2.1"
+  }
+}

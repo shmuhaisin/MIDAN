@@ -11,7 +11,8 @@
     "test:e2e": "jest --config jest.e2e.json --runInBand",
     "db:pull": "node --env-file=../../.env ../../node_modules/prisma/build/index.js db pull",
     "db:generate": "node --env-file=../../.env ../../node_modules/prisma/build/index.js generate",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:members:db": "node --test test/members-db.test.mjs"
   },
   "jest": {
     "preset": "ts-jest",
@@ -28,6 +29,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "multer": "^2.5.0",
+    "nodemailer": "^10.3.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
@@ -38,9 +40,12 @@
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.3.0",
     "@types/node": "^26.6.6",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
     "bcryptjs": "^3.0.3",
     "jest": "^30.5.2",
+    "pg": "^8.23.1",
     "prisma": "^6.19.3",
     "supertest": "^7.3.1",
     "ts-jest": "^29.4.15",

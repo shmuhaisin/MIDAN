@@ -81,34 +81,36 @@ function AudienceSwitch({ href, label }: { href: string; label: string }) {
   return <p className="text-center text-sm"><Link href={href} className="font-medium text-muted underline underline-offset-4 hover:text-foreground">{label}</Link></p>;
 }
 
-export function LoginForm({ audience }: { audience: 'candidate' | 'organization' }) {
+export function LoginForm({ audience, returnToInvitation = false }: { audience: 'candidate' | 'organization'; returnToInvitation?: boolean }) {
   const t = useTranslations('auth');
   const [state, action] = useActionState<FormState, FormData>(signIn, {});
   const org = audience === 'organization';
   return (
     <ActionForm action={action} className="space-y-4">
+      {returnToInvitation && <input type="hidden" name="return_to_invitation" value="true" />}
       <ErrorText code={state.error} />
       <Field name="email" type="email" autoComplete="email" required label={t('email')} dir="ltr" />
       <Field name="password" type="password" autoComplete="current-password" required label={t('password')} dir="ltr" />
       <Submit className="w-full">{t('loginSubmit')}</Submit>
       <p className="text-center text-sm text-muted">
-        {t('noAccount')} <Link href={org ? '/register?as=organization' : '/register'} className="font-semibold text-primary underline underline-offset-4">{t('registerSubmit')}</Link>
+        {t('noAccount')} <Link href={returnToInvitation ? '/register?as=organization&returnTo=invitation' : org ? '/register?as=organization' : '/register'} className="font-semibold text-primary underline underline-offset-4">{t('registerSubmit')}</Link>
       </p>
-      <AudienceSwitch href={org ? '/login' : '/login?as=organization'} label={t(org ? 'toCandidateLogin' : 'toOrgLogin')} />
+      {!returnToInvitation && <AudienceSwitch href={org ? '/login' : '/login?as=organization'} label={t(org ? 'toCandidateLogin' : 'toOrgLogin')} />}
     </ActionForm>
   );
 }
 
-export function RegisterForm({ audience }: { audience: 'candidate' | 'organization' }) {
+export function RegisterForm({ audience, invitation = false }: { audience: 'candidate' | 'organization'; invitation?: boolean }) {
   const t = useTranslations('auth');
   const [state, action] = useActionState<FormState, FormData>(signUp, {});
   const org = audience === 'organization';
   return (
     <ActionForm action={action} className="space-y-4">
       <input type="hidden" name="account_type" value={audience} />
+      {invitation && <input type="hidden" name="return_to_invitation" value="true" />}
       <ErrorText code={state.error} />
       <Field name="display_name" autoComplete="name" required maxLength={200} label={t('displayName')} />
-      {org && (
+      {org && !invitation && (
         <>
           <Field name="org_name_ar" required maxLength={200} dir="rtl" label={t('orgNameAr')} />
           <Field name="org_name_en" required maxLength={200} dir="ltr" label={t('orgNameEn')} />
@@ -118,9 +120,9 @@ export function RegisterForm({ audience }: { audience: 'candidate' | 'organizati
       <Field name="password" type="password" autoComplete="new-password" required minLength={8} label={t('password')} hint={t('passwordHint')} dir="ltr" />
       <Submit className="w-full">{t('registerSubmit')}</Submit>
       <p className="text-center text-sm text-muted">
-        {t('haveAccount')} <Link href={org ? '/login?as=organization' : '/login'} className="font-semibold text-primary underline underline-offset-4">{t('loginSubmit')}</Link>
+        {t('haveAccount')} <Link href={invitation ? '/login?as=organization&returnTo=invitation' : org ? '/login?as=organization' : '/login'} className="font-semibold text-primary underline underline-offset-4">{t('loginSubmit')}</Link>
       </p>
-      <AudienceSwitch href={org ? '/register' : '/register?as=organization'} label={t(org ? 'toCandidateRegister' : 'toOrgRegister')} />
+      {!invitation && <AudienceSwitch href={org ? '/register' : '/register?as=organization'} label={t(org ? 'toCandidateRegister' : 'toOrgRegister')} />}
     </ActionForm>
   );
 }

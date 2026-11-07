@@ -1,6 +1,6 @@
 # Project status
 
-Only what has been run is marked Tested. Last updated 2026-11-05.
+Only what has been run is marked Tested. Last updated 2026-11-07.
 
 | Milestone | Item | Status |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ Only what has been run is marked Tested. Last updated 2026-11-05.
 | 3 | Organization logo, colors, welcome message, industry | Tested |
 | 3 | Sign-up and sign-in forms, role redirects, sign-out, session renewal | Tested (forms against a local Auth stand-in; sessions against real Supabase) |
 | 3 | A complete real sign-up with a real email and verification link | Implemented, awaiting the owner's own test |
-| 3 | Team invitations, role management UI | Not Started |
+| 3 | Team invitations, role management UI | Implemented; DB INSERT integrity and invited signup/confirmation fixes verified locally. 29 API, 14 DB, 14 browser tests and 13 connected checkpoints pass; builds/type checks pass. Native Prisma and real external email delivery remain unverified. See docs/organization-invitation-fixes.md. |
 | 3 | Sharing a profile beyond applications (consent is recorded, sharing isn't built) | Not Started |
 | 4 | Job details and skills, browsing, applying, withdrawing, status tracking | Tested |
 | 4 | 30 to 50 reviewed skills, occupations | Not Started (6 draft skills exist) |
