@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { MANUAL_STATUS_CHANGES, statusOptions } from './application-status.ts';
+import { canReopenApplications, MANUAL_STATUS_CHANGES, statusOptions } from './application-status.ts';
 
 const MIGRATION = '../../../../supabase/migrations/20261107090100_application_status_transitions.sql';
 
@@ -27,4 +27,11 @@ test('hiring needs a shortlist or a reviewed evaluation, and hired and withdrawn
   assert.deepEqual(statusOptions('hired'), ['hired']);
   assert.deepEqual(statusOptions('withdrawn'), ['withdrawn']);
   assert.deepEqual(statusOptions('submitted'), ['submitted', 'under_review', 'shortlisted', 'rejected']);
+});
+
+test('only a hiring manager is offered reopening a rejected application', () => {
+  assert.deepEqual(statusOptions('rejected'), ['rejected']);
+  assert.deepEqual(statusOptions('rejected', true), ['rejected', 'under_review', 'shortlisted']);
+  assert.ok(canReopenApplications('owner') && canReopenApplications('admin'));
+  assert.ok(!canReopenApplications('recruiter') && !canReopenApplications('reviewer') && !canReopenApplications());
 });

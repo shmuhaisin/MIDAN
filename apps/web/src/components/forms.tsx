@@ -396,12 +396,12 @@ export function JobStatusButtons({ orgId, jobId, status }: { orgId: string; jobI
   );
 }
 
-export function ApplicantStatus({ id, status, label }: { id: string; status: string; label: string }) {
+export function ApplicantStatus({ id, status, label, canReopen = false }: { id: string; status: string; label: string; canReopen?: boolean }) {
   const t = useTranslations('applicationStatus');
   const [pending, start] = useTransition();
   const [value, setValue] = useState(status);
   const [error, setError] = useState<string>();
-  const options = statusOptions(status);
+  const options = statusOptions(status, canReopen);
   if (options.length === 1) return <span className="text-sm">{t(status)}</span>;
   return (
     <div>

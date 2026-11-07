@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Arrow, Eyebrow } from '@/components/brand';
-import { SubmittedCvButton } from '@/components/candidate';
+import { SubmittedCvButton, ShareCvButton } from '@/components/candidate';
 import { WithdrawButton } from '@/components/forms';
 import { Badge, statusTone } from '@/components/ui';
 import { Link } from '@/i18n/navigation';
@@ -14,7 +14,7 @@ type Attempt = {
   evaluation_results: { released_to_candidate: boolean } | null;
 };
 type Application = {
-  id: string; status: string; created_at: string; cover_note: string | null; has_cv: boolean;
+  id: string; status: string; created_at: string; cover_note: string | null; has_cv: boolean; can_share_cv: boolean;
   jobs: { id: string; slug: string; title_ar: string; title_en: string; location: string | null; employment_type: string | null; organizations: { slug: string; name_ar: string; name_en: string } };
   assessment_attempts: Attempt[];
   application_status_history: { to_status: string; created_at: string }[];
@@ -114,6 +114,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <h2 id="submitted" className="section-title">{t('submitted')}</h2>
           <p className="mt-1 text-sm text-muted">{t('submittedNote')}</p>
           <div className="mt-2">{application.has_cv ? <SubmittedCvButton id={application.id} /> : <p className="text-muted">{t('noCv')}</p>}</div>
+          {application.can_share_cv && <ShareCvButton id={application.id} />}
           {application.cover_note && <p className="mt-3 whitespace-pre-line">{application.cover_note}</p>}
         </section>
 

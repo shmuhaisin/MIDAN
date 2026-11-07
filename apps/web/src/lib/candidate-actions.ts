@@ -30,6 +30,12 @@ export async function submitApplication(jobId: string, coverNote: string): Promi
   return {};
 }
 
+export async function shareCvWithApplication(id: string): Promise<FormState> {
+  const result = await done(() => api(`/me/applications/${id}/share-cv`, { method: 'POST' }));
+  if (!result.error) revalidatePath('/', 'layout');
+  return result;
+}
+
 export async function applicationCvLink(id: string) {
   try {
     return { url: (await api<{ url: string }>(`/me/applications/${id}/cv-url`)).url };

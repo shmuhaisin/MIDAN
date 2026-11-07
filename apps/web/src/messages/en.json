@@ -1052,7 +1052,7 @@
     "notListed": "Not listed",
     "cv": "CV",
     "cvOpen": "Open CV",
-    "cvNone": "The candidate hasn't uploaded a CV.",
+    "cvNone": "The candidate hasn't shared a CV with this application.",
     "years": "{count} years of experience",
     "none": "Nothing to show.",
     "viewWork": "Review their assessment work",
@@ -1272,6 +1272,8 @@
     "submittedNote": "The copy from when you applied.",
     "openCv": "Open the attached CV",
     "noCv": "No CV was attached.",
+    "shareCv": "Share my current CV with this employer",
+    "shareCvNote": "You applied without a CV, so this employer can't see one. If you want them to, share a copy of your current CV. It stays with this application and can't be replaced.",
     "history": "Application history"
   },
   "interview": {
@@ -1421,6 +1423,7 @@
     "candidateNote": "The candidate's message: {note}",
     "outcome": "Decision",
     "outcomeNote": "The decision is yours. The candidate reads what you write here as it is.",
+    "hireNeedsShortlist": "To hire through a decision here, shortlist the candidate first.",
     "decision": "Decision",
     "choose": "Choose",
     "messageAr": "Message to the candidate in Arabic",

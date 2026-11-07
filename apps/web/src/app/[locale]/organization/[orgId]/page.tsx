@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Eyebrow, Parapet } from '@/components/brand';
 import { ApplicantStatus, JobForm, JobStatusButtons } from '@/components/forms';
+import { canReopenApplications } from '@/lib/application-status';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { number, pick } from '@/lib/format';
@@ -102,7 +103,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                     </div>
                     <p className="text-sm">{pick(locale, a.jobs.title_ar, a.jobs.title_en)}</p>
                     {canManage ? (
-                      <ApplicantStatus id={a.id} status={a.status} label={t('changeStatus', { name })} />
+                      <ApplicantStatus id={a.id} status={a.status} label={t('changeStatus', { name })} canReopen={canReopenApplications(org.my_role)} />
                     ) : (
                       <p className="text-sm text-muted">{t('readOnly')}</p>
                     )}

@@ -296,6 +296,13 @@ describe('Midan database foundation', () => {
         .send({ slug: `recruiter-decides-${RUN}`, title_ar: 'ق', title_en: 'Recruiter decides', status: 'published' }).expect(201)).body.id;
       const applied = (await api().post(`/jobs/${published}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
       await api().patch(`/applications/${applied}/status`).set(bearer(recruiterA)).send({ status: 'under_review' }).expect(200);
+      // Reopening a rejected application is for a hiring manager, and leaves an audit record.
+      await api().patch(`/applications/${applied}/status`).set(bearer(recruiterA)).send({ status: 'rejected' }).expect(200);
+      await api().patch(`/applications/${applied}/status`).set(bearer(recruiterA)).send({ status: 'under_review' }).expect(403);
+      expect((await rest(ownerA, 'GET', `audit_logs?entity_id=eq.${applied}&action=eq.reopen`)).body).toEqual([]);
+      await api().patch(`/applications/${applied}/status`).set(bearer(ownerA)).send({ status: 'under_review' }).expect(200);
+      const reopened = (await rest(ownerA, 'GET', `audit_logs?entity_id=eq.${applied}&action=eq.reopen&select=actor_id,details`)).body;
+      expect(reopened).toEqual([{ actor_id: ownerA.id, details: { from: 'rejected', to: 'under_review' } }]);
     });
 
     it('never leaves an organization without an owner', async () => {
@@ -1061,6 +1068,12 @@ describe('Midan database foundation', () => {
       await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'promoted' }).expect(400);
       await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'on_hold', message_en: 'We need another week.' }).expect(201);
       expect((await api().get(`/me/applications/${application}`).set(bearer(candidateOne))).body.hiring_outcomes[0]).toMatchObject({ outcome: 'on_hold', message_en: 'We need another week.' });
+      // An outcome can't hire before the shortlist, and doesn't shortlist anyone on the way.
+      const before = (await api().get(`/me/applications/${application}`).set(bearer(candidateOne)).expect(200)).body.status;
+      expect(before).not.toBe('shortlisted');
+      await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'hired', message_en: 'Too soon.' }).expect(422);
+      expect((await api().get(`/me/applications/${application}`).set(bearer(candidateOne)).expect(200)).body.status).toBe(before);
+      await api().patch(`/applications/${application}/status`).set(bearer(ownerA)).send({ status: 'shortlisted' }).expect(200);
       await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'hired', message_en: 'Welcome.' }).expect(201);
       const final = await api().get(`/me/applications/${application}`).set(bearer(candidateOne)).expect(200);
       expect(final.body.status).toBe('hired');
@@ -1409,6 +1422,47 @@ describe('Midan database foundation', () => {
       expect((await storage(ownerA, 'GET', path)).ok).toBe(false);
       expect((await storage(ownerB, 'GET', path)).ok).toBe(false);
       expect((await fetch(`${BASE}/storage/v1/object/public/${cv(candidateTwo)}`)).ok).toBe(false);
+    });
+
+    it('shows an employer no CV for an application without one, until the candidate chooses to share it', async () => {
+      const pdf = (text: string) => Buffer.from(`%PDF-1.4 ${text}`);
+      const sendCv = (text: string) => api().post('/me/cv').set(bearer(candidateTwo)).attach('file', pdf(text), { filename: 'cv.pdf', contentType: 'application/pdf' }).expect(201);
+      await api().delete('/me/cv').set(bearer(candidateTwo));
+      const published = (await api().post(`/organizations/${orgA}/jobs`).set(bearer(ownerA))
+        .send({ slug: `share-cv-${RUN}`, title_ar: 'م', title_en: 'Sharing', status: 'published' }).expect(201)).body.id;
+      const id = (await api().post(`/jobs/${published}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
+      await api().post(`/me/applications/${id}/share-cv`).set(bearer(candidateTwo)).expect(422);
+
+      // A CV uploaded after applying stays the candidate's.
+      await sendCv('first');
+      await api().get(`/applications/${id}/cv-url`).set(bearer(ownerA)).expect(404);
+      const profile = (await api().get(`/applications/${id}/profile`).set(bearer(ownerA)).expect(200)).body;
+      expect(profile.has_cv).toBe(false);
+      expect(profile.cv_snapshot_path).toBeUndefined();
+      expect(profile.users.candidate_profiles.cv_path).toBeUndefined();
+      const current = (await api().get('/me/cv/url').set(bearer(candidateTwo)).expect(200)).body.url as string;
+      expect((await fetch(current)).status).toBe(200);
+      const currentPath = decodeURIComponent(new URL(current).pathname.split('/object/sign/')[1]);
+      expect((await storage(ownerA, 'GET', `object/${currentPath}`)).ok).toBe(false);
+
+      // Only the candidate can share it.
+      await api().post(`/me/applications/${id}/share-cv`).set(bearer(candidateOne)).expect(404);
+      await api().post(`/me/applications/${id}/share-cv`).set(bearer(ownerA)).expect(404);
+      expect((await rest(ownerA, 'POST', 'rpc/share_cv_with_application', { p_application: id, p_path: `${candidateTwo.id}/applications/${published}/x.pdf` })).status).not.toBe(200);
+      expect((await api().get(`/me/applications/${id}`).set(bearer(candidateTwo)).expect(200)).body).toMatchObject({ has_cv: false, can_share_cv: true });
+
+      await api().post(`/me/applications/${id}/share-cv`).set(bearer(candidateTwo)).expect(201);
+      expect((await api().get(`/me/applications/${id}`).set(bearer(candidateTwo)).expect(200)).body).toMatchObject({ has_cv: true, can_share_cv: false });
+      const shared = (await api().get(`/applications/${id}/cv-url`).set(bearer(ownerA)).expect(200)).body.url as string;
+      expect(await (await fetch(shared)).text()).toContain('first');
+      await api().get(`/applications/${id}/cv-url`).set(bearer(ownerB)).expect(404);
+      await api().post(`/me/applications/${id}/share-cv`).set(bearer(candidateTwo)).expect(422);
+      expect((await rest(ownerA, 'GET', `audit_logs?entity_id=eq.${id}&action=eq.share_cv`)).body).toHaveLength(1);
+
+      // Replacing the CV later doesn't change what was shared.
+      await sendCv('second');
+      const after = (await api().get(`/applications/${id}/cv-url`).set(bearer(ownerA)).expect(200)).body.url as string;
+      expect(await (await fetch(after)).text()).toContain('first');
     });
 
     it("gives each organization only the CV copy submitted to it, never another employer's", async () => {

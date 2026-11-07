@@ -6,7 +6,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import {
   addPlanItem, applicationCvLink, applyAnalysis, dismissAnalysis, joinInterview, readAllNotifications, readAnalysis, readNotification, removePlanItem, respondToInterview,
-  retryAnalysis, saveBasics, saveOnboarding, saveSettings, searchReferenceSkills, setCareerTarget, setOwnSkills, setPlanStatus, setReferenceSkills, submitApplication,
+  retryAnalysis, saveBasics, saveOnboarding, saveSettings, searchReferenceSkills, setCareerTarget, setOwnSkills, setPlanStatus, setReferenceSkills, shareCvWithApplication, submitApplication,
   type CvAnalysis, type ReferenceSkill,
 } from '@/lib/candidate-actions';
 import { formatWhen, number, pick } from '@/lib/format';
@@ -46,6 +46,23 @@ export function SubmittedCvButton({ id }: { id: string }) {
       <button type="button" className="font-semibold text-primary underline underline-offset-4" onClick={() => openFileLink(() => applicationCvLink(id), setError)}>{t('openCv')}</button>
       <ErrorText code={error} />
     </>
+  );
+}
+
+/** Nothing reaches the organization until the candidate chooses this. */
+export function ShareCvButton({ id }: { id: string }) {
+  const t = useTranslations('application');
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string>();
+  return (
+    <div className="mt-2">
+      <p className="text-sm text-muted">{t('shareCvNote')}</p>
+      <button type="button" disabled={pending} aria-busy={pending} className="mt-2 font-semibold text-primary underline underline-offset-4 disabled:opacity-60"
+        onClick={() => start(async () => setError((await shareCvWithApplication(id)).error))}>
+        {t('shareCv')}
+      </button>
+      <ErrorText code={error} />
+    </div>
   );
 }
 

@@ -13,6 +13,7 @@ type Experience = { title: string; organization?: string; start_year?: number | 
 type Education = { institution?: string; qualification: string; field?: string; start_year?: number | null; end_year?: number | null };
 type Applicant = {
   status: string;
+  has_cv: boolean;
   jobs: { id: string; title_ar: string; title_en: string; job_skills: Named[] };
   assessment_attempts: { id: string; status: string; assessment_versions: { assessments: { title_ar: string; title_en: string } } }[];
   users: {
@@ -21,7 +22,7 @@ type Applicant = {
     candidate_reference_skills: { reference_skills: { id: string; name_ar: string } }[];
     candidate_profiles: null | {
       full_name: string; headline: string | null; city: string | null; summary: string | null; years_experience: string | null;
-      cv_path: string | null; experience: Experience[]; education: Education[]; self_reported_skills?: string[];
+      experience: Experience[]; education: Education[]; self_reported_skills?: string[];
     };
   };
 };
@@ -66,7 +67,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         ))}
       </header>
 
-      {hiring && <HiringPanel orgId={orgId} applicationId={applicationId} interviews={hiring.interviews} outcomes={hiring.outcomes} canManage={canManage} hired={data.status === 'hired'} />}
+      {hiring && <HiringPanel orgId={orgId} applicationId={applicationId} interviews={hiring.interviews} outcomes={hiring.outcomes} canManage={canManage} status={data.status} />}
 
       {!profile && <p className="text-muted">{t('noProfile')}</p>}
       {profile?.summary && <p className="max-w-3xl leading-relaxed whitespace-pre-line">{profile.summary}</p>}
@@ -124,7 +125,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
 
       <section aria-labelledby="cv">
         <h2 id="cv" className="section-title">{t('cv')}</h2>
-        <div className="mt-3">{profile?.cv_path ? <ApplicantCvButton applicationId={applicationId} /> : <p className="text-muted">{t('cvNone')}</p>}</div>
+        <div className="mt-3">{data.has_cv ? <ApplicantCvButton applicationId={applicationId} /> : <p className="text-muted">{t('cvNone')}</p>}</div>
       </section>
     </article>
   );

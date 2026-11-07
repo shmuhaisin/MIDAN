@@ -39,7 +39,10 @@ export class ApplicationsController {
       });
       if (!application) throw new NotFoundException();
       await requireRole(tx, user, application.org_id);
-      return application;
+      // The current CV stays the candidate's: staff learn only whether one was submitted or shared with this application.
+      const { cv_snapshot_path, users, ...rest } = application;
+      const { cv_path: _current, ...profile } = users.candidate_profiles ?? { cv_path: null };
+      return { ...rest, has_cv: Boolean(cv_snapshot_path), users: { ...users, candidate_profiles: users.candidate_profiles ? profile : null } };
     });
   }
 
@@ -48,11 +51,12 @@ export class ApplicationsController {
     const path = await this.db.asUser(user, async (tx) => {
       const application = await tx.applications.findFirst({
         where: { id, status: { not: 'withdrawn' } },
-        select: { org_id: true, cv_snapshot_path: true, users: { select: { candidate_profiles: { select: { cv_path: true } } } } },
+        select: { org_id: true, cv_snapshot_path: true },
       });
       if (!application) throw new NotFoundException();
       await requireRole(tx, user, application.org_id);
-      return application.cv_snapshot_path ?? application.users.candidate_profiles?.cv_path;
+      // Only a CV the candidate submitted or chose to share. Their current CV is theirs.
+      return application.cv_snapshot_path;
     });
     if (!path) throw new NotFoundException();
     const url = await signedUrl('candidate-documents', path, token);

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Arrow, Eyebrow, JourneyRail } from '@/components/brand';
 import { ApplicantStatus, JobStatusButtons } from '@/components/forms';
+import { canReopenApplications } from '@/lib/application-status';
 import { RequirementsEditor, type Requirement } from '@/components/requirements';
 import { JobAnalysisPanel, type Analysis } from '@/components/job-analysis';
 import { AssessmentSwitcher, AssessmentTitle, VersionSettings, EmptyAssessment, FieldSelect, GenerateButton, InviteButton, JobDetailsForm, PublishPanel, TaskList } from '@/components/workspace';
@@ -187,7 +188,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                     <Link href={`/organization/${orgId}/applicants/${a.id}`} className="block truncate font-semibold underline-offset-4 hover:text-primary hover:underline">{name}</Link>
                     <p className="text-sm text-muted">{ts(a.status)}</p>
                   </div>
-                  {canBuild ? <ApplicantStatus id={a.id} status={a.status} label={to('changeStatus', { name })} /> : <span className="text-sm">{ts(a.status)}</span>}
+                  {canBuild ? <ApplicantStatus id={a.id} status={a.status} label={to('changeStatus', { name })} canReopen={canReopenApplications(org.my_role)} /> : <span className="text-sm">{ts(a.status)}</span>}
                   {rows.length === 0 ? (
                     canBuild && <p className="text-xs text-muted sm:col-span-2">{t('needPublished')}</p>
                   ) : (

@@ -53,7 +53,7 @@ function InterviewRow({ orgId, interview, canManage }: { orgId: string; intervie
 }
 
 /** What the candidate journey needs from the organization side: scheduling a person-to-person interview and issuing a decision. */
-export function HiringPanel({ orgId, applicationId, interviews, outcomes, canManage, hired }: { orgId: string; applicationId: string; interviews: Interview[]; outcomes: Outcome[]; canManage: boolean; hired: boolean }) {
+export function HiringPanel({ orgId, applicationId, interviews, outcomes, canManage, status }: { orgId: string; applicationId: string; interviews: Interview[]; outcomes: Outcome[]; canManage: boolean; status: string }) {
   const t = useTranslations('hiring');
   const ta = useTranslations('application');
   const locale = useLocale();
@@ -112,17 +112,18 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
       <section aria-labelledby="hiring-outcome">
         <h2 id="hiring-outcome" className="section-title">{t('outcome')}</h2>
         <p className="mt-1 text-sm text-muted">{t('outcomeNote')}</p>
+        {canManage && !['hired', 'shortlisted'].includes(status) && <p className="mt-1 text-sm text-muted">{t('hireNeedsShortlist')}</p>}
         {outcomes.length > 0 && (
           <ul className="mt-2 space-y-1">{outcomes.map((o) => <li key={o.id} className="text-sm"><span className="font-semibold">{ta(`outcome.${o.outcome}`)}</span> · {pick(locale, o.message_ar ?? '', o.message_en ?? '')}</li>)}</ul>
         )}
         {/* The database refuses another outcome once the candidate is hired. */}
-        {canManage && !hired && (
+        {canManage && status !== 'hired' && (
           <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={issue}>
             <label className="block sm:col-span-2">
               <span className="text-sm font-medium">{t('decision')}</span>
               <select name="outcome" required defaultValue="" className={INPUT}>
                 <option value="">{t('choose')}</option>
-                {['hired', 'not_selected', 'on_hold', 'additional_interview'].map((k) => <option key={k} value={k}>{ta(`outcome.${k}`)}</option>)}
+                {(status === 'shortlisted' ? ['hired', 'not_selected', 'on_hold', 'additional_interview'] : ['not_selected', 'on_hold', 'additional_interview']).map((k) => <option key={k} value={k}>{ta(`outcome.${k}`)}</option>)}
               </select>
             </label>
             <Field name="message_ar" dir="rtl" maxLength={2000} label={t('messageAr')} />

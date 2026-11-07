@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, UseGuards } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { Body, Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, ServiceUnavailableException, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
-import { signedUrl } from '../common/storage';
+import { signedUrl, storageFetch } from '../common/storage';
 import { listableJobs } from '../common/test-data';
 import { AuthUser, DbService, Tx } from '../db/db.service';
 
@@ -171,7 +172,8 @@ export class CandidateController {
       });
       if (!application) throw new NotFoundException();
       const { cv_snapshot_path, ...rest } = application;
-      return { ...rest, has_cv: Boolean(cv_snapshot_path) };
+      const profile = await tx.candidate_profiles.findUnique({ where: { user_id: user.id }, select: { cv_path: true } });
+      return { ...rest, has_cv: Boolean(cv_snapshot_path), can_share_cv: !cv_snapshot_path && application.status !== 'withdrawn' && Boolean(profile?.cv_path) };
     });
   }
 
@@ -181,6 +183,33 @@ export class CandidateController {
     const url = application?.cv_snapshot_path ? await signedUrl('candidate-documents', application.cv_snapshot_path, token) : null;
     if (!url) throw new NotFoundException();
     return { url };
+  }
+
+  @Post('applications/:id/share-cv')
+  @ApiOperation({ summary: "Shares a copy of the candidate's current CV with an application made without one. Only the candidate can do this." })
+  async shareCv(@CurrentUser() user: AuthUser, @Headers('authorization') token: string, @Param('id', ParseUUIDPipe) id: string) {
+    const { application, cvPath } = await this.db.asUser(user, async (tx) => ({
+      application: await tx.applications.findFirst({ where: { id, candidate_id: user.id }, select: { job_id: true, status: true, cv_snapshot_path: true } }),
+      cvPath: (await tx.candidate_profiles.findUnique({ where: { user_id: user.id }, select: { cv_path: true } }))?.cv_path,
+    }));
+    if (!application) throw new NotFoundException();
+    if (application.status === 'withdrawn' || application.cv_snapshot_path) throw new UnprocessableEntityException('A CV cannot be shared with this application');
+    if (!cvPath) throw new UnprocessableEntityException('There is no CV to share');
+    const copy = `${user.id}/applications/${application.job_id}/${randomUUID()}.${cvPath.split('.').pop()}`;
+    const copied = await storageFetch('object/copy', token, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ bucketId: 'candidate-documents', sourceKey: cvPath, destinationKey: copy }),
+    });
+    if (!copied.ok) throw new ServiceUnavailableException('The CV could not be attached');
+    try {
+      await this.db.asUser(user, (tx) => tx.$executeRaw`select public.share_cv_with_application(${id}::uuid, ${copy})`);
+    } catch (error) {
+      // Nothing points at the copy, for example after a second click, so it doesn't stay.
+      await storageFetch(`object/candidate-documents/${copy}`, token, { method: 'DELETE' }).catch(() => undefined);
+      throw error;
+    }
+    return { shared: true };
   }
 
   @Patch('onboarding')

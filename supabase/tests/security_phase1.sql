@@ -15,6 +15,7 @@ insert into auth.users (id, email, raw_user_meta_data, email_confirmed_at) value
   ('00000000-0000-4000-8000-00000000c002', 'phase1-other@example.com', '{"account_type": "candidate", "display_name": "Phase One Other", "midan_test_access": "local-dev-access"}', now()),
   ('00000000-0000-4000-8000-00000000a001', 'phase1-owner-a@example.com', '{"midan_test_access": "local-dev-access"}', now()),
   ('00000000-0000-4000-8000-00000000a002', 'phase1-reviewer-a@example.com', '{"midan_test_access": "local-dev-access"}', now()),
+  ('00000000-0000-4000-8000-00000000a003', 'phase1-recruiter-a@example.com', '{"midan_test_access": "local-dev-access"}', now()),
   ('00000000-0000-4000-8000-00000000b001', 'phase1-owner-b@example.com', '{"midan_test_access": "local-dev-access"}', now());
 
 insert into public.organizations (id, slug, name_ar, name_en) values
@@ -23,6 +24,7 @@ insert into public.organizations (id, slug, name_ar, name_en) values
 insert into public.organization_members (org_id, user_id, role) values
   ('00000000-0000-4000-8000-0000000000a0', '00000000-0000-4000-8000-00000000a001', 'owner'),
   ('00000000-0000-4000-8000-0000000000a0', '00000000-0000-4000-8000-00000000a002', 'reviewer'),
+  ('00000000-0000-4000-8000-0000000000a0', '00000000-0000-4000-8000-00000000a003', 'recruiter'),
   ('00000000-0000-4000-8000-0000000000b0', '00000000-0000-4000-8000-00000000b001', 'owner');
 
 -- Jobs: A1 has a published assessment, A2 and B1 have none.
@@ -53,7 +55,7 @@ insert into storage.objects (bucket_id, name) values
   ('candidate-documents', '00000000-0000-4000-8000-00000000c002/cv-current.pdf');
 
 -- Applications, made by the candidates themselves: the candidate to A1 and B1, each with its own CV copy; the other
--- candidate to A2 without a copy, so organization A falls back to that candidate's current CV.
+-- candidate to A2 without a copy, so organization A sees no CV until that candidate chooses to share one.
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-8000-00000000c001", "role": "authenticated"}';
 set local role authenticated;
 insert into public.applications (id, job_id, candidate_id, cv_snapshot_path) values
@@ -86,8 +88,8 @@ do $$ begin
     'S1: organization A sees exactly its own application''s CV copy';
   assert not exists (select 1 from storage.objects where name like '%/00000000-0000-4000-8000-0000000001b1/%'),
     'S1: organization A cannot see, list or infer the application to organization B';
-  assert phase1_test.visible('00000000-0000-4000-8000-00000000c002') = array['cv-current.pdf'],
-    'S1: without a copy, organization A reads the applicant''s current CV, as the API falls back to';
+  assert phase1_test.visible('00000000-0000-4000-8000-00000000c002') = '{}',
+    'S1: without a copy, organization A reads nothing, not even the applicant''s current CV';
 end $$;
 reset role;
 
@@ -446,6 +448,103 @@ do $$ declare o uuid; a record; begin
   exception when check_violation then null;
   end;
   assert (select status from public.applications where id = a.id) = 'hired', 'S2: the application stays hired';
+end $$;
+
+\echo 'Owner decisions: reopening, hiring through an outcome, sharing a CV'
+insert into public.jobs (id, org_id, slug, title_ar, title_en, status) values
+  ('00000000-0000-4000-8000-0000000001a3', '00000000-0000-4000-8000-0000000000a0', 'phase1-job-a3', 'وظيفة أ3', 'Job A3', 'published');
+set local request.jwt.claims to '{"sub": "00000000-0000-4000-8000-00000000c002", "role": "authenticated"}';
+set local role authenticated;
+insert into public.applications (id, job_id, candidate_id) values
+  ('00000000-0000-4000-8000-0000000005a3', '00000000-0000-4000-8000-0000000001a3', '00000000-0000-4000-8000-00000000c002');
+reset role;
+do $$ begin
+  perform set_config('phase1.app', '00000000-0000-4000-8000-0000000005a3', true);
+end $$;
+set local request.jwt.claims to '{"sub": "00000000-0000-4000-8000-00000000a001", "role": "authenticated"}';
+set local role authenticated;
+do $$ begin
+  perform public.set_application_status(current_setting('phase1.app')::uuid, 'rejected');
+end $$;
+reset role;
+set local request.jwt.claims to '{"sub": "00000000-0000-4000-8000-00000000a003", "role": "authenticated"}';
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.set_application_status(current_setting('phase1.app')::uuid, 'under_review');
+    assert false, 'Decisions: a recruiter cannot reopen a rejected application';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+do $$ begin
+  assert (select status from public.applications where id = current_setting('phase1.app')::uuid) = 'rejected', 'Decisions: it stays rejected';
+  assert not exists (select 1 from public.audit_logs where action = 'reopen' and entity_id = current_setting('phase1.app')), 'Decisions: nothing was reopened';
+end $$;
+set local request.jwt.claims to '{"sub": "00000000-0000-4000-8000-00000000a001", "role": "authenticated"}';
+set local role authenticated;
+do $$ begin
+  perform public.set_application_status(current_setting('phase1.app')::uuid, 'under_review');
+  begin
+    insert into public.hiring_outcomes (application_id, org_id, candidate_id, outcome)
+    select id, org_id, candidate_id, 'hired' from public.applications where id = current_setting('phase1.app')::uuid;
+    assert false, 'Decisions: an outcome cannot hire before the shortlist';
+  exception when check_violation then null;
+  end;
+  assert (select status from public.applications where id = current_setting('phase1.app')::uuid) = 'under_review', 'Decisions: nothing shortlists it on the way';
+  perform public.set_application_status(current_setting('phase1.app')::uuid, 'shortlisted');
+  insert into public.hiring_outcomes (application_id, org_id, candidate_id, outcome)
+  select id, org_id, candidate_id, 'not_selected' from public.applications where id = current_setting('phase1.app')::uuid;
+  assert (select status from public.applications where id = current_setting('phase1.app')::uuid) = 'rejected', 'Decisions: other outcomes do not need a shortlist';
+  perform public.set_application_status(current_setting('phase1.app')::uuid, 'shortlisted');
+  insert into public.hiring_outcomes (application_id, org_id, candidate_id, outcome)
+  select id, org_id, candidate_id, 'hired' from public.applications where id = current_setting('phase1.app')::uuid;
+  assert (select status from public.applications where id = current_setting('phase1.app')::uuid) = 'hired', 'Decisions: a shortlisted application can be hired through an outcome';
+end $$;
+reset role;
+do $$ declare l record; begin
+  select * into l from public.audit_logs where action = 'reopen' and entity_id = current_setting('phase1.app') order by created_at limit 1;
+  assert l.actor_id = '00000000-0000-4000-8000-00000000a001', 'Decisions: the audit record names who reopened it';
+  assert l.org_id = '00000000-0000-4000-8000-0000000000a0' and l.details ->> 'from' = 'rejected', 'Decisions: and from what';
+end $$;
+
+insert into storage.objects (bucket_id, name) values
+  ('candidate-documents', '00000000-0000-4000-8000-00000000c002/applications/00000000-0000-4000-8000-0000000001a3/shared.pdf');
+set local request.jwt.claims to '{"sub": "00000000-0000-4000-8000-00000000a001", "role": "authenticated"}';
+set local role authenticated;
+do $$ begin
+  assert phase1_test.visible('00000000-0000-4000-8000-00000000c002') = '{}', 'Decisions: no CV before the candidate shares one';
+  begin
+    perform public.share_cv_with_application(current_setting('phase1.app')::uuid, '00000000-0000-4000-8000-00000000c002/applications/00000000-0000-4000-8000-0000000001a3/shared.pdf');
+    assert false, 'Decisions: staff cannot share a candidate''s CV';
+  exception when sqlstate 'P0002' then null;
+  end;
+end $$;
+reset role;
+set local request.jwt.claims to '{"sub": "00000000-0000-4000-8000-00000000c002", "role": "authenticated"}';
+set local role authenticated;
+do $$ begin
+  begin
+    perform public.share_cv_with_application(current_setting('phase1.app')::uuid, '00000000-0000-4000-8000-00000000c002/cv-current.pdf');
+    assert false, 'Decisions: only a copy kept for this job can be attached';
+  exception when check_violation then null;
+  end;
+  perform public.share_cv_with_application(current_setting('phase1.app')::uuid, '00000000-0000-4000-8000-00000000c002/applications/00000000-0000-4000-8000-0000000001a3/shared.pdf');
+  begin
+    perform public.share_cv_with_application(current_setting('phase1.app')::uuid, '00000000-0000-4000-8000-00000000c002/applications/00000000-0000-4000-8000-0000000001a3/shared.pdf');
+    assert false, 'Decisions: a shared copy cannot be replaced';
+  exception when check_violation then null;
+  end;
+end $$;
+reset role;
+set local request.jwt.claims to '{"sub": "00000000-0000-4000-8000-00000000a001", "role": "authenticated"}';
+set local role authenticated;
+do $$ begin
+  assert phase1_test.visible('00000000-0000-4000-8000-00000000c002') = array['applications/00000000-0000-4000-8000-0000000001a3/shared.pdf'], 'Decisions: the organization reads what was shared, not the current CV';
+end $$;
+reset role;
+do $$ begin
+  assert exists (select 1 from public.audit_logs where action = 'share_cv' and entity_id = current_setting('phase1.app')), 'Decisions: sharing is audited';
 end $$;
 
 \echo 'All Phase 1 database checks passed.'

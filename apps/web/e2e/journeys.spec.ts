@@ -794,3 +794,46 @@ test('workbook skills: analyze a job, accept the skills, build the assessment fr
   for (const k of skills) await expect(visitor.getByText(k.name_ar).first()).toBeVisible();
   expect(problems).toEqual([]);
 });
+
+test('a CV reaches an employer only when the candidate shares it, and hiring through a decision waits for the shortlist', async ({ browser }) => {
+  const tokenFor = async (who: string) => {
+    const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY as string, 'content-type': 'application/json' },
+      body: JSON.stringify({ email: env[`TEST_${who}_EMAIL`], password: env[`TEST_${who}_PASSWORD`] }),
+    });
+    return (await res.json()).access_token as string;
+  };
+  const call = async (token: string, method: string, path: string, body?: unknown) => {
+    const res = await fetch(`${env.API_URL}/v1${path}`, { method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    return res.ok && res.status !== 204 ? res.json().catch(() => ({})) : {};
+  };
+  const owner = await tokenFor('ORG_A_OWNER');
+  const candidate = await tokenFor('CANDIDATE_TWO');
+  const org = (await call(owner, 'POST', '/organizations', { slug: `midan-test-share-${RUN}`, name_ar: 'مشاركة', name_en: `Midan Test Share ${RUN}` })).id;
+  const job = (await call(owner, 'POST', `/organizations/${org}/jobs`, { slug: `share-${RUN}`, title_ar: 'مشاركة', title_en: 'Sharing', status: 'published' })).id;
+  await call(candidate, 'PUT', '/me/candidate-profile', { full_name: 'Test Candidate Two' });
+  await call(candidate, 'DELETE', '/me/cv');
+  const application = (await call(candidate, 'POST', `/jobs/${job}/applications`, {})).id;
+  const form = new FormData();
+  form.append('file', new Blob(['%PDF-1.4 fictional'], { type: 'application/pdf' }), 'cv.pdf');
+  expect((await fetch(`${env.API_URL}/v1/me/cv`, { method: 'POST', headers: { authorization: `Bearer ${candidate}` }, body: form })).status).toBe(201);
+
+  const employer = await (await signedIn(browser, 'ORG_A_OWNER')).newPage();
+  const applicant = `/en/organization/${org}/applicants/${application}`;
+  await employer.goto(applicant);
+  await expect(employer.getByText("The candidate hasn't shared a CV with this application.")).toBeVisible();
+  await expect(employer.getByRole('button', { name: 'Open CV' })).toHaveCount(0);
+  await expect(employer.getByText('To hire through a decision here, shortlist the candidate first.')).toBeVisible();
+  await expect(employer.getByRole('combobox', { name: 'Decision' }).getByRole('option', { name: 'Hired' })).toHaveCount(0);
+
+  const page = await (await signedIn(browser, 'CANDIDATE_TWO')).newPage();
+  await page.goto(`/en/applications/${application}`);
+  await page.getByRole('button', { name: 'Share my current CV with this employer' }).click();
+  await expect(page.getByRole('button', { name: 'Share my current CV with this employer' })).toHaveCount(0);
+
+  await call(owner, 'PATCH', `/applications/${application}/status`, { status: 'shortlisted' });
+  await employer.goto(applicant);
+  await expect(employer.getByRole('button', { name: 'Open CV' })).toBeVisible();
+  await expect(employer.getByRole('combobox', { name: 'Decision' }).getByRole('option', { name: 'Hired' })).toHaveCount(1);
+});
