@@ -276,8 +276,8 @@ export function BrandingForm({ orgId, branding, logoUrl, canEdit }: {
               <span className="mt-1 block text-xs text-muted">{t('industryHint')}</span>
             </label>
             <div className="grid grid-cols-2 gap-4">
-              <Field name="primary_color" type="color" label={t('primaryColor')} defaultValue={branding?.primary_color ?? '#1F7A4D'} className={clsx(INPUT, 'p-1')} />
-              <Field name="accent_color" type="color" label={t('accentColor')} defaultValue={branding?.accent_color ?? '#D4AF37'} className={clsx(INPUT, 'p-1')} />
+              <Field name="primary_color" type="color" label={t('primaryColor')} defaultValue={branding?.primary_color ?? '#0F5B46'} className={clsx(INPUT, 'p-1')} />
+              <Field name="accent_color" type="color" label={t('accentColor')} defaultValue={branding?.accent_color ?? '#1F7A5C'} className={clsx(INPUT, 'p-1')} />
             </div>
             <label className="block">
               <span className="text-sm font-medium">{t('welcomeAr')}</span>

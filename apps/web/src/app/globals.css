@@ -1,13 +1,16 @@
 @import 'tailwindcss';
 
-/* Brand palette. Never reference these from components: use the semantic tokens below. */
+/*
+ * Brand palette, as approved by the owner on 2026-11-08 (docs/DECISIONS.md). Never reference these from components: use
+ * the semantic tokens below. There is no gold in the approved palette: the "gold" token keeps its name only because
+ * existing classes (border-gold and the like) use it, and it now draws in the palette's own greens.
+ */
 :root {
   --brand-forest: #0f5b46;
   --brand-green: #1f7a5c;
   --brand-mint: #dceee5;
   --brand-ivory: #f7f4ee;
   --brand-ink: #1f2a26;
-  --brand-gold: #d4af37;
 
   --background: var(--brand-ivory);
   --foreground: var(--brand-ink);
@@ -19,13 +22,14 @@
   --secondary: var(--brand-forest);
   --accent: var(--brand-mint);
   --accent-foreground: var(--brand-forest);
-  --gold: var(--brand-gold);
-  --border: rgb(11 61 46 / 0.16);
-  --success: #1f7a5c;
+  /* Accent lines and markers: callout edges, the current step, warning rings. */
+  --gold: var(--brand-forest);
+  --border: rgb(15 91 70 / 0.16);
+  --success: var(--brand-green);
   --warning: #8a6500;
   --error: #b3362b;
-  --focus: #1f7a5c;
-  --shadow: 0 18px 50px -24px rgb(11 61 46 / 0.35);
+  --focus: var(--brand-green);
+  --shadow: 0 18px 50px -24px rgb(15 91 70 / 0.35);
   /* A section that stays deep in both themes */
   --deep: var(--brand-forest);
   --deep-2: #0c4d3b;
@@ -35,7 +39,7 @@
 
 [data-theme='dark'] {
   --background: #06201a;
-  --foreground: #f7f4e9;
+  --foreground: var(--brand-ivory);
   --surface: #0b2c23;
   --surface-2: #123a2e;
   --muted: #a9c5b6;
@@ -44,13 +48,15 @@
   --secondary: var(--brand-ivory);
   --accent: #1c5a44;
   --accent-foreground: var(--brand-mint);
-  --border: rgb(167 227 194 / 0.18);
-  --success: #a7e3c2;
+  --border: rgb(220 238 229 / 0.18);
+  /* Dark surfaces use supporting shades of the palette's greens; text and accents stay within it. */
+  --gold: var(--brand-green);
+  --success: var(--brand-mint);
   --warning: #e6c65c;
   --error: #f19a8f;
-  --focus: #a7e3c2;
+  --focus: var(--brand-mint);
   --shadow: 0 18px 50px -24px rgb(0 0 0 / 0.7);
-  --deep: #0b3d2e;
+  --deep: var(--brand-forest);
   --deep-2: #0f4a38;
 }
 
