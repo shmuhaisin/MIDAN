@@ -1,12 +1,24 @@
 import { randomUUID } from 'node:crypto';
-import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, UnprocessableEntityException, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, Query, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength, ValidateBy, ValidateIf, ValidateNested } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { AiClient } from '../ai/ai.client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
-import { PROFESSIONAL_FIELDS } from '../common/fields';
+import { COMPANY_TYPES, PROFESSIONAL_FIELDS } from '../common/fields';
+import { loadForQuality, loadJobInput, QualityReport, qualitySummary } from './assessment-quality';
+
+/** A guide is an object holding an assessor_guide object, and small enough to keep (200 kB). */
+const HasAssessorGuide = () => ValidateBy({
+  name: 'hasAssessorGuide',
+  validator: {
+    validate: (value: unknown) => typeof value === 'object' && value !== null
+      && typeof (value as Record<string, unknown>).assessor_guide === 'object' && (value as Record<string, unknown>).assessor_guide !== null
+      && JSON.stringify(value).length <= 200_000,
+    defaultMessage: () => 'content must hold an assessor_guide object and be at most 200 kB',
+  },
+});
 import { ChangeReasonDto, recordChangeReason } from '../common/change-reason';
 import { BUILDERS, requireRole } from '../common/roles';
 import { AuthUser, DbService, Tx } from '../db/db.service';
@@ -17,10 +29,18 @@ class AssessmentFieldDto {
 
 class GenerateDto {
   @ApiPropertyOptional({ description: 'Adds a version to this assessment.' }) @IsOptional() @IsUUID() assessment_id?: string;
+  @ApiPropertyOptional({ enum: COMPANY_TYPES, description: "The company's type for this generation. Defaults to the organization's." })
+  @IsOptional() @IsIn(COMPANY_TYPES) company_type?: string;
   @ApiPropertyOptional({ description: 'With title_en, starts another assessment for the job.' })
   @ValidateIf((o) => o.title_ar !== undefined || o.title_en !== undefined) @IsString() @MinLength(1) @MaxLength(200) title_ar?: string;
   @ApiPropertyOptional()
   @ValidateIf((o) => o.title_ar !== undefined || o.title_en !== undefined) @IsString() @MinLength(1) @MaxLength(200) title_en?: string;
+}
+
+class GuideDto extends ChangeReasonDto {
+  @ApiProperty({ example: 'MAS-1.0' }) @IsString() @Matches(/^MAS-\d+\.\d+$/) standard_version!: string;
+  @ApiProperty({ description: 'The guide as MIDAN stores it: { job_family, secondary_families, assessor_guide, criteria_guidance }.' })
+  @IsObject() @HasAssessorGuide() content!: Record<string, unknown>;
 }
 
 class UpdateAssessmentDto {
@@ -113,7 +133,15 @@ type DraftTask = {
     requirement_id?: string | null; reference_skill_id?: string | null;
   }[];
 };
-type Draft = { tasks: DraftTask[]; warnings: string[] };
+/** Under the MIDAN Assessment Standard the builder also returns the version's candidate-facing fields and the assessor guide. */
+type StandardVersionFields = {
+  scenario_ar: string; scenario_en: string; instructions_ar: string; instructions_en: string;
+  duration_minutes: number | null; deadline_hours: number; candidate_package: Prisma.InputJsonValue;
+};
+type Draft = {
+  tasks: DraftTask[]; warnings: string[];
+  version?: StandardVersionFields | null; guide?: ({ standard_version: string } & Record<string, unknown>) | null;
+};
 
 const ASSESSMENT_SUMMARY = {
   id: true, title_ar: true, title_en: true, professional_field: true,
@@ -166,52 +194,29 @@ export class AssessmentsController {
   @Post('jobs/:jobId/assessment/generate')
   @ApiOperation({ summary: 'Runs the assessment builder graph and saves the result as a draft. Never publishes.' })
   async generate(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('jobId', ParseUUIDPipe) jobId: string, @Body() body: GenerateDto) {
-    const { job, taxonomy, target, existing } = await this.db.asUser(user, async (tx) => {
+    const { job, target, existing } = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
-      const found = await tx.jobs.findFirst({
-        where: { id: jobId, org_id: orgId },
-        include: {
-          job_skills: { include: { skills: true } },
-          // Only what the employer stated or approved shapes the draft.
-          job_requirements: { where: { retired_at: null, review_status: 'approved' }, orderBy: { position: 'asc' } },
-          job_reference_skills: { include: { reference_skills: { select: { id: true, name_ar: true, description_ar: true } } } },
-        },
-      });
-      if (!found) throw new NotFoundException();
+      // The job, its sector and level, and the company's type (the one chosen for this generation, or the organization's).
+      const input = await loadJobInput(tx, orgId, jobId, body.company_type);
+      if (!input) throw new NotFoundException();
       const assessment = body.assessment_id
         ? await tx.assessments.findFirst({ where: { id: body.assessment_id, org_id: orgId, job_id: jobId } })
         : body.title_ar ? null : await tx.assessments.findFirst({ where: { org_id: orgId, job_id: jobId }, orderBy: { created_at: 'asc' } });
       if (body.assessment_id && !assessment) throw new NotFoundException();
       return {
-        job: found,
+        job: input,
         target: assessment,
-        taxonomy: await tx.skills.findMany(),
         existing: !assessment ? null : await tx.assessment_versions.findFirst({ where: { assessment_id: assessment.id }, orderBy: { version_number: 'desc' } }),
       };
     });
     if (existing && ['draft', 'in_review'].includes(existing.status)) throw new ConflictException('A draft already exists');
 
-    const toRef = (s: (typeof taxonomy)[number]) => ({ id: s.id, slug: s.slug, name_ar: s.name_ar, name_en: s.name_en, synonyms: s.synonyms });
     const threadId = `builder-${randomUUID()}`;
-    const result = await this.ai.run<Draft>('assessment-builder', {
-      thread_id: threadId,
-      job: {
-        title_ar: job.title_ar, title_en: job.title_en,
-        description_ar: job.description_ar, description_en: job.description_en,
-        requirements_ar: job.requirements_ar, requirements_en: job.requirements_en,
-        required_skills: job.job_skills.map((j) => toRef(j.skills)),
-        taxonomy: taxonomy.map(toRef),
-        requirements: job.job_requirements.map((r) => ({
-          id: r.id, requirement_type: r.requirement_type, description_ar: r.description_ar, description_en: r.description_en, is_mandatory: r.is_mandatory,
-        })),
-        reference_skills: job.job_reference_skills.map((r) => ({
-          id: r.reference_skills.id, name_ar: r.reference_skills.name_ar, description_ar: r.reference_skills.description_ar, is_required: r.is_required,
-        })),
-      },
-    });
+    const result = await this.ai.run<Draft>('assessment-builder', { thread_id: threadId, job });
     if (result.status !== 'awaiting_human_review') throw new UnprocessableEntityException('The draft could not be generated');
+    const { version: standardFields, guide } = result.payload;
 
-    return this.db.asUser(user, async (tx) => {
+    const created = await this.db.asUser(user, async (tx) => {
       // What follows is MIDAN's generated draft, not a person's edit: recorded as generation, and kept as the original.
       await tx.$queryRaw`select set_config('midan.assessment_change', 'generation', true)`;
       const assessment = target ?? await tx.assessments.create({
@@ -219,12 +224,27 @@ export class AssessmentsController {
       });
       const version = await tx.assessment_versions.create({
         data: {
-          assessment_id: assessment.id, org_id: orgId, version_number: (existing?.version_number ?? 0) + 1,
-          duration_minutes: 45, ai_thread_id: threadId,
-          instructions_ar: 'أكمل المهام بأسلوبك. قيّم هذا العمل بنفسك دون مساعدة خارجية، واحفظ إجاباتك أولًا بأول.',
-          instructions_en: 'Complete the tasks in your own way. Do the work yourself, without outside help. Your answers save as you go.',
+          assessment_id: assessment.id, org_id: orgId, version_number: (existing?.version_number ?? 0) + 1, ai_thread_id: threadId,
+          // Under the standard, the brief's scenario, instructions, effort, window and structured package; otherwise as before.
+          ...(standardFields
+            ? {
+              duration_minutes: standardFields.duration_minutes ?? 45, deadline_hours: standardFields.deadline_hours,
+              scenario_ar: standardFields.scenario_ar, scenario_en: standardFields.scenario_en,
+              instructions_ar: standardFields.instructions_ar, instructions_en: standardFields.instructions_en,
+              candidate_package: standardFields.candidate_package,
+            }
+            : {
+              duration_minutes: 45,
+              instructions_ar: 'أكمل المهام بأسلوبك. قيّم هذا العمل بنفسك دون مساعدة خارجية، واحفظ إجاباتك أولًا بأول.',
+              instructions_en: 'Complete the tasks in your own way. Do the work yourself, without outside help. Your answers save as you go.',
+            }),
         },
       });
+      if (guide) {
+        // The assessor guide goes to its own table, which only the organization's staff can read.
+        await tx.$executeRaw`insert into public.assessment_assessor_guides (version_id, org_id, standard_version, content)
+          values (${version.id}::uuid, ${orgId}::uuid, ${guide.standard_version}, ${JSON.stringify(guide)}::jsonb)`;
+      }
       for (const task of result.payload.tasks) {
         const created = await tx.assessment_tasks.create({
           data: {
@@ -254,6 +274,84 @@ export class AssessmentsController {
       await tx.$queryRaw`select id from public.record_generated_draft(${version.id}::uuid)`;
       return { version_id: version.id, assessment_id: assessment.id, warnings: result.payload.warnings, mode: result.provenance.mode };
     });
+    // MIDAN's check of the draft as stored. If it can't run now, the draft stays, and approval asks for the check first.
+    const quality = await this.checkQuality(user, orgId, created.version_id).then(qualitySummary).catch(() => null);
+    return { ...created, standardized: Boolean(guide), quality };
+  }
+
+  /**
+   * Runs the MIDAN Assessment Standard's check on a version as it is stored now, and records the report through MIDAN's
+   * service role (an organization cannot write a report). The report holds the digest of the content it judged, so a later
+   * change makes it stale.
+   */
+  private async checkQuality(user: AuthUser, orgId: string, versionId: string): Promise<QualityReport> {
+    const loaded = await this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, [...BUILDERS]);
+      return loadForQuality(tx, orgId, versionId);
+    });
+    if (!loaded || !loaded.job) throw new NotFoundException();
+    if (!['draft', 'in_review'].includes(loaded.status)) throw new UnprocessableEntityException('Only a draft is checked; an approved version cannot be changed');
+    const report = await this.ai.evaluateQuality<QualityReport>({ job: loaded.job, stored: loaded.stored });
+    await this.db.asWorker((tx) => tx.$queryRaw`
+      select private.record_quality_report(${versionId}::uuid, ${loaded.digest}, ${JSON.stringify(report)}::jsonb)`);
+    return report;
+  }
+
+  @Get('assessment-versions/:versionId/guide')
+  @ApiOperation({ summary: "The version's assessor guide and its latest quality report. Organization staff only; never shown to a candidate." })
+  guideFor(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, ['owner', 'admin', 'recruiter', 'reviewer']);
+      const found = await tx.assessment_versions.findFirst({ where: { id, org_id: orgId }, select: { id: true } });
+      if (!found) throw new NotFoundException();
+      const [guide] = await tx.$queryRaw<unknown[]>`
+        select standard_version, content, updated_at from public.assessment_assessor_guides where version_id = ${id}::uuid`;
+      return { guide: guide ?? null, quality: await this.latestReport(tx, id) };
+    });
+  }
+
+  @Put('assessment-versions/:versionId/guide')
+  @ApiOperation({
+    summary: "Writes the version's assessor guide (draft only). Recorded and reviewed like any other change. A version with a guide is under the MIDAN Assessment Standard: approval then needs a current, ready quality report.",
+  })
+  saveGuide(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string, @Body() body: GuideDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const found = await tx.assessment_versions.findFirst({ where: { id, org_id: orgId }, select: { id: true } });
+      if (!found) throw new NotFoundException();
+      await recordChangeReason(tx, body.reason);
+      const content = JSON.stringify(body.content);
+      await tx.$executeRaw`
+        insert into public.assessment_assessor_guides (version_id, org_id, standard_version, content)
+        values (${id}::uuid, ${orgId}::uuid, ${body.standard_version}, ${content}::jsonb)
+        on conflict (version_id) do update set standard_version = excluded.standard_version, content = excluded.content`;
+      return { saved: true };
+    });
+  }
+
+  @Post('assessment-versions/:versionId/quality')
+  @ApiOperation({ summary: "Checks the draft against the MIDAN Assessment Standard as it is now, records the report, and returns it." })
+  quality(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string) {
+    return this.checkQuality(user, orgId, id);
+  }
+
+  @Get('assessment-versions/:versionId/quality')
+  @ApiOperation({ summary: 'The latest quality report, and whether it is still current (the version has not changed since).' })
+  latestQuality(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, ['owner', 'admin', 'recruiter', 'reviewer']);
+      const found = await tx.assessment_versions.findFirst({ where: { id, org_id: orgId }, select: { id: true } });
+      if (!found) throw new NotFoundException();
+      return this.latestReport(tx, id);
+    });
+  }
+
+  private async latestReport(tx: Tx, versionId: string) {
+    const [latest] = await tx.$queryRaw<{ verdict: string; overall_score: number; standardized: boolean; created_at: Date; current: boolean; report: unknown }[]>`
+      select q.verdict, q.overall_score, q.standardized, q.created_at, q.report,
+        q.content_digest = public.assessment_content_digest(q.version_id) as current
+      from public.assessment_quality_reports q where q.version_id = ${versionId}::uuid order by q.id desc limit 1`;
+    return latest ?? null;
   }
 
   @Patch('assessments/:assessmentId')
@@ -480,6 +578,21 @@ export class AssessmentsController {
       + 'without it, a draft with unreviewed changes gets 422. MIDAN validation errors also give 422; its warnings are shown in the review and do not block.',
   })
   async publish(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string, @Body() body: ReviewChangesDto) {
+    // Under the MIDAN Assessment Standard, check the version as it is now; the database refuses approval without a current, ready report.
+    const [{ under }] = await this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, ['owner', 'admin']);
+      const found = await tx.assessment_versions.findFirst({ where: { id, org_id: orgId }, select: { assessment_id: true } });
+      if (!found) throw new NotFoundException();
+      return tx.$queryRaw<{ under: boolean }[]>`
+        select exists (select 1 from public.assessment_assessor_guides g join public.assessment_versions v on v.id = g.version_id
+          where v.assessment_id = ${found.assessment_id}::uuid) as under`;
+    });
+    if (under) {
+      const report = await this.checkQuality(user, orgId, id);
+      if (report.verdict !== 'ready') {
+        throw new UnprocessableEntityException({ message: 'This version does not meet the MIDAN Assessment Standard yet', quality: qualitySummary(report) });
+      }
+    }
     const version = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, ['owner', 'admin']);
       if (body.reviewed_through !== undefined) await this.recordReview(tx, orgId, id, body);

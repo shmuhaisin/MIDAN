@@ -11,9 +11,11 @@ from typing import Any
 from fastapi import Depends, FastAPI, Header, HTTPException
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from .assessment_builder import TEMPLATE_PROVENANCE, build_assessment_graph, make_generator
+from .package import from_stored
+from .quality import evaluate
 from .cv import analyze as analyze_cv
 from .evaluation import build_evaluation_graph
 from .providers import PROMPT_VERSION, get_provider
@@ -76,6 +78,17 @@ class Resume(BaseModel):
     value: dict[str, Any]
 
 
+class StoredVersion(BaseModel):
+    version: dict[str, Any] | None = None
+    tasks: list[dict[str, Any]]
+    guide: dict[str, Any] | None = None
+
+
+class QualityRun(BaseModel):
+    job: JobInput
+    stored: StoredVersion
+
+
 def _config(thread_id: str) -> dict[str, Any]:
     return {"configurable": {"thread_id": thread_id}}
 
@@ -117,6 +130,16 @@ def run_builder(run: AssessmentRun) -> dict[str, Any]:
 @app.post("/graphs/assessment-builder/runs/{thread_id}/resume", dependencies=[Depends(require_token)])
 def resume_builder(thread_id: str, resume: Resume) -> dict[str, Any]:
     return _result(_builder, thread_id, _builder.invoke(Command(resume=resume.value), _config(thread_id)))
+
+
+@app.post("/quality/evaluate", dependencies=[Depends(require_token)])
+def run_quality(run: QualityRun) -> dict[str, Any]:
+    """The MIDAN Assessment Standard's check of a version as it is stored now. Deterministic: no model is called."""
+    try:
+        package = from_stored(run.stored.model_dump())
+    except (ValidationError, KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="The stored version doesn't have the shape of an assessment") from None
+    return evaluate(run.job, package).model_dump()
 
 
 @app.post("/graphs/evaluation/runs", dependencies=[Depends(require_token)])

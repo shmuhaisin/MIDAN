@@ -1,0 +1,473 @@
+{
+ "version": {
+  "scenario_ar": "شركة ثمر السحابية شركة ناشئة سعودية خيالية في مجال التقنية، يعمل فيها نحو 120 شخصًا في الرياض، وتخدم منصتها السحابية تجار التجزئة الصغار. يدخل الموظفون عبر خدمة دخول موحد بتحقق متعدد العوامل بالإشعارات، ويصلون إلى الخوادم الداخلية عبر الشبكة الافتراضية الخاصة. الشركة وموظفوها وأنظمتها وعناوينها وسجلاتها افتراضية ومصطنعة لهذا التقييم.\n\nانضممت إلى فريق العمليات الأمنية في شركة ثمر السحابية بوظيفة محلل أمن سيبراني. صباح الأربعاء 14 أكتوبر 2026 تُظهر أداة حماية الأجهزة تنبيهات عالية الخطورة على خادم ملفات المالية من الليلة الماضية، ويطلب منك قائد الفريق أن تعرف ما الذي حدث، ومدى خطورته وفق سياسة الاستجابة للحوادث في الشركة، وما يجب فعله الآن. لديك سجل الدخول لليوم الأخير، وتنبيهات الأجهزة، وقائمة الأصول، والسياسة. ويريد قائد الفريق أيضًا قاعدة رصد تلتقط المرحلة الأولى من هذا الهجوم في المرة القادمة، دون إزعاج الفريق بالماسح الأمني المعتمد في الشركة. جميع الأوقات في الملفات بتوقيت الرياض.",
+  "scenario_en": "Thamar Cloud is a fictional Saudi technology startup of about 120 people in Riyadh. Its cloud platform serves small retailers. Staff sign in through a single sign-on service with push MFA and reach internal servers over VPN. The company, its people, systems, addresses and logs are invented for this assessment.\n\nYou joined Thamar Cloud's security operations team as a Cybersecurity Analyst. On Wednesday morning, 14 October 2026, the endpoint security tool shows high-severity alerts on the Finance file server from overnight, and the team lead asks you to find out what happened, how serious it is under the company's incident response policy, and what to do now. You have the sign-in log for the last day, the endpoint alerts, the asset inventory and the policy. The team lead also wants a detection rule so the first stage of this attack is caught next time, without paging the team for the company's own approved scanner. All times in the files are Riyadh time.",
+  "instructions_ar": "حقق في حادثة الليلة الماضية، وصنّفها واحتوها وفق سياسة الشركة، واكتب قاعدة رصد لمرحلتها الأولى.\n\nالقواعد:\n- اعتمد على الملفات المرفقة فقط، ولا تبحث عن أي نظام أو عنوان حقيقي أو تفحصه أو تتواصل معه.\n- اذكر كل افتراض تضعه، وما الذي يؤكده.\n- بيّن كيف وصلت إلى كل نتيجة: الصفوف أو الأعداد أو المرشحات التي استخدمتها.\n- الأوقات بتوقيت الرياض (UTC+3) كما وردت في الملفات.\n\nالأدوات: أي برنامج جداول بيانات أو SQL أو Python لقراءة ملفات CSV، أي محرر نصوص\n\nإذا لم تحسم الملفات أمرًا فاذكر ذلك، وبيّن الافتراض الذي تعمل به والدليل الذي يؤكده. لا تخترع سجلات أو وقائع.\nيسمح باستخدام أدوات الذكاء الاصطناعي بشرط الإفصاح عن طريقة استخدامها.\n\nطريقة التسليم: ملفان: تقرير الحادثة (PDF) وقاعدة الرصد (Markdown). وأجب عن الأسئلة الأربعة في ميدان.\nالجهد المتوقع نحو 180 دقيقة، وهو تقدير وليس مؤقتًا.",
+  "instructions_en": "Investigate the overnight incident, classify and contain it under the company's policy, and write a detection rule for its first stage.\n\nRules:\n- Use only the attached files. Don't look up, scan or contact any real system or address.\n- State every assumption you make, and what would confirm it.\n- Show how you reached each finding: the rows, counts or filters you used.\n- Times are Riyadh time (UTC+3) as written in the files.\n\nTools: Any spreadsheet program, SQL or Python to read the CSV files, Any text editor\n\nIf the files don't settle something, say so, state the assumption you work with, and what evidence would confirm it. Don't invent log entries or facts.\nAI tools may be used if you say how you used them.\n\nHow to submit: Two files: the incident report (PDF) and the detection rule (Markdown). Answer the four questions in MIDAN.\nExpected effort: about 180 minutes. This is an estimate, not a timer.",
+  "duration_minutes": 180,
+  "deadline_hours": 72,
+  "candidate_package": {
+   "standard_version": "MAS-1.0",
+   "candidate_brief": {
+    "company_context_ar": "شركة ثمر السحابية شركة ناشئة سعودية خيالية في مجال التقنية، يعمل فيها نحو 120 شخصًا في الرياض، وتخدم منصتها السحابية تجار التجزئة الصغار. يدخل الموظفون عبر خدمة دخول موحد بتحقق متعدد العوامل بالإشعارات، ويصلون إلى الخوادم الداخلية عبر الشبكة الافتراضية الخاصة. الشركة وموظفوها وأنظمتها وعناوينها وسجلاتها افتراضية ومصطنعة لهذا التقييم.",
+    "company_context_en": "Thamar Cloud is a fictional Saudi technology startup of about 120 people in Riyadh. Its cloud platform serves small retailers. Staff sign in through a single sign-on service with push MFA and reach internal servers over VPN. The company, its people, systems, addresses and logs are invented for this assessment.",
+    "scenario_ar": "انضممت إلى فريق العمليات الأمنية في شركة ثمر السحابية بوظيفة محلل أمن سيبراني. صباح الأربعاء 14 أكتوبر 2026 تُظهر أداة حماية الأجهزة تنبيهات عالية الخطورة على خادم ملفات المالية من الليلة الماضية، ويطلب منك قائد الفريق أن تعرف ما الذي حدث، ومدى خطورته وفق سياسة الاستجابة للحوادث في الشركة، وما يجب فعله الآن. لديك سجل الدخول لليوم الأخير، وتنبيهات الأجهزة، وقائمة الأصول، والسياسة. ويريد قائد الفريق أيضًا قاعدة رصد تلتقط المرحلة الأولى من هذا الهجوم في المرة القادمة، دون إزعاج الفريق بالماسح الأمني المعتمد في الشركة. جميع الأوقات في الملفات بتوقيت الرياض.",
+    "scenario_en": "You joined Thamar Cloud's security operations team as a Cybersecurity Analyst. On Wednesday morning, 14 October 2026, the endpoint security tool shows high-severity alerts on the Finance file server from overnight, and the team lead asks you to find out what happened, how serious it is under the company's incident response policy, and what to do now. You have the sign-in log for the last day, the endpoint alerts, the asset inventory and the policy. The team lead also wants a detection rule so the first stage of this attack is caught next time, without paging the team for the company's own approved scanner. All times in the files are Riyadh time.",
+    "objective_ar": "حقق في حادثة الليلة الماضية، وصنّفها واحتوها وفق سياسة الشركة، واكتب قاعدة رصد لمرحلتها الأولى.",
+    "objective_en": "Investigate the overnight incident, classify and contain it under the company's policy, and write a detection rule for its first stage.",
+    "rules_ar": [
+     "اعتمد على الملفات المرفقة فقط، ولا تبحث عن أي نظام أو عنوان حقيقي أو تفحصه أو تتواصل معه.",
+     "اذكر كل افتراض تضعه، وما الذي يؤكده.",
+     "بيّن كيف وصلت إلى كل نتيجة: الصفوف أو الأعداد أو المرشحات التي استخدمتها.",
+     "الأوقات بتوقيت الرياض (UTC+3) كما وردت في الملفات."
+    ],
+    "rules_en": [
+     "Use only the attached files. Don't look up, scan or contact any real system or address.",
+     "State every assumption you make, and what would confirm it.",
+     "Show how you reached each finding: the rows, counts or filters you used.",
+     "Times are Riyadh time (UTC+3) as written in the files."
+    ],
+    "tools_ar": [
+     "أي برنامج جداول بيانات أو SQL أو Python لقراءة ملفات CSV",
+     "أي محرر نصوص"
+    ],
+    "tools_en": [
+     "Any spreadsheet program, SQL or Python to read the CSV files",
+     "Any text editor"
+    ],
+    "assumptions_policy_ar": "إذا لم تحسم الملفات أمرًا فاذكر ذلك، وبيّن الافتراض الذي تعمل به والدليل الذي يؤكده. لا تخترع سجلات أو وقائع.",
+    "assumptions_policy_en": "If the files don't settle something, say so, state the assumption you work with, and what evidence would confirm it. Don't invent log entries or facts.",
+    "ai_use_policy": "allowed_with_disclosure",
+    "submission_format_ar": "ملفان: تقرير الحادثة (PDF) وقاعدة الرصد (Markdown). وأجب عن الأسئلة الأربعة في ميدان.",
+    "submission_format_en": "Two files: the incident report (PDF) and the detection rule (Markdown). Answer the four questions in MIDAN.",
+    "effort_minutes": 180,
+    "deadline_hours": 72,
+    "deliverables": [
+     {
+      "id": "incident_report",
+      "title_ar": "تقرير الحادثة",
+      "title_en": "Incident report",
+      "format": "pdf",
+      "description_ar": "النتائج بأدلتها، والتسلسل الزمني، والمؤشرات، والخطورة، والاحتواء، وملخص قصير للإدارة",
+      "description_en": "Findings with evidence, the timeline, indicators, severity, containment and a short summary for management"
+     },
+     {
+      "id": "detection_rule",
+      "title_ar": "قاعدة الرصد",
+      "title_en": "Detection rule",
+      "format": "md",
+      "description_ar": "منطق القاعدة بلغة SQL أو شبه برمجية أو خطوات واضحة، وحدها ونافذتها الزمنية، وما تستثنيه، ونتيجتها على السجل المرفق",
+      "description_en": "The rule's logic in SQL, pseudo-code or plain steps, its threshold and window, what it excludes, and its result on the attached log"
+     }
+    ]
+   },
+   "materials": [
+    {
+     "id": "auth_events",
+     "title_ar": "سجل الدخول (الدخول الموحد والبريد والشبكة الخاصة)",
+     "title_en": "Sign-in log (SSO, mail, VPN)",
+     "kind": "log",
+     "provenance": "fictional",
+     "description_ar": "كل محاولات الدخول من 13 أكتوبر الساعة 08:00 إلى 14 أكتوبر الساعة 10:00 بتوقيت الرياض. العناوين من نطاقات التوثيق.",
+     "description_en": "Every sign-in attempt from 13 Oct 08:00 to 14 Oct 10:00, Riyadh time. IP addresses are from documentation ranges.",
+     "columns": [
+      {
+       "name": "event_id",
+       "meaning_ar": "معرف الحدث",
+       "meaning_en": "Event identifier",
+       "unit": "id"
+      },
+      {
+       "name": "timestamp",
+       "meaning_ar": "وقت المحاولة",
+       "meaning_en": "Time of the attempt",
+       "unit": "ISO 8601, UTC+3"
+      },
+      {
+       "name": "user",
+       "meaning_ar": "اسم الحساب المستخدم",
+       "meaning_en": "Account name tried",
+       "unit": "text"
+      },
+      {
+       "name": "src_ip",
+       "meaning_ar": "عنوان المصدر",
+       "meaning_en": "Source address",
+       "unit": "IPv4"
+      },
+      {
+       "name": "app",
+       "meaning_ar": "الخدمة",
+       "meaning_en": "Service signed in to",
+       "unit": "sso | mail | vpn"
+      },
+      {
+       "name": "result",
+       "meaning_ar": "نتيجة المحاولة",
+       "meaning_en": "Outcome of the attempt",
+       "unit": "success | failure"
+      },
+      {
+       "name": "mfa_result",
+       "meaning_ar": "نتيجة التحقق متعدد العوامل",
+       "meaning_en": "Push MFA outcome",
+       "unit": "approved | denied | not_reached"
+      },
+      {
+       "name": "reason",
+       "meaning_ar": "سبب الفشل إن وجد",
+       "meaning_en": "Why it failed, if it did",
+       "unit": "bad_password | unknown_user | mfa_denied | empty"
+      }
+     ],
+     "rows": [],
+     "file": "auth_events.csv",
+     "row_count": 314
+    },
+    {
+     "id": "edr_alerts",
+     "title_ar": "تنبيهات حماية الأجهزة",
+     "title_en": "Endpoint alerts",
+     "kind": "log",
+     "provenance": "fictional",
+     "description_ar": "تنبيهات أداة حماية الأجهزة للفترة نفسها.",
+     "description_en": "Alerts from the endpoint security tool for the same period.",
+     "columns": [
+      {
+       "name": "alert_id",
+       "meaning_ar": "معرف التنبيه",
+       "meaning_en": "Alert identifier",
+       "unit": "id"
+      },
+      {
+       "name": "timestamp",
+       "meaning_ar": "وقت التنبيه",
+       "meaning_en": "Time of the alert",
+       "unit": "ISO 8601, UTC+3"
+      },
+      {
+       "name": "host",
+       "meaning_ar": "الجهاز",
+       "meaning_en": "Device",
+       "unit": "asset name"
+      },
+      {
+       "name": "user",
+       "meaning_ar": "الحساب على الجهاز",
+       "meaning_en": "Account on the device",
+       "unit": "text"
+      },
+      {
+       "name": "severity",
+       "meaning_ar": "خطورة الأداة",
+       "meaning_en": "Tool's severity",
+       "unit": "info | low | medium | high"
+      },
+      {
+       "name": "rule",
+       "meaning_ar": "القاعدة التي أطلقت التنبيه",
+       "meaning_en": "Rule that fired",
+       "unit": "text"
+      },
+      {
+       "name": "detail",
+       "meaning_ar": "ما رصدته الأداة",
+       "meaning_en": "What the tool saw",
+       "unit": "text"
+      }
+     ],
+     "rows": [],
+     "file": "edr_alerts.csv",
+     "row_count": 8
+    },
+    {
+     "id": "asset_inventory",
+     "title_ar": "قائمة الأصول",
+     "title_en": "Asset inventory",
+     "kind": "table",
+     "provenance": "fictional",
+     "description_ar": "الأصول الواردة في السجلات مع مالكها وأهميتها وتصنيف بياناتها.",
+     "description_en": "The assets that appear in the logs, with owner, criticality and data classification.",
+     "columns": [
+      {
+       "name": "asset",
+       "meaning_ar": "اسم الأصل",
+       "meaning_en": "Asset name",
+       "unit": "text"
+      },
+      {
+       "name": "type",
+       "meaning_ar": "نوع الأصل",
+       "meaning_en": "Kind of asset",
+       "unit": "text"
+      },
+      {
+       "name": "owner",
+       "meaning_ar": "الفريق أو الشخص المالك",
+       "meaning_en": "Owning team or person",
+       "unit": "text"
+      },
+      {
+       "name": "criticality",
+       "meaning_ar": "الأهمية للعمل",
+       "meaning_en": "Business criticality",
+       "unit": "low | medium | high"
+      },
+      {
+       "name": "data_classification",
+       "meaning_ar": "أعلى تصنيف للبيانات",
+       "meaning_en": "Highest data classification held",
+       "unit": "internal | confidential"
+      },
+      {
+       "name": "notes",
+       "meaning_ar": "ملاحظات تقنية المعلومات",
+       "meaning_en": "Notes from IT",
+       "unit": "text"
+      }
+     ],
+     "rows": [
+      {
+       "asset": "FS-02",
+       "type": "file_server",
+       "owner": "Finance",
+       "criticality": "high",
+       "data_classification": "confidential",
+       "notes": "Finance share: budgets, payroll exports, supplier contracts"
+      },
+      {
+       "asset": "LAP-0417",
+       "type": "laptop",
+       "owner": "n.alharbi",
+       "criticality": "medium",
+       "data_classification": "internal",
+       "notes": "Powered off 13 Oct 18:10 to 14 Oct 08:05 (EDR heartbeat)"
+      },
+      {
+       "asset": "SCN-01",
+       "type": "scanner",
+       "owner": "Security",
+       "criticality": "medium",
+       "data_classification": "internal",
+       "notes": "Approved vulnerability scanner at 192.0.2.200; scans every Wednesday 01:00"
+      },
+      {
+       "asset": "VPN-GW",
+       "type": "vpn_gateway",
+       "owner": "IT",
+       "criticality": "high",
+       "data_classification": "internal",
+       "notes": "Remote access for all staff"
+      },
+      {
+       "asset": "SSO",
+       "type": "identity_provider",
+       "owner": "IT",
+       "criticality": "high",
+       "data_classification": "confidential",
+       "notes": "Push MFA for every login"
+      }
+     ],
+     "file": "asset_inventory.csv",
+     "row_count": 5
+    },
+    {
+     "id": "ir_policy",
+     "title_ar": "سياسة الاستجابة للحوادث (داخلية)",
+     "title_en": "Incident response policy (internal)",
+     "kind": "policy",
+     "provenance": "fictional",
+     "description_ar": "درجات الخطورة وترتيب الاحتواء وواجبات الإبلاغ في الشركة.",
+     "description_en": "The company's severity levels, containment order and notification duties.",
+     "columns": [],
+     "rows": [],
+     "file": "incident_response_policy.md",
+     "content_ar": "سياسة الاستجابة للحوادث في شركة ثمر السحابية (خيالية، داخلية، الإصدار 3)\nدرجات الخطورة\n- حرجة: نُسخت بيانات مصنفة سرية إلى جهة خارج الشركة، أو شُفّرت أنظمة أو أُتلفت.\n- عالية: ثبت اختراق حساب أو نظام واستُخدم للوصول إلى أصل عالي الأهمية، دون نسخ مؤكد إلى الخارج.\n- متوسطة: ثبت اختراق حساب أو نظام دون وصول إلى أصل عالي الأهمية.\n- منخفضة: محاولة هجوم لم تنجح.\nترتيب الاحتواء: أوقف وصول المهاجم أولًا (الحسابات والجلسات ومسارات الشبكة)، ثم احفظ الأدلة، ثم استعد الخدمة.\nلا تمسح نظامًا أو تعيد بناءه قبل حفظ أدلته.\nالإبلاغ: الحرجة والعالية تُبلّغ لرئيس الأمن خلال ساعة من التصنيف، وللفريق القانوني خلال 24 ساعة.\nيقرر الفريق القانوني إن كان يلزم إبلاغ أي جهة خارج الشركة. لا يتواصل المحللون مع أي جهة خارجية.",
+     "content_en": "Thamar Cloud incident response policy (fictional, internal, version 3)\nSeverity\n- Critical: data classified confidential was copied to a destination outside the company, or systems are encrypted or destroyed.\n- High: an account or system is confirmed compromised and was used to reach a high-criticality asset, with no confirmed copy outside.\n- Medium: an account or system is confirmed compromised, without access to a high-criticality asset.\n- Low: an attack was attempted and did not succeed.\nContainment order: stop the attacker's access first (accounts, sessions, network paths), then preserve evidence, then restore.\nDo not wipe or rebuild a system before its evidence is preserved.\nNotification: Critical and High go to the Head of Security within 1 hour of classification, and to the Legal team within 24 hours.\nLegal decides whether anyone outside the company must be told. Analysts never contact outside parties."
+    }
+   ]
+  }
+ },
+ "tasks": [
+  {
+   "position": 1,
+   "task_type": "file_submission",
+   "title_ar": "التحقيق في حادثة الليلة الماضية",
+   "title_en": "Investigate the overnight incident",
+   "instructions_ar": "اعتمادًا على سجل الدخول وتنبيهات الأجهزة وقائمة الأصول، اكتب جزء التحقيق في تقرير الحادثة: ١. ما الهجوم الذي بدأ به ذلك، ومن أي عنوان، ومتى بدأ وانتهى، وكم حسابًا جرّب. ٢. أي حساب استُولي عليه، وكيف تجاوز المهاجم التحقق متعدد العوامل، والصفوف التي تُظهر ذلك. ٣. تسلسل زمني من أول محاولة إلى آخر تنبيه، سطر لكل خطوة مع وقته وصفه المصدر. ٤. المؤشرات التي يجب على الفريق حظرها أو البحث عنها (عناوين وحسابات وأجهزة وملفات) مع سبب كل منها. افصل بين ما تُظهره السجلات وما تستنتجه.",
+   "instructions_en": "Using the sign-in log, the endpoint alerts and the asset inventory, write the investigation part of the incident report: 1. What attack started this, from which address, when it began and ended, and how many accounts it tried. 2. Which account was taken over, how the attacker got past MFA, and the rows that show it. 3. A timeline from the first attempt to the last alert, one line per step, each with its time and source row. 4. The indicators the team should block or hunt for (addresses, accounts, hosts, files), each with why. Separate what the logs show from what you infer.",
+   "weight": 50.0,
+   "config": {
+    "deliverable_ids": [
+     "incident_report"
+    ],
+    "material_ids": [
+     "auth_events",
+     "edr_alerts",
+     "asset_inventory"
+    ]
+   }
+  },
+  {
+   "position": 2,
+   "task_type": "file_submission",
+   "title_ar": "التصنيف والاحتواء والإبلاغ",
+   "title_en": "Classify, contain and report",
+   "instructions_ar": "اعتمادًا على سياسة الاستجابة للحوادث ونتائجك، أضف إلى تقرير الحادثة: ١. درجة الخطورة وفق السياسة، مع سطر السياسة والدليل اللذين يحسمانها. ٢. إجراءات الاحتواء بالترتيب الذي ستتخذها به خلال الساعة القادمة، مع من ينفذ كل منها ولماذا يأتي في موضعه. ٣. من يجب إبلاغه ومتى وفق السياسة. ٤. ملخصًا للإدارة لا يتجاوز ثمانية أسطر: ما الذي حدث، وأثره، وما الذي تم، وما المطلوب منهم.",
+   "instructions_en": "Using the incident response policy and your findings, add to the incident report: 1. The severity level under the policy, with the policy line and the evidence that decide it. 2. The containment actions in the order you would take them in the next hour, each with who does it and why it comes at that point. 3. Who must be told and by when, under the policy. 4. A summary for management of at most eight lines: what happened, the impact, what has been done and what is needed from them.",
+   "weight": 25.0,
+   "config": {
+    "deliverable_ids": [
+     "incident_report"
+    ],
+    "material_ids": [
+     "ir_policy",
+     "asset_inventory"
+    ]
+   }
+  },
+  {
+   "position": 3,
+   "task_type": "file_submission",
+   "title_ar": "قاعدة رصد للمرحلة الأولى",
+   "title_en": "Write a detection rule for the first stage",
+   "instructions_ar": "اكتب قاعدة رصد كانت ستلتقط المرحلة الأولى من هذا الهجوم من سجل الدخول. ١. اكتب منطقها بلغة SQL أو شبه برمجية أو خطوات مرقمة واضحة. ٢. حدد حدها ونافذتها الزمنية وسبب اختيارهما. ٣. بيّن كيف تتجنب التنبيه على الماسح المعتمد في الشركة دون أن تخفي هجومًا حقيقيًا من مصدر مشابه. ٤. طبّقها على السجل المرفق يدويًا أو بأداة، واذكر العناوين التي ترصدها.",
+   "instructions_en": "Write a detection rule that would have caught the first stage of this attack from the sign-in log. 1. Give the logic in SQL, pseudo-code or plain numbered steps. 2. State its threshold and time window, and why you chose them. 3. Say how it avoids alerting on the company's approved scanner without hiding a real attack from the same kind of source. 4. Run it on the attached log, by hand or with a tool, and report which addresses it flags.",
+   "weight": 15.0,
+   "config": {
+    "deliverable_ids": [
+     "detection_rule"
+    ],
+    "material_ids": [
+     "auth_events",
+     "asset_inventory"
+    ]
+   }
+  },
+  {
+   "position": 4,
+   "task_type": "objective_questions",
+   "title_ar": "أسئلة سريعة على السجلات",
+   "title_en": "Quick checks on the logs",
+   "instructions_ar": "أجب عن كل سؤال من سجل الدخول والسياسة المرفقين. لكل سؤال إجابة صحيحة واحدة.",
+   "instructions_en": "Answer each question from the attached sign-in log and policy. Each question has one correct answer.",
+   "weight": 10.0,
+   "config": {
+    "material_ids": [
+     "auth_events",
+     "ir_policy"
+    ],
+    "questions": [
+     {
+      "id": "q1",
+      "prompt_ar": "ما العنوان الذي نفّذ رش كلمات المرور؟",
+      "prompt_en": "Which address carried out the password spray?",
+      "options": [
+       {
+        "id": "a",
+        "label_ar": "192.0.2.200",
+        "label_en": "192.0.2.200"
+       },
+       {
+        "id": "b",
+        "label_ar": "203.0.113.45",
+        "label_en": "203.0.113.45"
+       },
+       {
+        "id": "c",
+        "label_ar": "198.51.100.23",
+        "label_en": "198.51.100.23"
+       },
+       {
+        "id": "d",
+        "label_ar": "192.0.2.10",
+        "label_en": "192.0.2.10"
+       }
+      ]
+     },
+     {
+      "id": "q2",
+      "prompt_ar": "كم حسابًا مختلفًا جرّبه عنوان الرش؟",
+      "prompt_en": "How many different accounts did the spraying address try?",
+      "options": [
+       {
+        "id": "a",
+        "label_ar": "12",
+        "label_en": "12"
+       },
+       {
+        "id": "b",
+        "label_ar": "17",
+        "label_en": "17"
+       },
+       {
+        "id": "c",
+        "label_ar": "18",
+        "label_en": "18"
+       },
+       {
+        "id": "d",
+        "label_ar": "30",
+        "label_en": "30"
+       }
+      ]
+     },
+     {
+      "id": "q3",
+      "prompt_ar": "كم إشعار تحقق رفضه الحساب المخترق قبل قبول أحدها؟",
+      "prompt_en": "How many MFA pushes did the compromised account deny before one was approved?",
+      "options": [
+       {
+        "id": "a",
+        "label_ar": "1",
+        "label_en": "1"
+       },
+       {
+        "id": "b",
+        "label_ar": "2",
+        "label_en": "2"
+       },
+       {
+        "id": "c",
+        "label_ar": "3",
+        "label_en": "3"
+       },
+       {
+        "id": "d",
+        "label_ar": "لا شيء",
+        "label_en": "None"
+       }
+      ]
+     },
+     {
+      "id": "q4",
+      "prompt_ar": "وفق السياسة، من يجب إبلاغه بالحادثة الحرجة خلال ساعة؟",
+      "prompt_en": "Under the policy, who must be told of a Critical incident within one hour?",
+      "options": [
+       {
+        "id": "a",
+        "label_ar": "الفريق القانوني",
+        "label_en": "The Legal team"
+       },
+       {
+        "id": "b",
+        "label_ar": "رئيس الأمن",
+        "label_en": "The Head of Security"
+       },
+       {
+        "id": "c",
+        "label_ar": "جميع الموظفين",
+        "label_en": "All staff"
+       },
+       {
+        "id": "d",
+        "label_ar": "العملاء",
+        "label_en": "The customers"
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

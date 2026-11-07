@@ -58,6 +58,14 @@ describe('database error responses', () => {
       expect(map(plain('Only a new draft can be recorded as generated')).status).toBe(422);
     });
 
+    it('reports the MIDAN Assessment Standard gate (20261107160000) as 422', () => {
+      expect(map(plain('This version does not meet the MIDAN Assessment Standard yet'))).toEqual({ status: 422, message: 'This change is not allowed' });
+      expect(map(plain('Check this version against the MIDAN Assessment Standard before approving it')).status).toBe(422);
+      expect(map(plain('This version needs its assessor guide under the MIDAN Assessment Standard')).status).toBe(422);
+      expect(map(plain('The version changed while it was being checked. Check it again')).status).toBe(422);
+      expect(map(plain('Only a draft is checked; an approved version cannot be changed')).status).toBe(422);
+    });
+
     it('reports a review by a role that may not review as 403, and a version outside the organization as 404', () => {
       expect(map(plain('Reviewing changes is for an organization owner or admin')).status).toBe(403);
       expect(map(new Prisma.PrismaClientKnownRequestError('Raw query failed. Code: `P0002`. Message: `Version not found`', { code: 'P2010', clientVersion: '6.19.3' })).status).toBe(404);

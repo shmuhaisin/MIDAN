@@ -1,0 +1,6 @@
+asset,type,owner,criticality,data_classification,notes
+FS-02,file_server,Finance,high,confidential,"Finance share: budgets, payroll exports, supplier contracts"
+LAP-0417,laptop,n.alharbi,medium,internal,Powered off 13 Oct 18:10 to 14 Oct 08:05 (EDR heartbeat)
+SCN-01,scanner,Security,medium,internal,Approved vulnerability scanner at 192.0.2.200; scans every Wednesday 01:00
+VPN-GW,vpn_gateway,IT,high,internal,Remote access for all staff
+SSO,identity_provider,IT,high,confidential,Push MFA for every login

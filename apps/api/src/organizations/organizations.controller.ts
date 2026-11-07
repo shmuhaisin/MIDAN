@@ -5,7 +5,7 @@ import { Type } from 'class-transformer';
 import { IsArray, IsEnum, IsIn, IsInt, IsISO8601, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { job_status } from '@prisma/client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
-import { PROFESSIONAL_FIELDS } from '../common/fields';
+import { COMPANY_TYPES, PROFESSIONAL_FIELDS } from '../common/fields';
 import { requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
 
@@ -30,6 +30,10 @@ class BrandingDto {
   @ApiPropertyOptional() @IsOptional() @Matches(/^#[0-9A-Fa-f]{6}$/) accent_color?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(600) welcome_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(600) welcome_en?: string;
+}
+
+class CompanyTypeDto {
+  @ApiProperty({ enum: COMPANY_TYPES, nullable: true }) @ValidateIf((o) => o.company_type !== null) @IsIn(COMPANY_TYPES) company_type!: string | null;
 }
 
 class JobSkillDto {
@@ -84,6 +88,17 @@ export class OrganizationsController {
       ]);
       const branding = await tx.organization_branding.findUnique({ where: { org_id: orgId } });
       return { ...organization, my_role: member.role, branding };
+    });
+  }
+
+  /** The company's type. MIDAN's assessment generation receives it with the job's sector and level; the company's name is never sent. */
+  @Patch(':orgId/company-type')
+  updateCompanyType(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Body() body: CompanyTypeDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, ['owner', 'admin']);
+      const { count } = await tx.organizations.updateMany({ where: { id: orgId }, data: { company_type: body.company_type } });
+      if (count === 0) throw new NotFoundException();
+      return tx.organizations.findUniqueOrThrow({ where: { id: orgId }, select: { id: true, company_type: true } });
     });
   }
 

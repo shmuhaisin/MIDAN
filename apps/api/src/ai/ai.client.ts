@@ -26,6 +26,11 @@ export class AiClient {
     return this.post<T>('/cv/analyze', body);
   }
 
+  /** The MIDAN Assessment Standard's check of a version as stored. Deterministic: no model is called. */
+  evaluateQuality<T>(body: { job: unknown; stored: unknown }) {
+    return this.post<T>('/quality/evaluate', body);
+  }
+
   run<T>(graph: 'assessment-builder' | 'evaluation', body: unknown) {
     return this.post<GraphResult<T>>(`/graphs/${graph}/runs`, body);
   }

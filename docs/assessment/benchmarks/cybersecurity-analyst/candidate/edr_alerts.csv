@@ -1,0 +1,9 @@
+alert_id,timestamp,host,user,severity,rule,detail
+EDR-001,2026-10-13T10:22:09+03:00,LAP-0211,s.alzahrani,low,Potentially unwanted application,Browser toolbar installer quarantined
+EDR-002,2026-10-13T14:05:51+03:00,WS-0102,m.alqahtani,low,Script blocked,Unsigned macro blocked in a spreadsheet from email
+EDR-003,2026-10-13T16:40:30+03:00,LAP-0307,k.aldosari,medium,USB storage connected,Removable drive mounted; policy allows read-only
+EDR-004,2026-10-14T01:02:44+03:00,SCN-01,svc_scan,info,Scheduled scan started,Weekly authenticated vulnerability scan
+EDR-005,2026-10-14T03:04:12+03:00,FS-02,n.alharbi,medium,Unusual file access volume,"1,840 files read in the Finance share within 6 minutes"
+EDR-006,2026-10-14T03:11:47+03:00,FS-02,n.alharbi,high,Archive created on server,7-Zip archive finance_q3.7z (2.3 GB) created in a temporary folder
+EDR-007,2026-10-14T03:19:05+03:00,FS-02,n.alharbi,high,Large outbound transfer,2.3 GB sent over HTTPS to 198.51.100.23
+EDR-008,2026-10-14T07:58:20+03:00,WS-0118,r.alghamdi,low,Script blocked,PowerShell download cradle blocked; user opened a test file from IT

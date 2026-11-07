@@ -6,7 +6,10 @@ from typing import Any, Callable, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
+from . import standard as S
+from .package import from_stored, normalize, to_stored
 from .providers import GENERATION_PROMPT_VERSION, LLMError
+from .quality import evaluate
 from .schemas import CriterionDraft, GeneratedAssessment, JobInput, Provenance, SkillRef, TaskDraft
 from .templates import DATA_SKILL_SLUGS, SKILL_TASK, TEMPLATES
 
@@ -32,6 +35,9 @@ class State(TypedDict, total=False):
     review: dict[str, Any]
     outcome: str
     provenance: dict[str, Any]
+    stored_version: dict[str, Any] | None
+    stored_guide: dict[str, Any] | None
+    quality: dict[str, Any]
 
 
 def parse_job_description(state: State) -> State:
@@ -130,14 +136,16 @@ def generate_tasks(state: State) -> State:
 def check_generated(state: State):
     """What the schema can't see: a draft may use only what this job states, and must cover what it requires."""
     job = JobInput.model_validate(state["job"])
-    requirements = {r["requirement_id"] for r in state["responsibilities"] if r.get("requirement_id")}
+    # A model sees every stated responsibility (the templates' limit of a few doesn't apply), and must cover each one.
+    requirements = {r["requirement_id"] for r in _stated(state, job)}
+    known_requirements = requirements | {r.id for r in job.requirements}
     references = {r.id for r in job.reference_skills}
     required = {r.id for r in job.reference_skills if r.is_required}
     skills = {s["id"] for s in state["skills"]}
 
     def check(draft: GeneratedAssessment) -> None:
         for task in draft.tasks:
-            for kind, used, known in (("requirement", task.requirement_ids, requirements), ("reference skill", task.reference_skill_ids, references), ("skill", task.skill_ids, skills)):
+            for kind, used, known in (("requirement", task.requirement_ids, known_requirements), ("reference skill", task.reference_skill_ids, references), ("skill", task.skill_ids, skills)):
                 unknown = set(used) - known
                 if unknown:
                     raise ValueError(f"{kind} ids not in this job: {sorted(unknown)}")
@@ -156,6 +164,13 @@ def check_generated(state: State):
     return check
 
 
+def _stated(state: State, job: JobInput) -> list[dict[str, Any]]:
+    """Every responsibility and daily task the employer stated, untruncated; the free-text fallback when there are none."""
+    stated = [{"requirement_id": r.id, "ar": r.description_ar or r.description_en or "", "en": r.description_en or r.description_ar or ""}
+              for r in job.requirements if r.requirement_type in TASK_TYPES and (r.description_ar or r.description_en)]
+    return stated or [r for r in state["responsibilities"] if r.get("requirement_id")]
+
+
 def make_generator(provider) -> Callable[[State], State]:
     """Uses the configured model through the shared contract. Without one, or if it can't produce a valid draft, the templates
     run instead and the draft is labeled as such, so nobody mistakes it for the model's work."""
@@ -167,45 +182,37 @@ def make_generator(provider) -> Callable[[State], State]:
             "title_ar": job.title_ar, "title_en": job.title_en,
             "description_ar": job.description_ar, "description_en": job.description_en,
             "requirements_ar": job.requirements_ar, "requirements_en": job.requirements_en,
-            "responsibilities": [{"id": r["requirement_id"], "ar": r["ar"], "en": r["en"]} for r in state["responsibilities"]],
+            "company_type": job.company_type, "sector": job.sector, "experience_level": job.experience_level,
+            "responsibilities": [{"id": r["requirement_id"], "ar": r["ar"], "en": r["en"]} for r in (_stated(state, job) or state["responsibilities"])],
             "skills": [{"id": s["id"], "name_ar": s["name_ar"], "name_en": s["name_en"]} for s in state["skills"]],
             "reference_skills": [r.model_dump() for r in job.reference_skills],
+            "standard": standard_summary(job.experience_level),
         }
         try:
-            draft = provider.generate_assessment(context, check_generated(state))
+            draft = normalize(provider.generate_assessment(context, check_generated(state)))
         except LLMError:
             result = generate_tasks(state)
             return {**result, "warnings": state["warnings"] + ["ai_generation_unavailable"]}
-        tasks = [_to_task_draft(position, task) for position, task in enumerate(draft.tasks, 1)]
+        stored = to_stored(draft)
         return {
-            "tasks": [t.model_dump() for t in tasks],
+            "tasks": stored["tasks"], "stored_version": stored["version"], "stored_guide": stored["guide"],
+            # The templates' limit on responsibilities didn't apply to the model.
+            "warnings": [w for w in state["warnings"] if w != "responsibilities_truncated"] + ([] if draft.standardized else ["not_standardized"]),
             "provenance": Provenance(mode="live", model_version=provider.provenance.model_version, prompt_version=GENERATION_PROMPT_VERSION).model_dump(),
         }
 
     return generate
 
 
-def _to_task_draft(position: int, task) -> TaskDraft:
-    if task.task_type == "objective_questions":
-        # The questions go to the candidate, so the answers stay only in the rubric.
-        questions = [{"id": q.id, "prompt_ar": q.prompt_ar, "prompt_en": q.prompt_en, "options": [o.model_dump() for o in q.options]} for q in task.questions]
-        key = {q.id: q.answer for q in task.questions}
-        criteria = [CriterionDraft(code="C1", description_ar="الإجابات الصحيحة", description_en="Correct answers", max_score=len(key), answer_key=key)]
-        config: dict[str, Any] = {"questions": questions}
-    else:
-        requirement = task.requirement_ids[0] if task.requirement_ids else None
-        reference = task.reference_skill_ids[0] if task.reference_skill_ids else None
-        criteria = [
-            CriterionDraft(code=f"C{i}", description_ar=c.description_ar, description_en=c.description_en, max_score=c.max_score, weight=c.weight,
-                           requirement_id=requirement, reference_skill_id=reference if i == 1 else None)
-            for i, c in enumerate(task.criteria, 1)
-        ]
-        config = {}
-    return TaskDraft(
-        position=position, task_type=task.task_type, title_ar=task.title_ar, title_en=task.title_en,
-        instructions_ar=task.instructions_ar, instructions_en=task.instructions_en, weight=task.weight, config=config,
-        skill_ids=task.skill_ids, requirement_ids=task.requirement_ids, reference_skill_ids=task.reference_skill_ids, criteria=criteria,
-    )
+def standard_summary(level: str | None) -> dict[str, Any]:
+    """What the model needs to know of the standard: its version, the job families with their effort for this level, and the rubric."""
+    return {
+        "version": S.STANDARD_VERSION,
+        "job_families": {name: {"for": p.summary_en, "effort_minutes": S.effort_range(name, level), "deliverable_formats": p.deliverable_formats}
+                         for name, p in S.FAMILIES.items()},
+        "rubric": {"total_points": S.RUBRIC_TOTAL, "criteria": S.CRITERIA_TOTAL, "points_per_criterion": S.CRITERION_POINTS, "levels": S.LEVEL_KEYS},
+        "deliverable_formats": S.DELIVERABLE_FORMATS,
+    }
 
 
 def generate_rubrics(state: State) -> State:
@@ -285,8 +292,20 @@ def repair_assessment(state: State) -> State:
     return {**generate_rubrics({**state, "tasks": tasks}), "repairs": state.get("repairs", 0) + 1}
 
 
+def assess_quality(state: State) -> State:
+    """The standard's check of the draft as it will be stored, after any repair. A template draft is reported as not standardized."""
+    stored = {"version": state.get("stored_version"), "tasks": state["tasks"], "guide": state.get("stored_guide")}
+    report = evaluate(JobInput.model_validate(state["job"]), from_stored(stored))
+    return {"quality": report.model_dump()}
+
+
 def human_review(state: State) -> State:
-    return {"review": interrupt({"tasks": state["tasks"], "warnings": state["warnings"], "skills": state["skills"], "provenance": state.get("provenance") or TEMPLATE_PROVENANCE.model_dump()})}
+    return {"review": interrupt({
+        "tasks": state["tasks"], "warnings": state["warnings"], "skills": state["skills"],
+        "provenance": state.get("provenance") or TEMPLATE_PROVENANCE.model_dump(),
+        # Under the standard: the version's candidate-facing fields and the assessor guide (stored apart, for staff only).
+        "version": state.get("stored_version"), "guide": state.get("stored_guide"), "quality": state.get("quality"),
+    })}
 
 
 def finish(state: State) -> State:
@@ -299,7 +318,7 @@ def fail(state: State) -> State:
 
 def _after_validation(state: State) -> str:
     if not state["errors"]:
-        return "human_review"
+        return "assess_quality"
     return "repair_assessment" if state.get("repairs", 0) < MAX_REPAIRS else "fail"
 
 
@@ -321,6 +340,8 @@ def build_assessment_graph(checkpointer, *, generator: Callable[[State], State] 
         graph.add_edge(previous, name)
         previous = name
     graph.add_node("repair_assessment", repair_assessment)
+    graph.add_node("assess_quality", assess_quality)
+    graph.add_edge("assess_quality", "human_review")
     graph.add_node("human_review", human_review)
     graph.add_node("return_assessment_draft", finish)
     graph.add_node("fail", fail)
