@@ -19,7 +19,7 @@ queries on that date.
 
 ## 2. Pending migrations
 
-The owner's brief counted nine. The owner's decisions added two more, Phase 3 four and Phase 4 one, so **sixteen** were pending; the assessment editing policy (2026-11-07) adds a seventeenth. Apply them in this
+The owner's brief counted nine. The owner's decisions added two more, Phase 3 four and Phase 4 one, so **sixteen** were pending; the assessment editing policy and assessment intelligence (2026-11-07) and the stabilization work on `midan-platform-p0` (2026-11-08) bring it to **twenty-five**. Apply them in this
 order. Each file runs in its own transaction.
 
 | # | Migration | What it does | Reverse if needed |
@@ -41,6 +41,14 @@ order. Each file runs in its own transaction.
 | 15 | `20261107130300_team_invitations` | Inviting by email, accepting from the matching account, and the team list | Drop them. Pending invitations are lost |
 | 16 | `20261107140000_reference_skill_scores` | How well reviewed work showed each workbook skill, as a percentage, never a level | Drop the table. Workbook skill scores are lost; overall and criterion scores stay |
 | 17 | `20261107150000_assessment_editing_policy` | Records every change to a draft with its state before and after, keeps MIDAN's generated draft and each approved version, requires an owner or admin to review the changes before approval, validates the edited draft, and lets a new version start from an approved one | Restore `guard_version` and the triggers of #11; drop the rest. Snapshots and reviews are lost; audit rows stay |
+| 18 | `20261107160000_assessment_intelligence` | The MIDAN Assessment Standard: assessor guides (staff only), quality reports from MIDAN's service role, the publish gate for generated versions, company type, the candidate package | Drop them. Guides and reports are lost |
+| 19 | `20261108090000_employers_read_application_snapshots` | Organizations read the application's snapshot, never the live profile; the snapshot keeps the skills listed when applying | Restore the earlier snapshot function and the three live-profile policies |
+| 20 | `20261108090100_interview_participants` | Only the candidate and the interview's participants get a video token | Drop participants. The old API lets any staff member join |
+| 21 | `20261108090200_status_changes_and_notifications` | Undo a shortlist; in-app notices for shortlisted, rejected and cancelled interviews | Restore the earlier functions. Sent notices stay |
+| 22 | `20261108090300_application_notes_and_interview_feedback` | Staff notes and interview feedback | Drop both tables |
+| 23 | `20261108090400_profile_languages_and_achievements` | Languages and achievements on the profile | Drop the columns |
+| 24 | `20261108090500_career_target_job_titles` | A target job title in the candidate's own words | Remove title-only targets; restore the constraints |
+| 25 | `20261108090600_practice_tasks` | Practice tasks, never employment | Drop the table |
 
 ## 3. Dependencies and coordination
 
@@ -74,7 +82,7 @@ hosted credentials. **Stop it before the window.**
 | #16 | Keeps working (additive) | Submitting a review fails: it writes the new table | Migrate first |
 | **#17** | Publishing a draft that people edited fails with 422 until the changes are reviewed, which the old API and screen can't do | Fails: generation calls a missing function | **Release together** |
 
-**Recommendation:** apply all seventeen in one window, then release API and web from this branch straight after. With nothing
+**Recommendation:** apply all twenty-five in one window, then release API and web from this branch straight after. With nothing
 deployed, there are no users to interrupt.
 
 ## 4. Backup, before anything else
@@ -118,11 +126,11 @@ This needs `brew install postgresql@17`. It builds a throwaway PostgreSQL 17 clu
 - The 23 applied migrations then produce **the same fingerprint as hosted** for tables, columns, policies and functions (`supabase/rehearsal/hosted-baseline.txt`). The script stops if they don't.
 - Data is fictional, in hosted's shape (`03_synthetic_hosted_shape.sql`). Nothing was copied from hosted. It adds two applications hosted doesn't have, so the migrations meet those rows.
 
-**Results** (for the first sixteen; **#17 has not been through this rehearsal yet**: it was applied, tested and rolled back to an identical schema on a scratch PostgreSQL 18 only, so run `scripts/rehearse-migrations.sh` again before the window):
+**Results** (2026-11-08, branch `midan-platform-p0`, all twenty-five, PostgreSQL 17 as a non-superuser):
 - Backup, as in section 4, restored into a separate database: all 68 tables identical.
-- Each of the sixteen migrations: applied, rolled back to an **identical** schema, roles and data, then applied again.
-- All 26 post-change checks passed (`post_checks.sql`, read-only), as did the database security checks.
-- All sixteen rolled back together, newest first: schema back to the starting point and to hosted's fingerprint.
+- Each of the twenty-five migrations: applied, rolled back to an **identical** schema, roles and data, then applied again.
+- All 28 post-change checks passed (`post_checks.sql`, read-only), as did the database security checks.
+- All twenty-five rolled back together, newest first: schema back to the starting point and to hosted's fingerprint.
 - A deliberately wrong rollback script was caught, so the comparison does detect mistakes.
 - `--keep` leaves the migrated cluster running. On it, the full platform passed with the ten migrations: API end-to-end 113/113, browser 35/35. Then with all eleven, on PostgreSQL 16: API 114/114, browser 36/36, AI service 143 passed and 1 skipped.
 
@@ -276,7 +284,7 @@ Nothing below starts until the owner approves it in writing.
 - [ ] Secrets entered in the host's secret manager (section 8), none in chat
 
 **Explicit approval to run**
-- [ ] Apply the seventeen migrations to `al-midan-ya-hamidan`, in order
+- [ ] Apply the twenty-five migrations to `al-midan-ya-hamidan`, in order
 - [ ] Run the checks in section 7
 - [ ] Set up the `midan_importer` and `midan_ai` logins, and re-run the import
 - [ ] Grant the first platform administrator

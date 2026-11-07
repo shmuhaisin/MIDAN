@@ -4,6 +4,17 @@ Only what has been run is marked Tested. The milestone table was last updated 20
 rows were since built on `feature/midan-complete-data-jobs-assessment`. The verified state as of 2026-11-07 is in
 [docs/audits/MIDAN_PHASE_0_GAP_ANALYSIS.md](docs/audits/MIDAN_PHASE_0_GAP_ANALYSIS.md).
 
+## Platform stabilization (2026-11-08, branch `midan-platform-p0`, local only)
+
+P0: employers read application snapshots, never live profiles; only an interview's participants get a video token. The
+seven failing tests were traced and fixed (six test faults, one duplicate warning on screen). Added: one applicant review
+page, undoable shortlist, in-app notifications for shortlisted, rejected and cancelled interviews, staff notes, interview
+feedback, grounded CV analysis (languages, achievements, quoted evidence, rule-based suggestions), target job titles,
+practice tasks, quality report and assessor guide screens, candidate materials, and calendar events that can't be
+duplicated. Verified locally with the whole stack; **no real AI provider, Google Calendar, Daily.co or email was used**:
+no credentials exist here. Hosted is unchanged, with 25 migrations waiting. See
+[docs/handoffs/MIDAN_PLATFORM_STABILIZATION_HANDOFF.md](docs/handoffs/MIDAN_PLATFORM_STABILIZATION_HANDOFF.md).
+
 ## Phase 1 security fixes (2026-11-07, branch `feature/midan-phase-1-security`)
 
 Verified on 2026-11-07 on branch `midan-security-completion`, with the whole local stack: API end-to-end 113 / 113,
