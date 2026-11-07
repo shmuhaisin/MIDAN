@@ -1,6 +1,6 @@
 import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, ServiceUnavailableException, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsTimeZone, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { BUILDERS, requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
@@ -9,7 +9,7 @@ import { CalendarClient, DailyClient } from './video-and-calendar';
 class ScheduleDto {
   @ApiProperty() @IsISO8601({ strict: true }) scheduled_at!: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(5) @Max(480) duration_minutes?: number;
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(60) time_zone?: string;
+  @ApiPropertyOptional({ default: 'Asia/Riyadh', description: 'An IANA time zone name.' }) @IsOptional() @IsTimeZone() time_zone?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) instructions_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) instructions_en?: string;
   @ApiPropertyOptional({ description: 'Members who interview with the scheduler. Only participants can join the room.' })
@@ -79,6 +79,7 @@ export class InterviewsController {
     const taking = new Set(details.interview_participants.map((p) => p.user_id));
     const result = await this.calendar.save({
       id: details.calendar_event_id ?? undefined,
+      interviewId: id,
       title: `${job.title_ar} — ${job.organizations.name_ar}`,
       start: details.scheduled_at,
       minutes: details.duration_minutes,

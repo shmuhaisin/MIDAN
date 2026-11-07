@@ -981,6 +981,7 @@ describe('Midan database foundation', () => {
       const seen: { path: string; method: string; body: Record<string, Record<string, unknown>>; auth?: string }[] = [];
       const last = (test: (c: (typeof seen)[number]) => boolean) => seen.filter(test).pop();
       let calendarFails = false;
+      let calendarConflict = false;
       const saved: Record<string, string | undefined> = {};
       const inMinutes = (m: number) => new Date(Date.now() + m * 60_000).toISOString();
 
@@ -993,7 +994,9 @@ describe('Midan database foundation', () => {
             seen.push({ path: req.url ?? '', method: req.method ?? '', body, auth: req.headers.authorization });
             const send = (status: number, data: unknown) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(data)); };
             if (req.url?.startsWith('/token')) return send(200, { access_token: 'google-access' });
-            if (req.url?.startsWith('/calendars')) return calendarFails ? send(500, {}) : send(200, { id: 'event-1' });
+            if (req.url?.startsWith('/calendars') && calendarFails) return send(500, {});
+            if (req.url?.startsWith('/calendars') && calendarConflict && req.method === 'POST') return send(409, {});
+            if (req.url?.startsWith('/calendars')) return send(200, { id: req.method === 'POST' ? 'event-1' : (req.url.split('/events/')[1] ?? '').split('?')[0] });
             if (req.method === 'GET' && req.url?.startsWith('/rooms/')) return send(404, {});
             if (req.url === '/rooms') return send(200, { url: `https://stub.daily.co/${body.name}` });
             if (req.url === '/meeting-tokens') return send(200, { token: 'short-lived-token' });
@@ -1099,11 +1102,29 @@ describe('Midan database foundation', () => {
         expect(sent.body).toMatchObject({ calendar_status: 'sent', calendar_event_id: 'event-1' });
         const event = last((c) => c.path.startsWith('/calendars') && c.method === 'POST');
         expect(event?.path).toContain('sendUpdates=all');
+        // One event per interview, whatever the retries: its id comes from the interview.
+        const fixedId = `midan${interview.replace(/-/g, '')}`;
+        expect(event?.body.id).toBe(fixedId);
+        expect(String(event?.body.description)).toContain(`/interviews/${interview}`);
+        expect((event?.body.start as { timeZone: string }).timeZone).toBe('Asia/Riyadh');
         expect(JSON.stringify(event?.body)).not.toMatch(/instructions|cover_note|profile/);
         // Attendees: the candidate and the participants, not whoever saved last.
         const attendees = (event?.body as unknown as { attendees: { email: string }[] }).attendees.map((x) => x.email);
         expect(attendees).toEqual(expect.arrayContaining([process.env.TEST_CANDIDATE_ONE_EMAIL, process.env.TEST_ORG_A_OWNER_EMAIL]));
         expect(attendees).not.toContain(process.env.TEST_ORG_A_RECRUITER_EMAIL);
+        // An earlier attempt that Google saved, but whose answer was lost: the next try updates that event, not a new one.
+        calendarFails = true;
+        const lost = await api().post(`${base()}/applications/${application}/interviews`).set(bearer(ownerA)).send({ scheduled_at: inMinutes(900) }).expect(201);
+        expect(lost.body).toMatchObject({ calendar_status: 'failed', calendar_event_id: null });
+        calendarFails = false;
+        calendarConflict = true;
+        await api().post(`${base()}/interviews/${lost.body.id}/calendar-retry`).set(bearer(ownerA)).expect(201);
+        calendarConflict = false;
+        const lostId = `midan${lost.body.id.replace(/-/g, '')}`;
+        expect(last((c) => c.path.startsWith('/calendars') && c.method === 'PATCH')?.path).toContain(`/events/${lostId}`);
+        expect((await api().get(`/interviews/${lost.body.id}`).set(bearer(candidateOne))).body.calendar_status).toBe('sent');
+        await api().patch(`${base()}/interviews/${lost.body.id}`).set(bearer(ownerA)).send({ status: 'cancelled' }).expect(200);
+        await api().post(`${base()}/applications/${application}/interviews`).set(bearer(ownerA)).send({ scheduled_at: inMinutes(60), time_zone: 'Mars/Olympus' }).expect(400);
         const completed = await api().patch(`${base()}/interviews/${interview}`).set(bearer(ownerA)).send({ status: 'completed' }).expect(200);
         expect(completed.body.status).toBe('completed');
       });

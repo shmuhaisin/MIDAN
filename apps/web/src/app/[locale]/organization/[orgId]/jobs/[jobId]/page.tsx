@@ -10,6 +10,7 @@ import { Link, redirect } from '@/i18n/navigation';
 import { api, apiForPage } from '@/lib/api';
 import { uncoveredItems, type ReviewState } from '@/lib/assessment-review';
 import { ChangeReview, ReviseButton } from '@/components/change-review';
+import { AssessorGuide, QualityPanel, type QualityReport } from '@/components/assessment-intel';
 import { number, pick } from '@/lib/format';
 import { getSession } from '@/lib/session';
 
@@ -81,6 +82,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const assessments = latest.assessments;
   // The review before approval: MIDAN's original, every change people made, MIDAN's checks.
   const review = version && canBuild ? await apiForPage<ReviewState>(`/organizations/${orgId}/assessment-versions/${version.id}/changes`) : null;
+  // The assessor guide and MIDAN's quality report: staff only, never part of what a candidate receives.
+  const intel = version && (canBuild || canEvaluate)
+    ? await apiForPage<{ guide: Parameters<typeof AssessorGuide>[0]['guide']; quality: QualityReport }>(`/organizations/${orgId}/assessment-versions/${version.id}/guide`)
+    : null;
   const reviewedThrough = Math.max(0, ...(review?.reviews ?? []).map((r) => r.reviewed_through));
   const unreviewedChanges = review ? review.changes.filter((c) => c.needs_review && c.id > reviewedThrough).length : 0;
   const liveAssessments = assessments.filter((a) => a.assessment_versions.some((v) => v.status === 'published'));
@@ -172,6 +177,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             )}
             {canBuild && <VersionSettings key={version.id} orgId={orgId} version={version} canEdit={Boolean(editable)} />}
             <TaskList orgId={orgId} versionId={version.id} tasks={version.assessment_tasks} editable={Boolean(editable)} requirements={requirements ?? []} />
+            {intel && <QualityPanel orgId={orgId} versionId={version.id} quality={intel.quality} canCheck={canBuild && Boolean(editable)} gated={Boolean(intel.guide)} />}
+            {intel?.guide && <AssessorGuide guide={intel.guide} />}
             {review && (editable || review.changes.length > 0) && <ChangeReview orgId={orgId} state={review} canReview={canPublish} />}
             {editable && canPublish && (
               <PublishPanel

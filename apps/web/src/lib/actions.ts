@@ -436,3 +436,24 @@ export async function claimEvidenceLink(orgId: string, id: string) {
 export async function convertOrganizationListing(orgId: string, id: string) {
   return result(() => api(`/organizations/${orgId}/listings/${id}/convert`, { method: 'POST' }));
 }
+
+/** Runs MIDAN's quality check on a draft and records the report (staff only; the API decides who). */
+export async function runQualityCheck(orgId: string, versionId: string): Promise<FormState> {
+  try {
+    await api(`/organizations/${orgId}/assessment-versions/${versionId}/quality`, { method: 'POST' });
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+  revalidatePath('/', 'layout');
+  return { ok: true };
+}
+
+export async function setCompanyType(orgId: string, companyType: string): Promise<FormState> {
+  try {
+    await api(`/organizations/${orgId}/company-type`, { method: 'PATCH', body: { company_type: companyType } });
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+  revalidatePath('/', 'layout');
+  return { ok: true };
+}

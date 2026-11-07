@@ -1,5 +1,6 @@
 'use client';
 
+import { CandidateMaterials, type CandidatePackage } from './assessment-intel';
 import clsx from 'clsx';
 import { motion } from 'motion/react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -26,6 +27,7 @@ export type ExperienceData = {
   version: {
     id: string; assessments: { title_ar: string; title_en: string; professional_field: string | null };
     scenario_ar: string | null; scenario_en: string | null; is_timed: boolean; deadline_hours: number | null;
+    candidate_package?: CandidatePackage;
     candidate_rubric: { title_ar: string; title_en: string; criteria: { code: string; description_ar: string; description_en: string; max_score: string }[] }[] | null; duration_minutes: number | null; instructions_ar: string | null; instructions_en: string | null; assessment_tasks: Task[] };
   attempt: {
     id: string; status: string; started_at: string | null; deadline_at: string | null; expires_at: string | null; submitted_at: string | null; receipt_code: string | null;
@@ -230,6 +232,7 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
               <p className="mt-1 leading-relaxed whitespace-pre-line">{pick(locale, data.version.scenario_ar ?? '', data.version.scenario_en ?? '')}</p>
             </div>
           )}
+          <CandidateMaterials pkg={data.version.candidate_package ?? null} />
           <p className="leading-relaxed text-muted">{pick(locale, data.version.instructions_ar ?? '', data.version.instructions_en ?? '')}</p>
           <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-1 font-medium">
             {data.version.duration_minutes && <li>{t(data.version.is_timed ? 'timedFor' : 'estimated', { minutes: number(locale, data.version.duration_minutes) })}</li>}

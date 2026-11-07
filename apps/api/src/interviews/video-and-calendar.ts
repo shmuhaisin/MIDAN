@@ -56,7 +56,13 @@ export class DailyClient {
   }
 }
 
-type CalendarEvent = { id?: string; title: string; start: Date; minutes: number; timeZone: string; attendees: string[]; link: string };
+type CalendarEvent = { id?: string; interviewId: string; title: string; start: Date; minutes: number; timeZone: string; attendees: string[]; link: string };
+
+/**
+ * One event per interview. Google accepts an id the caller chooses (base32hex: 0-9 and a-v, which a UUID's hex digits
+ * are), so a retry after a timeout that Google had in fact saved finds the same event instead of adding a second one.
+ */
+export const calendarEventId = (interviewId: string) => `midan${interviewId.replace(/-/g, '')}`;
 
 /** Google Calendar, with a refresh token for one calendar. A result says what happened, and never claims a send that failed. */
 @Injectable()
@@ -92,16 +98,21 @@ export class CalendarClient {
     try {
       const body = {
         summary: event.title,
-        description: event.link,
+        // The interview page is where both sides join the private video room, signed in; a room link alone doesn't open it.
+        description: `${event.link}\n\nJoin from this page, signed in to MIDAN. / ادخلوا من هذه الصفحة بعد تسجيل الدخول إلى الميدان.`,
         start: { dateTime: event.start.toISOString(), timeZone: event.timeZone },
         end: { dateTime: new Date(event.start.getTime() + event.minutes * 60_000).toISOString(), timeZone: event.timeZone },
         attendees: event.attendees.map((email) => ({ email })),
       };
-      const response = await fetch(`${this.calendarUrl}${event.id ? `/${event.id}` : ''}?sendUpdates=all`, {
-        method: event.id ? 'PATCH' : 'POST',
-        headers: { authorization: `Bearer ${await this.accessToken()}`, 'content-type': 'application/json' },
-        body: JSON.stringify(body),
+      const token = await this.accessToken();
+      const write = (id: string | undefined) => fetch(`${this.calendarUrl}${id ? `/${id}` : ''}?sendUpdates=all`, {
+        method: id ? 'PATCH' : 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify(id ? body : { ...body, id: calendarEventId(event.interviewId) }),
       });
+      let response = await write(event.id);
+      // 409: the event already exists, from an earlier attempt whose answer never arrived. Update it instead.
+      if (!event.id && response.status === 409) response = await write(calendarEventId(event.interviewId));
       if (!response.ok) throw new Error(`calendar ${response.status}`);
       return { status: 'sent', eventId: ((await response.json()) as { id: string }).id };
     } catch (error) {

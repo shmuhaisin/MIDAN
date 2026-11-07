@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Arrow } from '@/components/brand';
+import { CompanyTypeForm } from '@/components/assessment-intel';
 import { BrandingForm } from '@/components/forms';
 import { EmployerClaimPanel, TeamPanel, type OrgClaim, type RegistryOption, type TeamInvitation, type TeamMember } from '@/components/organization-team';
 import { Link, redirect } from '@/i18n/navigation';
@@ -9,6 +10,7 @@ import { getSession } from '@/lib/session';
 
 type Org = {
   my_role: string;
+  company_type: string | null;
   branding: { logo_path: string | null; industry: string | null; primary_color: string | null; accent_color: string | null; welcome_ar: string | null; welcome_en: string | null } | null;
 };
 
@@ -43,6 +45,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         canEdit={['owner', 'admin'].includes(org.my_role)}
         logoUrl={logo ? `${process.env.SUPABASE_URL}/storage/v1/object/public/organization-assets/${logo}` : null}
       />
+      <CompanyTypeForm orgId={orgId} value={org.company_type} canEdit={['owner', 'admin'].includes(org.my_role)} />
       <div className="mt-8 space-y-6">
         <TeamPanel orgId={orgId} members={team.members} invitations={team.invitations} me={session?.id ?? ''} myRole={org.my_role} />
         {claims && <EmployerClaimPanel orgId={orgId} claims={claims.claims} employer={claims.employer} isDemo={claims.is_demo} options={employers ?? []} />}
