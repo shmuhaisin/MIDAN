@@ -10,7 +10,7 @@ queries on that date.
 | --- | --- |
 | Project | `al-midan-ya-hamidan`, ref `squpszwbrqkflezfltoj`, eu-central-1. Never touch `ALNADA` |
 | Plan | **Free**: no point-in-time recovery and no database branches, so section 4's manual backup is the only safety net |
-| Database | PostgreSQL **17**. Local testing ran on 16, always as a superuser |
+| Database | PostgreSQL **17.11**. `postgres` isn't a superuser |
 | Migrations | 23 applied, all with matching files in the repository |
 | Accounts and data | 7 accounts, 2 organizations, 2 jobs, 0 applications, 5,073 reference skills, 10 employers |
 | Personal data to protect | 1 candidate profile, 1 CV record, 1 file in `candidate-documents` |
@@ -46,7 +46,7 @@ order. Each file runs in its own transaction.
 `SET ROLE` to the owner, and hosted `postgres` isn't a superuser. Local runs hid it because they use a superuser. The migration
 now grants that right first, with the owner's approval.
 
-**How it was checked:** `a scratch PostgreSQL 16 cluster where `postgres` is a non-superuser with `createrole`, `createdb` and `bypassrls`, with stand-ins for Supabase's `auth` and `storage` schemas. Before the fix, all migrations stopped at this one with `must be able to SET ROLE "midan_ai"`. After it, all 33 applied. This is strong evidence but not proof for hosted, which runs version 17 and Supabase's real schemas. Section 5's rehearsal still applies.`
+**How it was checked:** `before the fix, a run as a non-superuser stopped at this migration with `must be able to SET ROLE "midan_ai"`. After it, all 33 applied, and section 5's rehearsal on PostgreSQL 17 confirms it. Hosted's `postgres` was confirmed non-superuser by a read-only query.`
 
 ### 3.2 Which migrations need an API release
 
@@ -92,18 +92,46 @@ The owner runs this on their own machine. Nobody pastes the password into chat.
 
 Finish with `unset PGPASSWORD`.
 
-## 5. Rehearsal, before the real run
+## 5. Rehearsal (done locally, with fictional data)
 
-Restore the backup into a local **PostgreSQL 17** cluster, connect as a **non-superuser** with the same powers as hosted
-`postgres`, and apply all ten migrations. Then run section 7's checks. The check in 3.1 used version 16 and stand-ins, while this
-one uses hosted's real schema and data. This needs `brew install postgresql@17`, which isn't installed.
+```bash
+scripts/rehearse-migrations.sh
+```
+
+This needs `brew install postgresql@17`. It builds a throwaway PostgreSQL 17 cluster on port 54417 and connects to nothing hosted.
+
+**How close it is to hosted**, as read from hosted on 2026-11-07:
+- `postgres` is a non-superuser with `createrole`, `createdb`, `replication` and `bypassrls`, with the same memberships. `public` tables and schema have the same owners.
+- Auth's real migrations build the `auth` schema.
+- The 23 applied migrations then produce **the same fingerprint as hosted** for tables, columns, policies and functions (`supabase/rehearsal/hosted-baseline.txt`). The script stops if they don't.
+- Data is fictional, in hosted's shape (`03_synthetic_hosted_shape.sql`). Nothing was copied from hosted. It adds two applications hosted doesn't have, so the migrations meet those rows.
+
+**Results:**
+- Backup, as in section 4, restored into a separate database: all 68 tables identical.
+- Each of the ten migrations: applied, rolled back to an **identical** schema, roles and data, then applied again.
+- All 17 post-change checks passed (`post_checks.sql`, read-only), as did the database security checks.
+- All ten rolled back together, newest first: schema back to the starting point and to hosted's fingerprint.
+- A deliberately wrong rollback script was caught, so the comparison does detect mistakes.
+- `--keep` leaves the migrated cluster running. On it, the full platform passed: API end-to-end 113/113, browser 35/35, AI service 143 passed and 1 skipped.
+
+**What it can't reproduce:**
+- Supabase's `supautils`, which lets `postgres` manage policies and triggers on `auth` and `storage` tables. The rehearsal approximates it by inheriting from those tables' owners. The same kinds of statements ran on hosted in earlier migrations.
+- Supabase's real Storage service: the local gateway stands in.
+- Hosted's real data, its one CV and its settings. **So the real backup in section 4 is still required, and restoring it is still worth testing.**
 
 ## 6. Rollback and restoration
+
+`supabase/rollback/<migration>.down.sql` reverses each migration, tested as in section 5. Run them as `postgres`, one transaction each,
+newest first. They have only ever run locally, and running one on hosted needs the owner's approval.
+
+**Data lost by rolling back:** anything stored in what the migration added. #1 loses import lineage and platform admins, #2 loses queued work,
+AI checkpoints and job analyses, #4 loses employer links. #5, #6, #8, #9 and #10 restore the older, weaker rules, so they're for emergencies.
+#1 can't complete if a listing has been saved with no Arabic or English title, because it restores those required columns.
 
 | Situation | What happens | Action |
 | --- | --- | --- |
 | A migration fails | Its transaction rolls back by itself; earlier ones stay | Stop. Don't fix it by hand on hosted. Fix the file, rehearse again, resume from that migration |
-| Applied, then a problem appears, and hosted data is still sound | | Apply a new forward-fix migration, or the "Reverse" action in section 2 as a new migration. Prepare and rehearse those scripts in step 5 |
+| Applied, then a problem appears, and hosted data is still sound | | Prefer a new forward-fix migration, rehearsed first. Use the rollback script if that's not possible |
 | Data is damaged | The Free plan has no point-in-time recovery | Restore the dump into a **new** project and repoint the app, keeping the old one for comparison. Restoring over the live `auth` and `storage` schemas is riskier and needs Supabase's guidance |
 | API or web release fails | | Don't reopen access. Fix forward: there's no earlier hosted release to return to |
 
@@ -111,7 +139,7 @@ Anything written between the backup and a restore is lost, which is why the free
 
 ## 7. Checks after the change
 
-Read-only, on hosted. **Don't run the end-to-end suites against hosted:** they write data.
+Read-only, on hosted, starting with `supabase/rehearsal/post_checks.sql`, where every row must say ok. **Don't run the end-to-end suites against hosted:** they write data.
 
 | Check | Expected |
 | --- | --- |
@@ -184,7 +212,32 @@ The platform the owner removed from scope is gone from the code, and no longer r
 - `data/source/README.md` and that older handoff, which describe the file as it is.
 - Git history, unless you approve rewriting it.
 
-## 10. Phase 2 approval checklist
+## 10. `feat/company-workflow` compared with this branch (nothing merged)
+
+One commit, `c5cb1af` by `sultana-ah`, on `main` at `8f0235b`. It lacks all 33 commits on this branch, including the candidate
+experience and every security fix. A trial merge, which changed no branch, gives **4 conflicts**: `apps/web/next.config.ts`,
+`apps/web/src/app/[locale]/auth/confirmed/page.tsx`, `apps/web/src/app/[locale]/check-email/page.tsx` and `package-lock.json`.
+
+| Its change | Finding | Proposal |
+| --- | --- | --- |
+| Sign-up stops if `APP_URL` isn't set, instead of assuming localhost | Good. Conflicts only because `next.config.ts` was rewritten for S7 and S8 | Keep it, on this branch's version |
+| Organization-aware confirmation and check-email pages, no mascot for organizations | Good, and matches the owner's Humaidan rules. Conflicts with the rebuilt screens | Keep the behaviour, re-apply on these screens, add a browser test |
+| Reads the account type from the token in the confirmation link | Stays in the browser and drops the fragment. Acceptable | Keep |
+| `organization/new` sends an account with an organization to it | Merges cleanly | Keep |
+| `scripts/provision-sdaia-demo.mjs` | Needs a service-role key, which this project's design avoids, though it refuses the main project. **It creates an organization under the real name of a government authority, which isn't one of the 10 registry employers** | The owner should approve or rename this before it merges |
+| `apps/web/src/lib/employer-registry.ts` | 266 lines copying the employer registry, and nothing imports it. The database is the source now | Drop it |
+| `supabase` CLI, `supabase/config.toml` and Docker-based local steps | A second local stack beside `scripts/local-setup.sh`, not tested with this branch | Decide on one. Keep it out of the first merge |
+| Docs say to leave Supabase's Site URL unchanged | `docs/deployment.md` says to set it to `APP_URL` | Settle this during the dashboard step |
+
+**Proposed order:**
+1. Review `midan-security-completion` and merge it into `main`. It contains `candidate-portal` and both feature branches, so those need no separate merges.
+2. Update `feat/company-workflow` from the new `main`, resolve the 4 conflicts as above, and run the test suites. Its author should do this or review it.
+3. Merge that second, as a small change on the finished base.
+
+Merging it first would put a branch without the security fixes into `main`, and leave the larger change to resolve the same conflicts.
+**Nothing has been merged, and all of this needs the owner's approval.**
+
+## 11. Phase 2 approval checklist
 
 Nothing below starts until the owner approves it in writing.
 
@@ -192,7 +245,8 @@ Nothing below starts until the owner approves it in writing.
 - [ ] Hosting provider chosen
 - [ ] Which existing account becomes the first platform administrator
 - [ ] Are the workbooks in the public repository acceptable? Options: make the repository private, or remove them (rewriting history needs separate approval)
-- [ ] `feat/company-workflow` compared with this branch, and the merge order decided
+- [x] `feat/company-workflow` compared with this branch (section 10)
+- [ ] The merge order approved, and the SDAIA demo script decided
 - [ ] `midan-security-completion` reviewed and merged, or the migrations approved from this branch
 
 **Changes to pending files**
@@ -202,8 +256,8 @@ Nothing below starts until the owner approves it in writing.
 **Before the window (owner)**
 - [ ] Local checkout using hosted credentials stopped
 - [ ] Backup made and restored successfully into a throwaway database (section 4)
-- [ ] Rehearsal passed on PostgreSQL 17 as a non-superuser (section 5)
-- [ ] Rollback scripts prepared and rehearsed (section 6)
+- [x] Rehearsal passed on PostgreSQL 17 as a non-superuser, with fictional data (section 5)
+- [x] Rollback scripts prepared and rehearsed (section 6)
 - [ ] Secrets entered in the host's secret manager (section 8), none in chat
 
 **Explicit approval to run**

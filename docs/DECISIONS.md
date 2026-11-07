@@ -1,5 +1,7 @@
 # Decisions
 
+**2026-11-07: Assessment drafts can come from a model, through one contract for Gemini and OpenAI.** A draft is accepted only if it stays within what the job states and covers its responsibilities and required workbook skills. If no model is configured, or none gives a valid draft, the templates run and the draft is labeled demo. The stored record says which it was.
+
 **2026-11-07: The external job platform is out of the code and the data (owner decision).** Job listings come only from authorized sources, through `--listings`. The employer workbook is read for identity only, and its job sheet and its note about collecting jobs aren't read. `20261106140000` was edited directly, with the owner's approval, because it hasn't reached hosted, so hosted never holds the value. The official workbook stays byte for byte, so the name remains inside that file.
 
 **2026-11-07: Reopening, outcome hires and CV sharing (owner decisions).** A rejected application can be reopened only by an authorized hiring manager, which means the organization's owners and admins since MIDAN has no role by that name, and each reopening writes an audit record. Hiring through an interview outcome needs the application to be shortlisted already, and nothing shortlists it on the way; manual hiring keeps its rule. Without a CV snapshot, an employer sees no CV until the candidate explicitly shares a copy, which can't be replaced afterwards.

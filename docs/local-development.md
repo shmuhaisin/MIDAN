@@ -73,6 +73,8 @@ Stop any dev API first, or start it with `BACKGROUND_WORKER=off`: the queue test
 scripts/local-db.sh psql -f supabase/test-cleanup.sql
 ```
 
+`npm run test:live -w @midan/api` runs the whole journey with a model behind the AI service: see `docs/handoffs/MIDAN_LOCAL_WORKFLOW_STATUS.md`. `scripts/rehearse-migrations.sh` rehearses the hosted migrations and their rollback on PostgreSQL 17: see `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`.
+
 The database-level security checks (candidate documents, status transitions, queue links) run in one transaction and roll back, so they leave nothing behind. Local database only:
 
 ```bash

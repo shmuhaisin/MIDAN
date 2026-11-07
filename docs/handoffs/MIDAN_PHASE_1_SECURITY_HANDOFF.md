@@ -375,7 +375,7 @@ All are implemented and tested, in `supabase/migrations/20261107110000_applicati
 5. **S4 stays as it is: one Supabase Auth check per request, no cache. An accepted trade-off.** A signed-out token stops working
    at once, and the cost is a network call on each request and 503s if Auth is down. Revisit it only with real traffic data.
 
-Still for the owner: see `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`, section 10 (the public workbooks and
+Still for the owner: see `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`, section 11 (the public workbooks and
 `feat/company-workflow`). The external job platform cleanup and the migration permission fix were approved and made (its sections
 9 and 3.1).
 
@@ -406,6 +406,9 @@ Still for the owner: see `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`, section 1
 ---
 
 ## F. Exact next steps
+
+See also `MIDAN_LOCAL_WORKFLOW_STATUS.md` for the job-to-review journey, and `MIDAN_PHASE_2_PREPARATION.md` for the rehearsal, rollback and
+merge order.
 
 ### F.1 Remaining Phase 1 work, in order
 

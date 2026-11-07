@@ -26,7 +26,7 @@ Secrets go in the host's secret manager, never in the repository or a `NEXT_PUBL
 | `DEV_TEST_SIGNUP`, `DEV_TEST_ACCESS_CODE` | web | Development only. Leave unset in production. The code is read at run time by server actions and never written into a build |
 | `TRUST_PROXY` | API | Which hops may report a caller's address, for rate limiting. See below |
 
-`DAILY_API_URL`, `GOOGLE_API_URL` and `GOOGLE_TOKEN_URL` exist for tests. Leave them unset in production.
+`DAILY_API_URL`, `GOOGLE_API_URL`, `GOOGLE_TOKEN_URL`, `OPENAI_API_URL` and `GEMINI_API_URL` exist for tests. Leave them unset in production.
 
 **CORS.** The API has no CORS enabled, because browsers never call it directly: they go through the web server. Keep it that way, and keep the API off the public internet where the host allows.
 
