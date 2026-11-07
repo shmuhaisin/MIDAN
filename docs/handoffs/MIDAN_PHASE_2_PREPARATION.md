@@ -230,9 +230,10 @@ experience and every security fix. A trial merge, which changed no branch, gives
 | Docs say to leave Supabase's Site URL unchanged | `docs/deployment.md` says to set it to `APP_URL` | Settle this during the dashboard step |
 
 **Proposed order:**
-1. Review `midan-security-completion` and merge it into `main`. It contains `candidate-portal` and both feature branches, so those need no separate merges.
-2. Update `feat/company-workflow` from the new `main`, resolve the 4 conflicts as above, and run the test suites. Its author should do this or review it.
-3. Merge that second, as a small change on the finished base.
+1. Make the repository private, and decide how the workbooks leave this branch, because the owner has no permission to publish them and `main` doesn't hold them today.
+2. Review `midan-security-completion` and merge it into `main`. It contains `candidate-portal` and both feature branches, so those need no separate merges.
+3. Update `feat/company-workflow` from the new `main`, resolve the 4 conflicts as above, and run the test suites. Its author should do this or review it.
+4. Merge that next, as a small change on the finished base.
 
 Merging it first would put a branch without the security fixes into `main`, and leave the larger change to resolve the same conflicts.
 **Nothing has been merged, and all of this needs the owner's approval.**
@@ -244,7 +245,9 @@ Nothing below starts until the owner approves it in writing.
 **Decisions**
 - [ ] Hosting provider chosen
 - [ ] Which existing account becomes the first platform administrator
-- [ ] Are the workbooks in the public repository acceptable? Options: make the repository private, or remove them (rewriting history needs separate approval)
+- [x] Are the workbooks allowed to be public? **No: the owner has no permission to publish them**
+- [ ] Repository made private by its admin (`shmuhaisin`). Claude can't do this and hasn't. Checked: no forks on 2026-11-07
+- [ ] Before anything merges into `main`: decide how the workbooks leave the branch. They aren't on `main` today, and a merge would add them. Deleting them or rewriting history needs separate approval
 - [x] `feat/company-workflow` compared with this branch (section 10)
 - [ ] The merge order approved, and the SDAIA demo script decided
 - [ ] `midan-security-completion` reviewed and merged, or the migrations approved from this branch
