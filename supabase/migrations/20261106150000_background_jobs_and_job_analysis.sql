@@ -137,6 +137,9 @@ do $$ begin
     create role midan_ai nologin noinherit nobypassrls;
   end if;
 end $$;
+-- Creating a schema for another role needs the right to become that role, which a role's creator doesn't get by itself
+-- unless it's a superuser. Supabase's postgres role isn't one.
+grant midan_ai to current_user with set true;
 create schema if not exists ai_checkpoints authorization midan_ai;
 revoke all on schema ai_checkpoints from public;
 
