@@ -390,13 +390,24 @@ describe('Midan administration and data pipeline', () => {
       await api().patch(path).set(bearer(ownerA)).send({ questions: [question, question] }).expect(422);
       await api().patch(`${base()}/assessment-tasks/${written.id}/questions`).set(bearer(ownerA)).send({ questions: [question] }).expect(422);
 
-      const saved = (await api().patch(path).set(bearer(ownerA)).send({ questions: [question, { ...question, id: 'q2', answer: 'a' }] }).expect(200)).body;
-      expect(saved.rubric_criteria[0]).toMatchObject({ answer_key: { q1: 'b', q2: 'a' }, max_score: '2' });
+      // The template's key is { q1: 'b', q2: 'a' }. This edit swaps both answers, so the key really changes.
+      const corrected = [{ ...question, answer: 'a' }, { ...question, id: 'q2', answer: 'b' }];
+      const saved = (await api().patch(path).set(bearer(ownerA)).send({ questions: corrected }).expect(200)).body;
+      expect(saved.rubric_criteria[0]).toMatchObject({ answer_key: { q1: 'a', q2: 'b' }, max_score: '2' });
       expect(JSON.stringify(saved.config)).not.toContain('answer');
-      const audit = (await rest(ownerA, 'GET', `audit_logs?entity=eq.assessment_tasks&entity_id=eq.${objective.id}&action=eq.update&select=actor_id`)).body;
-      expect(audit).toEqual([{ actor_id: ownerA.id }]);
-      const rubricAudit = (await rest(ownerA, 'GET', `audit_logs?entity=eq.rubric_criteria&entity_id=eq.${saved.rubric_criteria[0].id}&select=actor_id,action`)).body;
-      expect(rubricAudit).toEqual([{ actor_id: ownerA.id, action: 'update' }]);
+      const edits = async (entity: string, id: string) =>
+        (await rest(ownerA, 'GET', `audit_logs?entity=eq.${entity}&entity_id=eq.${id}&action=eq.update&details->>source=eq.edit&select=actor_id,details`)).body as
+          { actor_id: string; details: { old: { answer_key?: unknown; config?: unknown }; new: { answer_key?: unknown; config?: unknown } } }[];
+      const criterion = saved.rubric_criteria[0].id;
+      expect((await edits('assessment_tasks', objective.id)).map((e) => e.actor_id)).toEqual([ownerA.id]);
+      // A real answer-key change is recorded with the key before and after (20261107150000, write_assessment_audit).
+      const keyEdits = await edits('rubric_criteria', criterion);
+      expect(keyEdits).toHaveLength(1);
+      expect(keyEdits[0]).toMatchObject({ actor_id: ownerA.id, details: { old: { answer_key: { q1: 'b', q2: 'a' } }, new: { answer_key: { q1: 'a', q2: 'b' } } } });
+      // Saving the same questions again changes nothing, and records nothing that would look like a change.
+      await api().patch(path).set(bearer(ownerA)).send({ questions: corrected }).expect(200);
+      expect(await edits('rubric_criteria', criterion)).toHaveLength(1);
+      expect(await edits('assessment_tasks', objective.id)).toHaveLength(1);
     });
 
     it('lets the organization add and remove tasks and criteria on a draft, and refuses it once published', async () => {

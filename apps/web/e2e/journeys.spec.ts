@@ -883,8 +883,9 @@ test('an organization reviews and corrects a generated draft, and is told what i
   // Removing the task that measures the responsibility is allowed, and the screen says what that leaves out.
   await page.getByRole('button', { name: /A case study from the role/ }).click();
   await page.getByRole('button', { name: 'Remove this task' }).first().click();
-  await expect(page.getByText('No task measures these')).toBeVisible();
-  await expect(page.getByRole('status').getByText('Review supply contracts before signing')).toBeVisible();
+  // MIDAN's checks name it once, in the change review, as a warning that doesn't block approval.
+  await expect(page.getByRole('status').getByText('No task measures this responsibility: Review supply contracts before signing')).toBeVisible();
+  await expect(page.getByText('No task measures these')).toHaveCount(0);
 
   await page.setViewportSize({ width: 390, height: 800 });
   await noOverflow(page);

@@ -613,7 +613,8 @@ export function PublishPanel({ orgId, versionId, uncovered = [], review }: {
   return (
     <div className="rounded-lg bg-surface p-4">
       <p className="text-sm text-muted">{t('publishNote')}</p>
-      {uncovered.length > 0 && (
+      {/* With a change review, MIDAN's checks there already name what isn't measured; listing it twice was noise. */}
+      {!review && uncovered.length > 0 && (
         <div role="status" className="mt-3 border-s-2 border-gold ps-4 text-sm">
           <p className="font-semibold">{t('uncoveredTitle')}</p>
           <ul className="mt-1 list-disc space-y-1 ps-4">{uncovered.map((item) => <li key={item}>{item}</li>)}</ul>
