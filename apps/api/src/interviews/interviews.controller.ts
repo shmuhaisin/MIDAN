@@ -1,6 +1,6 @@
 import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, ServiceUnavailableException, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { IsIn, IsInt, IsISO8601, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { BUILDERS, requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
@@ -12,12 +12,16 @@ class ScheduleDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(60) time_zone?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) instructions_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) instructions_en?: string;
+  @ApiPropertyOptional({ description: 'Members who interview with the scheduler. Only participants can join the room.' })
+  @IsOptional() @IsArray() @ArrayMaxSize(10) @IsUUID('all', { each: true }) interviewer_ids?: string[];
 }
 
 class UpdateInterviewDto {
   @ApiPropertyOptional() @IsOptional() @IsISO8601({ strict: true }) scheduled_at?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(5) @Max(480) duration_minutes?: number;
   @ApiPropertyOptional() @IsOptional() @IsIn(['cancelled', 'completed', 'no_show']) status?: 'cancelled' | 'completed' | 'no_show';
+  @ApiPropertyOptional({ description: 'Replaces the interviewers. Whoever scheduled the interview always stays.' })
+  @IsOptional() @IsArray() @ArrayMaxSize(10) @IsUUID('all', { each: true }) interviewer_ids?: string[];
 }
 
 class RespondDto {
@@ -57,8 +61,9 @@ export class InterviewsController {
       tx.interviews.findUniqueOrThrow({
         where: { id },
         select: {
-          id: true, scheduled_at: true, duration_minutes: true, time_zone: true, calendar_event_id: true, status: true,
+          id: true, org_id: true, scheduled_at: true, duration_minutes: true, time_zone: true, calendar_event_id: true, status: true,
           users_interviews_candidate_idTousers: { select: { email: true } },
+          interview_participants: { select: { user_id: true } },
           applications: { select: { jobs: { select: { title_ar: true, organizations: { select: { name_ar: true } } } } } },
         },
       }),
@@ -69,13 +74,16 @@ export class InterviewsController {
       return this.db.asUser(user, (tx) => tx.interviews.update({ where: { id }, data: { calendar_status } }));
     }
     const job = details.applications.jobs;
+    // Attendees: the candidate and everyone taking part, whoever saved last.
+    const team = await this.db.asUser(user, (tx) => tx.$queryRaw<{ user_id: string; email: string }[]>`select user_id, email from public.organization_team(${details.org_id}::uuid)`);
+    const taking = new Set(details.interview_participants.map((p) => p.user_id));
     const result = await this.calendar.save({
       id: details.calendar_event_id ?? undefined,
       title: `${job.title_ar} — ${job.organizations.name_ar}`,
       start: details.scheduled_at,
       minutes: details.duration_minutes,
       timeZone: details.time_zone,
-      attendees: [details.users_interviews_candidate_idTousers.email, user.email],
+      attendees: [details.users_interviews_candidate_idTousers.email, ...team.filter((m) => taking.has(m.user_id)).map((m) => m.email)],
       link: `${process.env.APP_URL}/interviews/${id}`,
     });
     return this.db.asUser(user, (tx) =>
@@ -94,7 +102,8 @@ export class InterviewsController {
     const interview = await this.db.asUser(user, (tx) => tx.interviews.findFirst({ where: { id }, select: CANDIDATE_VIEW }));
     if (!interview) throw new NotFoundException();
     const { opens, closes } = joinWindow(interview.scheduled_at, interview.duration_minutes);
-    return { ...interview, join_opens_at: opens, join_closes_at: closes, video_available: this.daily.configured, is_candidate: interview.candidate_id === user.id };
+    const [{ allowed }] = await this.db.asUser(user, (tx) => tx.$queryRaw<{ allowed: boolean }[]>`select public.can_join_interview(${id}::uuid) as allowed`);
+    return { ...interview, join_opens_at: opens, join_closes_at: closes, video_available: this.daily.configured, is_candidate: interview.candidate_id === user.id, is_participant: allowed };
   }
 
   @Post('interviews/:id/respond')
@@ -113,6 +122,9 @@ export class InterviewsController {
       const found = await tx.interviews.findFirst({ where: { id }, select: { candidate_id: true, org_id: true, status: true, scheduled_at: true, duration_minutes: true } });
       if (!found) throw new NotFoundException();
       const profile = await tx.users.findUnique({ where: { id: user.id }, select: { display_name: true, candidate_profiles: { select: { full_name: true } } } });
+      // The candidate, or one of the interview's participants who is still a member. Seeing the interview isn't enough.
+      const [{ allowed }] = await tx.$queryRaw<{ allowed: boolean }[]>`select public.can_join_interview(${id}::uuid) as allowed`;
+      if (!allowed) throw new ForbiddenException("Only this interview's participants can join");
       return { ...found, name: profile?.candidate_profiles?.full_name ?? profile?.display_name ?? '' };
     });
     const candidate = interview.candidate_id === user.id;
@@ -126,7 +138,7 @@ export class InterviewsController {
     const room = `midan-${id}`;
     const url = await this.daily.ensureRoom(room, closes);
     const expires = new Date(Math.min(closes.getTime(), now + 2 * 60 * 60_000));
-    return { room_url: url, token: await this.daily.token(room, interview.name, expires), expires_at: expires };
+    return { room_url: url, token: await this.daily.token(room, interview.name, expires, !candidate), expires_at: expires };
   }
 
   @Post('organizations/:orgId/applications/:applicationId/interviews')
@@ -137,9 +149,15 @@ export class InterviewsController {
       await requireRole(tx, user, orgId, BUILDERS);
       const application = await tx.applications.findFirst({ where: { id: applicationId, org_id: orgId }, select: { candidate_id: true } });
       if (!application) throw new NotFoundException();
-      return tx.interviews.create({
-        data: { ...body, scheduled_at: when, application_id: applicationId, org_id: orgId, candidate_id: application.candidate_id, calendar_status: 'pending' },
+      const { interviewer_ids = [], ...fields } = body;
+      const interview = await tx.interviews.create({
+        data: { ...fields, scheduled_at: when, application_id: applicationId, org_id: orgId, candidate_id: application.candidate_id, calendar_status: 'pending' },
       });
+      // The scheduler is added by the database. Anyone else must be a member: the database refuses otherwise.
+      await tx.interview_participants.createMany({
+        data: [...new Set(interviewer_ids)].filter((id) => id !== user.id).map((id) => ({ interview_id: interview.id, org_id: orgId, user_id: id })),
+      });
+      return interview;
     });
     return this.syncCalendar(user, created.id);
   }
@@ -147,8 +165,8 @@ export class InterviewsController {
   @Patch('organizations/:orgId/interviews/:id')
   @ApiOperation({ summary: 'A new time asks the candidate to accept again. Completion is set here, never by leaving a call.' })
   async update(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateInterviewDto) {
-    const needsCalendar = Boolean(body.scheduled_at || body.duration_minutes || body.status === 'cancelled');
-    const { scheduled_at, ...rest } = body;
+    const needsCalendar = Boolean(body.scheduled_at || body.duration_minutes || body.status === 'cancelled' || body.interviewer_ids);
+    const { scheduled_at, interviewer_ids, ...rest } = body;
     const updated = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
       const { count } = await tx.interviews.updateMany({
@@ -156,7 +174,16 @@ export class InterviewsController {
         data: { ...rest, ...(scheduled_at && { scheduled_at: new Date(scheduled_at) }), ...(needsCalendar && { calendar_status: 'pending' }) },
       });
       if (count === 0) throw new NotFoundException();
-      return tx.interviews.findUniqueOrThrow({ where: { id } });
+      const saved = await tx.interviews.findUniqueOrThrow({ where: { id } });
+      if (interviewer_ids) {
+        const keep = new Set([...interviewer_ids, ...(saved.created_by ? [saved.created_by] : [])]);
+        await tx.interview_participants.deleteMany({ where: { interview_id: id, user_id: { notIn: [...keep] } } });
+        await tx.interview_participants.createMany({
+          data: [...keep].map((userId) => ({ interview_id: id, org_id: orgId, user_id: userId })),
+          skipDuplicates: true,
+        });
+      }
+      return saved;
     });
     return needsCalendar ? this.syncCalendar(user, id) : updated;
   }
@@ -176,7 +203,11 @@ export class InterviewsController {
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId);
       return {
-        interviews: await tx.interviews.findMany({ where: { application_id: applicationId, org_id: orgId }, orderBy: { scheduled_at: 'desc' } }),
+        interviews: await tx.interviews.findMany({
+          where: { application_id: applicationId, org_id: orgId },
+          orderBy: { scheduled_at: 'desc' },
+          include: { interview_participants: { select: { user_id: true } } },
+        }),
         outcomes: await tx.hiring_outcomes.findMany({ where: { application_id: applicationId, org_id: orgId }, orderBy: { issued_at: 'desc' } }),
       };
     });

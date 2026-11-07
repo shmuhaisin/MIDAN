@@ -42,10 +42,11 @@ export class DailyClient {
     return ((await created.json()) as { url: string }).url;
   }
 
-  async token(room: string, userName: string, expiresAt: Date) {
+  /** A token for this one room only, ending with the join window. Interviewers own the room; the candidate never does. */
+  async token(room: string, userName: string, expiresAt: Date, isOwner = false) {
     const response = await this.call('/meeting-tokens', {
       method: 'POST',
-      body: { properties: { room_name: room, user_name: userName, is_owner: false, exp: Math.floor(expiresAt.getTime() / 1000), enable_screenshare: true } },
+      body: { properties: { room_name: room, user_name: userName, is_owner: isOwner, exp: Math.floor(expiresAt.getTime() / 1000), enable_screenshare: true } },
     });
     if (!response.ok) {
       this.logger.warn(`Token request failed with ${response.status}`);

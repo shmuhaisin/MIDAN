@@ -267,10 +267,14 @@ describe('Midan database foundation', () => {
       expect(join.status).toBe(403);
     });
 
-    it('shares a candidate only with organizations they applied to', async () => {
+    it("never gives an organization a candidate's live profile, even one who applied to it", async () => {
+      // Organizations read the application's snapshot through the API instead (20261108090000; "candidate profiles" below).
       const profile = `candidate_profiles?user_id=eq.${candidateTwo.id}`;
-      expect((await rest(ownerA, 'GET', profile)).body).toHaveLength(1);
+      expect((await rest(ownerA, 'GET', profile)).body).toEqual([]);
+      expect((await rest(ownerA, 'GET', `candidate_skills?candidate_id=eq.${candidateTwo.id}`)).body).toEqual([]);
+      expect((await rest(ownerA, 'GET', `candidate_reference_skills?candidate_id=eq.${candidateTwo.id}`)).body).toEqual([]);
       expect((await rest(ownerB, 'GET', profile)).body).toEqual([]);
+      expect((await rest(candidateTwo, 'GET', profile)).body).toHaveLength(1);
       expect((await rest(candidateOne, 'GET', profile)).body).toEqual([]);
       expect((await rest(ownerB, 'GET', `users?id=eq.${candidateTwo.id}`)).body).toEqual([]);
     });
@@ -447,9 +451,9 @@ describe('Midan database foundation', () => {
       const application = await api().post(`/jobs/${job.body.id}/applications`).set(bearer(candidateTwo)).send({}).expect(201);
       await api().post(`/applications/${application.body.id}/withdraw`).set(bearer(ownerB)).expect(403);
       await api().post(`/applications/${application.body.id}/withdraw`).set(bearer(candidateOne)).expect(403);
-      expect((await rest(ownerB, 'GET', `candidate_profiles?user_id=eq.${candidateTwo.id}`)).body).toHaveLength(1);
+      await api().get(`/applications/${application.body.id}/profile`).set(bearer(ownerB)).expect(200);
       await api().post(`/applications/${application.body.id}/withdraw`).set(bearer(candidateTwo)).expect(201);
-      expect((await rest(ownerB, 'GET', `candidate_profiles?user_id=eq.${candidateTwo.id}`)).body).toEqual([]);
+      await api().get(`/applications/${application.body.id}/profile`).set(bearer(ownerB)).expect(404);
       const left = await api().get(`/organizations/${orgB}/applications`).set(bearer(ownerB)).expect(200);
       expect(left.body.map((a: { id: string }) => a.id)).not.toContain(application.body.id);
       await api().patch(`/applications/${application.body.id}/status`).set(bearer(ownerB)).send({ status: 'under_review' }).expect(422);
@@ -1049,6 +1053,26 @@ describe('Midan database foundation', () => {
         expect(properties.exp).toBeLessThan(Date.now() / 1000 + 2 * 3600 + 5);
         expect(last((c) => c.path === '/rooms')?.body.privacy).toBe('private');
 
+        // Staff: only the interview's participants. Seeing the interview isn't enough.
+        expect((await api().get(`/interviews/${interview}`).set(bearer(recruiterA)).expect(200)).body.is_participant).toBe(false);
+        await api().post(`/interviews/${interview}/join`).set(bearer(recruiterA)).expect(403);
+        await api().post(`/interviews/00000000-0000-4000-8000-000000000000/join`).set(bearer(ownerA)).expect(404);
+        const host = await api().post(`/interviews/${interview}/join`).set(bearer(ownerA)).expect(201);
+        expect(host.body.room_url).toContain(`midan-${interview}`);
+        const hostToken = last((c) => c.path === '/meeting-tokens')?.body.properties as { room_name: string; is_owner: boolean };
+        expect(hostToken).toMatchObject({ room_name: `midan-${interview}`, is_owner: true });
+        await api().patch(`${base()}/interviews/${interview}`).set(bearer(ownerA)).send({ interviewer_ids: [ownerB.id] }).expect(422);
+        await api().patch(`${base()}/interviews/${interview}`).set(bearer(ownerA)).send({ interviewer_ids: [recruiterA.id] }).expect(200);
+        expect((await api().get(`/interviews/${interview}`).set(bearer(recruiterA)).expect(200)).body.is_participant).toBe(true);
+        await api().post(`/interviews/${interview}/join`).set(bearer(recruiterA)).expect(201);
+        expect((await rest(ownerB, 'GET', `interview_participants?interview_id=eq.${interview}`)).body).toEqual([]);
+        expect((await rest(candidateOne, 'GET', `interview_participants?interview_id=eq.${interview}`)).body).toEqual([]);
+        expect((await rest(recruiterA, 'POST', 'interview_participants', { interview_id: interview, org_id: orgA, user_id: candidateOne.id })).status).toBeGreaterThanOrEqual(400);
+        await api().patch(`${base()}/interviews/${interview}`).set(bearer(ownerA)).send({ interviewer_ids: [] }).expect(200);
+        await api().post(`/interviews/${interview}/join`).set(bearer(recruiterA)).expect(403);
+        // The scheduler always stays.
+        await api().post(`/interviews/${interview}/join`).set(bearer(ownerA)).expect(201);
+
         // Leaving a call isn't completion: nothing changes until the organization says so.
         expect((await api().get(`/interviews/${interview}`).set(bearer(candidateOne))).body.status).toBe('accepted');
 
@@ -1076,6 +1100,10 @@ describe('Midan database foundation', () => {
         const event = last((c) => c.path.startsWith('/calendars') && c.method === 'POST');
         expect(event?.path).toContain('sendUpdates=all');
         expect(JSON.stringify(event?.body)).not.toMatch(/instructions|cover_note|profile/);
+        // Attendees: the candidate and the participants, not whoever saved last.
+        const attendees = (event?.body as unknown as { attendees: { email: string }[] }).attendees.map((x) => x.email);
+        expect(attendees).toEqual(expect.arrayContaining([process.env.TEST_CANDIDATE_ONE_EMAIL, process.env.TEST_ORG_A_OWNER_EMAIL]));
+        expect(attendees).not.toContain(process.env.TEST_ORG_A_RECRUITER_EMAIL);
         const completed = await api().patch(`${base()}/interviews/${interview}`).set(bearer(ownerA)).send({ status: 'completed' }).expect(200);
         expect(completed.body.status).toBe('completed');
       });
@@ -1206,6 +1234,67 @@ describe('Midan database foundation', () => {
       await api().post(`/applications/${application}/withdraw`).set(bearer(candidateOne)).expect(201);
       await api().get(`/applications/${application}/profile`).set(bearer(ownerA)).expect(404);
       await api().get(`/applications/${application}/cv-url`).set(bearer(ownerA)).expect(404);
+    });
+
+    it('gives the organization what the candidate gave the application, and nothing else', async () => {
+      const before = (await api().get('/me').set(bearer(candidateOne)).expect(200)).body.candidate_profiles;
+      const base = { full_name: 'Test Candidate One', experience: before.experience, education: before.education };
+      await api().put('/me/candidate-profile').set(bearer(candidateOne)).send({ ...base, headline: 'Headline when applying', share_profile_consent: true }).expect(200);
+      const snapJob = (await api().post(`/organizations/${orgA}/jobs`).set(bearer(ownerA))
+        .send({ slug: `snapshot-${RUN}`, title_ar: 'س', title_en: 'Snapshot job', status: 'published' }).expect(201)).body.id;
+      const id = (await api().post(`/jobs/${snapJob}/applications`).set(bearer(candidateOne)).send({}).expect(201)).body.id;
+      // Changed after applying: the organization must not see it.
+      await api().put('/me/candidate-profile').set(bearer(candidateOne)).send({ ...base, headline: 'Changed later', share_profile_consent: false }).expect(200);
+      await api().put('/me/skills').set(bearer(candidateOne)).send({ skill_ids: [] }).expect(200);
+
+      // 1. What the organization may see: the profile as it was, with the skills listed then.
+      const seen = (await api().get(`/applications/${id}/profile`).set(bearer(ownerA)).expect(200)).body;
+      expect(seen.users.candidate_profiles).toMatchObject({ full_name: 'Test Candidate One', headline: 'Headline when applying' });
+      expect(seen.users.candidate_profiles.experience[0].title).toBe('Analyst');
+      expect(seen.users.candidate_skills).toHaveLength(2);
+      expect(seen.users.email).toBe(process.env.TEST_CANDIDATE_ONE_EMAIL);
+      expect(seen.captured_at).toBeTruthy();
+      // 2. Not the candidate's settings, consent choices or files.
+      for (const key of ['notification_prefs', 'time_zone', 'share_profile_consent', 'consent_updated_at', 'onboarding_step', 'onboarding_completed_at', 'cv_path', 'user_id']) {
+        expect(seen.users.candidate_profiles).not.toHaveProperty(key);
+      }
+      expect(seen).not.toHaveProperty('profile_snapshot');
+      expect(seen).not.toHaveProperty('cv_snapshot_path');
+      const listed = (await api().get(`/organizations/${orgA}/applications`).set(bearer(ownerA)).expect(200)).body.find((a: { id: string }) => a.id === id);
+      expect(listed.users.candidate_profiles).toEqual({ full_name: 'Test Candidate One', headline: 'Headline when applying' });
+      expect(listed).not.toHaveProperty('profile_snapshot');
+      const onJob = (await api().get(`/organizations/${orgA}/jobs/${snapJob}`).set(bearer(ownerA)).expect(200)).body.applications[0];
+      expect(onJob.users.candidate_profiles.headline).toBe('Headline when applying');
+      expect(JSON.stringify(onJob)).not.toContain('notification_prefs');
+      // The live rows stay closed to the organization, through the Data API too.
+      expect((await rest(ownerA, 'GET', `candidate_profiles?user_id=eq.${candidateOne.id}`)).body).toEqual([]);
+      expect((await rest(ownerA, 'GET', `candidate_skills?candidate_id=eq.${candidateOne.id}`)).body).toEqual([]);
+
+      // 3. Another organization, another candidate and a signed-out visitor get nothing.
+      await api().get(`/applications/${id}/profile`).set(bearer(ownerB)).expect(404);
+      expect((await api().get(`/organizations/${orgB}/applications`).set(bearer(ownerB)).expect(200)).body.map((a: { id: string }) => a.id)).not.toContain(id);
+      await api().get(`/organizations/${orgA}/applications`).set(bearer(ownerB)).expect(403);
+      await api().get(`/applications/${id}/profile`).set(bearer(candidateTwo)).expect(404);
+      await api().get(`/applications/${id}/profile`).expect(401);
+
+      // 4. The CV copy: the organization applied to, and nobody else.
+      const copy = (await rest(candidateOne, 'GET', `applications?id=eq.${id}&select=cv_snapshot_path`)).body[0].cv_snapshot_path as string;
+      expect(copy).toContain('/applications/');
+      expect((await fetch((await api().get(`/applications/${id}/cv-url`).set(bearer(ownerA)).expect(200)).body.url)).status).toBe(200);
+      await api().get(`/applications/${id}/cv-url`).set(bearer(ownerB)).expect(404);
+      await api().get(`/applications/${id}/cv-url`).set(bearer(candidateTwo)).expect(404);
+      expect((await storage(ownerB, 'GET', `object/candidate-documents/${copy}`)).ok).toBe(false);
+      expect((await storage(candidateTwo, 'GET', `object/candidate-documents/${copy}`)).ok).toBe(false);
+      expect((await fetch(`${BASE}/storage/v1/object/candidate-documents/${copy}`)).ok).toBe(false);
+
+      // 5. The candidate still sees and controls their own, current information.
+      const mine = (await api().get('/me').set(bearer(candidateOne)).expect(200)).body;
+      expect(mine.candidate_profiles).toMatchObject({ headline: 'Changed later', share_profile_consent: false });
+      expect((await rest(candidateOne, 'GET', `candidate_profiles?user_id=eq.${candidateOne.id}`)).body).toHaveLength(1);
+      await api().post(`/applications/${id}/withdraw`).set(bearer(candidateOne)).expect(201);
+      await api().get(`/applications/${id}/profile`).set(bearer(ownerA)).expect(404);
+      const skills = (await api().get('/skills').expect(200)).body as { id: string }[];
+      await api().put('/me/skills').set(bearer(candidateOne)).send({ skill_ids: [skills[0].id, skills[1].id] }).expect(200);
     });
 
     it('lets a candidate remove their CV for good', async () => {
@@ -1590,7 +1679,9 @@ describe('Midan database foundation', () => {
       await api().get(`${base()}/assessment-versions/${version}/changes`).set(bearer(ownerB)).expect(403);
       await api().get(`${base()}/assessment-versions/${version}/changes`).set(bearer(candidateOne)).expect(403);
       // Reviewing is for owners and admins, not the recruiter who made the changes.
-      await api().post(`${base()}/assessment-versions/${version}/review`).set(bearer(recruiterA)).send({ reviewed_through: (await state()).latest_change_id }).expect(403);
+      // The state is fetched first: a request started inside another one's chain closes the shared test server under it.
+      const through = (await state()).latest_change_id;
+      await api().post(`${base()}/assessment-versions/${version}/review`).set(bearer(recruiterA)).send({ reviewed_through: through }).expect(403);
     });
 
     it('never lets an employer edit or delete the change history', async () => {
@@ -1630,9 +1721,10 @@ describe('Midan database foundation', () => {
       // A change after the review needs another one.
       await api().patch(`${base()}/assessment-tasks/${generatedTask}`).set(bearer(recruiterA)).send({ instructions_en: 'Reconcile the attached branch accounts' }).expect(200);
       await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).send({}).expect(422);
-      await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(recruiterA)).send({ reviewed_through: (await state()).latest_change_id }).expect(403);
+      const through = (await state()).latest_change_id;
+      await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(recruiterA)).send({ reviewed_through: through }).expect(403);
       // Review and approve in one step, as the screen does.
-      const published = (await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).send({ reviewed_through: (await state()).latest_change_id }).expect(201)).body;
+      const published = (await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).send({ reviewed_through: through }).expect(201)).body;
       expect(published.status).toBe('published');
       expect(published.published_by).toBe(ownerA.id);
       const after = await state();

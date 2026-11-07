@@ -613,6 +613,7 @@ model interviews {
   created_at                           DateTime           @default(now()) @db.Timestamptz(6)
   updated_at                           DateTime           @default(now()) @db.Timestamptz(6)
   interview_events                     interview_events[]
+  interview_participants               interview_participants[]
   applications                         applications       @relation(fields: [application_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
   users_interviews_candidate_idTousers users              @relation("interviews_candidate_idTousers", fields: [candidate_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users_interviews_created_byTousers   users?             @relation("interviews_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1311,4 +1312,19 @@ model reference_skill_scores {
   @@unique([result_id, reference_skill_id])
   @@index([org_id])
   @@index([reference_skill_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations.
+model interview_participants {
+  interview_id String     @db.Uuid
+  org_id       String     @db.Uuid
+  user_id      String     @db.Uuid
+  added_by     String?    @db.Uuid
+  created_at   DateTime   @default(now()) @db.Timestamptz(6)
+  interviews   interviews @relation(fields: [interview_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([interview_id, user_id])
+  @@index([org_id])
+  @@index([user_id])
+  @@index([added_by])
 }

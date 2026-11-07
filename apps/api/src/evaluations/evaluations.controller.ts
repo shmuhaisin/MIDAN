@@ -1,3 +1,4 @@
+import { applicantProfile, withApplicantName } from '../common/applicant';
 import { Body, ConflictException, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Post, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -52,7 +53,7 @@ export class EvaluationsController {
           task_responses: true,
           evidence_files: { select: { task_id: true, file_name: true } },
           evaluation_results: { select: { id: true } },
-          applications: { select: { users: { select: { display_name: true, candidate_profiles: { select: { full_name: true } } } } } },
+          applications: { select: { profile_snapshot: true, users: { select: { display_name: true } } } },
         },
       });
       if (!attempt) throw new NotFoundException();
@@ -68,7 +69,8 @@ export class EvaluationsController {
     const payload = {
       attempt_id: id,
       attempt_status: snapshot.status,
-      known_names: [snapshot.applications.users.candidate_profiles?.full_name, snapshot.applications.users.display_name].filter(Boolean),
+      // Names to redact from answers: the one the candidate applied under, and their account's.
+      known_names: [applicantProfile(snapshot.applications.profile_snapshot)?.full_name, snapshot.applications.users.display_name].filter(Boolean),
       rubric_version: snapshot.assessment_versions.version_number,
       skills: [...skills.values()].map((s) => ({ id: s.id, slug: s.slug, name_ar: s.name_ar, name_en: s.name_en })),
       // The workbook skills the job links and its tasks measure. Names stay Arabic: the workbooks have no others.
@@ -130,7 +132,7 @@ export class EvaluationsController {
             select: {
               job_id: true,
               jobs: { select: { title_ar: true, title_en: true } },
-              users: { select: { candidate_profiles: { select: { full_name: true, headline: true } } } },
+              profile_snapshot: true,
             },
           },
           task_responses: true,
@@ -154,7 +156,7 @@ export class EvaluationsController {
       });
       if (!attempt) throw new NotFoundException();
       await requireRole(tx, user, attempt.org_id);
-      return attempt;
+      return { ...attempt, applications: withApplicantName(attempt.applications) };
     });
   }
 
@@ -267,7 +269,7 @@ export class EvaluationsController {
         select: {
           id: true, status: true,
           assessment_versions: { select: { id: true, version_number: true, assessment_id: true, assessments: { select: { title_ar: true, title_en: true } } } },
-          applications: { select: { users: { select: { email: true, candidate_profiles: { select: { full_name: true } } } } } },
+          applications: { select: { profile_snapshot: true, users: { select: { email: true } } } },
           evaluation_results: {
             select: {
               id: true, status: true, overall_score: true, released_to_candidate: true,
@@ -276,7 +278,7 @@ export class EvaluationsController {
           },
         },
       });
-      return attempts;
+      return attempts.map((a) => ({ ...a, applications: withApplicantName(a.applications) }));
     });
   }
 }

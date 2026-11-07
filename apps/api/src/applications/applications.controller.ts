@@ -1,3 +1,4 @@
+import { applicantProfile } from '../common/applicant';
 import { Body, Controller, ForbiddenException, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
@@ -26,23 +27,27 @@ export class ApplicationsController {
         where: { id, status: { not: 'withdrawn' } },
         include: {
           jobs: { select: { id: true, title_ar: true, title_en: true, job_skills: { select: { skill_id: true, required_level: true, skills: { select: { name_ar: true, name_en: true } } } } } },
-          users: {
-            select: {
-              email: true,
-              candidate_profiles: true,
-              candidate_skills: { select: { skill_id: true, skills: { select: { name_ar: true, name_en: true } } } },
-              candidate_reference_skills: { select: { reference_skills: { select: { id: true, name_ar: true } } } },
-            },
-          },
           assessment_attempts: { orderBy: { created_at: 'asc' }, select: { id: true, status: true, assessment_versions: { select: { assessments: { select: { title_ar: true, title_en: true } } } } } },
         },
       });
       if (!application) throw new NotFoundException();
       await requireRole(tx, user, application.org_id);
-      // The current CV stays the candidate's: staff learn only whether one was submitted or shared with this application.
-      const { cv_snapshot_path, users, ...rest } = application;
-      const { cv_path: _current, ...profile } = users.candidate_profiles ?? { cv_path: null };
-      return { ...rest, has_cv: Boolean(cv_snapshot_path), users: { ...users, candidate_profiles: users.candidate_profiles ? profile : null } };
+      // What the candidate gave this application, as it stood then. The live profile, and the current CV, stay theirs:
+      // staff learn only whether a CV copy was submitted or shared with this application.
+      const { cv_snapshot_path, profile_snapshot, ...rest } = application;
+      const profile = applicantProfile(profile_snapshot);
+      const { skills = [], reference_skills = [], email = null, ...fields } = profile ?? {};
+      return {
+        ...rest,
+        has_cv: Boolean(cv_snapshot_path),
+        captured_at: profile?.captured_at ?? null,
+        users: {
+          email,
+          candidate_profiles: profile ? fields : null,
+          candidate_skills: skills.map((s) => ({ skill_id: s.id, skills: { name_ar: s.name_ar, name_en: s.name_en } })),
+          candidate_reference_skills: reference_skills.map((s) => ({ reference_skills: { id: s.id, name_ar: s.name_ar } })),
+        },
+      };
     });
   }
 

@@ -16,7 +16,14 @@ with checks(name, ok) as (values
   ('API role does not bypass row security', not (select rolbypassrls from pg_roles where rolname = 'midan_api')),
   ('Checkpoint schema belongs to the AI role', (select pg_get_userbyid(nspowner) = 'midan_ai' from pg_namespace where nspname = 'ai_checkpoints')),
   ('Row security on for every public table', not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity)),
-  ('Edits to assessment drafts are audited', (select count(*) = 2 from pg_trigger where tgname = 'write_audit' and tgrelid in ('public.assessment_tasks'::regclass, 'public.rubric_criteria'::regclass))),
+  -- 20261107120000 added write_audit to tasks and criteria; 20261107150000 replaced it with write_assessment_audit, which also
+  -- records additions, content and reasons, and covers requirement links and the version's own fields.
+  ('Edits to assessment drafts are audited', (select count(*) = 5 from pg_trigger where tgname in ('write_assessment_audit', 'write_assessment_audit_delete')
+    and tgrelid in ('public.assessment_tasks'::regclass, 'public.rubric_criteria'::regclass, 'public.task_requirement_mappings'::regclass, 'public.assessment_versions'::regclass))
+    and not exists (select 1 from pg_trigger where tgname = 'write_audit' and tgrelid in ('public.assessment_tasks'::regclass, 'public.rubric_criteria'::regclass))),
+  ('Organizations read applications, not live candidate profiles', not exists (select 1 from pg_policies where schemaname = 'public'
+    and tablename in ('candidate_profiles', 'candidate_skills', 'candidate_reference_skills') and policyname in ('org reads applicants', 'org reads applicant skills'))),
+  ('Only interview participants can join', exists (select 1 from pg_proc where proname = 'can_join_interview') and (select relrowsecurity from pg_class where oid = 'public.interview_participants'::regclass)),
   ('Listing source records are closed to signed-out visitors', not has_column_privilege('anon', 'public.external_job_listings', 'raw_record', 'select')),
   ('Listing review notes are closed to signed-in users', not has_column_privilege('authenticated', 'public.external_job_listings', 'review_note', 'select')),
   ('Job search text exists', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'jobs' and column_name = 'search_text')),

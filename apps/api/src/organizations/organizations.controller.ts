@@ -1,3 +1,4 @@
+import { withApplicantName } from '../common/applicant';
 import { Body, Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Patch, Post, ServiceUnavailableException, UnprocessableEntityException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
@@ -165,7 +166,7 @@ export class OrganizationsController {
             where: { status: { not: 'withdrawn' } },
             orderBy: { created_at: 'desc' },
             include: {
-              users: { select: { email: true, candidate_profiles: { select: { full_name: true, headline: true } } } },
+              users: { select: { email: true } },
               assessment_attempts: {
                 orderBy: { created_at: 'asc' },
                 select: {
@@ -179,7 +180,7 @@ export class OrganizationsController {
         },
       });
       if (!job) throw new NotFoundException();
-      return job;
+      return { ...job, applications: job.applications.map(withApplicantName) };
     });
   }
 
@@ -225,14 +226,15 @@ export class OrganizationsController {
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId);
       // A withdrawn candidate's details are no longer visible to the organization.
-      return tx.applications.findMany({
+      const applications = await tx.applications.findMany({
         where: { org_id: orgId, status: { not: 'withdrawn' } },
         orderBy: { created_at: 'desc' },
         include: {
           jobs: { select: { id: true, title_ar: true, title_en: true } },
-          users: { select: { id: true, email: true, candidate_profiles: { select: { full_name: true, headline: true } } } },
+          users: { select: { id: true, email: true } },
         },
       });
+      return applications.map(withApplicantName);
     });
   }
 }
