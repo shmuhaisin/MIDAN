@@ -110,6 +110,8 @@ export function InterviewFeedback({ orgId, applicationId, interviewId, canWrite,
     <div>
       {submitted.length === 0 && !canWrite && <p className="mt-2 text-sm text-muted">{t('feedbackNone')}</p>}
       {submitted.map((f, i) => <Submitted key={i} feedback={f} />)}
+      {/* Lasting confirmation: once submitted, the form is gone, so its own message would vanish with it. */}
+      {canWrite && mine?.status === 'submitted' && <p role="status" className="mt-2 text-sm font-semibold text-primary">{t('feedbackSubmitted')}</p>}
       {canWrite && mine?.status !== 'submitted' && (
         <form className="mt-4 space-y-4" onSubmit={(e) => { e.preventDefault(); save('submitted', e.currentTarget); }}>
           <p className="text-sm font-semibold">{mine ? t('feedbackDraft') : t('feedbackYours')}</p>
@@ -139,7 +141,7 @@ export function InterviewFeedback({ orgId, applicationId, interviewId, canWrite,
           <label className="block"><span className="text-sm font-medium">{t('feedbackNotes')}</span>
             <textarea name="notes" maxLength={8000} rows={4} defaultValue={mine?.notes ?? ''} className={`${INPUT} h-auto py-2`} /></label>
           <ErrorText code={error} />
-          {saved && <p role="status" className="text-sm font-semibold text-primary">{t(saved === 'draft' ? 'draftSaved' : 'feedbackSubmitted')}</p>}
+          {saved === 'draft' && <p role="status" className="text-sm font-semibold text-primary">{t('draftSaved')}</p>}
           <div className="flex flex-wrap gap-3">
             <button type="button" disabled={pending} onClick={(e) => save('draft', e.currentTarget.form!)} className="rounded-full border border-foreground/30 px-5 py-2 font-semibold">{t('saveDraft')}</button>
             <button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY}>{t('submitFeedback')}</button>

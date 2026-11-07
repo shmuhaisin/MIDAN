@@ -50,7 +50,7 @@ test('an employer reviews an applicant, shortlists on purpose, interviews with a
   await call('ORG_A_OWNER', 'POST', `/organizations/${org}/team/invitations`, { email: env.TEST_ORG_A_RECRUITER_EMAIL, role: 'recruiter' });
   const invitation = ((await call('ORG_A_RECRUITER', 'GET', '/me/invitations')) as { id: string; org_id: string }[]).find((i) => i.org_id === org)!;
   await call('ORG_A_RECRUITER', 'POST', `/me/invitations/${invitation.id}/accept`);
-  const job = (await call('ORG_A_OWNER', 'POST', `/organizations/${org}/jobs`, { slug: 'analyst', title_ar: 'محلل تقارير', title_en: 'Reporting analyst', status: 'published' })).id as string;
+  const job = (await call('ORG_A_OWNER', 'POST', `/organizations/${org}/jobs`, { slug: 'analyst', title_ar: `محلل تقارير ${RUN}`, title_en: `Reporting analyst ${RUN}`, status: 'published' })).id as string;
   const skill = ((await (await fetch(`${env.API_URL}/v1/skills`)).json()) as { id: string; slug: string }[]).find((s) => s.slug === 'data-analysis')!;
   await call('ORG_A_OWNER', 'PATCH', `/organizations/${org}/jobs/${job}`, { skills: [{ skill_id: skill.id, required_level: 3 }] });
   await call('CANDIDATE_TWO', 'PUT', '/me/candidate-profile', { full_name: 'Test Candidate Two', headline: 'Fictional reporting analyst' });
@@ -114,7 +114,7 @@ test('an employer reviews an applicant, shortlists on purpose, interviews with a
   // The candidate is told, in the app, and never sees the organization's notes or feedback.
   const candidate = await pageFor(browser, 'CANDIDATE_TWO');
   await candidate.goto('/en/notifications');
-  await expect(candidate.getByText("You've been shortlisted for Reporting analyst")).toBeVisible();
+  await expect(candidate.getByText(`You've been shortlisted for Reporting analyst ${RUN}`)).toBeVisible();
   await candidate.goto(`/en/applications/${application}`);
   await expect(candidate.getByText('Strong reporting examples (fictional).')).toHaveCount(0);
   await expect(candidate.getByText('Walked through a monthly report.')).toHaveCount(0);
