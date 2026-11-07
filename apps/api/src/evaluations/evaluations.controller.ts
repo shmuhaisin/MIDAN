@@ -1,3 +1,4 @@
+import { guidanceFor } from './guidance';
 import { applicantProfile, withApplicantName } from '../common/applicant';
 import { Body, ConflictException, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Post, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
@@ -60,7 +61,10 @@ export class EvaluationsController {
       await requireRole(tx, user, attempt.org_id, EVALUATORS);
       if (attempt.status !== 'submitted') throw new UnprocessableEntityException('Only submitted work can be evaluated');
       if (attempt.evaluation_results) throw new ConflictException('This attempt already has an evaluation');
-      return attempt;
+      // The assessor guide of this attempt's own version, never another version's.
+      const [guide] = await tx.$queryRaw<{ content: unknown }[]>`
+        select content from public.assessment_assessor_guides where version_id = ${attempt.version_id}::uuid`;
+      return { ...attempt, guide: guide?.content ?? null };
     });
 
     const tasks = snapshot.assessment_versions.assessment_tasks;
@@ -85,6 +89,7 @@ export class EvaluationsController {
         skill_weights: Object.fromEntries(t.task_skill_mappings.map((m) => [m.skill_id, Number(m.weight)])),
         criteria: t.rubric_criteria.map((c) => ({
           id: c.id, code: c.code, description_ar: c.description_ar, description_en: c.description_en, max_score: Number(c.max_score), weight: Number(c.weight), answer_key: c.answer_key,
+          ...guidanceFor(snapshot.guide, t.position, c.code),
         })),
       })),
       responses: Object.fromEntries(snapshot.task_responses.map((r) => [r.task_id, r.answer])),

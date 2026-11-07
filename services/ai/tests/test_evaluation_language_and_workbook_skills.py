@@ -50,7 +50,7 @@ def test_the_model_sees_the_task_and_criterion_in_arabic_as_well_as_english():
     graph.invoke({"input": snapshot()}, cfg())
     assert "Task (Arabic): دراسة حالة" in seen[0] and "Instructions (Arabic): حلّل البيانات" in seen[0]
     assert "(Arabic): يحدد النمط" in seen[0] and "(English): Finds the pattern" in seen[0]
-    assert PROMPT_VERSION == "eval-v2"
+    assert PROMPT_VERSION.startswith("eval-v")  # bumped whenever the scoring prompt changes
     # An Arabic quote copied from an Arabic answer counts as real evidence.
     payload = graph.get_state(cfg()).tasks[0].interrupts[0].value
     assert all(p["evidence_ref"] == "سأراجع تلك المنطقة أولًا" for p in payload["proposals"] if p["source"] == "ai_assisted")

@@ -278,6 +278,12 @@ class CriterionInput(BaseModel):
     max_score: float = Field(gt=0)
     weight: float = Field(default=1, gt=0)
     answer_key: dict[str, str] | None = None
+    # From the assessor guide of the attempt's own assessment version, when it has one: what each level looks like, and the
+    # evidence the criterion needs. Staff-only material; it is never part of anything a candidate receives.
+    levels_ar: dict[str, str] = {}
+    levels_en: dict[str, str] = {}
+    evidence_ar: str = ""
+    evidence_en: str = ""
 
 
 class TaskInput(BaseModel):

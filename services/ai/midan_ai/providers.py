@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from .schemas import CriterionInput, GeneratedAssessment, OpenScore, Provenance, TaskInput
 
-PROMPT_VERSION = "eval-v2"
+PROMPT_VERSION = "eval-v3-guide"
 GENERATION_PROMPT_VERSION = "gen-v2-mas1"
 _WORDS = re.compile(r"[\w؀-ۿ]+")
 _SENTENCES = re.compile(r"(?<=[.!?؟\n])\s*")
@@ -87,6 +87,20 @@ Reply with JSON only: {"job_family": string, "secondary_families": [string],
  "assessor_guide": {"language": "both", "scope_and_limits": string, "task_solutions": [{"task_ref": number, "reference_solution": string, "expected_outputs","accepted_alternatives","common_mistakes": [string]}], "calculations": [{"id","label","formula": string, "task_ref": number, "inputs": [string], "result": string, "unit": string, "check": object}], "decision_points": [{"task_ref": number, "point","accepted","not_accepted": string}], "verification_steps","boundaries","not_scored","approval_notes": [string], "sources": [{"title","url","kind","verification","accessed","supports": string}], "skill_map": [{"task_ref": number, "how_measured": string}], "pass_mark": null}}"""
 
 
+def assessor_guidance(criterion: CriterionInput) -> str:
+    """The assessor guide's levels and evidence for this criterion, when the attempt's version has a guide. Empty otherwise."""
+    lines = []
+    for lang, levels in (("English", criterion.levels_en), ("Arabic", criterion.levels_ar)):
+        if levels:
+            lines.append(f"Assessor guide levels ({lang}): " + "; ".join(f"{k}: {v}" for k, v in sorted(levels.items())))
+    for lang, evidence in (("English", criterion.evidence_en), ("Arabic", criterion.evidence_ar)):
+        if evidence:
+            lines.append(f"Evidence this criterion needs ({lang}): {evidence}")
+    if not lines:
+        return ""
+    return "\n".join(["Score against the assessor guide below. It belongs to this assessment version.", *lines]) + "\n"
+
+
 class JsonLLMProvider:
     def __init__(self, complete, name: str, attempts: int = 2, pause: float = 1.0):
         self._complete = complete
@@ -128,6 +142,7 @@ class JsonLLMProvider:
             f"Task (English): {task.title_en}\nInstructions (English): {task.instructions_en}\n"
             f"Criterion {criterion.code} (Arabic): {criterion.description_ar}\nCriterion {criterion.code} (English): {criterion.description_en}\n"
             f"Maximum score: {criterion.max_score}\n"
+            f"{assessor_guidance(criterion)}"
             "The response may be in Arabic or English. Judge it in its own language, and copy evidence_quote exactly as written.\n"
             f"<response>\n{safe}\n</response>"
         )
