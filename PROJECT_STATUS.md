@@ -31,7 +31,19 @@ seventeen migrations waiting for approval. The first sixteen were rehearsed loca
 Owner decisions for later phases, in [docs/DECISIONS.md](docs/DECISIONS.md): Gemini and OpenAI behind one provider
 interface; hybrid employer management; MIDAN owns assessment design, with the editing policy below.
 
-## Assessment editing policy (2026-11-07, branch `midan-assessment-editing-policy`, not pushed)
+## Assessment intelligence (2026-11-07, branch `feature/midan-assessment-intelligence-handoff`, pushed, not merged)
+
+The MIDAN Assessment Standard (MAS-1.0), derived from the structure of 22 reference packages (no reference content in the
+repository). Generation now receives company type, sector and level, and asks for a full package: candidate brief, materials and
+an assessor guide kept apart. A deterministic quality evaluator scores 14 dimensions and recomputes reference figures. Assessor
+guides are readable by organization staff only; quality reports are written only by MIDAN's service role; a generated version is
+approved only with a `ready` report on its current content (owner decision: only generated versions are gated). Unseen-job
+benchmark: Cybersecurity Analyst, authored to the standard and run through the pipeline with a stand-in provider: ready, 98/100.
+Tested locally: AI 172 passed / 5 skipped, API 73/73, web 23/23, database suites and rollback passed, builds succeeded. Real
+Gemini/OpenAI, end-to-end tests, web screens for the guide and materials, and the hosted migration are not done. See
+[docs/handoffs/MIDAN_ASSESSMENT_INTELLIGENCE_HANDOFF.md](docs/handoffs/MIDAN_ASSESSMENT_INTELLIGENCE_HANDOFF.md).
+
+## Assessment editing policy (2026-11-07, branch `midan-assessment-editing-policy`, pushed at `0e0d1ff`, not merged)
 
 Owners, admins and recruiters may add, edit and delete a draft's tasks, questions, instructions, criteria, options and answer
 keys. Every change is recorded with its state before and after; an owner or admin reviews the changes beside MIDAN's original
