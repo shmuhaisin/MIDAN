@@ -16,7 +16,7 @@ import uuid
 import zipfile
 from collections import Counter
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 from defusedxml.ElementTree import fromstring
 from pydantic import BaseModel, Field, ValidationError
@@ -40,7 +40,12 @@ Respond with JSON only:
  "experience": [{"title": string, "description": string|null, "start_year": number|null, "end_year": number|null}],
  "education": [{"qualification": string, "field": string|null, "end_year": number|null}],
  "skills": [string], "projects": [{"title": string, "description": string|null}],
- "courses": [{"title": string}], "certifications": [{"title": string}], "uncertain": [string]}"""
+ "courses": [{"title": string}], "certifications": [{"title": string}],
+ "languages": [{"name": string, "level": string|null}], "achievements": [{"title": string, "description": string|null}],
+ "skill_details": [{"name": string, "kind": "technical"|"general", "evidence": string|null}], "uncertain": [string]}
+"evidence" must be copied exactly from the sections: the line that shows the skill being used. Use null if no line shows it.
+"general" means a transferable skill such as communication or teamwork; anything specific to a field or tool is "technical".
+"achievements" are only results the text states, such as a figure reached or an award. Never infer one."""
 
 
 class CvFailure(Exception):
@@ -67,6 +72,18 @@ class Titled(BaseModel):
     description: str | None = Field(default=None, max_length=4000)
 
 
+class Language(BaseModel):
+    name: str = Field(max_length=100)
+    level: str | None = Field(default=None, max_length=100)
+
+
+class SkillDetail(BaseModel):
+    name: str = Field(max_length=100)
+    kind: Literal["technical", "general", "unclassified"] = "unclassified"
+    # A line quoted from the CV itself. ground() drops any quote the CV doesn't contain.
+    evidence: str | None = Field(default=None, max_length=300)
+
+
 class Proposal(BaseModel):
     headline: str | None = Field(default=None, max_length=300)
     summary: str | None = Field(default=None, max_length=4000)
@@ -77,6 +94,9 @@ class Proposal(BaseModel):
     projects: list[Titled] = Field(default_factory=list, max_length=30)
     courses: list[Titled] = Field(default_factory=list, max_length=50)
     certifications: list[Titled] = Field(default_factory=list, max_length=50)
+    languages: list[Language] = Field(default_factory=list, max_length=20)
+    achievements: list[Titled] = Field(default_factory=list, max_length=30)
+    skill_details: list[SkillDetail] = Field(default_factory=list, max_length=100)
     uncertain: list[str] = Field(default_factory=list, max_length=20)
 
 
@@ -222,10 +242,11 @@ _HEADINGS: dict[str, tuple[str, ...]] = {
     "courses": ("الدورات", "الدورات التدريبية", "التدريب", "courses", "training"),
     "certifications": ("الشهادات", "الشهادات المهنية", "certifications", "certificates", "licenses"),
     "languages": ("اللغات", "languages"),
+    "achievements": ("الإنجازات", "إنجازات", "أبرز الإنجازات", "achievements", "key achievements", "accomplishments"),
     "references": ("المراجع", "المعرفون", "المعرّفون", "references", "referees"),
     "personal": ("البيانات الشخصية", "المعلومات الشخصية", "معلومات الاتصال", "بيانات التواصل", "التواصل", "personal information", "personal details", "contact", "contact information"),
 }
-ALLOWED_SECTIONS = ("summary", "experience", "education", "skills", "projects", "courses", "certifications", "languages")
+ALLOWED_SECTIONS = ("summary", "experience", "education", "skills", "projects", "courses", "certifications", "languages", "achievements")
 
 
 def classify_heading(line: str) -> str | None:
@@ -283,8 +304,76 @@ def local_proposal(sections: dict[str, str]) -> Proposal:
         projects=[Titled(title=i[:300]) for i in _items(sections.get("projects"))[:30]],
         courses=[Titled(title=i[:300]) for i in _items(sections.get("courses"))[:50]],
         certifications=[Titled(title=i[:300]) for i in _items(sections.get("certifications"))[:50]],
+        languages=[Language(name=i[:100]) for i in _items(sections.get("languages"))[:20]],
+        achievements=[Titled(title=i[:300]) for i in _items(sections.get("achievements"))[:30]],
         uncertain=["local_reading"],
     )
+
+
+# --- Grounding: every fact points back to the CV, and suggestions are kept apart from facts
+
+# Transferable skills, so a local reading can tell them apart. Anything else stays unclassified rather than guessed.
+_GENERAL = {
+    "communication", "teamwork", "leadership", "time management", "problem solving", "critical thinking", "presentation",
+    "negotiation", "collaboration", "adaptability", "التواصل", "مهارات التواصل", "العمل الجماعي", "العمل ضمن فريق", "القيادة",
+    "إدارة الوقت", "حل المشكلات", "التفكير النقدي", "العرض والتقديم", "التفاوض", "التعاون", "المرونة",
+}
+_EVIDENCE_SECTIONS = ("experience", "projects", "achievements", "summary")
+_YEAR = re.compile(r"\b(19[5-9]\d|20\d\d)\b")
+_RESULT = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|٪|percent|بالمئة|بالمائة)|(?<!\d)(?!19[5-9]\d|20\d\d)\d{2,}(?!\d)")
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", normalize_digits(text)).strip().lower()
+
+
+def ground(proposal: Proposal, sections: dict[str, str]) -> Proposal:
+    """Keeps only evidence the CV contains, and finds a line for each skill that has none. Never adds a skill."""
+    lines = [(name, line.strip(" -–•*\t")) for name in _EVIDENCE_SECTIONS for line in (sections.get(name) or "").split("\n") if line.strip() and "[REDACTED]" not in line]
+    corpus = _norm("\n".join(sections.values()))
+    by_name = {d.name: d for d in proposal.skill_details}
+    details = []
+    for name in dict.fromkeys([*proposal.skills, *by_name]):
+        found = by_name.get(name, SkillDetail(name=name[:100]))
+        evidence = found.evidence if found.evidence and _norm(found.evidence) in corpus else None
+        if evidence is None:
+            key = _norm(name)
+            evidence = next((line[:300] for _, line in lines if key and key in _norm(line)), None)
+        kind = found.kind if found.kind != "unclassified" else ("general" if _norm(name) in _GENERAL else "unclassified")
+        details.append(SkillDetail(name=name[:100], kind=kind, evidence=evidence))
+    return proposal.model_copy(update={"skill_details": details[:100]})
+
+
+def feedback(proposal: Proposal, sections: dict[str, str]) -> list[dict[str, Any]]:
+    """MIDAN's suggestions, from fixed rules over what the CV states. Not a score, and not a judgment of the candidate."""
+    out: list[dict[str, Any]] = []
+    add = lambda kind, code, values=(): out.append({"type": kind, "code": code, "values": list(values)[:10]})  # noqa: E731
+    for name in ("summary", "experience", "education", "skills"):
+        if not sections.get(name):
+            add("gap", "missing_section", [name])
+    experience = sections.get("experience") or ""
+    if experience and _YEAR.search(experience):
+        add("strength", "dated_experience")
+    elif experience:
+        add("gap", "experience_without_dates")
+    backed = [d.name for d in proposal.skill_details if d.evidence]
+    unbacked = [d.name for d in proposal.skill_details if not d.evidence]
+    if backed:
+        add("strength", "skills_with_evidence", backed)
+    if unbacked:
+        add("gap", "skills_without_evidence", unbacked)
+    results = "\n".join(sections.get(n) or "" for n in ("experience", "projects", "achievements"))
+    if _RESULT.search(normalize_digits(results)):
+        add("strength", "measurable_results")
+    elif results.strip():
+        add("gap", "no_measurable_results")
+    if proposal.projects:
+        add("strength", "projects", [str(len(proposal.projects))])
+    if proposal.certifications or proposal.courses:
+        add("strength", "learning", [str(len(proposal.certifications) + len(proposal.courses))])
+    if not proposal.languages:
+        add("gap", "no_languages")
+    return out
 
 
 def external_proposal(complete: Callable[[str, str], str], sections: dict[str, str], attempts: int = 2) -> Proposal:
@@ -311,7 +400,7 @@ def analyze(data: bytes, known_names: list[str], complete: Callable[[str, str], 
         if not payload:
             raise CvFailure("no_sections")
         assert_clean(payload, names)
-        proposal = external_proposal(complete, payload) if complete else local_proposal(payload)
+        proposal = ground(external_proposal(complete, payload) if complete else local_proposal(payload), payload)
     except PrivacyBlocked as blocked:
         return {"status": "blocked", "code": "privacy_check_failed", "counts": {**_positive(counts), **{f"residual_{k}": v for k, v in blocked.counts.items()}}}
     except CvFailure as failure:
@@ -320,7 +409,8 @@ def analyze(data: bytes, known_names: list[str], complete: Callable[[str, str], 
         "status": "ok",
         "mode": "external_ai" if complete else "local_only",
         "personal": personal,
-        "professional": proposal.model_dump(),
+        # Facts from the CV, each for the candidate to approve, and MIDAN's rule-based suggestions, kept apart.
+        "professional": {**proposal.model_dump(), "feedback": feedback(proposal, payload)},
         "counts": _positive(counts),
     }
 

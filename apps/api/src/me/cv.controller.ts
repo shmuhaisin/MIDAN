@@ -32,6 +32,11 @@ class ApprovedTitled {
 }
 
 /** Only what the candidate approved on the review screen. Anything left out stays as it is in their profile. */
+class ApprovedLanguage {
+  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(100) name!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100) level?: string;
+}
+
 class ApplyAnalysisDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty() @MaxLength(200) full_name?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(30) phone?: string;
@@ -45,6 +50,8 @@ class ApplyAnalysisDto {
   @IsOptional() @IsArray() @ArrayMaxSize(30) @ValidateNested({ each: true }) @Type(() => ApprovedTitled) projects?: ApprovedTitled[];
   @IsOptional() @IsArray() @ArrayMaxSize(50) @ValidateNested({ each: true }) @Type(() => ApprovedTitled) courses?: ApprovedTitled[];
   @IsOptional() @IsArray() @ArrayMaxSize(50) @ValidateNested({ each: true }) @Type(() => ApprovedTitled) certifications?: ApprovedTitled[];
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => ApprovedLanguage) languages?: ApprovedLanguage[];
+  @IsOptional() @IsArray() @ArrayMaxSize(30) @ValidateNested({ each: true }) @Type(() => ApprovedTitled) achievements?: ApprovedTitled[];
 }
 
 const STALE_MS = 2 * 60 * 1000;
@@ -186,7 +193,7 @@ export class CvController {
       if (!analysis) throw new NotFoundException();
       if (analysis.status !== 'awaiting_review') throw new UnprocessableEntityException('This analysis is not waiting for review');
       const profile = await tx.candidate_profiles.findUniqueOrThrow({ where: { user_id: user.id } });
-      const { experience, education, skills, projects, courses, certifications, ...fields } = body;
+      const { experience, education, skills, projects, courses, certifications, languages, achievements, ...fields } = body;
       const lists = {
         experience: merged(profile.experience, experience, (e) => `${e.title}|${e.organization ?? ''}`),
         education: merged(profile.education, education, (e) => `${e.qualification}|${e.institution ?? ''}`),
@@ -194,6 +201,8 @@ export class CvController {
         courses: merged(profile.courses, courses, (e) => e.title),
         certifications: merged(profile.certifications, certifications, (e) => e.title),
         self_reported_skills: merged(profile.self_reported_skills, skills, (e) => e),
+        languages: merged(profile.languages, languages, (e) => e.name.trim().toLowerCase()),
+        achievements: merged(profile.achievements, achievements, (e) => e.title),
       };
       const data = Object.fromEntries(Object.entries(lists).filter(([, v]) => v !== undefined).map(([k, v]) => [k, json(v)]));
       await tx.candidate_profiles.update({ where: { user_id: user.id }, data: { ...fields, ...data } });

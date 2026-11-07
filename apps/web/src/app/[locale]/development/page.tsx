@@ -1,13 +1,17 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { CareerTargetPicker, PlanItemControls, SavePlanButton } from '@/components/candidate';
+import { CareerTargetPicker, PlanItemControls, PracticeTaskCard, SavePlanButton, StartPracticeButton } from '@/components/candidate';
 import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { formatDate, pick } from '@/lib/format';
 
 type Resource = { id: string; kind: string; title_ar: string | null; title_en: string | null; provider: string; url: string; verified_on: string };
 type RoleSkill = { id: string; name_ar: string; description_ar: string | null; is_priority: boolean | null; source_file: string; evidence: 'self_reported' | 'no_evidence'; resources: Resource[] };
+type TitleSkill = { id: string; name_ar: string; name_en: string | null; source: 'skill' | 'reference'; jobs: number; evidence: 'assessed' | 'self_reported' | 'no_evidence' };
 type Career = {
-  target: { sector_code: string; job_family_ar: string } | null;
+  target: { sector_code: string | null; job_family_ar: string | null; job_title: string | null } | null;
+  title_jobs?: number;
+  title_skills?: TitleSkill[];
+  practice?: Parameters<typeof PracticeTaskCard>[0]['task'][];
   role_skills: RoleSkill[];
   demonstrated_needs: { id: string; name_ar: string; name_en: string; level: number }[];
   demonstrated_strengths: { id: string; name_ar: string; name_en: string; level: number }[];
@@ -21,7 +25,9 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const [career, families] = await Promise.all([apiForPage<Career>('/me/career'), apiForPage<Family[]>('/reference/job-families')]);
   const t = await getTranslations({ locale, namespace: 'development' });
   const ts = await getTranslations({ locale, namespace: 'sectors' });
-  const data = career ?? { target: null, role_skills: [], demonstrated_needs: [], demonstrated_strengths: [], plan: [] };
+  const data: Career = career ?? { target: null, role_skills: [], demonstrated_needs: [], demonstrated_strengths: [], plan: [] };
+  const practice = data.practice ?? [];
+  const started = (skill: string, kind: string) => practice.some((p) => p.reference_skill_id === skill && p.kind === kind);
   const inPlan = (skill: string, kind: string, resource?: string) => data.plan.some((p) => p.reference_skills.id === skill && p.kind === kind && (p.learning_resources?.id ?? undefined) === resource);
   const title = (r: Resource) => pick(locale, r.title_ar ?? r.title_en ?? '', r.title_en ?? r.title_ar ?? '');
   return (
@@ -38,8 +44,27 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         <section aria-labelledby="target">
           <h2 id="target" className="mb-3 section-title">{t('targetTitle')}</h2>
           <CareerTargetPicker families={families ?? []} target={data.target} />
-          {data.target && <p className="mt-3 text-sm text-muted">{t('targetNote', { family: data.target.job_family_ar, sector: ts(data.target.sector_code) })}</p>}
+          {data.target?.job_title && <p className="mt-3 text-sm"><span className="font-semibold">{t('titleYours')}: </span><bdi>{data.target.job_title}</bdi> <span className="text-muted">({t('titleEntered')})</span></p>}
+          {data.target?.job_family_ar && data.target.sector_code && <p className="mt-1 text-sm text-muted">{t('targetNote', { family: data.target.job_family_ar, sector: ts(data.target.sector_code) })}</p>}
         </section>
+
+        {data.target?.job_title && (
+          <section aria-labelledby="title-skills">
+            <h2 id="title-skills" className="section-title">{t('titleSkillsTitle')}</h2>
+            {(data.title_skills ?? []).length === 0 ? <p className="mt-2 text-sm text-muted">{t('titleSkillsNone')}</p> : (
+              <>
+                <p className="mt-1 text-sm text-muted">{t('titleSkillsNote', { jobs: data.title_jobs ?? 0 })}</p>
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {data.title_skills!.map((s) => (
+                    <li key={s.id} className={s.evidence === 'no_evidence' ? 'rounded-full border border-dashed border-border px-3 py-1 text-sm' : 'rounded-full bg-accent px-3 py-1 text-sm text-accent-foreground'}>
+                      {pick(locale, s.name_ar, s.name_en ?? s.name_ar)} · {t(`titleEvidence.${s.evidence}`)} · {t('inJobs', { count: s.jobs })}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+        )}
 
         {(data.demonstrated_needs.length > 0 || data.demonstrated_strengths.length > 0) && (
           <section aria-labelledby="evidence">
@@ -50,7 +75,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           </section>
         )}
 
-        {data.target && (
+        {data.target?.job_family_ar && (
           <section aria-labelledby="gaps">
             <h2 id="gaps" className="section-title">{t('gapsTitle')}</h2>
             <p className="mt-1 text-sm text-muted">{t('gapsNote')}</p>
@@ -65,7 +90,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                     </div>
                     <div className="flex flex-wrap gap-3">
                       <SavePlanButton skillId={s.id} kind="skill_goal" saved={inPlan(s.id, 'skill_goal')} label={t('saveGoal')} />
-                      <SavePlanButton skillId={s.id} kind="project" saved={inPlan(s.id, 'project')} label={t('saveProject')} />
+                      <StartPracticeButton skillId={s.id} kind="simulated_task" started={started(s.id, 'simulated_task')} label={t('startSimulated')} />
+                      <StartPracticeButton skillId={s.id} kind="portfolio_project" started={started(s.id, 'portfolio_project')} label={t('startPortfolio')} />
                     </div>
                   </div>
                   {s.resources.length > 0 && (
@@ -74,6 +100,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                         <li key={r.id} className="flex flex-wrap items-center gap-x-3">
                           <a href={r.url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-4">{title(r)}</a>
                           <span className="text-muted">{r.provider} · {t('verifiedOn', { date: formatDate(locale, r.verified_on, 'UTC') })}</span>
+                          <span className="basis-full text-muted">{t('resourceReason', { skill: s.name_ar })}</span>
                           <SavePlanButton skillId={s.id} kind={r.kind} resourceId={r.id} saved={inPlan(s.id, r.kind, r.id)} label={t('saveResource')} />
                         </li>
                       ))}
@@ -86,6 +113,14 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             <p className="mt-3 text-xs text-muted">{t('source')}</p>
           </section>
         )}
+
+        <section aria-labelledby="practice">
+          <h2 id="practice" className="section-title">{t('practiceTitle')}</h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted">{t('practiceNote')}</p>
+          {practice.length === 0 ? <p className="mt-3 text-muted">{t('practiceEmpty')}</p> : (
+            <ul className="mt-3 border-t border-border">{practice.map((p) => <PracticeTaskCard key={p.id} task={p} />)}</ul>
+          )}
+        </section>
 
         <section aria-labelledby="plan">
           <h2 id="plan" className="section-title">{t('planTitle')}</h2>

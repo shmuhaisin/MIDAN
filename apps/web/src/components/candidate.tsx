@@ -6,7 +6,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import {
   addPlanItem, applicationCvLink, applyAnalysis, dismissAnalysis, joinInterview, readAllNotifications, readAnalysis, readNotification, removePlanItem, respondToInterview,
-  retryAnalysis, saveBasics, saveOnboarding, saveSettings, searchReferenceSkills, setCareerTarget, setOwnSkills, setPlanStatus, setReferenceSkills, shareCvWithApplication, submitApplication,
+  retryAnalysis, saveBasics, saveOnboarding, saveSettings, searchReferenceSkills, setCareerTarget, setOwnSkills, setPlanStatus, setReferenceSkills, shareCvWithApplication, startPractice, submitApplication, updatePractice,
   type CvAnalysis, type ReferenceSkill,
 } from '@/lib/candidate-actions';
 import { formatWhen, number, pick } from '@/lib/format';
@@ -305,7 +305,10 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
   const [projects, setProjects] = useState(withChoice(pro?.projects));
   const [courses, setCourses] = useState(withChoice(pro?.courses));
   const [certifications, setCertifications] = useState(withChoice(pro?.certifications));
+  const [achievements, setAchievements] = useState(withChoice(pro?.achievements));
+  const [languages, setLanguages] = useState(() => (pro?.languages ?? []).map((l) => ({ title: l.name, level: l.level ?? null, checked: true })));
   const [skills, setSkills] = useState(() => (pro?.skills ?? []).map((name) => ({ name, checked: true })));
+  const details = new Map((pro?.skill_details ?? []).map((d) => [d.name, d]));
 
   function body() {
     const clean = <T extends Choice>(items: T[]) => items.filter((i) => i.checked).map(({ checked: _, ...rest }) => Object.fromEntries(Object.entries(rest).filter(([, v]) => v != null && v !== '')));
@@ -317,6 +320,8 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
       ...(projects.some((e) => e.checked) && { projects: clean(projects) }),
       ...(courses.some((e) => e.checked) && { courses: clean(courses) }),
       ...(certifications.some((e) => e.checked) && { certifications: clean(certifications) }),
+      ...(achievements.some((e) => e.checked) && { achievements: clean(achievements) }),
+      ...(languages.some((e) => e.checked) && { languages: languages.filter((l) => l.checked).map((l) => ({ name: l.title.trim(), ...(l.level && { level: l.level }) })).filter((l) => l.name) }),
       ...(skills.some((s) => s.checked) && { skills: skills.filter((s) => s.checked).map((s) => s.name) }),
     };
   }
@@ -391,6 +396,8 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
       {group('projects', projects, setProjects)}
       {group('courses', courses, setCourses)}
       {group('certifications', certifications, setCertifications)}
+      {group('achievements', achievements, setAchievements)}
+      {group('languages', languages, setLanguages)}
       {skills.length > 0 && (
         <fieldset>
           <legend className="subsection-title">{t('groups.skills')}</legend>
@@ -401,11 +408,44 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
                 <label className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-sm">
                   <input type="checkbox" checked={s.checked} onChange={(e) => setSkills(skills.map((x, j) => (j === i ? { ...x, checked: e.target.checked } : x)))} className="size-4 accent-[var(--primary)]" />
                   <bdi>{s.name}</bdi>
+                  {details.get(s.name) && details.get(s.name)!.kind !== 'unclassified' && <span className="text-xs text-muted">· {t(`skillKind.${details.get(s.name)!.kind}`)}</span>}
                 </label>
               </li>
             ))}
           </ul>
+          {(pro?.skill_details ?? []).some((d) => d.evidence) && (
+            <div className="mt-4">
+              <p className="text-sm font-medium">{t('evidenceTitle')}</p>
+              <ul className="mt-2 space-y-1.5 text-sm">
+                {(pro?.skill_details ?? []).filter((d) => d.evidence).map((d) => (
+                  <li key={d.name}><span className="font-semibold"><bdi>{d.name}</bdi></span>: <q><bdi>{d.evidence}</bdi></q></li>
+                ))}
+              </ul>
+            </div>
+          )}
         </fieldset>
+      )}
+      {(pro?.feedback ?? []).length > 0 && (
+        <section aria-labelledby="cv-feedback" className="border-s-2 border-gold ps-4">
+          <h2 id="cv-feedback" className="subsection-title">{t('feedbackTitle')}</h2>
+          <p className="mt-1 text-sm text-muted">{t('feedbackNote')}</p>
+          {(['strength', 'gap'] as const).map((type) => {
+            const items = (pro?.feedback ?? []).filter((f) => f.type === type);
+            return items.length === 0 ? null : (
+              <div key={type} className="mt-3">
+                <p className="text-sm font-semibold">{t(type === 'strength' ? 'feedbackStrengths' : 'feedbackGaps')}</p>
+                <ul className="mt-1 list-disc space-y-1.5 ps-5 text-sm">
+                  {items.map((f, i) => (
+                    <li key={i}>
+                      {t(`feedback.${f.code}`, { values: f.values.map((v) => (t.has(`groups.${v}`) ? t(`groups.${v}`) : v)).join('، ') })}
+                      {type === 'gap' && <span className="block text-muted">{t(`suggestion.${f.code}`)}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </section>
       )}
       <ErrorText code={save.error ?? dismiss.error} />
       <div className="flex flex-wrap items-center gap-4">
@@ -567,30 +607,41 @@ export function NotificationsList({ items, timeZone }: { items: { id: string; ki
 
 type Family = { sector_code: string; job_family_ar: string; skills: number };
 
-export function CareerTargetPicker({ families, target }: { families: Family[]; target: { sector_code: string; job_family_ar: string } | null }) {
+export function CareerTargetPicker({ families, target }: { families: Family[]; target: { sector_code: string | null; job_family_ar: string | null; job_title: string | null } | null }) {
   const t = useTranslations('development');
   const ts = useTranslations('sectors');
+  const [title, setTitle] = useState(target?.job_title ?? '');
   const [sector, setSector] = useState(target?.sector_code ?? '');
   const [family, setFamily] = useState(target?.job_family_ar ?? '');
-  const { pending, error, fire } = useAction(() => setCareerTarget(sector, family));
+  const { pending, error, fire } = useAction(() => setCareerTarget({
+    ...(title.trim() && { job_title: title.trim() }), ...(sector && family && { sector_code: sector, job_family_ar: family }),
+  }));
   const options = families.filter((f) => f.sector_code === sector);
   return (
     <form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); fire(); }}>
+      {/* The hint stays out of the label, so the field's accessible name is only its label. */}
+      <div className="sm:col-span-3">
+        <label className="block">
+          <span className="text-sm font-medium">{t('jobTitle')}</span>
+          <input name="job_title" dir="auto" maxLength={120} aria-describedby="job-title-hint" value={title} onChange={(e) => setTitle(e.target.value)} className={INPUT} />
+        </label>
+        <p id="job-title-hint" className="mt-1 text-sm text-muted">{t('jobTitleHint')}</p>
+      </div>
       <label className="block">
         <span className="text-sm font-medium">{t('sector')}</span>
-        <select value={sector} required onChange={(e) => { setSector(e.target.value); setFamily(''); }} className={INPUT}>
+        <select value={sector} onChange={(e) => { setSector(e.target.value); setFamily(''); }} className={INPUT}>
           <option value="">{t('choose')}</option>
           {SECTOR_KEYS.map((k) => <option key={k} value={k}>{ts(k)}</option>)}
         </select>
       </label>
       <label className="block">
         <span className="text-sm font-medium">{t('family')}</span>
-        <select value={family} required disabled={!sector} onChange={(e) => setFamily(e.target.value)} className={INPUT}>
+        <select value={family} disabled={!sector} onChange={(e) => setFamily(e.target.value)} className={INPUT}>
           <option value="">{t('choose')}</option>
           {options.map((f) => <option key={f.job_family_ar} value={f.job_family_ar}>{f.job_family_ar}</option>)}
         </select>
       </label>
-      <button type="submit" disabled={pending || !family} aria-busy={pending} className={clsx(PRIMARY, 'disabled:opacity-60')}>{t('setTarget')}</button>
+      <button type="submit" disabled={pending || (!family && title.trim().length < 2)} aria-busy={pending} className={clsx(PRIMARY, 'disabled:opacity-60')}>{t('setTarget')}</button>
       <div className="sm:col-span-3"><ErrorText code={error} /></div>
     </form>
   );
@@ -663,5 +714,82 @@ export function SettingsForm({ fullName, timeZone, reminders }: { fullName: stri
         {saved && !pending && <span role="status" className="font-semibold text-primary">{t('saved')}</span>}
       </div>
     </form>
+  );
+}
+
+type Practice = {
+  id: string; reference_skill_id: string; kind: 'simulated_task' | 'portfolio_project'; status: string; title_ar: string; title_en: string; brief_ar: string; brief_en: string;
+  instructions: { ar: string; en: string }[]; deliverables: { ar: string; en: string }[];
+  submission: string | null; submission_url: string | null; feedback: { code: string; met: boolean }[] | null;
+};
+
+export function StartPracticeButton({ skillId, kind, started, label }: { skillId: string; kind: 'simulated_task' | 'portfolio_project'; started: boolean; label: string }) {
+  const t = useTranslations('development');
+  const { pending, error, fire } = useAction(() => startPractice(skillId, kind));
+  if (started) return <span className="text-sm font-medium text-primary">{t('practiceStarted')}</span>;
+  return (
+    <span>
+      <button type="button" disabled={pending} aria-busy={pending} onClick={fire} className="text-sm font-semibold underline underline-offset-4 disabled:opacity-60">{label}</button>
+      <ErrorText code={error} />
+    </span>
+  );
+}
+
+/** A practice task: simulated work or a portfolio project, labelled so, with MIDAN's checklist once submitted. */
+export function PracticeTaskCard({ task }: { task: Practice }) {
+  const t = useTranslations('development');
+  const locale = useLocale();
+  const [text, setText] = useState(task.submission ?? '');
+  const [url, setUrl] = useState(task.submission_url ?? '');
+  const body = (action: 'save' | 'submit') => ({ action, submission: text, ...(url.trim() && { submission_url: url.trim() }) });
+  const save = useAction(() => updatePractice(task.id, body('save')));
+  const submit = useAction(() => updatePractice(task.id, body('submit')));
+  const complete = useAction(() => updatePractice(task.id, { action: 'complete' }));
+  const done = task.status === 'completed';
+  return (
+    <li className="border-b border-border py-5">
+      <p className="text-xs font-semibold tracking-wide text-muted uppercase">{t(`practiceKind.${task.kind}`)}</p>
+      <h3 className="mt-1 font-semibold">{pick(locale, task.title_ar, task.title_en)}</h3>
+      <p className="mt-1 text-sm">{pick(locale, task.brief_ar, task.brief_en)}</p>
+      <p className="mt-2 text-sm text-muted">{t(`practiceStatus.${task.status}`)}</p>
+      <details className="mt-3 text-sm" open={task.status === 'not_started' || task.status === 'in_progress'}>
+        <summary className="cursor-pointer font-medium">{t('practiceInstructions')}</summary>
+        <ol className="mt-2 list-decimal space-y-1 ps-5">{task.instructions.map((i, n) => <li key={n}>{pick(locale, i.ar, i.en)}</li>)}</ol>
+        <p className="mt-3 font-medium">{t('practiceDeliverables')}</p>
+        <ul className="mt-1 list-disc space-y-1 ps-5">{task.deliverables.map((d, n) => <li key={n}>{pick(locale, d.ar, d.en)}</li>)}</ul>
+      </details>
+      {!done && (
+        <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); submit.fire(); }}>
+          <div>
+            <label className="block">
+              <span className="text-sm font-medium">{t('practiceSubmission')}</span>
+              <textarea dir="auto" rows={8} maxLength={20000} aria-describedby={`practice-hint-${task.id}`} value={text} onChange={(e) => setText(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} />
+            </label>
+            <p id={`practice-hint-${task.id}`} className="mt-1 text-sm text-muted">{t('practiceSubmissionHint')}</p>
+          </div>
+          {task.kind === 'portfolio_project' && (
+            <label className="block max-w-xl">
+              <span className="text-sm font-medium">{t('practiceLink')}</span>
+              <input type="url" dir="ltr" placeholder="https://" value={url} onChange={(e) => setUrl(e.target.value)} className={INPUT} />
+            </label>
+          )}
+          <ErrorText code={save.error ?? submit.error ?? complete.error} />
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" disabled={save.pending} onClick={save.fire} className="rounded-full border border-foreground/30 px-5 py-2 font-semibold">{t('practiceSave')}</button>
+            <button type="submit" disabled={submit.pending || !text.trim()} aria-busy={submit.pending} className={PRIMARY}>{t('practiceSubmit')}</button>
+            {task.status === 'submitted' && <button type="button" disabled={complete.pending} onClick={complete.fire} className="font-semibold underline underline-offset-4">{t('practiceComplete')}</button>}
+          </div>
+        </form>
+      )}
+      {task.feedback && (
+        <div className="mt-4 border-s-2 border-gold ps-4 text-sm">
+          <p className="font-semibold">{t('checklistTitle')}</p>
+          <p className="text-muted">{t('checklistNote')}</p>
+          <ul className="mt-2 space-y-1">
+            {task.feedback.map((c) => <li key={c.code}>{c.met ? '✓' : '○'} {t(`checklist.${c.code}`)}</li>)}
+          </ul>
+        </div>
+      )}
+    </li>
   );
 }
