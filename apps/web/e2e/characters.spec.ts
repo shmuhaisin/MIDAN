@@ -239,7 +239,7 @@ test('settings screens save and update Humaidan for real, and a candidate sees i
   await owner.getByLabel("Organization's field").selectOption('finance');
   expect(await shown(owner)).toEqual([FILES.finance]);
   await owner.getByLabel('Welcome message in English').fill('Welcome to our assessment.');
-  await owner.locator('input[type=file]').setInputFiles({
+  await owner.locator('input[type=file][accept*="image/webp"]').setInputFiles({
     name: 'logo.png',
     mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64'),

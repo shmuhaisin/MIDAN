@@ -19,7 +19,7 @@ queries on that date.
 
 ## 2. Pending migrations
 
-The owner's brief counted nine. The owner's decisions added two more, so **eleven** are pending. Apply them in this
+The owner's brief counted nine. The owner's decisions added two more, and Phase 3 four, so **fifteen** are pending. Apply them in this
 order. Each file runs in its own transaction.
 
 | # | Migration | What it does | Reverse if needed |
@@ -35,6 +35,10 @@ order. Each file runs in its own transaction.
 | 9 | `20261107100100_hired_is_final_for_outcomes` | A later outcome can't undo a hire | Restore the earlier function |
 | 10 | `20261107110000_application_decision_rules` | Owner decisions: reopening needs an owner or admin and is audited; an outcome hire needs a shortlist; no CV without a snapshot, plus explicit sharing | Restore the earlier functions |
 | 11 | `20261107120000_audit_assessment_draft_edits` | Records edits to a draft's tasks and rubric, so what people changed before approval stays visible | Drop the two triggers |
+| 12 | `20261107130000_job_search_and_listing_columns` | Search text for jobs, requirements and listings. Closes listings' source record, review notes and reviewer to the public; administrators read them through a function | Drop them, restore the old grant (not advised) |
+| 13 | `20261107130100_listing_upload_and_conversion` | Preview and import of uploaded records, and turning an approved record into a draft job, with its lineage | Drop them |
+| 14 | `20261107130200_employer_claims` | Claims to manage an employer, their private evidence bucket and the administrator's decision | Drop them. Claims and evidence are lost |
+| 15 | `20261107130300_team_invitations` | Inviting by email, accepting from the matching account, and the team list | Drop them. Pending invitations are lost |
 
 ## 3. Dependencies and coordination
 
@@ -63,8 +67,10 @@ hosted credentials. **Stop it before the window.**
 | #9 | Works; another outcome after a hire gets 422 | Works | Either order |
 | **#10** | Offers actions the database now refuses; no share button | **Share-CV fails: the function is missing** | **Release together** |
 | #11 | Keeps working (additive) | Works, without the audit records | Either order |
+| **#12** | **The public listing of external jobs and the admin listings page fail: they read columns now closed** | Fails: the search columns are missing | **Release together** |
+| #13, #14, #15 | Keeps working (additive) | Upload, conversion, claims and team pages fail | Migrate first |
 
-**Recommendation:** apply all eleven in one window, then release API and web from this branch straight after. With nothing
+**Recommendation:** apply all fifteen in one window, then release API and web from this branch straight after. With nothing
 deployed, there are no users to interrupt.
 
 ## 4. Backup, before anything else
@@ -110,9 +116,9 @@ This needs `brew install postgresql@17`. It builds a throwaway PostgreSQL 17 clu
 
 **Results:**
 - Backup, as in section 4, restored into a separate database: all 68 tables identical.
-- Each of the eleven migrations: applied, rolled back to an **identical** schema, roles and data, then applied again.
-- All 18 post-change checks passed (`post_checks.sql`, read-only), as did the database security checks.
-- All eleven rolled back together, newest first: schema back to the starting point and to hosted's fingerprint.
+- Each of the fifteen migrations: applied, rolled back to an **identical** schema, roles and data, then applied again.
+- All 25 post-change checks passed (`post_checks.sql`, read-only), as did the database security checks.
+- All fifteen rolled back together, newest first: schema back to the starting point and to hosted's fingerprint.
 - A deliberately wrong rollback script was caught, so the comparison does detect mistakes.
 - `--keep` leaves the migrated cluster running. On it, the full platform passed with the ten migrations: API end-to-end 113/113, browser 35/35. Then with all eleven, on PostgreSQL 16: API 114/114, browser 36/36, AI service 143 passed and 1 skipped.
 
@@ -145,7 +151,7 @@ Read-only, on hosted, starting with `supabase/rehearsal/post_checks.sql`, where 
 
 | Check | Expected |
 | --- | --- |
-| `list_migrations` | 34, ending at `20261107120000` |
+| `list_migrations` | 38, ending at `20261107130300` |
 | `pg_policies` on `storage.objects` | "org reads applicant documents" uses `can_view_candidate_document` |
 | `pg_policies` on `public.applications` | No "org updates status" |
 | `has_table_privilege('authenticated', 'public.applications', 'update')` | false |
@@ -266,7 +272,7 @@ Nothing below starts until the owner approves it in writing.
 - [ ] Secrets entered in the host's secret manager (section 8), none in chat
 
 **Explicit approval to run**
-- [ ] Apply the eleven migrations to `al-midan-ya-hamidan`, in order
+- [ ] Apply the fifteen migrations to `al-midan-ya-hamidan`, in order
 - [ ] Run the checks in section 7
 - [ ] Set up the `midan_importer` and `midan_ai` logins, and re-run the import
 - [ ] Grant the first platform administrator

@@ -77,10 +77,10 @@ export function TeamPanel({ orgId, members, invitations, me, myRole }: { orgId: 
           }}
         >
           <label className="block text-sm font-medium">{t('email')}
-            <input type="email" dir="ltr" required value={email} onChange={(e) => { setEmail(e.target.value); setSent(undefined); }} className={INPUT} />
+            <input type="email" aria-label={t('email')} dir="ltr" required value={email} onChange={(e) => { setEmail(e.target.value); setSent(undefined); }} className={INPUT} />
           </label>
           <label className="block text-sm font-medium">{t('role')}
-            <select value={role} onChange={(e) => setRole(e.target.value)} className={INPUT}>
+            <select aria-label={t('role')} value={role} onChange={(e) => setRole(e.target.value)} className={INPUT}>
               {INVITABLE.map((r) => <option key={r} value={r}>{roles(r)}</option>)}
             </select>
           </label>
@@ -185,7 +185,7 @@ export function EmployerClaimPanel({ orgId, claims, employer, isDemo, options }:
           }}
         >
           <label className="block text-sm font-medium">{t('employer')}
-            <select name="registry_id" required defaultValue="" className={INPUT}>
+            <select name="registry_id" aria-label={t('employer')} required defaultValue="" className={INPUT}>
               <option value="" disabled>{t('chooseEmployer')}</option>
               {options.map((o) => <option key={o.id} value={o.id}>{pick(locale, o.name_ar, o.name_en)} · {o.source_company_id}</option>)}
             </select>
@@ -194,11 +194,11 @@ export function EmployerClaimPanel({ orgId, claims, employer, isDemo, options }:
             <input name="role_title" required minLength={2} maxLength={200} dir="auto" className={INPUT} />
           </label>
           <label className="block text-sm font-medium sm:col-span-2">{t('note')}
-            <textarea name="evidence_note" required minLength={10} maxLength={4000} rows={3} dir="auto" className={clsx(INPUT, 'h-auto py-2')} />
+            <textarea name="evidence_note" aria-label={t('note')} required minLength={10} maxLength={4000} rows={3} dir="auto" className={clsx(INPUT, 'h-auto py-2')} />
             <span className="mt-1 block text-xs font-normal text-muted">{t('noteHint')}</span>
           </label>
           <label className="block text-sm font-medium sm:col-span-2">{t('file')}
-            <input name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" className="mt-1 block w-full text-sm" />
+            <input name="file" type="file" aria-label={t('file')} accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" className="mt-1 block w-full text-sm" />
             <span className="mt-1 block text-xs font-normal text-muted">{t('fileHint')}</span>
           </label>
           <div className="sm:col-span-2"><button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY}>{t('submit')}</button></div>

@@ -56,6 +56,7 @@ test('search reads the description and requirements, tolerates Arabic spelling, 
 
   const page = await pageFor(browser, 'ORG_A_OWNER');
   await page.goto('/en/opportunities');
+  await page.waitForLoadState('networkidle');
   const box = page.getByRole('searchbox');
   await box.fill(`payroll${RUN}`);
   await expect(page).toHaveURL(/q=payroll/);
@@ -113,7 +114,7 @@ test('an administrator previews and saves a file, an organization proves it repr
     await admin.getByLabel('File', { exact: true }).setInputFiles({ name: 'jobs.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
     await admin.getByRole('button', { name: 'Preview' }).click();
     const preview = admin.getByTestId('listing-preview');
-    await expect(preview.getByText('jobs.csv: 2 records')).toBeVisible();
+    await expect(preview.getByRole('status')).toHaveText('jobs.csv: 2 records');
     await expect(preview.getByText('No job title')).toBeVisible();
     await expect(preview.getByRole('row').filter({ hasText: title })).toContainText('New');
     await admin.reload();
@@ -142,7 +143,7 @@ test('an administrator previews and saves a file, an organization proves it repr
     await owner.getByLabel('Employer', { exact: true }).selectOption(employer.id);
     await owner.getByLabel('Your role there').fill('Fictional HR manager');
     await owner.getByLabel('How can we check this?').fill('A fictional letter, for tests only.');
-    await owner.getByLabel(/Supporting file/).setInputFiles({ name: 'letter.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nfictional\n%%EOF') });
+    await owner.getByLabel('Supporting file (optional)', { exact: true }).setInputFiles({ name: 'letter.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\nfictional\n%%EOF') });
     await owner.getByRole('button', { name: 'Send the request' }).click();
     await expect(owner.getByText(/is being checked/)).toBeVisible();
     await owner.goto(`/en/organization/${org}`);
@@ -185,7 +186,7 @@ test('an administrator previews and saves a file, an organization proves it repr
 });
 
 test('an owner invites a teammate, who accepts from their own account with the invited role', async ({ browser }) => {
-  const org = (await call('ORG_B_OWNER', 'POST', '/organizations', { slug: `midan-test-team-${RUN}`, name_ar: 'فريق', name_en: `Midan Test Team ${RUN}` })).id;
+  const org = (await call('ORG_B_OWNER', 'POST', '/organizations', { slug: `midan-test-team-${RUN}`, name_ar: `فريق ${RUN}`, name_en: `Midan Test Team ${RUN}` })).id;
   const owner = await pageFor(browser, 'ORG_B_OWNER');
   await owner.goto(`/en/organization/${org}/settings`);
   await owner.getByLabel('Email', { exact: true }).fill(env.TEST_ORG_A_RECRUITER_EMAIL as string);
@@ -202,10 +203,11 @@ test('an owner invites a teammate, who accepts from their own account with the i
   const invited = await pageFor(browser, 'ORG_A_RECRUITER');
   await invited.goto('/ar/invitations');
   await expect(invited.locator('html')).toHaveAttribute('dir', 'rtl');
-  await expect(invited.getByRole('heading', { name: 'فريق' })).toBeVisible();
+  const card = invited.getByRole('listitem').filter({ has: invited.getByRole('heading', { name: `فريق ${RUN}` }) });
+  await expect(card).toBeVisible();
   await invited.setViewportSize({ width: 390, height: 800 });
   await noOverflow(invited);
-  await invited.getByRole('button', { name: 'قبول' }).click();
+  await card.getByRole('button', { name: 'قبول' }).click();
   await expect(invited).toHaveURL(new RegExp(`/ar/organization/${org}$`));
 
   await owner.reload();

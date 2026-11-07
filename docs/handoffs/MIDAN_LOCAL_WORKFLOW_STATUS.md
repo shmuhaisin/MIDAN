@@ -4,9 +4,34 @@ Written 2026-11-07, on `midan-security-completion`. What works on the local stac
 **Browse Jobs → Apply → Generate a job-specific assessment → Complete it → Evaluate performance → Employer reviews results**,
 and what each remaining item waits for. All data here is fictional.
 
-## Phase 3 state, 2026-11-07
+## Phase 3: jobs and employers (2026-11-07)
 
-Built on `midan-security-completion`: CSV and JSON upload with preview, duplicate detection, record-to-draft-job conversion, search over title, description and requirements with pages, employer claims reviewed by a person, and team invitations with roles. Four new migrations (`20261107130000` to `20261107130300`), so **fifteen** are pending on hosted, all rehearsed with rollback on PostgreSQL 17. `apps/api/src/phase3.e2e-spec.ts` passed 31 of 31. Screens and `apps/web/e2e/phase3.spec.ts` may still need fixes: check the latest run. No real job data has been imported. Email delivery of invitations needs SMTP.
+| Requirement | State | Evidence |
+| --- | --- | --- |
+| 1. Import authorized job records as CSV or JSON | Done. An administrator uploads, names the source and what permits using it, and both are kept with the import | `listing-file.spec.ts` (18), `phase3.e2e-spec.ts`, `phase3.spec.ts` |
+| 2. Validate, preview before saving, detect duplicates | Done. The preview saves nothing, and only the previewed file can be saved. Flags rows that are invalid, repeated in the file, the same job from another source, or unchanged | Same |
+| 3. Turn records into jobs | Done. An approved record whose employer is confirmed becomes a **draft** of the organization managing that employer. Only stated details are copied. Once the job is published, it replaces the record in search and on the employer page | Same |
+| 4. Link jobs to companies and workbook skills | Done. The job belongs to the employer's organization, and skills the text mentions are linked as not required, for the organization to confirm | Same |
+| 5. Search title, description and requirements, with pages | Done. Either language, Arabic spelling normalized, every word required, filters kept in the address, works before JavaScript loads | Same |
+| 6. Prove the right to manage an employer's profile and jobs | Done. An owner or admin sends evidence, optionally a private file. A platform administrator approves or rejects with a reason. Nothing is automatic, and approval never makes the employer a partner | Same |
+| 7. Team invitations, roles and permissions | Done. Invitation by email, accepted from the account with that verified email. Roles: owner, admin, recruiter, reviewer. The last owner always stays | Same |
+
+Also fixed: a published listing exposed its raw source record, review notes and reviewer through the Data API.
+
+**Tests:** API end-to-end 145 / 145 (31 of them Phase 3). Browser 39 / 39, with the only CSP reports being the two deliberate controls. Forms 9 / 9. Unit tests: API 65 / 65, web 19 / 19. AI service 143 passed, 1 skipped. Rehearsal of all 15 pending migrations and their rollback on PostgreSQL 17 passed.
+
+**What's not done, or not real yet:**
+- **No real job data has been imported.** The tools wait for an authorized dataset. Each record needs a job title and an https link. Also read when present: employer name or company ID, description, requirements, the source's job ID, location, employment type and collection date. A file up to 5 MB and 5,000 records, UTF-8.
+- Invitation emails aren't sent: that needs SMTP. The invitation appears in the invited account, and the inviter is told to let them know.
+- Someone without an account can't accept, because registration stays closed.
+- Claims, conversion and search ran only on the local stack, with fictional data and fixture accounts.
+- Search compares text, which is fine at this size. Many thousands of jobs would need an index.
+
+## Phase 4 started before Phase 3 was complete
+
+Model-backed generation and the draft review only use what a job states: its responsibilities and linked workbook skills. They work the
+same on a job typed in by an organization or converted from a record, so they didn't depend on Phase 3. The converted-job journey
+above now feeds them, and the live journey test covers generation, review, evaluation and the employer's decision.
 
 ## The journey today
 

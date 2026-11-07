@@ -132,10 +132,11 @@ export function JobsBrowser({ result, external, filters, demo = false }: { resul
 
   return (
     <div>
-      <form role="search" className="card grid gap-3 sm:grid-cols-2 lg:grid-cols-6" onSubmit={(e) => { e.preventDefault(); go({ q: query.trim() }); }}>
+      <form role="search" method="get" className="card grid gap-3 sm:grid-cols-2 lg:grid-cols-6" onSubmit={(e) => { e.preventDefault(); go({ q: query.trim() }); }}>
+        {demo && <input type="hidden" name="demo" value="1" />}
         <label className="block sm:col-span-2 lg:col-span-6">
           <span className="sr-only">{t('search')}</span>
-          <input type="search" dir="auto" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('search')} className={CONTROL} />
+          <input type="search" name="q" dir="auto" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('search')} className={CONTROL} />
         </label>
         <FilterSelect label={t('employerWithJobs')} all={t('allEmployers')} value={filters.employer} onChange={(employer) => go({ employer })} options={facets.employers.map((o) => [o.name_en, pick(locale, o.name_ar, o.name_en)])} />
         <FilterSelect label={t('sector')} all={t('allSectors')} value={filters.sector} onChange={(sector) => go({ sector })} options={SECTORS.map((k) => [k, ts(k)])} />

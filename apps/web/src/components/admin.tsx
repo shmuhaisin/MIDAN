@@ -291,7 +291,7 @@ export function ListingUpload() {
         }}
       >
         <label className="block text-sm font-medium">{t('sourceType')}
-          <select name="source_type" required className={INPUT} defaultValue="employer_provided">
+          <select name="source_type" aria-label={t('sourceType')} required className={INPUT} defaultValue="employer_provided">
             {['employer_provided', 'employer_career_site', 'other_authorized'].map((k) => <option key={k} value={k}>{t(`sourceTypes.${k}`)}</option>)}
           </select>
         </label>
@@ -299,11 +299,11 @@ export function ListingUpload() {
           <input name="source_name" required minLength={2} maxLength={200} className={INPUT} />
         </label>
         <label className="block text-sm font-medium sm:col-span-2">{t('authorization')}
-          <textarea name="authorization_note" required minLength={5} maxLength={1000} rows={2} className={clsx(INPUT, 'h-auto py-2')} />
+          <textarea name="authorization_note" aria-label={t('authorization')} required minLength={5} maxLength={1000} rows={2} className={clsx(INPUT, 'h-auto py-2')} />
           <span className="mt-1 block text-xs font-normal text-muted">{t('authorizationHint')}</span>
         </label>
         <label className="block text-sm font-medium sm:col-span-2">{t('file')}
-          <input name="file" type="file" required accept=".csv,.json,text/csv,application/json" className="mt-1 block w-full text-sm" />
+          <input name="file" type="file" aria-label={t('file')} required accept=".csv,.json,text/csv,application/json" className="mt-1 block w-full text-sm" />
           <span className="mt-1 block text-xs font-normal text-muted">{t('fileHint')}</span>
         </label>
         <div className="sm:col-span-2"><button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY}>{t('previewButton')}</button></div>
@@ -370,7 +370,7 @@ export function ClaimReview({ claim }: { claim: AdminClaim }) {
       {claim.status === 'pending' && (
         <>
           <label className="block text-sm font-medium">{t('note')}
-            <textarea rows={2} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} className={clsx(INPUT, 'h-auto py-2')} />
+            <textarea aria-label={t('note')} rows={2} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} className={clsx(INPUT, 'h-auto py-2')} />
             <span className="mt-1 block text-xs font-normal text-muted">{t('noteHint')}</span>
           </label>
           <div className="flex flex-wrap gap-3">
