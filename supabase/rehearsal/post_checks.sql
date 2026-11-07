@@ -16,6 +16,6 @@ with checks(name, ok) as (values
   ('API role does not bypass row security', not (select rolbypassrls from pg_roles where rolname = 'midan_api')),
   ('Checkpoint schema belongs to the AI role', (select pg_get_userbyid(nspowner) = 'midan_ai' from pg_namespace where nspname = 'ai_checkpoints')),
   ('Row security on for every public table', not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity)),
-  ('Removed job source type is not allowed', not exists (select 1 from pg_constraint where conrelid = 'public.external_job_listings'::regclass and pg_get_constraintdef(oid) ilike '%jadarat%'))
+  ('Only the three authorized job source types', (select regexp_count(pg_get_constraintdef(oid), '''[a-z_]+''::text') = 3 from pg_constraint where conrelid = 'public.external_job_listings'::regclass and conname = 'external_job_listings_source_type_check'))
 )
 select case when ok then 'ok   ' else 'FAIL ' end || name from checks;

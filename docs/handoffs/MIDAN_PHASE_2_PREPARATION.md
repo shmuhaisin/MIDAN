@@ -224,7 +224,7 @@ experience and every security fix. A trial merge, which changed no branch, gives
 | Organization-aware confirmation and check-email pages, no mascot for organizations | Good, and matches the owner's Humaidan rules. Conflicts with the rebuilt screens | Keep the behaviour, re-apply on these screens, add a browser test |
 | Reads the account type from the token in the confirmation link | Stays in the browser and drops the fragment. Acceptable | Keep |
 | `organization/new` sends an account with an organization to it | Merges cleanly | Keep |
-| `scripts/provision-sdaia-demo.mjs` | Needs a service-role key, which this project's design avoids, though it refuses the main project. **It creates an organization under the real name of a government authority, which isn't one of the 10 registry employers** | The owner should approve or rename this before it merges |
+| `scripts/provision-sdaia-demo.mjs` | Needs a service-role key, which this project's design avoids, though it refuses the main project. **It creates a working employer account under the real name of a government authority. That authority is in the employer registry, marked not a partner, so a demo account could suggest it has joined** | The owner should approve or rename this before it merges |
 | `apps/web/src/lib/employer-registry.ts` | 266 lines copying the employer registry, and nothing imports it. The database is the source now | Drop it |
 | `supabase` CLI, `supabase/config.toml` and Docker-based local steps | A second local stack beside `scripts/local-setup.sh`, not tested with this branch | Decide on one. Keep it out of the first merge |
 | Docs say to leave Supabase's Site URL unchanged | `docs/deployment.md` says to set it to `APP_URL` | Settle this during the dashboard step |
