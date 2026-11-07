@@ -31,6 +31,14 @@ def assessment(user: str) -> dict:
             "task_type": "written_case_study", "title_ar": "تطبيق المهارات", "title_en": "Apply the skills", "instructions_ar": "طبّق المهارات المطلوبة.", "instructions_en": "Apply the required skills.",
             "reference_skill_ids": [r["id"] for r in required], "skill_ids": skills, "criteria": criteria,
         })
+    tasks.append({
+        "task_type": "objective_questions", "title_ar": "أسئلة قصيرة من الدور", "title_en": "Short questions from the role",
+        "instructions_ar": "اختر الإجابة الأنسب.", "instructions_en": "Choose the best answer.", "skill_ids": skills,
+        "questions": [{
+            "id": "q1", "prompt_ar": "ما الخطوة الأولى عند ظهور عطل؟", "prompt_en": "What comes first when an incident appears?", "answer": "a",
+            "options": [{"id": "a", "label_ar": "أبدّل الخدمة دون فحص", "label_en": "Restart without checking"}, {"id": "b", "label_ar": "أفحص السجلات", "label_en": "Check the logs"}],
+        }],
+    })
     return {"tasks": tasks}
 
 

@@ -68,6 +68,12 @@ describe('the journey with a model behind the AI service', () => {
     expect(tasks.flatMap((t) => t.reference_skill_ids)).toContain(skill.id);
     expect(tasks.every((t) => t.rubric_criteria.length >= 1)).toBe(true);
 
+    // The employer reviews the draft and corrects it before approving. The model's answer key says "a", and the employer says "b".
+    const objective = (view.version.assessment_tasks as { id: string; task_type: string; config: { questions: { id: string; prompt_ar: string; prompt_en: string; options: unknown[] }[] } }[]).find((t) => t.task_type === 'objective_questions');
+    expect(objective).toBeDefined();
+    await api().patch(`${base()}/assessment-tasks/${objective!.id}/questions`).set(bearer(owner))
+      .send({ questions: objective!.config.questions.map((q) => ({ ...q, answer: 'b' })) }).expect(200);
+
     await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(outsider)).expect(403);
     await api().patch(`${base()}/jobs/${job}/status`).set(bearer(owner)).send({ status: 'published' }).expect(200);
     await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(owner)).expect(201);
@@ -83,8 +89,8 @@ describe('the journey with a model behind the AI service', () => {
     expect(JSON.stringify(seen)).not.toMatch(/rubric_criteria|answer_key|reference_skill_id/);
     await api().post(`/attempts/${attempt}/start`).set(bearer(candidate)).expect(201);
     for (const t of seen.version.assessment_tasks) {
-      await api().put(`/attempts/${attempt}/responses/${t.id}`).set(bearer(candidate))
-        .send({ answer: { text: 'I would check the logs, isolate the failing service, fix it, and confirm with monitoring.' } }).expect(200);
+      const answer = t.task_type === 'objective_questions' ? { choices: { q1: 'b' } } : { text: 'I would check the logs, isolate the failing service, fix it, and confirm with monitoring.' };
+      await api().put(`/attempts/${attempt}/responses/${t.id}`).set(bearer(candidate)).send({ answer }).expect(200);
     }
     await api().post(`/attempts/${attempt}/submit`).set(bearer(candidate)).expect(201);
   });
@@ -95,13 +101,16 @@ describe('the journey with a model behind the AI service', () => {
     const full = (await api().get(`/attempts/${attempt}/evaluation`).set(bearer(owner)).expect(200)).body;
     expect(full.evaluation_results.ai_mode).toBe('live');
     expect(full.evaluation_results.status).toBe('needs_human_review');
-    const scores = full.evaluation_results.criterion_scores as { source: string; model_version: string; evidence_ref: string | null; explanation: string }[];
+    const scores = full.evaluation_results.criterion_scores as { source: string; score: string; model_version: string; evidence_ref: string | null; explanation: string }[];
     expect(scores.length).toBeGreaterThan(0);
-    for (const s of scores) {
-      expect(s.source).toBe('ai_assisted');
+    const written = scores.filter((s) => s.source === 'ai_assisted');
+    expect(written.length).toBeGreaterThan(0);
+    for (const s of written) {
       expect(s.model_version).toBeTruthy();
       expect(s.explanation).toBeTruthy();
     }
+    // Objective questions are graded by plain code, against the employer's corrected key.
+    expect(scores.find((s) => s.source === 'deterministic')).toMatchObject({ score: '1', explanation: '1 of 1 correct.' });
     // Nothing reaches the candidate before a person reviews it.
     await api().get(`/attempts/${attempt}/report`).set(bearer(candidate)).expect(404);
     await api().get(`/attempts/${attempt}/evaluation`).set(bearer(candidate)).expect(403);

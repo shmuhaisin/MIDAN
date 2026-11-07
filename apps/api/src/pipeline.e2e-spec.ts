@@ -368,6 +368,31 @@ describe('Midan administration and data pipeline', () => {
       expect((await rest(candidate, 'GET', `rubric_criteria?task_id=eq.${skillTask!.id}`)).body).toEqual([]);
     });
 
+    it("lets the organization review and correct a draft's questions and answer key, which candidates never receive", async () => {
+      const view = (await api().get(`${base()}/jobs/${job}/assessment`).set(bearer(ownerA)).expect(200)).body;
+      const objective = view.version.assessment_tasks.find((t: { task_type: string }) => t.task_type === 'objective_questions');
+      expect(objective.config.questions.length).toBeGreaterThan(0);
+      const written = view.version.assessment_tasks.find((t: { task_type: string }) => t.task_type !== 'objective_questions');
+      const option = (id: string) => ({ id, label_ar: `خيار ${id}`, label_en: `Option ${id}` });
+      const question = { id: 'q1', prompt_ar: 'ما الخطوة الأولى في مراجعة العقد؟', prompt_en: 'What comes first when reviewing the contract?', options: [option('a'), option('b')], answer: 'b' };
+      const path = `${base()}/assessment-tasks/${objective.id}/questions`;
+
+      await api().patch(path).set(bearer(candidate)).send({ questions: [question] }).expect(403);
+      await api().patch(path).set(bearer(ownerA)).send({ questions: [] }).expect(400);
+      await api().patch(path).set(bearer(ownerA)).send({ questions: [{ ...question, options: [option('a')] }] }).expect(400);
+      await api().patch(path).set(bearer(ownerA)).send({ questions: [{ ...question, answer: 'z' }] }).expect(422);
+      await api().patch(path).set(bearer(ownerA)).send({ questions: [question, question] }).expect(422);
+      await api().patch(`${base()}/assessment-tasks/${written.id}/questions`).set(bearer(ownerA)).send({ questions: [question] }).expect(422);
+
+      const saved = (await api().patch(path).set(bearer(ownerA)).send({ questions: [question, { ...question, id: 'q2', answer: 'a' }] }).expect(200)).body;
+      expect(saved.rubric_criteria[0]).toMatchObject({ answer_key: { q1: 'b', q2: 'a' }, max_score: '2' });
+      expect(JSON.stringify(saved.config)).not.toContain('answer');
+      const audit = (await rest(ownerA, 'GET', `audit_logs?entity=eq.assessment_tasks&entity_id=eq.${objective.id}&action=eq.update&select=actor_id`)).body;
+      expect(audit).toEqual([{ actor_id: ownerA.id }]);
+      const rubricAudit = (await rest(ownerA, 'GET', `audit_logs?entity=eq.rubric_criteria&entity_id=eq.${saved.rubric_criteria[0].id}&select=actor_id,action`)).body;
+      expect(rubricAudit).toEqual([{ actor_id: ownerA.id, action: 'update' }]);
+    });
+
     it('lets the organization add and remove tasks and criteria on a draft, and refuses it once published', async () => {
       await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(candidate)).send({}).expect(400);
       const task = {

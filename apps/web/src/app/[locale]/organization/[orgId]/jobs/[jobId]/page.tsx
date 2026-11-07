@@ -8,6 +8,7 @@ import { JobAnalysisPanel, type Analysis } from '@/components/job-analysis';
 import { AssessmentSwitcher, AssessmentTitle, VersionSettings, EmptyAssessment, FieldSelect, GenerateButton, InviteButton, JobDetailsForm, PublishPanel, TaskList } from '@/components/workspace';
 import { Link, redirect } from '@/i18n/navigation';
 import { api, apiForPage } from '@/lib/api';
+import { uncoveredItems } from '@/lib/assessment-review';
 import { number, pick } from '@/lib/format';
 import { getSession } from '@/lib/session';
 
@@ -34,6 +35,8 @@ type Latest = {
       rubric_criteria: { id: string; code: string; description_ar: string; description_en: string; max_score: string; weight: string; answer_key: unknown }[];
       task_skill_mappings: { skills: Skill }[];
       task_requirement_mappings: { requirement_id: string }[];
+      reference_skill_ids?: string[];
+      config?: { questions?: { id: string; prompt_ar: string; prompt_en: string; options: { id: string; label_ar: string; label_en: string }[] }[]; dataset_name?: string; dataset_csv?: string };
     }[];
   };
 };
@@ -164,7 +167,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             )}
             {canBuild && <VersionSettings key={version.id} orgId={orgId} version={version} canEdit={Boolean(editable)} />}
             <TaskList orgId={orgId} versionId={version.id} tasks={version.assessment_tasks} editable={Boolean(editable)} requirements={requirements ?? []} />
-            {editable && canPublish && <PublishPanel orgId={orgId} versionId={version.id} />}
+            {editable && canPublish && (
+              <PublishPanel
+                orgId={orgId} versionId={version.id}
+                uncovered={uncoveredItems(version.assessment_tasks, requirements ?? [], job.job_reference_skills ?? [], (ar, en) => pick(locale, ar ?? en ?? '', en ?? ar ?? ''))}
+              />
+            )}
             {published && canBuild && <GenerateButton orgId={orgId} jobId={jobId} assessmentId={version.assessments.id} label={t('newVersion')} />}
           </div>
         )}

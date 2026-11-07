@@ -837,3 +837,56 @@ test('a CV reaches an employer only when the candidate shares it, and hiring thr
   await expect(employer.getByRole('button', { name: 'Open CV' })).toBeVisible();
   await expect(employer.getByRole('combobox', { name: 'Decision' }).getByRole('option', { name: 'Hired' })).toHaveCount(1);
 });
+
+test('an organization reviews and corrects a generated draft, and is told what it no longer measures, before approving', async ({ browser }) => {
+  const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY as string, 'content-type': 'application/json' },
+    body: JSON.stringify({ email: env.TEST_ORG_A_OWNER_EMAIL, password: env.TEST_ORG_A_OWNER_PASSWORD }),
+  });
+  const { access_token } = await res.json();
+  const call = async (path: string, body: unknown) => (await fetch(`${env.API_URL}/v1${path}`, { method: 'POST', headers: { authorization: `Bearer ${access_token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) })).json();
+  const org = (await call('/organizations', { slug: `midan-test-review-${RUN}`, name_ar: 'مراجعة', name_en: `Midan Test Review ${RUN}` })).id;
+  const job = (await call(`/organizations/${org}/jobs`, { slug: `review-${RUN}`, title_ar: 'مراجعة', title_en: 'Review', status: 'published' })).id;
+  await call(`/organizations/${org}/jobs/${job}/requirements`, { requirement_type: 'responsibility', description_ar: 'مراجعة عقود التوريد قبل التوقيع', description_en: 'Review supply contracts before signing' });
+  await call(`/organizations/${org}/jobs/${job}/assessment/generate`, {});
+
+  const page = await (await signedIn(browser, 'ORG_A_OWNER')).newPage();
+  const problems: string[] = [];
+  page.on('pageerror', (e) => problems.push(e.message));
+  await page.goto(`/en/organization/${org}/jobs/${job}`);
+  await expect(page.getByText('No task measures these')).toHaveCount(0);
+
+  // The questions and the answer key are on the review screen, and editable.
+  await page.getByRole('button', { name: /Short questions on how you work/ }).click();
+  const first = page.getByRole('group', { name: 'Question 1' });
+  await expect(first.getByLabel('The question in English')).toHaveValue(/error in data/);
+  await expect(first.getByRole('radio', { name: 'Correct' }).nth(1)).toBeChecked();
+  await first.getByLabel('The question in English').fill('Which clause do you check first?');
+  await first.getByRole('radio', { name: 'Correct' }).nth(0).check();
+  await page.getByRole('button', { name: 'Add a question' }).click();
+  const added = page.getByRole('group', { name: 'Question 3' });
+  await added.getByLabel('The question in Arabic').fill('سؤال جديد');
+  await added.getByLabel('The question in English').fill('A new question');
+  for (const n of [1, 2]) {
+    await added.getByLabel(`Option ${n} in Arabic`).fill(`خيار ${n}`);
+    await added.getByLabel(`Option ${n} in English`).fill(`Option ${n}`);
+  }
+  await page.getByRole('button', { name: 'Save questions' }).click();
+  await expect(page.getByText('Saved').first()).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: /Short questions on how you work/ }).click();
+  await expect(page.getByRole('group', { name: 'Question 1' }).getByLabel('The question in English')).toHaveValue('Which clause do you check first?');
+  await expect(page.getByRole('group', { name: 'Question 1' }).getByRole('radio', { name: 'Correct' }).nth(0)).toBeChecked();
+  await expect(page.getByRole('group', { name: 'Question 3' })).toBeVisible();
+
+  // Removing the task that measures the responsibility is allowed, and the screen says what that leaves out.
+  await page.getByRole('button', { name: /A case study from the role/ }).click();
+  await page.getByRole('button', { name: 'Remove this task' }).first().click();
+  await expect(page.getByText('No task measures these')).toBeVisible();
+  await expect(page.getByRole('status').getByText('Review supply contracts before signing')).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 800 });
+  await noOverflow(page);
+  expect(problems).toEqual([]);
+});

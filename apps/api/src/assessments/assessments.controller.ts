@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, UnprocessableEntityException, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { AiClient } from '../ai/ai.client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
@@ -71,6 +71,26 @@ class NewTaskDto {
   @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @ArrayMaxSize(10) @IsUUID('all', { each: true }) requirement_ids?: string[];
   @ApiPropertyOptional({ type: [NewCriterionDto] })
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(10) @ValidateNested({ each: true }) @Type(() => NewCriterionDto) criteria!: NewCriterionDto[];
+}
+
+class QuestionOptionDto {
+  @ApiProperty() @IsString() @Matches(/^[a-zA-Z0-9_-]{1,40}$/) id!: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(500) label_ar!: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(500) label_en!: string;
+}
+
+class QuestionDto {
+  @ApiProperty() @IsString() @Matches(/^[a-zA-Z0-9_-]{1,40}$/) id!: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(2000) prompt_ar!: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(2000) prompt_en!: string;
+  @ApiProperty({ type: [QuestionOptionDto] })
+  @IsArray() @ArrayMinSize(2) @ArrayMaxSize(10) @ValidateNested({ each: true }) @Type(() => QuestionOptionDto) options!: QuestionOptionDto[];
+  @ApiProperty({ description: 'The id of the correct option. It stays in the rubric and never reaches candidates.' }) @IsString() answer!: string;
+}
+
+class UpdateQuestionsDto {
+  @ApiProperty({ type: [QuestionDto] })
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(50) @ValidateNested({ each: true }) @Type(() => QuestionDto) questions!: QuestionDto[];
 }
 
 type DraftTask = {
@@ -332,6 +352,28 @@ export class AssessmentsController {
       const { count } = await tx.assessment_tasks.updateMany({ where: { id: taskId, org_id: orgId }, data: body });
       if (count === 0) throw new NotFoundException();
       return tx.assessment_tasks.findUniqueOrThrow({ where: { id: taskId } });
+    });
+  }
+
+  @Patch('assessment-tasks/:taskId/questions')
+  @ApiOperation({ summary: "A draft's objective questions and their answer key, reviewed and edited before approval. A published version refuses it." })
+  updateQuestions(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('taskId', ParseUUIDPipe) taskId: string, @Body() body: UpdateQuestionsDto) {
+    for (const q of body.questions) {
+      const options = q.options.map((o) => o.id);
+      if (new Set(options).size !== options.length) throw new UnprocessableEntityException('Each option needs its own id');
+      if (!options.includes(q.answer)) throw new UnprocessableEntityException('The answer must be one of the options');
+    }
+    if (new Set(body.questions.map((q) => q.id)).size !== body.questions.length) throw new UnprocessableEntityException('Each question needs its own id');
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const task = await tx.assessment_tasks.findFirst({ where: { id: taskId, org_id: orgId }, select: { task_type: true, config: true, rubric_criteria: { select: { id: true } } } });
+      if (!task) throw new NotFoundException();
+      if (task.task_type !== 'objective_questions') throw new UnprocessableEntityException('Only objective questions have an answer key');
+      const questions = body.questions.map(({ answer: _answer, ...question }) => question);
+      const key = Object.fromEntries(body.questions.map((q) => [q.id, q.answer]));
+      await tx.assessment_tasks.update({ where: { id: taskId }, data: { config: { ...(task.config as Prisma.JsonObject), questions: JSON.parse(JSON.stringify(questions)) } } });
+      await tx.rubric_criteria.update({ where: { id: task.rubric_criteria[0].id }, data: { answer_key: key, max_score: body.questions.length } });
+      return tx.assessment_tasks.findUniqueOrThrow({ where: { id: taskId }, include: { rubric_criteria: true } });
     });
   }
 

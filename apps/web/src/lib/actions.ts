@@ -209,6 +209,15 @@ export async function updateTask(orgId: string, taskId: string, _: FormState, fo
   );
 }
 
+export type QuestionInput = {
+  id: string; prompt_ar: string; prompt_en: string; answer: string;
+  options: { id: string; label_ar: string; label_en: string }[];
+};
+
+export async function saveQuestions(orgId: string, taskId: string, questions: QuestionInput[]) {
+  return result(() => api(`/organizations/${orgId}/assessment-tasks/${taskId}/questions`, { method: 'PATCH', body: { questions } }));
+}
+
 export async function updateCriterion(orgId: string, id: string, _: FormState, form: FormData): Promise<FormState> {
   return result(() =>
     api(`/organizations/${orgId}/rubric-criteria/${id}`, {

@@ -5,8 +5,9 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useActionState, useState, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
-import { addAssessment, addCriterion, addTask, generateAssessment, inviteCandidate, publishVersion, removeAssessment, removeCriterion, removeTask, renameAssessment, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
+import { addAssessment, addCriterion, addTask, generateAssessment, inviteCandidate, publishVersion, removeAssessment, removeCriterion, removeTask, renameAssessment, saveQuestions, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
 import type { FormState } from '@/lib/auth-actions';
+import { nextId } from '@/lib/assessment-review';
 import { list, pick } from '@/lib/format';
 import { PROFESSIONAL_FIELDS } from '@/lib/humaidan';
 import { Arrow } from './brand';
@@ -335,8 +336,94 @@ export function FieldSelect({ orgId, assessmentId, field, canEdit }: { orgId: st
 type Criterion = { id: string; code: string; description_ar: string; description_en: string; max_score: string; weight: string; answer_key: unknown };
 type Task = {
   id: string; position: number; task_type: string; title_ar: string; title_en: string; instructions_ar: string; instructions_en: string; weight: string;
+  config?: { questions?: ReviewedQuestion[]; dataset_name?: string; dataset_csv?: string };
   rubric_criteria: Criterion[]; task_skill_mappings: { skills: Skill }[]; task_requirement_mappings: { requirement_id: string }[];
 };
+
+type ReviewedQuestion = { id: string; prompt_ar: string; prompt_en: string; options: { id: string; label_ar: string; label_en: string }[] };
+
+/** The questions as candidates will see them, with the answer key beside them, which only the organization ever sees. */
+function QuestionsEditor({ orgId, taskId, questions, answerKey, editable }: { orgId: string; taskId: string; questions: ReviewedQuestion[]; answerKey: Record<string, string>; editable: boolean }) {
+  const t = useTranslations('workspace');
+  const [items, setItems] = useState(questions.map((q) => ({ ...q, answer: answerKey[q.id] ?? '' })));
+  const [saved, setSaved] = useState(false);
+  const { pending, error, fire } = useAction(async () => {
+    const outcome = await saveQuestions(orgId, taskId, items);
+    setSaved(!outcome.error);
+    return outcome;
+  });
+  const change = (index: number, patch: Partial<(typeof items)[number]>) => {
+    setSaved(false);
+    setItems((all) => all.map((q, i) => (i === index ? { ...q, ...patch } : q)));
+  };
+  const changeOption = (index: number, optionId: string, patch: { label_ar?: string; label_en?: string }) =>
+    change(index, { options: items[index].options.map((o) => (o.id === optionId ? { ...o, ...patch } : o)) });
+  const addQuestion = () => {
+    setSaved(false);
+    setItems((all) => [...all, {
+      id: nextId(all.map((q) => q.id), (n) => `q${n}`), prompt_ar: '', prompt_en: '', answer: 'a',
+      options: [{ id: 'a', label_ar: '', label_en: '' }, { id: 'b', label_ar: '', label_en: '' }],
+    }]);
+  };
+  const removeOption = (index: number, optionId: string) => {
+    const q = items[index];
+    change(index, { options: q.options.filter((o) => o.id !== optionId), answer: q.answer === optionId ? '' : q.answer });
+  };
+  return (
+    <div>
+      <p className="mb-2 text-sm font-semibold">{t('questions')}</p>
+      <p className="mb-3 text-sm text-muted">{t('questionsNote')}</p>
+      <fieldset disabled={!editable} className="space-y-4">
+        {items.map((q, index) => (
+          <div key={q.id} role="group" aria-label={t('questionNumber', { n: index + 1 })} className="rounded-lg border border-border p-3">
+            <p className="text-xs font-semibold text-muted">{t('questionNumber', { n: index + 1 })}</p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm font-medium">{t('promptAr')}
+                <textarea rows={2} dir="rtl" required className={clsx(INPUT, 'h-auto py-2')} value={q.prompt_ar} onChange={(e) => change(index, { prompt_ar: e.target.value })} />
+              </label>
+              <label className="block text-sm font-medium">{t('promptEn')}
+                <textarea rows={2} dir="ltr" required className={clsx(INPUT, 'h-auto py-2')} value={q.prompt_en} onChange={(e) => change(index, { prompt_en: e.target.value })} />
+              </label>
+            </div>
+            <ul className="mt-3 space-y-2">
+              {q.options.map((o, optionIndex) => (
+                <li key={o.id} className="grid items-end gap-2 sm:grid-cols-[auto_1fr_1fr_auto]">
+                  <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+                    <input type="radio" name={`correct-${taskId}-${q.id}`} checked={q.answer === o.id} onChange={() => change(index, { answer: o.id })} className="size-4 accent-[var(--color-primary)]" />
+                    {t('correctOption')}
+                  </label>
+                  <label className="block text-sm">{t('optionAr', { n: optionIndex + 1 })}
+                    <input dir="rtl" required className={INPUT} value={o.label_ar} onChange={(e) => changeOption(index, o.id, { label_ar: e.target.value })} />
+                  </label>
+                  <label className="block text-sm">{t('optionEn', { n: optionIndex + 1 })}
+                    <input dir="ltr" required className={INPUT} value={o.label_en} onChange={(e) => changeOption(index, o.id, { label_en: e.target.value })} />
+                  </label>
+                  {editable && q.options.length > 2 && (
+                    <button type="button" onClick={() => removeOption(index, o.id)} className="min-h-11 text-sm text-muted underline underline-offset-4">{t('removeOption')}</button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {editable && (
+              <div className="mt-3 flex flex-wrap gap-4">
+                <button type="button" onClick={() => change(index, { options: [...q.options, { id: nextId(q.options.map((o) => o.id), (n) => String.fromCharCode(96 + n)), label_ar: '', label_en: '' }] })} className="text-sm font-semibold text-primary underline underline-offset-4">{t('addOption')}</button>
+                {items.length > 1 && <button type="button" onClick={() => { setSaved(false); setItems((all) => all.filter((_, i) => i !== index)); }} className="text-sm text-muted underline underline-offset-4">{t('removeQuestion')}</button>}
+              </div>
+            )}
+          </div>
+        ))}
+      </fieldset>
+      {editable && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={addQuestion} className="rounded-full border border-border px-3 py-1.5 text-sm font-semibold hover:bg-surface-2">{t('addQuestion')}</button>
+          <button type="button" onClick={fire} disabled={pending} aria-busy={pending} className={PRIMARY}>{t('saveQuestions')}</button>
+          <Saved show={saved} label={t('saved')} />
+        </div>
+      )}
+      <ErrorText code={error} />
+    </div>
+  );
+}
 
 function CriterionEditor({ orgId, criterion, editable, canRemove }: { orgId: string; criterion: Criterion; editable: boolean; canRemove: boolean }) {
   const t = useTranslations('workspace');
@@ -406,6 +493,18 @@ function TaskEditor({ orgId, task, editable, requirements, canRemoveTask }: { or
                   )}
                 </fieldset>
               </ActionForm>
+              {task.task_type === 'objective_questions' && (
+                <QuestionsEditor
+                  orgId={orgId} taskId={task.id} editable={editable} questions={task.config?.questions ?? []}
+                  answerKey={(task.rubric_criteria[0]?.answer_key ?? {}) as Record<string, string>}
+                />
+              )}
+              {task.config?.dataset_csv && (
+                <div>
+                  <p className="mb-2 text-sm font-semibold">{t('dataset', { name: task.config.dataset_name ?? '' })}</p>
+                  <pre dir="ltr" className="max-h-48 overflow-auto rounded-lg bg-surface-2 p-3 text-xs">{task.config.dataset_csv}</pre>
+                </div>
+              )}
               <TaskRequirementPicker
                 orgId={orgId} taskId={task.id} requirements={requirements} editable={editable}
                 selected={task.task_requirement_mappings.map((m) => m.requirement_id)}
@@ -496,13 +595,19 @@ function AddTaskForm({ orgId, versionId }: { orgId: string; versionId: string })
   );
 }
 
-export function PublishPanel({ orgId, versionId }: { orgId: string; versionId: string }) {
+export function PublishPanel({ orgId, versionId, uncovered = [] }: { orgId: string; versionId: string; uncovered?: string[] }) {
   const t = useTranslations('workspace');
   const [confirming, setConfirming] = useState(false);
   const { pending, error, fire } = useAction(() => publishVersion(orgId, versionId));
   return (
     <div className="rounded-lg bg-surface p-4">
       <p className="text-sm text-muted">{t('publishNote')}</p>
+      {uncovered.length > 0 && (
+        <div role="status" className="mt-3 border-s-2 border-gold ps-4 text-sm">
+          <p className="font-semibold">{t('uncoveredTitle')}</p>
+          <ul className="mt-1 list-disc space-y-1 ps-4">{uncovered.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-3">
         {confirming ? (
           <>
