@@ -26,9 +26,9 @@ this report is left as audited.
 | Finding | Now | Evidence |
 | --- | --- | --- |
 | S1 cross-employer candidate documents | **Verified on the local stack**, end to end | `20261107090000_scope_candidate_document_access.sql`; `supabase/tests/security_phase1.sql` (fails without the fix); `foundation.e2e-spec.ts` "gives each organization only the CV copy submitted to it…" |
-| S2 application status | **Verified on the local stack**, end to end; the owner's D.1 and D.2 open | `20261107090100_application_status_transitions.sql`; `security_phase1.sql`; `database-exception.filter.spec.ts`; `application-status.test.ts`; `foundation.e2e-spec.ts` "allows only the status moves the workflow has"; `pipeline.e2e-spec.ts` "hires only once the assessment has been reviewed…" |
+| S2 application status | **Verified on the local stack**, end to end, with the owner's D.1 and D.2 implemented | `20261107090100_application_status_transitions.sql`; `security_phase1.sql`; `database-exception.filter.spec.ts`; `application-status.test.ts`; `foundation.e2e-spec.ts` "allows only the status moves the workflow has"; `pipeline.e2e-spec.ts` "hires only once the assessment has been reviewed…" |
 | S3 rate-limit bypass | **Verified** with a stand-in for Auth; budget added for rejected tokens; `TRUST_PROXY` waits for hosting | `common/token-throttler.guard.ts`, `auth/auth.guard.ts`, `common/configure-app.ts` (`TRUST_PROXY`); `throttle.spec.ts` |
-| S4 auth call per request | **Open**: unchanged, needs the owner's decision (handoff D.5) | — |
+| S4 auth call per request | **Accepted trade-off by owner decision**: per-request verification stays, no cache | — |
 | S5 signed link in queue payload | **Kept by owner decision, verified on the local stack**, after closing a link leak and an arbitrary-URL fetch (handoff B.0b) | `20261107090200_clear_finished_job_links.sql`; `jobs-queue/worker.spec.ts`; `security_phase1.sql` |
 | S6 AI token comparison | **Verified** | `services/ai/midan_ai/main.py`; `tests/test_service_token.py` |
 | S7 security headers | **Verified** in a production build; real Daily, real Google sign-in and HTTPS not verified | `apps/web/src/lib/csp.ts`, `src/proxy.ts`, `next.config.ts`; `apps/api/src/common/security-headers.ts`; `csp.test.ts`, `security-headers.spec.ts` |
@@ -46,7 +46,7 @@ Owner decisions made since the audit, recorded in `docs/DECISIONS.md`:
 - S5 as above.
 
 Hosted is unchanged: 23 migrations. Pending there, none applied: the four from the base branch
-(`20261106140000`–`20261106170000`) and the five Phase 1 migrations (`20261107090000`–`20261107100100`). The old S1 and S2 rules are still live there.
+(`20261106140000`–`20261106170000`) and the six Phase 1 migrations (`20261107090000`–`20261107110000`). The old S1 and S2 rules are still live there.
 
 ---
 

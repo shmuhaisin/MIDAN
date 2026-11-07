@@ -6,9 +6,9 @@ rows were since built on `feature/midan-complete-data-jobs-assessment`. The veri
 
 ## Phase 1 security fixes (2026-11-07, branch `feature/midan-phase-1-security`)
 
-Verified on 2026-11-07 on local branch `midan-security-completion`, with the whole local stack: API end-to-end 112 / 112,
-browser 34 / 34, forms 9 / 9. This proves the code on a local stack. It doesn't mean production is ready: real Daily, Google,
-AI providers and HTTPS hosting are untested. Nothing was pushed, merged or applied to hosted Supabase, where the old S1 and
+Verified on 2026-11-07 on branch `midan-security-completion`, with the whole local stack: API end-to-end 113 / 113,
+browser 35 / 35, forms 9 / 9. This proves the code on a local stack. It doesn't mean production is ready: real Daily, Google,
+AI providers and HTTPS hosting are untested. The branch is pushed but not merged. Nothing was applied to hosted Supabase, where the old S1 and
 S2 rules are still live (no applications exist there yet).
 
 | Finding | Fix | Status |
@@ -16,16 +16,16 @@ S2 rules are still live (no applications exist there yet).
 | S1 Staff could read every file in an applicant's folder, including CV copies sent to other employers | Storage policy limited to the CV submitted to the organization | Verified locally, end to end |
 | S2 Staff could set any application status, including hired without a reviewed assessment | `public.set_application_status` with fixed moves; hiring needs reviewed assessments, also through outcomes; direct update revoked | Verified locally, end to end. Hired is now final for outcomes too |
 | S3 Made-up bearer tokens got their own rate limits | Verified account or trusted address only; `TRUST_PROXY` | Verified with a stand-in for Auth. Rejected tokens no longer reach Auth past a budget. `TRUST_PROXY` waits for hosting |
-| S4 One Supabase Auth call per authenticated request | Not changed; the limiter and guards now share one call | Open: needs the owner's decision (handoff D.5). Failures now give 503 and keep tokens out of logs |
+| S4 One Supabase Auth call per authenticated request | Not changed; the limiter and guards now share one call | Accepted trade-off by owner decision: no cache. Failures now give 503 and keep tokens out of logs |
 | S5 Signed CV link kept in the queue payload | Kept by owner decision (accepted trade-off): only while the job waits or runs, deleted when it finishes, never logged, not readable through the Data API; an expired link gives `file_unavailable` and a retry | Verified locally, after closing a link leak and an arbitrary-URL fetch in the queue function (handoff B.0b) |
 | S6 AI service token compared with `!=` | `hmac.compare_digest` on bytes | Verified locally |
 | S7 No security headers | Nonce CSP and headers on web; strict headers on API; HSTS on HTTPS | Verified in a production build across candidate, organization, assessment and admin screens. Real Daily, real Google sign-in and HTTPS not verified |
 | S8 Sign-up access code in the Next.js `env` map, written into builds | Runtime server variable only; build check script | Verified locally, with the build scanned using a canary value |
 
-Waiting for the owner, implemented provisionally as described: whether rejected applications can be reopened (yes
-today); whether hiring through an interview outcome needs a shortlist (no today); whether employers keep the candidate's
-current CV when an application has no copy (yes today); and the `TRUST_PROXY` value once hosting is chosen (unset).
-The owner is also asked whether S4 should stay as it is. Hosted Supabase is unchanged, with nine migrations pending approval. See
+Owner decisions, implemented: reopening a rejected application is for owners and admins, and is audited; hiring through an
+outcome needs a shortlist; without a CV snapshot, an employer sees no CV until the candidate shares one. `TRUST_PROXY` stays
+unset until hosting is chosen. Hosted Supabase is unchanged, with ten migrations waiting for approval, and one of them needs a
+permission fix first: see [docs/handoffs/MIDAN_PHASE_2_PREPARATION.md](docs/handoffs/MIDAN_PHASE_2_PREPARATION.md). See
 [docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md](docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md).
 
 Owner decisions for later phases, in [docs/DECISIONS.md](docs/DECISIONS.md): Gemini and OpenAI behind one provider

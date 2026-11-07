@@ -10,8 +10,8 @@ Status words used below: **Completed** (implemented, and tested here), **Partial
 
 **Verification update, 2026-11-07.** The work below was re-audited and completed on the local branch
 `midan-security-completion`, from `feature/midan-phase-1-security` at `cb1c0e8`, with the whole local stack running. Section
-B.0a holds those results and replaces the "Not run" rows of B.0. Each finding's heading shows its verified status. Nothing
-on that branch is pushed or merged, and nothing has been applied to hosted Supabase.
+B.0a holds those results and replaces the "Not run" rows of B.0. Each finding's heading shows its verified status. That branch
+is pushed but not merged, and nothing has been applied to hosted Supabase.
 
 ---
 
@@ -26,7 +26,7 @@ on that branch is pushed or merged, and nothing has been applied to hosted Supab
 | Base commit | `e86932b` "Add the complete implementation handoff for this branch" |
 | Current HEAD | The commit that adds this version of this document (the last one in the list below). Check with `git log -1` |
 | Push | Pushed with `git push -u origin feature/midan-phase-1-security` when this handoff was made, with the owner's authorization. The local branch tracks `origin/feature/midan-phase-1-security`. Nothing was force-pushed, and nothing was merged |
-| Continuation branch | `midan-security-completion`, local only, from `cb1c0e8`. Not pushed; it has no remote copy |
+| Continuation branch | `midan-security-completion`, from `cb1c0e8`. Pushed with the owner's approval, not merged |
 | Other remote branches | `main` `8f0235b`, `candidate-portal` `2523115`, `feature/midan-complete-data-jobs-assessment` `e86932b`, `feat/company-workflow` `c5cb1af`. The last was created by someone else during this work; it wasn't reviewed or touched, and may overlap with this branch |
 
 Phase 1 commits, oldest first:
@@ -84,20 +84,20 @@ local values. No test touched hosted Supabase; the only hosted calls were read-o
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Database security checks | `scripts/local-db.sh psql -f supabase/tests/security_phase1.sql` | **All passed**, including the new S2 and S5 checks |
+| Database security checks | `scripts/local-db.sh psql -f supabase/tests/security_phase1.sql` | **All passed**, including the new S2, S5 and owner-decision checks |
 | API unit tests | `npm test -w @midan/api` | **47 / 47**, 8 suites |
-| Web unit tests | `npm test -w @midan/web` | **15 / 15** |
+| Web unit tests | `npm test -w @midan/web` | **16 / 16** |
 | AI service tests | `TEST_CHECKPOINT_DATABASE_URL=… uv run pytest` | **126 passed, 1 skipped** (Arabic OCR) |
-| API end-to-end | `npm run test:e2e -w @midan/api` | Before changes **110 / 111**. After them **112 / 112** |
-| Browser journeys and CSP | `npx playwright test` against `next start` | **34 / 34** |
+| API end-to-end | `npm run test:e2e -w @midan/api` | Before changes **110 / 111**. After them **113 / 113** |
+| Browser journeys and CSP | `npx playwright test` against `next start` | **35 / 35** |
 | Forms | `npm run test:forms -w @midan/web` | **9 / 9** |
 | Type checks, builds | `npm run lint`, `npm run build` | **Passed** |
-| Build secret scan | `npm run check:bundle -w @midan/web` with a canary | **Passed**, 990 files |
+| Build secret scan | `npm run check:bundle -w @midan/web` with a canary | **Passed**, 992 files |
 
 The one failure before changes was a test bug: the status test used the recruiter before a later test made it a member.
 
 **CSP evidence.** During the browser run, a test-only local proxy added a report address to the policy. Chromium reported
-exactly two blocks across all 34 tests, both of them deliberate controls (a blocked image, a framing attempt). That run
+exactly two blocks across all 35 tests, both of them deliberate controls (a blocked image, a framing attempt). That run
 covered assessment work, reports, applicant and review screens, the interview screen, and every admin area. Traces were
 tried first and abandoned: they hold no console messages here, so a clean scan of them would have proved nothing.
 
@@ -147,9 +147,9 @@ that account. `scripts/local-db.sh` now works on macOS.
 - **Test support.** `scripts/local-supabase.mjs`: the local Storage stand-in gained `POST /storage/v1/object/list/:bucket`,
   answering through the caller's policies as Supabase does, for the listing test. Restart the stand-in after pulling.
 - **Results.** Database checks passed, and the control run proves they detect the old policy. End-to-end: passed, including "gives each organization only the CV copy submitted to it, never another employer's".
-- **Limitations.** The current-CV fallback is kept provisionally (question D.3).
+- **Limitations.** None open. The current-CV fallback described above was removed by the owner's decision (D.3).
 
-### S2 — Application status transitions (MEDIUM) · Completed and verified on the local stack; D.1 and D.2 open
+### S2 — Application status transitions (MEDIUM) · Completed and verified on the local stack, with the owner's D.1 and D.2
 
 - **Original issue.** `PATCH /v1/applications/:id/status` wrote any status straight to `applications`, so "hired" could
   be set without any evaluation, and "evaluated" with nothing evaluated.
@@ -168,7 +168,7 @@ that account. `scripts/local-db.sh` now works on macOS.
     | assessment_invited, assessment_in_progress, assessment_submitted | shortlisted, rejected |
     | evaluated | shortlisted, rejected, hired |
     | shortlisted | rejected, hired |
-    | rejected | under_review, shortlisted (provisional, D.1) |
+    | rejected | under_review, shortlisted (owners and admins only, D.1) |
     | hired, withdrawn | nothing |
 
   - **Hiring needs reviewed assessments** (`private.assessments_reviewed`): every non-expired assessment attempt of the
@@ -192,10 +192,10 @@ that account. `scripts/local-db.sh` now works on macOS.
   workflow has"; `pipeline.e2e-spec.ts` hiring refused before review, then "hires only once the assessment has been
   reviewed, and only by the owning organization".
 - **Results.** Database, unit, web and end-to-end tests passed, after the additions in B.0b.
-- **Limitations.** D.1 and D.2 are open; the current behaviour is provisional. Deploy this migration together with the
+- **Limitations.** Deploy this migration together with the
   matching API: the old API writes the table directly and would get a 403.
 
-### S3 — Rate-limit bypass (MEDIUM) · Completed and verified with a stand-in for Auth; D.4 open
+### S3 — Rate-limit bypass (MEDIUM) · Completed and verified with a stand-in for Auth; `TRUST_PROXY` waits for hosting (D.4)
 
 - **Original issue.** The limiter keyed on a hash of whatever `Authorization` header arrived, so every made-up token got
   a fresh 300-requests-a-minute limit.
@@ -214,12 +214,12 @@ that account. `scripts/local-db.sh` now works on macOS.
 - **Limitations.** When `TRUST_PROXY` is safe depends on hosting (D.4, `docs/deployment.md`). Unset, all signed-out
   visitors share the web server's limit.
 
-### S4 — Supabase Auth call per request · Open: not changed, needs a decision (D.5)
+### S4 — Supabase Auth call per request · Closed by owner decision: accepted trade-off (D.5)
 
 Every authenticated request still makes one network call to Supabase Auth, so an Auth outage means 503s across the API.
-This is a trade-off, not a fix: verifying JWTs locally or caching the answer means a signed-out token keeps working for a
+The owner chose this over a cache: verifying JWTs locally or caching the answer means a signed-out token keeps working for a
 while, and "rejects a token after sign-out" tests the opposite. Phase 1 made the limiter share the guards' call, and added
-the rejection budget and the 503 (B.0b). Those reduce the damage but don't close the finding.
+the rejection budget and the 503 (B.0b).
 
 ### S5 — Signed CV link in the queue (LOW) · Completed under the owner's decision (C.1), after the fixes in B.0b
 
@@ -353,34 +353,30 @@ separate engines. Aligning ownership is later-phase work; Phase 1 didn't change 
 
 ---
 
-## D. Outstanding questions for the owner
+## D. Owner decisions on the open questions (2026-11-07)
 
-Each is implemented provisionally as stated, so nothing is blocked. None should be answered by the next developer.
+All are implemented and tested, in `supabase/migrations/20261107110000_application_decision_rules.sql` unless noted.
 
-1. **Should rejected applications be reopenable?** Today: yes (rejected → under_review or shortlisted). To change it,
-   edit `private.manual_status_change_allowed` in a new migration and `apps/web/src/lib/application-status.ts` (a test
-   keeps them in step).
-2. **Should hiring through an interview outcome also require a shortlist?** Today: no. Both paths need every assessment
-   reviewed, and manual hiring needs "shortlisted" or "evaluated". The outcome check is `private.guard_outcome`.
-3. **Should employers keep access to the candidate's current CV when an application has no attached CV snapshot?**
-   Today: yes, matching `GET /v1/applications/:id/cv-url`. It happens when someone applied before uploading a CV; the
-   employer then sees a CV uploaded later. Removing it changes `private.can_view_candidate_document` and the API
-   fallback in `apps/api/src/applications/applications.controller.ts` (`cvUrl`).
-4. **What should `TRUST_PROXY` be once the hosting environment is chosen?** Today: unset. Safe only when every hop it
-   names appends the address it received the request from; see `docs/deployment.md`, "Client addresses and rate
-   limits".
-5. **Added on verification: should S4 stay as it is?** Today: every request asks Supabase Auth, so sign-out takes effect at
-   once and an Auth outage stops the API. The alternative is a short cache of accepted tokens (for example 30 seconds, keyed
-   by a hash of the token), where a signed-out token keeps working for that long. Recommendation: keep it until real traffic
-   shows a need, since the budget and the 503 now cover the abuse case.
+1. **Rejected applications can be reopened, by an authorized hiring manager only, with an audit record.** MIDAN has no role
+   named "hiring manager", so this means the organization's **owners and admins**. Recruiters can still reject, but are
+   refused reopening (403), and the status menu doesn't offer it. Each reopening writes an `audit_logs` row with action
+   `reopen`, the actor, and the from and to statuses, as well as the usual status history. Tell us if the owner meant a
+   different group.
+2. **Hiring through an interview outcome requires "shortlisted".** Anything else gets a 422, and nothing shortlists the
+   candidate on the way. The hiring screen hides "Hired" and says why until then. Reviewed assessments are still required.
+   Manual hiring is unchanged: from "shortlisted" or "evaluated".
+3. **No CV snapshot means no CV, until the candidate explicitly shares one.** The employer's fallback to the current CV is gone
+   from the storage policy and the API, and the applicant response no longer includes the current CV's path.
+   `POST /v1/me/applications/:id/share-cv`, with a button on the candidate's application page in both languages, copies the
+   current CV and attaches the copy through `public.share_cv_with_application`, which only the candidate can call. A shared copy
+   can't be replaced, later CV changes don't affect it, and it's audited as `share_cv`.
+4. **`TRUST_PROXY` stays unset until hosting is selected.** Until then, signed-out visitors reaching the API through the web
+   server share one rate limit.
+5. **S4 stays as it is: one Supabase Auth check per request, no cache. An accepted trade-off.** A signed-out token stops working
+   at once, and the cost is a network call on each request and 503s if Auth is down. Revisit it only with real traffic data.
 
-Also for the owner, none of it changed here:
-- The owner removed the external job platform named in the employer workbook from scope, yet `scripts/import-data.mjs`,
-  `scripts/extract-employers.py`, `20261106140000`, `docs/database/README.md` and the admin messages on this branch still
-  name it as a source. Removing it is a separate change, and should come before that migration reaches hosted.
-- The official workbooks are committed under `data/source/` in a public repository. Is that intended?
-- `feat/company-workflow` (`c5cb1af`, one commit on `main`, by another developer) shares 13 of its 19 files with Phase 1,
-  including `auth-actions.ts` and `next.config.ts`. Compare them before merging either.
+Still for the owner, none of it changed here: see `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`, section 10 (the public workbooks,
+`feat/company-workflow`, and the external job platform cleanup in its section 9).
 
 ---
 
@@ -395,13 +391,14 @@ Also for the owner, none of it changed here:
   `20261106160000_assessment_reference_skills`, `20261106170000_employer_profiles_and_job_links`. Plus the three Phase 1
   migrations: `20261107090000_scope_candidate_document_access`, `20261107090100_application_status_transitions`,
   `20261107090200_clear_finished_job_links`, and from verification `20261107100000_queue_link_isolation` and
-  `20261107100100_hired_is_final_for_outcomes`. **Nine in all**, to be applied in that order.
+  `20261107100100_hired_is_final_for_outcomes`, and from the owner's decisions `20261107110000_application_decision_rules`.
+  **Ten in all**, to be applied in that order.
 - **Read-only check, 2026-11-07:** still 23 migrations, all with matching files in the repository. The old S1 storage policy
   and the old "org updates status" policy are **still live there**. Hosted has no applications, 7 accounts and no queue table,
   so nothing is exposed today, but S1 and S2 are not fixed on hosted until those migrations are applied. Advisors: one
   SECURITY DEFINER function callable while signed out (`job_assessment_overview`), ten while signed in, leaked password
   protection off (S10, not in Phase 1).
-- Do not apply them without the owner's explicit approval.
+- Do not apply them without the owner's explicit approval. The plan is in `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`.
 - Do not change hosted Supabase settings (auth, SMTP, URLs, storage, roles).
 - Do not deploy anything.
 
@@ -411,11 +408,10 @@ Also for the owner, none of it changed here:
 
 ### F.1 Remaining Phase 1 work, in order
 
-1. The owner answers D.1 to D.5. If an answer differs from today's behaviour, change it in a new migration with tests.
-2. With credentials, open a real Daily interview and a real Google sign-in in a production build, and check for CSP
+1. With credentials, open a real Daily interview and a real Google sign-in in a production build, and check for CSP
    violations. Add any origin they need to `apps/web/src/lib/csp.ts` and its test.
-3. Compare with `feat/company-workflow` before anything is merged.
-4. With approval, push `midan-security-completion` and open a pull request. It is local only today.
+2. Compare with `feat/company-workflow` before anything is merged.
+3. With approval, open a pull request from `midan-security-completion`, which is pushed but not merged.
 
 ### F.2 Required tests
 
@@ -511,8 +507,8 @@ database named `midan`, apply in order:
 ### F.5 Phase 2 (hosted parity) prerequisites
 
 Phase 2 brings hosted Supabase up to the repository. Before it starts:
-1. Phase 1 merged (F.1.4), with the end-to-end suites green.
-2. The owner's explicit approval to apply the nine migrations of section E, in order.
+1. Phase 1 merged (F.1.3), with the end-to-end suites green.
+2. The owner's explicit approval to apply the ten migrations of section E, in order. See `MIDAN_PHASE_2_PREPARATION.md`, which also lists a blocker in `20261106150000`.
 3. A deployment plan in which the API containing `set_application_status` goes live together with
    `20261107090100` (it revokes the direct update the old API uses).
 4. Owner-held values set outside the repository: the `midan_importer` password (`IMPORT_DATABASE_URL`) to re-run the
@@ -525,7 +521,7 @@ Phase 2 brings hosted Supabase up to the repository. Before it starts:
 
 | Blocker | Blocks | Owner |
 | --- | --- | --- |
-| Answers to D.1–D.5 | Final status rules, CV fallback, rate limiting in production, S4 | Owner |
+| Hosting choice for D.4 | Rate limiting in production | Owner |
 | Approval for hosted migrations | Phase 2 | Owner |
 | Hosting choice | `TRUST_PROXY`, HSTS, real CSP check over HTTPS | Owner |
 | Gemini and OpenAI keys | Any real AI verification (C.2) | Owner |
