@@ -236,6 +236,8 @@ model candidate_profiles {
   time_zone               String    @default("Asia/Riyadh")
   notification_prefs      Json      @default("{\"deadline_reminders\": true}")
   self_reported_skills    Json      @default("[]")
+  languages               Json      @default("[]")
+  achievements            Json      @default("[]")
   users                   users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
@@ -287,8 +289,9 @@ model career_plan_items {
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model career_targets {
   candidate_id  String   @id @db.Uuid
-  sector_code   String
-  job_family_ar String
+  sector_code   String?
+  job_family_ar String?
+  job_title     String?
   updated_at    DateTime @default(now()) @db.Timestamptz(6)
   users         users    @relation(fields: [candidate_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
@@ -1327,4 +1330,65 @@ model interview_participants {
   @@index([org_id])
   @@index([user_id])
   @@index([added_by])
+}
+
+/// Staff notes on an application (20261108090300). Append-only; organization staff only.
+model application_notes {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  application_id String   @db.Uuid
+  org_id         String   @db.Uuid
+  author_id      String   @db.Uuid
+  body           String
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([application_id, org_id])
+  @@index([org_id])
+  @@index([author_id])
+}
+
+/// One interviewer's feedback on one interview (20261108090300). Drafts are visible to their author only.
+model interview_feedback {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  interview_id   String    @db.Uuid
+  org_id         String    @db.Uuid
+  application_id String    @db.Uuid
+  author_id      String    @db.Uuid
+  status         String    @default("draft")
+  recommendation String?
+  competencies   Json      @default("[]")
+  notes          String?
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  submitted_at   DateTime? @db.Timestamptz(6)
+
+  @@unique([interview_id, author_id])
+  @@index([org_id])
+  @@index([application_id, org_id])
+  @@index([author_id])
+}
+
+/// A candidate's practice task (20261108090600): simulated work or a portfolio project, never employment.
+model practice_tasks {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidate_id       String    @db.Uuid
+  reference_skill_id String    @db.Uuid
+  kind               String
+  template_version   String
+  title_ar           String
+  title_en           String
+  brief_ar           String
+  brief_en           String
+  instructions       Json      @default("[]")
+  deliverables       Json      @default("[]")
+  status             String    @default("not_started")
+  submission         String?
+  submission_url     String?
+  submitted_at       DateTime? @db.Timestamptz(6)
+  completed_at       DateTime? @db.Timestamptz(6)
+  feedback           Json?
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([candidate_id, reference_skill_id, kind])
+  @@index([reference_skill_id])
 }

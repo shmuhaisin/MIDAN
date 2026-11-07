@@ -501,7 +501,8 @@
     "file_invalid_json": "تعذرت قراءة ملف JSON. يجب أن يكون قائمة سجلات.",
     "file_empty_file": "لا توجد سجلات في هذا الملف.",
     "file_too_many_rows": "السجلات في الملف كثيرة: الحد 5,000 سجل في المرة الواحدة.",
-    "file_unterminated_quote": "في ملف CSV علامة اقتباس لم تُغلق."
+    "file_unterminated_quote": "في ملف CSV علامة اقتباس لم تُغلق.",
+    "feedback_incomplete": "قدّروا كل كفاءة واختاروا توصية قبل الإرسال."
   },
   "applicationStatus": {
     "submitted": "تم التقديم",
@@ -1148,7 +1149,94 @@
     "years": "{count} سنوات خبرة",
     "none": "لا يوجد ما يُعرض.",
     "viewWork": "راجع عمله في التقييم",
-    "privacy": "ترى هذا الملف لأن المرشح تقدّم إلى منشأتك. إذا سحب طلبه يتوقف الوصول."
+    "privacy": "ترى هذا الملف لأن المرشح تقدّم إلى منشأتك. إذا سحب طلبه يتوقف الوصول.",
+    "snapshotNote": "ما قدّمه المرشح مع هذا الطلب بتاريخ {date}. لا تظهر هنا تعديلاته اللاحقة على ملفه.",
+    "statusNow": "حالة الطلب",
+    "statusLabel": "حالة الطلب",
+    "decisionsNote": "الترشيح للقائمة المختصرة والرفض والتعيين قرارات جهتكم. نتائج الميدان تساعد عليها ولا تتخذها.",
+    "coverNote": "رسالة التقديم",
+    "relevanceTitle": "الأدلة على المهارات المطلوبة للوظيفة",
+    "relevanceNote": "المهارات المطلوبة التي ذكرها المرشح عند التقديم، أو أظهرها في تقييم تمت مراجعته لهذا الطلب. «ذكرها» تعني أنها من قول المرشح ولم يُتحقق منها. هذه ليست درجة ولا ترتيبًا ولا توقعًا.",
+    "relevanceNone": "لا تحدد هذه الوظيفة مهارات مطلوبة، فلا شيء للمقارنة.",
+    "relevanceCount": "{matched} من {total} مهارات مطلوبة لها دليل",
+    "evidence": {
+      "listed": "ذكرها المرشح",
+      "assessed": "ظهرت في تقييم تمت مراجعته"
+    },
+    "relevanceGaps": "لا دليل بعد",
+    "assessmentsTitle": "التقييمات",
+    "assessmentsNone": "لا يوجد تقييم لهذا الطلب بعد.",
+    "version": "الإصدار {number}",
+    "openReview": "فتح المراجعة كاملة",
+    "attempt": {
+      "invited": "تمت الدعوة ولم يبدأ",
+      "in_progress": "قيد التنفيذ",
+      "submitted": "تم التسليم",
+      "expired": "انتهى دون تسليم"
+    },
+    "notEvaluated": "تم التسليم ولم يُقيَّم بعد. يبدأ المراجع التقييم من صفحة المراجعة الكاملة.",
+    "evaluation": {
+      "pending": "التقييم قيد الانتظار",
+      "ai_proposed": "درجات مقترحة",
+      "needs_human_review": "بانتظار المراجعة البشرية",
+      "reviewed": "تمت المراجعة"
+    },
+    "overall": "الإجمالي {score} من 100",
+    "demoMode": "قُيّم دون نموذج ذكاء اصطناعي (وضع العرض)",
+    "proposalsOnly": "هذه مقترحات بانتظار مراجعة شخص، وليست نتائج.",
+    "criterion": "المعيار",
+    "score": "الدرجة",
+    "evidenceCol": "الدليل والتوضيح",
+    "source": {
+      "deterministic": "تحقق برمجي",
+      "ai_assisted": "مقترح من الذكاء الاصطناعي",
+      "human_reviewed": "راجعه شخص"
+    },
+    "assessorNote": "ملاحظة المراجع",
+    "profileTitle": "السيرة الذاتية والملف",
+    "projects": "المشاريع",
+    "certifications": "الدورات والشهادات",
+    "feedbackTitle": "ملاحظات المقابلة",
+    "feedbackNote": "رأي كل من أجرى المقابلة، منفصل عن تقييم الميدان. المسودة يراها كاتبها فقط، والملاحظات المرسلة لا تُعدَّل. لا يراها المرشح.",
+    "participants": "المشاركون",
+    "notesTitle": "الملاحظات",
+    "notesNote": "لجهتكم فقط. تُحفظ الملاحظات كما كُتبت مع كاتبها ووقتها، ولا يراها المرشح.",
+    "noteLabel": "إضافة ملاحظة",
+    "addNote": "إضافة الملاحظة",
+    "notesEmpty": "لا توجد ملاحظات بعد.",
+    "historyTitle": "سجل الحالة",
+    "recommendation": {
+      "strong_yes": "أوصي بشدة",
+      "yes": "أوصي",
+      "no": "لا أوصي",
+      "strong_no": "لا أوصي إطلاقًا"
+    },
+    "submittedOn": "أُرسلت بتاريخ {date}",
+    "feedbackNone": "لم تُرسل ملاحظات بعد.",
+    "feedbackDraft": "مسودتكم",
+    "feedbackYours": "ملاحظاتكم",
+    "competencies": "الكفاءات",
+    "competencyN": "الكفاءة {n}",
+    "competencyLabel": "الكفاءة",
+    "rating": "التقدير",
+    "choose": "اختيار",
+    "ratingLevel": {
+      "1": "1 · لم تظهر",
+      "2": "2 · ظهرت جزئيًا",
+      "3": "3 · ظهرت بوضوح",
+      "4": "4 · ظهرت بقوة"
+    },
+    "evidenceLabel": "ما الذي أظهرها",
+    "addCompetency": "إضافة كفاءة",
+    "recommendationLabel": "توصيتكم",
+    "recommendationNote": "رأيكم بصفتكم من أجرى المقابلة. القرار يصدر منفصلًا، ويصدره شخص.",
+    "feedbackNotes": "ملاحظات",
+    "draftSaved": "حُفظت المسودة",
+    "feedbackSubmitted": "أُرسلت الملاحظات",
+    "saveDraft": "حفظ المسودة",
+    "submitFeedback": "إرسال الملاحظات",
+    "achievements": "الإنجازات",
+    "languages": "اللغات"
   },
   "requirements": {
     "title": "متطلبات الوظيفة",
@@ -1293,7 +1381,38 @@
       "projects": "المشاريع",
       "courses": "الدورات",
       "certifications": "الشهادات",
-      "skills": "المهارات"
+      "skills": "المهارات",
+      "achievements": "الإنجازات",
+      "languages": "اللغات",
+      "summary": "الملخص"
+    },
+    "skillKind": {
+      "technical": "تقنية",
+      "general": "عامة"
+    },
+    "evidenceTitle": "أين تُظهر سيرتكم كل مهارة (منقولة كما كُتبت)",
+    "feedbackTitle": "اقتراحات الميدان لسيرتكم الذاتية",
+    "feedbackNote": "هذه الاقتراحات مبنية على قواعد ثابتة لما تذكره سيرتكم، وليست حكمًا عليكم. ليست درجة، ولا يُحفظ منها شيء في ملفكم.",
+    "feedbackStrengths": "ما هو واضح الآن",
+    "feedbackGaps": "ما يمكن توضيحه",
+    "feedback": {
+      "missing_section": "لم نجد قسمًا لـ: {values}",
+      "dated_experience": "خبراتكم مؤرخة",
+      "experience_without_dates": "خبراتكم بلا تواريخ",
+      "skills_with_evidence": "ظاهرة في خبراتكم أو مشاريعكم: {values}",
+      "skills_without_evidence": "مذكورة، لكنها لا تظهر في أي من خبراتكم أو مشاريعكم: {values}",
+      "measurable_results": "تذكر سيرتكم نتائج قابلة للقياس",
+      "no_measurable_results": "لا تُذكر نتائج قابلة للقياس",
+      "projects": "{values} مشاريع مذكورة",
+      "learning": "{values} دورات أو شهادات مذكورة",
+      "no_languages": "لا تُذكر اللغات"
+    },
+    "suggestion": {
+      "missing_section": "إن كان لديكم ما يُذكر فيه، فأضيفوا قسمًا بهذا العنوان.",
+      "experience_without_dates": "أضيفوا سنة البداية والنهاية لكل دور.",
+      "skills_without_evidence": "حيث يصدق ذلك، صفوا مهمة في خبراتكم أو مشاريعكم استخدمتم فيها كل مهارة.",
+      "no_measurable_results": "حيث أمكن، اذكروا نتيجة: رقمًا، أو وقتًا وُفّر، أو حجم عمل.",
+      "no_languages": "أضيفوا قسمًا للغات، مع مستواكم في كل منها."
     }
   },
   "apply": {
@@ -1433,7 +1552,10 @@
       "hiring_decision": "صدر قرار بشأن طلبك على {job}",
       "organization_invitation": "دعيت للانضمام إلى فريق جهة توظيف",
       "employer_claim_approved": "قُبل طلب إدارة ملف جهة التوظيف",
-      "employer_claim_rejected": "لم يُقبل طلب إدارة ملف جهة التوظيف"
+      "employer_claim_rejected": "لم يُقبل طلب إدارة ملف جهة التوظيف",
+      "application_shortlisted": "تمت إضافتكم إلى القائمة المختصرة لوظيفة {job}",
+      "application_rejected": "قررت الجهة عدم المتابعة في طلبكم لوظيفة {job}",
+      "interview_cancelled": "أُلغيت مقابلتكم لوظيفة {job}"
     }
   },
   "development": {
@@ -1479,7 +1601,53 @@
       "course": "دورة: {skill}",
       "certification": "شهادة: {skill}"
     },
-    "browseJobs": "تصفح الفرص"
+    "browseJobs": "تصفح الفرص",
+    "jobTitle": "المسمى الوظيفي المستهدف",
+    "jobTitleHint": "بكلماتكم، مثل «محلل بيانات». يُحفظ كما كتبتموه، ويمكنكم ربطه بأسرة وظيفية من مصنفات القطاعات أدناه.",
+    "titleYours": "مسماكم المستهدف",
+    "titleEntered": "كما كتبتموه، وليس مسمى رسميًا",
+    "titleSkillsTitle": "ما تطلبه الوظائف المنشورة بهذا المسمى",
+    "titleSkillsNone": "لا توجد بعد وظيفة منشورة في الميدان بمسمى مشابه، فلا شيء للمقارنة. اربطوا أسرة وظيفية أدناه لتروا مهاراتها.",
+    "titleSkillsNote": "المهارات المطلوبة في {jobs, plural, one {وظيفة منشورة واحدة} two {وظيفتين منشورتين} few {# وظائف منشورة} other {# وظيفة منشورة}} بمسمى مشابه، وهي متطلبات كل جهة نفسها.",
+    "titleEvidence": {
+      "assessed": "ظهرت في تقييم",
+      "self_reported": "ذكرتموها",
+      "no_evidence": "لا دليل بعد"
+    },
+    "inJobs": "في {count, plural, one {وظيفة واحدة} two {وظيفتين} few {# وظائف} other {# وظيفة}}",
+    "startSimulated": "التدرّب بمهمة محاكاة",
+    "startPortfolio": "بدء مشروع لملف الأعمال",
+    "practiceStarted": "بدأت",
+    "resourceReason": "سبب ظهوره: ينمّي «{skill}» التي يطلبها هذا الدور. مصدر تم التحقق منه، وليس تزكية.",
+    "practiceTitle": "مهام التدرّب",
+    "practiceNote": "طرق للتدرّب على المهارات التي يطلبها دوركم المستهدف. مهمة المحاكاة تدرّب، ومشروع ملف الأعمال عملكم الخاص: لا أحد منهما وظيفة، ولا يُحسب خبرة عمل. يتحقق الميدان من شكل ما تسلّمونه فقط.",
+    "practiceEmpty": "لم تبدؤوا مهمة تدرّب بعد. ابدؤوا واحدة من إحدى المهارات أعلاه.",
+    "practiceKind": {
+      "simulated_task": "مهمة محاكاة · للتدرّب، وليست وظيفة",
+      "portfolio_project": "مشروع لملف الأعمال · عملكم الخاص، وليس وظيفة"
+    },
+    "practiceStatus": {
+      "not_started": "لم تبدأ",
+      "in_progress": "قيد التنفيذ",
+      "submitted": "تم التسليم",
+      "completed": "مكتملة"
+    },
+    "practiceInstructions": "التعليمات",
+    "practiceDeliverables": "ما يجب تضمينه",
+    "practiceSubmission": "عملكم",
+    "practiceSubmissionHint": "افصلوا كل جزء بسطر فارغ.",
+    "practiceLink": "رابط عملكم (https)",
+    "practiceSave": "حفظ",
+    "practiceSubmit": "تسليم",
+    "practiceComplete": "وضع علامة الإكمال",
+    "checklistTitle": "قائمة تحقق الميدان",
+    "checklistNote": "تتحقق من شكل ما سلّمتموه فقط. ليست تقييمًا، ولم تطّلع عليها أي جهة.",
+    "checklist": {
+      "enough_detail": "تفاصيل كافية (نحو 120 كلمة أو أكثر)",
+      "each_deliverable": "جزء لكل ما يجب تضمينه",
+      "names_skill": "يذكر المهارة التي يتدرّب عليها",
+      "has_link": "يتضمن رابطًا للعمل"
+    }
   },
   "settings": {
     "title": "الإعدادات",
@@ -1523,7 +1691,9 @@
     "choose": "اختر",
     "messageAr": "رسالة للمرشح بالعربية",
     "messageEn": "رسالة للمرشح بالإنجليزية",
-    "issue": "إصدار القرار"
+    "issue": "إصدار القرار",
+    "interviewers": "من يجري المقابلة",
+    "interviewersNote": "تشاركون بصفتكم من جدول المقابلة. المشاركون وحدهم يدخلون غرفة الفيديو ويكتبون الملاحظات."
   },
   "employers": {
     "title": "دليل جهات العمل",
@@ -2108,5 +2278,54 @@
     "fileHint": "ملف PDF أو PNG أو JPEG بحد أقصى 5 ميجابايت. لا يفتحه إلا مالكو جهتكم ومديروها ومسؤولو ميدان.",
     "submit": "إرسال الطلب",
     "rejected": "لم يُقبل طلبكم لإدارة {employer}. يمكنكم إرسال طلب جديد."
+  },
+  "assessmentIntel": {
+    "companyTypeTitle": "نوع الجهة",
+    "companyTypeNote": "يستخدمه الميدان مع قطاع الوظيفة ومستواها لتشكيل الجهة الخيالية في التقييمات المولّدة. لا يُرسل اسم جهتكم.",
+    "companyType": "النوع",
+    "notSet": "غير محدد",
+    "save": "حفظ",
+    "companyTypes": {
+      "private_company": "شركة خاصة",
+      "startup": "شركة ناشئة",
+      "sme": "منشأة صغيرة أو متوسطة",
+      "large_enterprise": "منشأة كبيرة",
+      "government_entity": "جهة حكومية",
+      "semi_government": "جهة شبه حكومية",
+      "nonprofit": "جهة غير ربحية",
+      "multinational": "شركة متعددة الجنسيات"
+    },
+    "qualityTitle": "تقرير الجودة من الميدان",
+    "qualityGated": "وُلّد هذا الإصدار وفق معيار الميدان للتقييم، فاعتماده يحتاج إلى تقرير «جاهز» على محتواه الحالي.",
+    "qualityNotGated": "للاطلاع. الإصدارات المولّدة وحدها يجب أن تجتاز هذا الفحص قبل الاعتماد.",
+    "qualityNone": "لا يوجد تقرير بعد.",
+    "qualityScore": "{score} من 100",
+    "qualityStale": "قديم: تغيّرت المسودة بعد هذا التقرير",
+    "notStandardized": "هذه المسودة ليست حزمة كاملة وفق معيار الميدان للتقييم.",
+    "verdict": {
+      "ready": "جاهز",
+      "needs_revision": "يحتاج إلى مراجعة",
+      "blocked": "موقوف"
+    },
+    "qualityErrors": "ما يمنع الاعتماد",
+    "qualityRevisions": "المراجعات المطلوبة",
+    "qualityWarnings": "تنبيهات ({count})",
+    "qualityDimensions": "الدرجات حسب البُعد",
+    "qualityEnglish": "رسائل الفحوص باللغة الإنجليزية.",
+    "runCheck": "تشغيل فحص الجودة",
+    "guideTitle": "دليل المقيّم ({version})",
+    "guideAssessorOnly": "للمقيّمين فقط. لا يراه المرشحون أبدًا.",
+    "objective": "الهدف",
+    "rules": "القواعد",
+    "tools": "الأدوات المسموح بها",
+    "materials": "المواد",
+    "materialKind": {
+      "table": "جدول",
+      "log": "سجل",
+      "document": "مستند",
+      "policy": "سياسة"
+    },
+    "fictional": "بيانات خيالية",
+    "rowsShown": "يُعرض {shown} من {total} صفًا"
   }
 }

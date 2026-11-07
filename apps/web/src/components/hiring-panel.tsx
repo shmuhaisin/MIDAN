@@ -53,7 +53,13 @@ function InterviewRow({ orgId, interview, canManage }: { orgId: string; intervie
 }
 
 /** What the candidate journey needs from the organization side: scheduling a person-to-person interview and issuing a decision. */
-export function HiringPanel({ orgId, applicationId, interviews, outcomes, canManage, status }: { orgId: string; applicationId: string; interviews: Interview[]; outcomes: Outcome[]; canManage: boolean; status: string }) {
+type Member = { user_id: string; email: string | null; display_name: string | null };
+
+export function HiringPanel({ orgId, applicationId, interviews, outcomes, canManage, status, team = [] }: {
+  orgId: string; applicationId: string; interviews: Interview[]; outcomes: Outcome[]; canManage: boolean; status: string;
+  /** Members who can be added as interviewers. Whoever schedules always takes part. */
+  team?: Member[];
+}) {
   const t = useTranslations('hiring');
   const ta = useTranslations('application');
   const locale = useLocale();
@@ -73,6 +79,7 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
     startSchedule(async () => {
       const result = await scheduleInterview(orgId, applicationId, {
         scheduled_at: when.toISOString(), duration_minutes: Number(trimmed(form, 'duration')), time_zone: 'Asia/Riyadh',
+        interviewer_ids: form.getAll('interviewer').map(String),
         ...(trimmed(form, 'instructions_ar') && { instructions_ar: trimmed(form, 'instructions_ar') }),
         ...(trimmed(form, 'instructions_en') && { instructions_en: trimmed(form, 'instructions_en') }),
       });
@@ -105,6 +112,20 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
             <Field name="duration" type="number" min={5} max={480} required label={t('duration')} defaultValue="30" />
             <Field name="instructions_ar" dir="rtl" maxLength={2000} label={t('instructionsAr')} />
             <Field name="instructions_en" dir="ltr" maxLength={2000} label={t('instructionsEn')} />
+            {team.length > 0 && (
+              <fieldset className="sm:col-span-2">
+                <legend className="text-sm font-medium">{t('interviewers')}</legend>
+                <p className="text-sm text-muted">{t('interviewersNote')}</p>
+                <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+                  {team.map((m) => (
+                    <label key={m.user_id} className="inline-flex items-center gap-2 text-sm">
+                      <input type="checkbox" name="interviewer" value={m.user_id} className="size-4 accent-[var(--primary)]" />
+                      <bdi>{m.display_name || m.email}</bdi>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
             <div className="sm:col-span-2"><ErrorText code={scheduleError} /><button type="submit" disabled={scheduling} aria-busy={scheduling} className={PRIMARY}>{t('schedule')}</button></div>
           </form>
         )}

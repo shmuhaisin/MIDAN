@@ -1,14 +1,20 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { canReopenApplications, MANUAL_STATUS_CHANGES, statusOptions } from './application-status.ts';
 
-const MIGRATION = '../../../../supabase/migrations/20261107090100_application_status_transitions.sql';
+const MIGRATIONS = new URL('../../../../supabase/migrations/', import.meta.url);
+const NAME = 'function private.manual_status_change_allowed';
 
-/** Reads the allowed moves out of private.manual_status_change_allowed: "when 'to' then p_from in (...)" or "p_from = '...'". */
+/**
+ * Reads the allowed moves out of the latest definition of private.manual_status_change_allowed:
+ * "when 'to' then p_from in (...)" or "p_from = '...'".
+ */
 function fromDatabase() {
-  const sql = readFileSync(new URL(MIGRATION, import.meta.url), 'utf8');
-  const body = sql.slice(sql.indexOf('create function private.manual_status_change_allowed'), sql.indexOf('create function public.set_application_status'));
+  const file = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort().filter((f) => readFileSync(new URL(f, MIGRATIONS), 'utf8').includes(NAME)).at(-1)!;
+  const sql = readFileSync(new URL(file, MIGRATIONS), 'utf8');
+  const start = sql.indexOf(NAME);
+  const body = sql.slice(start, sql.indexOf('$$;', start));
   const moves = new Set<string>();
   for (const [, to, from] of body.matchAll(/when '(\w+)' then p_from (?:in \(([^)]*)\)|= ('\w+'))/g).map((m) => [m[0], m[1], m[2] ?? m[3]])) {
     for (const [, status] of from.matchAll(/'(\w+)'/g)) moves.add(`${status}->${to}`);

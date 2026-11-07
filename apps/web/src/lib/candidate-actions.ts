@@ -83,6 +83,12 @@ export type CvAnalysis = {
     projects: { title: string; description?: string | null }[];
     courses: { title: string }[];
     certifications: { title: string }[];
+    languages?: { name: string; level?: string | null }[];
+    achievements?: { title: string; description?: string | null }[];
+    /** Each skill with its kind and the CV line that shows it, quoted as written. No line, no evidence. */
+    skill_details?: { name: string; kind: 'technical' | 'general' | 'unclassified'; evidence: string | null }[];
+    /** MIDAN's rule-based suggestions about the CV. Not facts about the candidate, and not a score. */
+    feedback?: { type: 'strength' | 'gap'; code: string; values: string[] }[];
     uncertain: string[];
   } | null;
   redaction_counts: Record<string, number> | null;
@@ -134,8 +140,16 @@ export async function readAllNotifications() {
   return done(() => api('/me/notifications/read-all', { method: 'POST' }));
 }
 
-export async function setCareerTarget(sector: string, family: string) {
-  return done(() => api('/me/career/target', { method: 'PUT', body: { sector_code: sector, job_family_ar: family } }));
+export async function setCareerTarget(target: { job_title?: string; sector_code?: string; job_family_ar?: string }) {
+  return done(() => api('/me/career/target', { method: 'PUT', body: target }));
+}
+
+export async function startPractice(reference_skill_id: string, kind: 'simulated_task' | 'portfolio_project') {
+  return done(() => api('/me/career/practice', { method: 'POST', body: { reference_skill_id, kind } }));
+}
+
+export async function updatePractice(id: string, body: { action: 'start' | 'save' | 'submit' | 'complete'; submission?: string; submission_url?: string }) {
+  return done(() => api(`/me/career/practice/${id}`, { method: 'PATCH', body }));
 }
 
 export async function addPlanItem(body: { reference_skill_id: string; kind: string; resource_id?: string }) {
@@ -174,4 +188,12 @@ export async function issueOutcome(orgId: string, applicationId: string, body: R
 
 export async function saveVersionSettings(orgId: string, versionId: string, body: Record<string, unknown>) {
   return done(() => api(`/organizations/${orgId}/assessment-versions/${versionId}`, { method: 'PATCH', body }));
+}
+
+export async function addApplicationNote(orgId: string, applicationId: string, body: string) {
+  return done(() => api(`/organizations/${orgId}/applications/${applicationId}/notes`, { method: 'POST', body: { body } }));
+}
+
+export async function saveInterviewFeedback(orgId: string, applicationId: string, interviewId: string, body: Record<string, unknown>) {
+  return done(() => api(`/organizations/${orgId}/applications/${applicationId}/interviews/${interviewId}/feedback`, { method: 'PUT', body }));
 }

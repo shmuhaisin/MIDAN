@@ -13,6 +13,8 @@ delete from public.career_plan_items s using public.users u
   where s.candidate_id = u.id and u.email like 'midan.test.%@example.com';
 delete from public.career_targets s using public.users u
   where s.candidate_id = u.id and u.email like 'midan.test.%@example.com';
+delete from public.practice_tasks s using public.users u
+  where s.candidate_id = u.id and u.email like 'midan.test.%@example.com';
 delete from public.cv_documents s using public.users u
   where s.candidate_id = u.id and u.email like 'midan.test.%@example.com';
 delete from public.notifications s using public.users u

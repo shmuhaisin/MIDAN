@@ -1,6 +1,6 @@
 /**
  * The statuses a staff member can move an application to by hand, from each status.
- * Must match private.manual_status_change_allowed in supabase/migrations/20261107090100_application_status_transitions.sql,
+ * Must match private.manual_status_change_allowed in supabase/migrations/20261108090200_status_changes_and_notifications.sql,
  * which enforces it. Hiring also waits until every assessment is reviewed; the database says so with a 422.
  * Reopening a rejected application is for owners and admins, as in public.set_application_status.
  * Assessment stages, outcomes and withdrawal are set elsewhere.
@@ -12,7 +12,8 @@ export const MANUAL_STATUS_CHANGES: Record<string, string[]> = {
   under_review: ['shortlisted', 'rejected'],
   ...Object.fromEntries(ASSESSMENT_STAGES.map((stage) => [stage, ['shortlisted', 'rejected']])),
   evaluated: ['shortlisted', 'rejected', 'hired'],
-  shortlisted: ['rejected', 'hired'],
+  // Back to review undoes a shortlist without rejecting anyone (20261108090200).
+  shortlisted: ['under_review', 'rejected', 'hired'],
   rejected: ['under_review', 'shortlisted'],
   hired: [],
   withdrawn: [],

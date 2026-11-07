@@ -501,7 +501,8 @@
     "file_invalid_json": "This JSON can't be read. It should be a list of records.",
     "file_empty_file": "This file has no records.",
     "file_too_many_rows": "This file has too many records: 5,000 is the most at once.",
-    "file_unterminated_quote": "This CSV has a quotation mark that never closes."
+    "file_unterminated_quote": "This CSV has a quotation mark that never closes.",
+    "feedback_incomplete": "Rate every competency and choose a recommendation before submitting."
   },
   "applicationStatus": {
     "submitted": "Submitted",
@@ -1148,7 +1149,94 @@
     "years": "{count} years of experience",
     "none": "Nothing to show.",
     "viewWork": "Review their assessment work",
-    "privacy": "You can see this profile because this candidate applied to your organization. Access ends if they withdraw."
+    "privacy": "You can see this profile because this candidate applied to your organization. Access ends if they withdraw.",
+    "snapshotNote": "What the candidate gave this application on {date}. Later changes to their profile aren't shown here.",
+    "statusNow": "Application status",
+    "statusLabel": "Application status",
+    "decisionsNote": "Shortlisting, rejecting and hiring are your organization's decisions. MIDAN's results inform them and never make them.",
+    "coverNote": "Cover note",
+    "relevanceTitle": "Evidence for the job's required skills",
+    "relevanceNote": "Required skills the candidate listed when applying, or showed in a reviewed assessment of this application. Listed means stated by the candidate, not verified. This isn't a score, a ranking or a prediction.",
+    "relevanceNone": "This job states no required skills, so there's nothing to compare.",
+    "relevanceCount": "{matched} of {total} required skills have evidence",
+    "evidence": {
+      "listed": "listed by the candidate",
+      "assessed": "shown in a reviewed assessment"
+    },
+    "relevanceGaps": "No evidence yet",
+    "assessmentsTitle": "Assessments",
+    "assessmentsNone": "No assessment for this application yet.",
+    "version": "version {number}",
+    "openReview": "Open the full review",
+    "attempt": {
+      "invited": "Invited, not started",
+      "in_progress": "In progress",
+      "submitted": "Submitted",
+      "expired": "Expired without submission"
+    },
+    "notEvaluated": "Submitted, not evaluated yet. A reviewer starts the evaluation from the full review.",
+    "evaluation": {
+      "pending": "Evaluation pending",
+      "ai_proposed": "Proposed scores",
+      "needs_human_review": "Waiting for human review",
+      "reviewed": "Reviewed"
+    },
+    "overall": "overall {score} of 100",
+    "demoMode": "scored without an AI model (demo mode)",
+    "proposalsOnly": "These are proposals waiting for a person's review, not results.",
+    "criterion": "Criterion",
+    "score": "Score",
+    "evidenceCol": "Evidence and explanation",
+    "source": {
+      "deterministic": "checked by code",
+      "ai_assisted": "AI proposal",
+      "human_reviewed": "reviewed by a person"
+    },
+    "assessorNote": "Reviewer's note",
+    "profileTitle": "CV and profile",
+    "projects": "Projects",
+    "certifications": "Courses and certifications",
+    "feedbackTitle": "Interview feedback",
+    "feedbackNote": "Each interviewer's own view, kept apart from MIDAN's assessment. A draft is visible to its author only; submitted feedback can't be changed. The candidate never sees it.",
+    "participants": "Taking part",
+    "notesTitle": "Notes",
+    "notesNote": "For your organization only. Notes are kept as written, with their author and time, and the candidate never sees them.",
+    "noteLabel": "Add a note",
+    "addNote": "Add note",
+    "notesEmpty": "No notes yet.",
+    "historyTitle": "Status history",
+    "recommendation": {
+      "strong_yes": "Strongly recommend",
+      "yes": "Recommend",
+      "no": "Don't recommend",
+      "strong_no": "Strongly don't recommend"
+    },
+    "submittedOn": "Submitted {date}",
+    "feedbackNone": "No feedback submitted yet.",
+    "feedbackDraft": "Your draft",
+    "feedbackYours": "Your feedback",
+    "competencies": "Competencies",
+    "competencyN": "Competency {n}",
+    "competencyLabel": "Competency",
+    "rating": "Rating",
+    "choose": "Choose",
+    "ratingLevel": {
+      "1": "1 · not shown",
+      "2": "2 · partly shown",
+      "3": "3 · clearly shown",
+      "4": "4 · strongly shown"
+    },
+    "evidenceLabel": "What showed it",
+    "addCompetency": "Add a competency",
+    "recommendationLabel": "Your recommendation",
+    "recommendationNote": "Your view as an interviewer. The decision is issued separately, by a person.",
+    "feedbackNotes": "Notes",
+    "draftSaved": "Draft saved",
+    "feedbackSubmitted": "Feedback submitted",
+    "saveDraft": "Save draft",
+    "submitFeedback": "Submit feedback",
+    "achievements": "Achievements",
+    "languages": "Languages"
   },
   "requirements": {
     "title": "Job requirements",
@@ -1293,7 +1381,38 @@
       "projects": "Projects",
       "courses": "Courses",
       "certifications": "Certifications",
-      "skills": "Skills"
+      "skills": "Skills",
+      "achievements": "Achievements",
+      "languages": "Languages",
+      "summary": "Summary"
+    },
+    "skillKind": {
+      "technical": "technical",
+      "general": "general"
+    },
+    "evidenceTitle": "Where your CV shows each skill (quoted as written)",
+    "feedbackTitle": "MIDAN's suggestions for your CV",
+    "feedbackNote": "These come from fixed rules about what your CV states, not from a judgment of you. They aren't a score, and nothing here is saved to your profile.",
+    "feedbackStrengths": "What's already clear",
+    "feedbackGaps": "What could be clearer",
+    "feedback": {
+      "missing_section": "No section found for: {values}",
+      "dated_experience": "Your experience includes dates",
+      "experience_without_dates": "Your experience has no dates",
+      "skills_with_evidence": "Shown in your experience or projects: {values}",
+      "skills_without_evidence": "Listed, but not shown anywhere in your experience or projects: {values}",
+      "measurable_results": "Your CV states measurable results",
+      "no_measurable_results": "No measurable results are stated",
+      "projects": "{values} projects listed",
+      "learning": "{values} courses or certifications listed",
+      "no_languages": "No languages are listed"
+    },
+    "suggestion": {
+      "missing_section": "If you have something to put there, add a section with that heading.",
+      "experience_without_dates": "Add the start and end year of each role.",
+      "skills_without_evidence": "Where it's true, describe a task in your experience or projects that used each skill.",
+      "no_measurable_results": "Where you can, state a result: a figure, a time saved, a scale handled.",
+      "no_languages": "Add a languages section, with your level in each."
     }
   },
   "apply": {
@@ -1433,7 +1552,10 @@
       "hiring_decision": "A decision was issued on your application for {job}",
       "organization_invitation": "You've been invited to join an organization's team",
       "employer_claim_approved": "Your request to manage an employer profile was approved",
-      "employer_claim_rejected": "Your request to manage an employer profile wasn't approved"
+      "employer_claim_rejected": "Your request to manage an employer profile wasn't approved",
+      "application_shortlisted": "You've been shortlisted for {job}",
+      "application_rejected": "The organization decided not to continue with your application for {job}",
+      "interview_cancelled": "Your interview for {job} was cancelled"
     }
   },
   "development": {
@@ -1479,7 +1601,53 @@
       "course": "Course: {skill}",
       "certification": "Certification: {skill}"
     },
-    "browseJobs": "Browse opportunities"
+    "browseJobs": "Browse opportunities",
+    "jobTitle": "Target job title",
+    "jobTitleHint": "In your own words, for example \"Data analyst\". It's kept as you wrote it. You can also link it to a job family from the sector workbooks below.",
+    "titleYours": "Your target title",
+    "titleEntered": "as you wrote it, not an official title",
+    "titleSkillsTitle": "What published jobs with this title ask for",
+    "titleSkillsNone": "No published job on MIDAN has a similar title yet, so there's nothing to compare. Link a job family below to see its skills.",
+    "titleSkillsNote": "Required skills in {jobs, plural, one {# published job} other {# published jobs}} with a similar title. They're each organization's own requirements.",
+    "titleEvidence": {
+      "assessed": "shown in an assessment",
+      "self_reported": "you listed it",
+      "no_evidence": "no evidence yet"
+    },
+    "inJobs": "in {count, plural, one {# job} other {# jobs}}",
+    "startSimulated": "Practice with a simulated task",
+    "startPortfolio": "Start a portfolio project",
+    "practiceStarted": "Started",
+    "resourceReason": "Why it's here: it develops {skill}, which this role asks for. A verified source, not an endorsement.",
+    "practiceTitle": "Practice tasks",
+    "practiceNote": "Ways to practise the skills your target role asks for. A simulated task is practice and a portfolio project is your own work: neither is employment, and neither counts as work experience. MIDAN checks only the shape of what you submit.",
+    "practiceEmpty": "You haven't started a practice task yet. Start one from a skill above.",
+    "practiceKind": {
+      "simulated_task": "Simulated task · practice, not employment",
+      "portfolio_project": "Portfolio project · your own work, not employment"
+    },
+    "practiceStatus": {
+      "not_started": "Not started",
+      "in_progress": "In progress",
+      "submitted": "Submitted",
+      "completed": "Completed"
+    },
+    "practiceInstructions": "Instructions",
+    "practiceDeliverables": "What to include",
+    "practiceSubmission": "Your work",
+    "practiceSubmissionHint": "Separate each part with a blank line.",
+    "practiceLink": "Link to your work (https)",
+    "practiceSave": "Save",
+    "practiceSubmit": "Submit",
+    "practiceComplete": "Mark completed",
+    "checklistTitle": "MIDAN's checklist",
+    "checklistNote": "It checks the shape of your submission only. It isn't an assessment, and no organization has seen it.",
+    "checklist": {
+      "enough_detail": "Enough detail (about 120 words or more)",
+      "each_deliverable": "A part for each thing to include",
+      "names_skill": "Names the skill it practises",
+      "has_link": "Includes a link to the work"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -1523,7 +1691,9 @@
     "choose": "Choose",
     "messageAr": "Message to the candidate in Arabic",
     "messageEn": "Message to the candidate in English",
-    "issue": "Issue the decision"
+    "issue": "Issue the decision",
+    "interviewers": "Interviewers",
+    "interviewersNote": "You take part as the person scheduling. Only participants can join the video room and give feedback."
   },
   "employers": {
     "title": "Employer directory",
@@ -2108,5 +2278,54 @@
     "fileHint": "A PDF, PNG or JPEG file, up to 5 MB. Only your organization's owners and admins and Midan's administrators can open it.",
     "submit": "Send the request",
     "rejected": "Your request to manage {employer} wasn't approved. You can send a new one."
+  },
+  "assessmentIntel": {
+    "companyTypeTitle": "Company type",
+    "companyTypeNote": "MIDAN uses it, with the job's sector and level, to shape the fictional company in generated assessments. Your organization's name is never sent.",
+    "companyType": "Type",
+    "notSet": "Not set",
+    "save": "Save",
+    "companyTypes": {
+      "private_company": "Private company",
+      "startup": "Startup",
+      "sme": "Small or medium business",
+      "large_enterprise": "Large enterprise",
+      "government_entity": "Government entity",
+      "semi_government": "Semi-government",
+      "nonprofit": "Nonprofit",
+      "multinational": "Multinational"
+    },
+    "qualityTitle": "MIDAN's quality report",
+    "qualityGated": "This version was generated to the MIDAN Assessment Standard, so approving it needs a ready report on its current content.",
+    "qualityNotGated": "For information. Only generated versions must pass this check before approval.",
+    "qualityNone": "No report yet.",
+    "qualityScore": "{score} of 100",
+    "qualityStale": "Out of date: the draft changed after this report",
+    "notStandardized": "This draft isn't a full MIDAN Assessment Standard package.",
+    "verdict": {
+      "ready": "Ready",
+      "needs_revision": "Needs revision",
+      "blocked": "Blocked"
+    },
+    "qualityErrors": "What blocks approval",
+    "qualityRevisions": "Required revisions",
+    "qualityWarnings": "Warnings ({count})",
+    "qualityDimensions": "Scores by dimension",
+    "qualityEnglish": "The checks' messages are in English.",
+    "runCheck": "Run MIDAN's quality check",
+    "guideTitle": "Assessor guide ({version})",
+    "guideAssessorOnly": "For assessors only. Candidates never see this.",
+    "objective": "Objective",
+    "rules": "Rules",
+    "tools": "Tools you may use",
+    "materials": "Materials",
+    "materialKind": {
+      "table": "table",
+      "log": "log",
+      "document": "document",
+      "policy": "policy"
+    },
+    "fictional": "fictional data",
+    "rowsShown": "Showing {shown} of {total} rows"
   }
 }

@@ -193,7 +193,11 @@ export class OrganizationsController {
         ...rest,
         ...(application_deadline !== undefined && { application_deadline: application_deadline ? new Date(application_deadline) : null }),
       };
-      const { count } = await tx.jobs.updateMany({ where: { id: jobId, org_id: orgId }, data });
+      // An update with only skills has no job fields to write (the DTO's other fields are present but undefined), and
+      // Prisma reports no rows for an update that writes nothing.
+      const { count } = Object.values(data).some((v) => v !== undefined)
+        ? await tx.jobs.updateMany({ where: { id: jobId, org_id: orgId }, data })
+        : { count: await tx.jobs.count({ where: { id: jobId, org_id: orgId } }) };
       if (count === 0) throw new NotFoundException();
       if (skills) {
         await tx.job_skills.deleteMany({ where: { job_id: jobId } });

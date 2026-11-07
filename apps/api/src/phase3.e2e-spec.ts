@@ -131,7 +131,9 @@ describe('Phase 3: jobs and employers', () => {
     });
 
     it('keeps the source record and review notes from the public', async () => {
-      const [listing] = await mine();
+      // The listing whose employer is in the registry. The other one names an unknown employer and can't be published,
+      // and the list has no fixed order, so picking the first was a flake.
+      const listing = (await mine()).find((l: { source_job_id: string }) => l.source_job_id === `midan-test-${RUN}-1`);
       await api().post(`/admin/listings/${listing.id}/review`).set(bearer(admin)).send({ action: 'approve', note: 'An internal note' }).expect(201);
       await api().post(`/admin/listings/${listing.id}/review`).set(bearer(admin)).send({ action: 'publish' }).expect(201);
       for (const who of [null, candidate]) {
