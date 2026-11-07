@@ -17,6 +17,13 @@ with checks(name, ok) as (values
   ('Checkpoint schema belongs to the AI role', (select pg_get_userbyid(nspowner) = 'midan_ai' from pg_namespace where nspname = 'ai_checkpoints')),
   ('Row security on for every public table', not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity)),
   ('Edits to assessment drafts are audited', (select count(*) = 2 from pg_trigger where tgname = 'write_audit' and tgrelid in ('public.assessment_tasks'::regclass, 'public.rubric_criteria'::regclass))),
+  ('Listing source records are closed to signed-out visitors', not has_column_privilege('anon', 'public.external_job_listings', 'raw_record', 'select')),
+  ('Listing review notes are closed to signed-in users', not has_column_privilege('authenticated', 'public.external_job_listings', 'review_note', 'select')),
+  ('Job search text exists', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'jobs' and column_name = 'search_text')),
+  ('Claims have row security', (select relrowsecurity from pg_class where oid = 'public.employer_claims'::regclass)),
+  ('Claims are never written directly', not has_table_privilege('authenticated', 'public.employer_claims', 'insert')),
+  ('Claim evidence bucket is private', not (select public from storage.buckets where id = 'employer-claims')),
+  ('Invitations closed to signed-out visitors', not has_function_privilege('anon', 'public.accept_organization_invitation(uuid)', 'execute')),
   ('Only the three authorized job source types', (select regexp_count(pg_get_constraintdef(oid), '''[a-z_]+''::text') = 3 from pg_constraint where conrelid = 'public.external_job_listings'::regclass and conname = 'external_job_listings_source_type_check'))
 )
 select case when ok then 'ok   ' else 'FAIL ' end || name from checks;

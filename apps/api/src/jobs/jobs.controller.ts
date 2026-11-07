@@ -33,6 +33,32 @@ const PUBLIC_JOB = {
   },
 } satisfies Prisma.jobsSelect;
 
+/** What a visitor sees of a listing. The raw record, review notes and who reviewed it stay with administrators. */
+const PUBLIC_LISTING = {
+  id: true, title_ar: true, title_en: true, title_original: true, description_original: true, requirements_original: true, employer_name_ar: true, employer_name_en: true,
+  location: true, sector: true, sector_code: true, employment_type: true, source_name: true, source_url: true, source_type: true, collected_at: true, published: true, created_at: true,
+  employer_registry: { select: { id: true, name_ar: true, name_en: true } },
+} satisfies Prisma.external_job_listingsSelect;
+
+const MAX_PAGE_SIZE = 50;
+const MAX_SEARCH_TERMS = 8;
+
+function paging(page?: string, pageSize?: string) {
+  const number = Math.max(1, Number.parseInt(page ?? '1', 10) || 1);
+  const size = Math.min(MAX_PAGE_SIZE, Math.max(1, Number.parseInt(pageSize ?? '12', 10) || 12));
+  return { number, size, skip: (number - 1) * size };
+}
+
+const distinct = (values: (string | null)[]) => [...new Set(values.filter((v): v is string => Boolean(v)))].sort();
+
+/** The search, spelled the way the stored text is: public.normalize_arabic, which also lowers case. */
+async function searchTerms(db: DbService, q?: string) {
+  const text = q?.trim().slice(0, 200);
+  if (!text) return [];
+  const [row] = await db.asAnon((tx) => tx.$queryRaw<{ normalized: string }[]>`select public.normalize_arabic(${text}) as normalized`);
+  return row.normalized.split(/\s+/).filter(Boolean).slice(0, MAX_SEARCH_TERMS);
+}
+
 @ApiTags('jobs')
 @Controller('jobs')
 export class JobsController {
@@ -41,17 +67,29 @@ export class JobsController {
   @Get()
   @UseGuards(OptionalAuthGuard)
   @ApiOperation({ summary: 'Published jobs on Midan, with optional filters. Test fixtures never appear here, and demo jobs only with demo=1.' })
-  list(
+  async list(
     @CurrentUser() user: AuthUser | undefined,
     @Query('demo') demo?: string,
     @Query('q') q?: string, @Query('employer') employer?: string, @Query('location') location?: string, @Query('sector') sector?: string,
     @Query('employment_type') employmentType?: string, @Query('experience_level') experienceLevel?: string,
     @Query('registry', new ParseUUIDPipe({ optional: true })) registry?: string,
+    @Query('page') page?: string, @Query('page_size') pageSize?: string,
   ) {
     const contains = (value: string) => ({ contains: value.slice(0, 100), mode: Prisma.QueryMode.insensitive });
+    const base: Prisma.jobsWhereInput = demo === '1' ? { status: 'published', is_demo: true } : listableJobs(user?.email);
+    const terms = await searchTerms(this.db, q);
     const where: Prisma.jobsWhereInput = {
-      ...(demo === '1' ? { status: 'published', is_demo: true } : listableJobs(user?.email)),
-      ...(q?.trim() && { OR: [{ title_ar: contains(q.trim()) }, { title_en: contains(q.trim()) }] }),
+      ...base,
+      // Every word has to appear somewhere: the title, description or requirements, either language, or the employer's name.
+      ...(terms.length > 0 && {
+        AND: terms.map((term) => ({
+          OR: [
+            { search_text: { contains: term } },
+            { job_requirements: { some: { retired_at: null, review_status: 'approved', search_text: { contains: term } } } },
+            { organizations: { OR: [{ name_ar: contains(term) }, { name_en: contains(term) }] } },
+          ],
+        })),
+      }),
       ...(employer?.trim() && { organizations: { OR: [{ name_ar: contains(employer.trim()) }, { name_en: contains(employer.trim()) }] } }),
       ...(registry && { organizations: { employer_registry_id: registry } }),
       ...(location?.trim() && { location: contains(location.trim()) }),
@@ -59,25 +97,51 @@ export class JobsController {
       ...(employmentType && { employment_type: employmentType }),
       ...(experienceLevel && { experience_level: experienceLevel }),
     };
-    return this.db.asAnon((tx) => tx.jobs.findMany({ where, select: PUBLIC_JOB, orderBy: { published_at: 'desc' }, take: 100 }));
+    // Without a page, the plain list that other callers already read.
+    if (page === undefined) return this.db.asAnon((tx) => tx.jobs.findMany({ where, select: PUBLIC_JOB, orderBy: { published_at: 'desc' }, take: 100 }));
+    const { number, size, skip } = paging(page, pageSize);
+    return this.db.asAnon(async (tx) => {
+      const [items, total, all] = await Promise.all([
+        tx.jobs.findMany({ where, select: PUBLIC_JOB, orderBy: [{ published_at: 'desc' }, { id: 'asc' }], skip, take: size }),
+        tx.jobs.count({ where }),
+        // What the filters can offer: everything listable, not just this page.
+        tx.jobs.findMany({ where: base, select: { location: true, employment_type: true, experience_level: true, organizations: { select: { name_ar: true, name_en: true } } }, take: 1000 }),
+      ]);
+      return {
+        items, total, page: number, page_size: size,
+        facets: {
+          locations: distinct(all.map((j) => j.location)),
+          employment_types: distinct(all.map((j) => j.employment_type)),
+          experience_levels: distinct(all.map((j) => j.experience_level)),
+          employers: [...new Map(all.map((j) => [j.organizations.name_en, j.organizations])).values()],
+        },
+      };
+    });
   }
 
   @Get('external')
   @ApiOperation({ summary: "Listings on other sites. They link to their source, and can't be applied to here." })
-  external(@Query('q') q?: string, @Query('sector') sector?: string) {
-    const text = q?.trim().slice(0, 100);
-    return this.db.asAnon((tx) =>
-      tx.external_job_listings.findMany({
-        where: {
-          published: true,
-          is_demo: false,
-          ...(sector && { sector }),
-          ...(text && { OR: [{ title_ar: { contains: text, mode: Prisma.QueryMode.insensitive } }, { title_en: { contains: text, mode: Prisma.QueryMode.insensitive } }] }),
-        },
-        orderBy: { created_at: 'desc' },
-        take: 50,
-      }),
-    );
+  async external(@Query('q') q?: string, @Query('sector') sector?: string, @Query('page') page?: string, @Query('page_size') pageSize?: string) {
+    const terms = await searchTerms(this.db, q);
+    const where: Prisma.external_job_listingsWhereInput = {
+      published: true,
+      is_demo: false,
+      AND: [
+        // Once its record has become a job here, the job is what people find.
+        { OR: [{ converted_job: { is: null } }, { converted_job: { status: { not: 'published' } } }] },
+        ...(sector ? [{ OR: [{ sector }, { sector_code: sector }] }] : []),
+        ...terms.map((term) => ({ search_text: { contains: term } })),
+      ],
+    };
+    if (page === undefined) return this.db.asAnon((tx) => tx.external_job_listings.findMany({ where, select: PUBLIC_LISTING, orderBy: { created_at: 'desc' }, take: 50 }));
+    const { number, size, skip } = paging(page, pageSize);
+    return this.db.asAnon(async (tx) => {
+      const [items, total] = await Promise.all([
+        tx.external_job_listings.findMany({ where, select: PUBLIC_LISTING, orderBy: [{ created_at: 'desc' }, { id: 'asc' }], skip, take: size }),
+        tx.external_job_listings.count({ where }),
+      ]);
+      return { items, total, page: number, page_size: size };
+    });
   }
 
   @Get(':id')

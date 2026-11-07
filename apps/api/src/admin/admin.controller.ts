@@ -1,10 +1,15 @@
-import { Body, CanActivate, Controller, ExecutionContext, ForbiddenException, Get, Injectable, Param, ParseIntPipe, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, CanActivate, ConflictException, Controller, ExecutionContext, ForbiddenException, Get, Headers, Injectable, NotFoundException, Param, ParseIntPipe, ParseUUIDPipe, Post, Query, UnprocessableEntityException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { createHash } from 'node:crypto';
+import { basename } from 'node:path';
 import type { Request } from 'express';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
+import { signedUrl } from '../common/storage';
 import { AuthUser, DbService } from '../db/db.service';
 import { integrationStatus } from './integrations';
+import { LISTING_SOURCE_TYPES, ListingFileError, ListingRow, parseListingFile } from './listing-file';
 
 /** Runs after AuthGuard. The database decides, as the caller: private.platform_admins is the only list. */
 @Injectable()
@@ -26,6 +31,18 @@ class AliasDto {
   @ApiProperty() @IsString() @MaxLength(300) name!: string;
   @ApiProperty({ enum: ['ar', 'en'] }) @IsIn(['ar', 'en']) language!: 'ar' | 'en';
 }
+class ListingUploadDto {
+  @ApiProperty({ enum: LISTING_SOURCE_TYPES }) @IsIn(LISTING_SOURCE_TYPES) source_type!: string;
+  @ApiProperty({ description: 'Who the records came from.' }) @IsString() @MinLength(2) @MaxLength(200) source_name!: string;
+  @ApiProperty({ description: 'What permits using them. Kept with the import.' }) @IsString() @MinLength(5) @MaxLength(1000) authorization_note!: string;
+  @ApiPropertyOptional({ description: 'When saving: the file the preview was made from.' }) @IsOptional() @IsString() @MaxLength(100) preview_sha256?: string;
+}
+
+class ClaimReviewDto {
+  @ApiProperty({ enum: ['approved', 'rejected'] }) @IsIn(['approved', 'rejected']) decision!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) note?: string;
+}
+
 class ListingReviewDto {
   @ApiProperty({ enum: ['confirm_employer', 'reject_employer', 'approve', 'reject', 'publish', 'unpublish', 'not_duplicate'] })
   @IsIn(['confirm_employer', 'reject_employer', 'approve', 'reject', 'publish', 'unpublish', 'not_duplicate']) action!: string;
@@ -50,6 +67,7 @@ class ResourceDto {
   @ApiProperty() @IsUUID() reference_skill_id!: string;
 }
 
+const MAX_LISTING_FILE = 5 * 1024 * 1024;
 const STATUSES = ['imported', 'updated', 'unchanged', 'duplicate', 'rejected', 'ambiguous', 'warning'];
 
 @ApiTags('administration')
@@ -144,6 +162,111 @@ export class AdminController {
   @Get('listings')
   listings(@CurrentUser() user: AuthUser, @Query('review') review?: string) {
     return this.db.asUser(user, (tx) => this.listingRows(tx, ['pending', 'approved', 'rejected'].includes(review ?? '') ? review! : null));
+  }
+
+  @Post('listings/preview')
+  @ApiOperation({ summary: 'Reads a CSV or JSON file of authorized job records and says what importing it would do. Saves nothing.' })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_LISTING_FILE } }))
+  async previewListings(@CurrentUser() user: AuthUser, @Body() body: ListingUploadDto, @UploadedFile() file?: Express.Multer.File) {
+    const { name, sha256, parsed, valid, invalid } = this.readListings(file, body);
+    const results = await this.previewRows(user, body, valid, name);
+    const rows = [
+      ...invalid.map((r) => ({ row: r.row, title: r.record.job_title ?? null, employer: r.record.employer_name ?? null, status: 'invalid', errors: r.errors, warnings: r.warnings })),
+      ...results.map((r) => ({ ...r, errors: [], warnings: valid.find((v) => v.row === r.row)?.warnings ?? [] })),
+    ].sort((a, b) => a.row - b.row);
+    const counts: Record<string, number> = {};
+    for (const r of rows) counts[r.status] = (counts[r.status] ?? 0) + 1;
+    return {
+      file: name, sha256, format: parsed.format, total: rows.length, counts, can_import: valid.length > 0, unknown_columns: parsed.unknown_columns, missing_columns: parsed.missing_columns,
+      // A long file is summarized by its counts; the problem rows come first so they're seen.
+      rows: [...rows.filter((r) => r.status === 'invalid'), ...rows.filter((r) => r.status !== 'invalid')].slice(0, 300),
+    };
+  }
+
+  @Post('listings/import')
+  @ApiOperation({ summary: 'Saves a file that was previewed, as a recorded import. Nothing is published, and every record waits for review.' })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_LISTING_FILE } }))
+  async importListings(@CurrentUser() user: AuthUser, @Body() body: ListingUploadDto, @UploadedFile() file?: Express.Multer.File) {
+    const { name, sha256, parsed, valid, invalid } = this.readListings(file, body);
+    if (body.preview_sha256 !== sha256) throw new ConflictException('Preview this file before saving it');
+    if (valid.length === 0) throw new UnprocessableEntityException('This file has no valid records');
+    const previewed = await this.previewRows(user, body, valid, name);
+    const repeated = new Set(previewed.filter((r) => r.status === 'duplicate_in_file').map((r) => r.row));
+    const toSave = valid.filter((r) => !repeated.has(r.row));
+    const issues = [
+      ...invalid.map((r) => ({ kind: 'malformed_record', source_file: name, source_row: r.row, value: r.record.job_title ?? '', detail: r.errors.join(', ') })),
+      ...valid.filter((r) => repeated.has(r.row)).map((r) => ({ kind: 'duplicate_row', source_file: name, source_row: r.row, value: r.record.job_title ?? '', detail: 'repeated in this file; the first was kept' })),
+    ];
+    const sources = [{ file: name, sha256, format: parsed.format, rows: parsed.rows.length, source_type: body.source_type, source_name: body.source_name, authorization_note: body.authorization_note }];
+    const [row] = await this.db.asUser(user, (tx) => tx.$queryRaw<{ result: { run_id: string; counts: Record<string, number> } }[]>`
+      select public.admin_import_listings(${body.source_type}, ${JSON.stringify(sources)}::jsonb, ${JSON.stringify(toSave.map((r) => this.importRow(r, name, body)))}::jsonb, ${JSON.stringify(issues)}::jsonb) as result`);
+    return { ...row.result, rejected: invalid.length, repeated: repeated.size };
+  }
+
+  private readListings(file: Express.Multer.File | undefined, body: ListingUploadDto) {
+    if (!file) throw new UnprocessableEntityException('Choose a CSV or JSON file');
+    // A browser sends a non-ASCII file name as Latin-1 bytes. It's only a label, kept in the import's record.
+    const name = basename(Buffer.from(file.originalname, 'latin1').toString('utf8')).slice(0, 200);
+    let parsed;
+    try {
+      parsed = parseListingFile(file.buffer, name);
+    } catch (error) {
+      if (error instanceof ListingFileError) throw new UnprocessableEntityException(error.message);
+      throw error;
+    }
+    const sha256 = createHash('sha256').update(file.buffer).update(`|${body.source_type}|${body.source_name}`).digest('hex');
+    return { name, sha256, parsed, valid: parsed.rows.filter((r) => r.errors.length === 0), invalid: parsed.rows.filter((r) => r.errors.length > 0) };
+  }
+
+  private importRow(r: ListingRow, file: string, body: ListingUploadDto) {
+    return { ...r.record, source_name: body.source_name, source_file: file, source_row: r.row };
+  }
+
+  private async previewRows(user: AuthUser, body: ListingUploadDto, rows: ListingRow[], file: string) {
+    if (rows.length === 0) return [];
+    // The same shape as the import, so "unchanged" means what it says.
+    const payload = rows.map((r) => this.importRow(r, file, body));
+    const [row] = await this.db.asUser(user, (tx) => tx.$queryRaw<{ result: { row: number; status: string; title: string | null; employer: string | null }[] }[]>`
+      select public.admin_preview_listings(${body.source_type}, ${JSON.stringify(payload)}::jsonb) as result`);
+    return row.result;
+  }
+
+  @Post('listings/:id/convert')
+  @ApiOperation({ summary: "Turns an approved record into a draft job of the organization that manages its employer. It isn't published." })
+  convertListing(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.db.asUser(user, async (tx) => {
+      const [row] = await tx.$queryRaw<unknown[]>`select * from public.convert_listing_to_job(${id}::uuid)`;
+      return row;
+    });
+  }
+
+  @Get('employer-claims')
+  @ApiOperation({ summary: 'Claims to manage an employer, with their evidence, newest first.' })
+  employerClaims(@CurrentUser() user: AuthUser, @Query('status') status?: string) {
+    return this.db.asUser(user, (tx) => tx.$queryRaw`
+      select c.id, c.org_id, c.registry_id, c.role_title, c.evidence_note, c.evidence_path is not null as has_evidence, c.email_domain_matches, c.status, c.review_note, c.reviewed_at, c.created_at,
+        o.name_ar as org_name_ar, o.name_en as org_name_en, o.is_test, e.name_ar as employer_name_ar, e.name_en as employer_name_en, e.source_company_id, e.official_website,
+        u.email as requested_by_email
+      from public.employer_claims c join public.organizations o on o.id = c.org_id join public.employer_registry e on e.id = c.registry_id
+      left join public.users u on u.id = c.requested_by
+      where (${status ?? null}::text is null or c.status = ${status ?? null}) order by (c.status = 'pending') desc, c.created_at desc limit 200`);
+  }
+
+  @Get('employer-claims/:id/evidence-url')
+  async claimEvidence(@CurrentUser() user: AuthUser, @Headers('authorization') token: string, @Param('id', ParseUUIDPipe) id: string) {
+    const [claim] = await this.db.asUser(user, (tx) => tx.$queryRaw<{ evidence_path: string | null }[]>`select evidence_path from public.employer_claims where id = ${id}::uuid`);
+    const url = claim?.evidence_path ? await signedUrl('employer-claims', claim.evidence_path, token) : null;
+    if (!url) throw new NotFoundException();
+    return { url };
+  }
+
+  @Post('employer-claims/:id/review')
+  @ApiOperation({ summary: 'A person decides. Approval links the account to the employer. It never changes the employer record or claims a partnership.' })
+  reviewClaim(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() body: ClaimReviewDto) {
+    return this.db.asUser(user, async (tx) => {
+      const [row] = await tx.$queryRaw<unknown[]>`select * from public.admin_review_employer_claim(${id}::uuid, ${body.decision}, ${body.note ?? null})`;
+      return row;
+    });
   }
 
   @Post('listings/:id/review')
@@ -255,15 +378,8 @@ export class AdminController {
     return { ok: true };
   }
 
-  private listingRows(tx: Parameters<Parameters<DbService['asUser']>[1]>[0], review: string | null) {
-    return tx.$queryRaw`
-      select l.id, l.title_original, l.title_ar, l.title_en, l.employer_name_raw, l.source_type, l.source_name, l.source_url, l.source_job_id, l.collected_at,
-        l.match_status, l.match_confidence, l.match_evidence, l.sector_code, l.subsector_ar, l.job_family_ar, l.classification -> 'confidence' as classification_confidence,
-        l.classification -> 'mentions' as mentions, l.review_status, l.published, l.duplicate_of, l.reviewed_at, l.review_note, l.location, l.employment_type,
-        e.id as registry_id, e.name_ar as registry_name_ar, e.name_en as registry_name_en, e.source_company_id,
-        coalesce((select jsonb_agg(jsonb_build_object('name_ar', s.name_ar, 'evidence', k.evidence)) from public.external_job_skills k
-          join public.reference_skills s on s.id = k.reference_skill_id where k.listing_id = l.id), '[]') as skills
-      from public.external_job_listings l left join public.employer_registry e on e.id = l.employer_registry_id
-      where (${review}::text is null or l.review_status = ${review}) order by l.created_at desc limit 300`;
+  private async listingRows(tx: Parameters<Parameters<DbService['asUser']>[1]>[0], review: string | null) {
+    const rows = await tx.$queryRaw<{ row: unknown }[]>`select public.admin_listings(${review}::text) as row`;
+    return rows.map((r) => r.row);
   }
 }

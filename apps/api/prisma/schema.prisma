@@ -537,6 +537,8 @@ model external_job_listings {
   import_runs                 import_runs?            @relation(fields: [import_run_id], references: [id], onUpdate: NoAction)
   users                       users?                  @relation(fields: [reviewed_by], references: [id], onUpdate: NoAction)
   external_job_skills         external_job_skills[]
+  search_text                 String?
+  converted_job               jobs?                   @relation("JobSourceListing")
 
   @@index([employer_registry_id])
   @@index([review_status])
@@ -657,6 +659,7 @@ model job_requirements {
   skills                    skills?                     @relation(fields: [skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   rubric_criteria           rubric_criteria[]
   task_requirement_mappings task_requirement_mappings[]
+  search_text    String?
 
   @@unique([id, org_id])
   @@index([job_id, org_id])
@@ -715,6 +718,9 @@ model jobs {
   job_requirements     job_requirements[]
   job_skills           job_skills[]
   organizations        organizations          @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  search_text          String?
+  source_listing_id    String?                @unique @db.Uuid
+  source_listing       external_job_listings? @relation("JobSourceListing", fields: [source_listing_id], references: [id], onUpdate: NoAction)
 
   @@unique([id, org_id])
   @@unique([org_id, slug])

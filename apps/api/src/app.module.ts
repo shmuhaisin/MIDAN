@@ -23,6 +23,10 @@ import { CvController } from './me/cv.controller';
 import { MeController } from './me/me.controller';
 import { OrganizationsController } from './organizations/organizations.controller';
 
+import { EmployerClaimsController } from './organizations/employer-claims.controller';
+import { OrganizationListingsController } from './organizations/organization-listings.controller';
+import { MyInvitationsController, TeamController } from './organizations/team.controller';
+
 @Module({
   imports: [DbModule, ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }])],
   providers: [AiClient, DailyClient, CalendarClient, CvController, BackgroundWorker, PlatformAdminGuard, { provide: APP_GUARD, useClass: TokenThrottlerGuard }],
@@ -30,6 +34,7 @@ import { OrganizationsController } from './organizations/organizations.controlle
     HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, MeController,
     AssessmentsController, AttemptsController, EvaluationsController, RequirementsController,
     CandidateController, CvController, CareerController, ReferenceController, InterviewsController, AdminController, JobAnalysisController,
+    TeamController, MyInvitationsController, EmployerClaimsController, OrganizationListingsController,
   ],
 })
 export class AppModule {}
