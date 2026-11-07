@@ -20,8 +20,9 @@ class ReviewDto {
 }
 
 type Proposal = { criterion_id: string; task_id: string; score: number; source: 'deterministic' | 'ai_assisted'; evidence_ref: string | null; explanation: string; confidence: number };
-type Proposed = { proposals: Proposal[]; overall: number; skill_levels: { skill_id: string; level: number }[]; review_reasons: string[] };
-type Final = { overall: number; skill_levels: { skill_id: string; level: number }[]; report: Prisma.InputJsonValue };
+type ReferenceScore = { reference_skill_id: string; name_ar: string; score_pct: number };
+type Proposed = { proposals: Proposal[]; overall: number; skill_levels: { skill_id: string; level: number }[]; reference_skills?: ReferenceScore[]; review_reasons: string[] };
+type Final = { overall: number; skill_levels: { skill_id: string; level: number }[]; reference_skills?: ReferenceScore[]; report: Prisma.InputJsonValue };
 
 @ApiTags('evaluations')
 @ApiBearerAuth()
@@ -42,6 +43,9 @@ export class EvaluationsController {
               assessment_tasks: {
                 orderBy: { position: 'asc' },
                 include: { rubric_criteria: true, task_skill_mappings: { include: { skills: true } } },
+              },
+              assessments: {
+                select: { jobs: { select: { job_reference_skills: { select: { reference_skills: { select: { id: true, name_ar: true, description_ar: true } } } } } } },
               },
             },
           },
@@ -67,12 +71,18 @@ export class EvaluationsController {
       known_names: [snapshot.applications.users.candidate_profiles?.full_name, snapshot.applications.users.display_name].filter(Boolean),
       rubric_version: snapshot.assessment_versions.version_number,
       skills: [...skills.values()].map((s) => ({ id: s.id, slug: s.slug, name_ar: s.name_ar, name_en: s.name_en })),
+      // The workbook skills the job links and its tasks measure. Names stay Arabic: the workbooks have no others.
+      reference_skills: snapshot.assessment_versions.assessments.jobs.job_reference_skills.map((r) => r.reference_skills)
+        .filter((r) => tasks.some((t) => t.reference_skill_ids.includes(r.id))),
       tasks: tasks.map((t) => ({
-        id: t.id, task_type: t.task_type, title_en: t.title_en, instructions_en: t.instructions_en, weight: Number(t.weight),
+        id: t.id, task_type: t.task_type, weight: Number(t.weight),
+        // Arabic first, as candidates read them and mostly answer.
+        title_ar: t.title_ar, instructions_ar: t.instructions_ar, title_en: t.title_en, instructions_en: t.instructions_en,
+        reference_skill_ids: t.reference_skill_ids,
         skill_ids: t.task_skill_mappings.map((m) => m.skill_id),
         skill_weights: Object.fromEntries(t.task_skill_mappings.map((m) => [m.skill_id, Number(m.weight)])),
         criteria: t.rubric_criteria.map((c) => ({
-          id: c.id, code: c.code, description_en: c.description_en, max_score: Number(c.max_score), weight: Number(c.weight), answer_key: c.answer_key,
+          id: c.id, code: c.code, description_ar: c.description_ar, description_en: c.description_en, max_score: Number(c.max_score), weight: Number(c.weight), answer_key: c.answer_key,
         })),
       })),
       responses: Object.fromEntries(snapshot.task_responses.map((r) => [r.task_id, r.answer])),
@@ -136,6 +146,7 @@ export class EvaluationsController {
             include: {
               criterion_scores: true,
               skill_scores: { include: { skills: { select: { name_ar: true, name_en: true } } } },
+              reference_skill_scores: { orderBy: { score_pct: 'desc' }, include: { reference_skills: { select: { name_ar: true } } } },
               evaluation_reviews: { orderBy: { created_at: 'desc' } },
             },
           },
@@ -194,6 +205,11 @@ export class EvaluationsController {
           result_id: id, skill_id: s.skill_id, org_id: evaluation.org_id, level: s.level, source: 'human_reviewed' as const,
         })),
       });
+      await tx.reference_skill_scores.createMany({
+        data: (final.payload.reference_skills ?? []).map((s) => ({
+          result_id: id, reference_skill_id: s.reference_skill_id, org_id: evaluation.org_id, score_pct: s.score_pct, source: 'human_reviewed' as const,
+        })),
+      });
       if (body.notes?.trim()) {
         await tx.evaluation_reviews.create({ data: { result_id: id, org_id: evaluation.org_id, reviewer_id: user.id, notes: body.notes.trim() } });
       }
@@ -232,6 +248,7 @@ export class EvaluationsController {
               skills: { select: { id: true, name_ar: true, name_en: true, skill_levels: { orderBy: { level: 'asc' } } } },
             },
           },
+          reference_skill_scores: { orderBy: { score_pct: 'desc' }, select: { score_pct: true, reference_skills: { select: { id: true, name_ar: true, description_ar: true } } } },
         },
       });
       if (!result) throw new NotFoundException();

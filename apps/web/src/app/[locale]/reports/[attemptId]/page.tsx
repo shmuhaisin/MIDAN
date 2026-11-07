@@ -11,6 +11,7 @@ type Report = {
   criteria: Criterion[];
   overall_score: string; ai_mode: string | null;
   assessment_attempts: { assessment_versions: { assessments: { title_ar: string; title_en: string } }; applications: { jobs: { title_ar: string; title_en: string; organizations: { name_ar: string; name_en: string } } } };
+  reference_skill_scores?: { score_pct: string; reference_skills: { id: string; name_ar: string; description_ar: string | null } }[];
   skill_scores: {
     level: number;
     skills: { id: string; name_ar: string; name_en: string; skill_levels: { level: number; descriptor_ar: string; descriptor_en: string }[] };
@@ -70,6 +71,24 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           ))}
         </ul>
       </section>
+
+      {(report.reference_skill_scores ?? []).length > 0 && (
+        <section className="mt-8" aria-labelledby="workbook-skills">
+          <h2 id="workbook-skills" className="section-title">{t('workbookSkills')}</h2>
+          <p className="mt-1 text-sm text-muted">{t('workbookSkillsNote')}</p>
+          <ul className="mt-4 border-t border-border">
+            {report.reference_skill_scores!.map((s) => (
+              <li key={s.reference_skills.id} className="grid items-center gap-3 border-b border-border py-4 sm:grid-cols-[1fr_auto]">
+                <div>
+                  <p className="font-semibold">{s.reference_skills.name_ar}</p>
+                  {s.reference_skills.description_ar && <p className="mt-1 text-sm text-muted">{s.reference_skills.description_ar}</p>}
+                </div>
+                <span className="tabular-nums font-semibold">{number(locale, Number(s.score_pct))}%</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {report.criteria.length > 0 && (
         <section className="mt-8" aria-labelledby="criteria">

@@ -443,6 +443,7 @@ model evaluation_results {
   organizations         organizations        @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   evaluation_reviews    evaluation_reviews[]
   skill_scores          skill_scores[]
+  reference_skill_scores reference_skill_scores[]
 
   @@unique([attempt_id, org_id])
   @@unique([id, org_id])
@@ -852,6 +853,7 @@ model organizations {
   task_requirement_mappings task_requirement_mappings[]
   task_responses            task_responses[]
   task_skill_mappings       task_skill_mappings[]
+  reference_skill_scores reference_skill_scores[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -895,6 +897,7 @@ model reference_skills {
   reference_skill_contexts   reference_skill_contexts[]
   import_runs                import_runs?                 @relation(fields: [last_import_run_id], references: [id], onUpdate: NoAction)
   rubric_criteria            rubric_criteria[]
+  reference_skill_scores reference_skill_scores[]
 
   @@unique([sector_code, skill_kind, name_ar])
   @@index([name_search])
@@ -1288,4 +1291,21 @@ enum version_status {
   in_review
   published
   archived
+}
+
+model reference_skill_scores {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  result_id          String             @db.Uuid
+  org_id             String             @db.Uuid
+  reference_skill_id String             @db.Uuid
+  score_pct          Decimal            @db.Decimal(5, 2)
+  source             score_source
+  created_at         DateTime           @default(now()) @db.Timestamptz(6)
+  organizations      organizations      @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  evaluation_results evaluation_results @relation(fields: [result_id, org_id], references: [id, org_id], onDelete: Cascade, onUpdate: NoAction)
+  reference_skills   reference_skills   @relation(fields: [reference_skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([result_id, reference_skill_id])
+  @@index([org_id])
+  @@index([reference_skill_id])
 }

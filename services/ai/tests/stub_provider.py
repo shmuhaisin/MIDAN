@@ -42,7 +42,15 @@ def assessment(user: str) -> dict:
     return {"tasks": tasks}
 
 
+ARABIC = re.compile(r"[\u0600-\u06FF]")
+
+
 def score(user: str) -> dict:
+    # A prompt without the Arabic task and criterion gets no score, so the live journey fails if the API stops sending them.
+    task = re.search(r"Task \(Arabic\): (.*)", user)
+    criterion = re.search(r"Criterion \S+ \(Arabic\): (.*)", user)
+    if not (task and ARABIC.search(task[1]) and criterion and ARABIC.search(criterion[1])):
+        return {}
     words = re.search(r"<response>\n(.*)\n</response>", user, re.S)
     answer = (words[1] if words else "").strip()
     maximum = float(re.search(r"Maximum score: ([\d.]+)", user)[1])

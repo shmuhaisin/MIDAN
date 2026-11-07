@@ -35,6 +35,9 @@ describe('the journey with a model behind the AI service', () => {
   const api = () => request(app.getHttpServer());
   const bearer = (s: Session) => ({ Authorization: `Bearer ${s.token}` });
   const base = () => `/organizations/${org}`;
+  // What the Data API gives this person from reference_skill_scores for this evaluation.
+  const rows = async (s: Session) => (await (await fetch(`${BASE}/rest/v1/reference_skill_scores?result_id=eq.${evaluation}&select=id`,
+    { headers: { apikey: KEY, Authorization: `Bearer ${s.token}` } })).json()) as unknown[];
 
   beforeAll(async () => {
     const health = (await (await fetch(`${process.env.AI_SERVICE_URL}/health`)).json()) as { mode: string };
@@ -118,8 +121,20 @@ describe('the journey with a model behind the AI service', () => {
 
   it('lets the employer review and release the result, then shortlist and hire', async () => {
     expect((await api().post(`/evaluations/${evaluation}/review`).set(bearer(owner)).send({ scores: [], notes: 'Checked against the rubric' }).expect(201)).body.status).toBe('reviewed');
+    // The workbook skill the tasks measure, as a percentage from the reviewed scores. The workbooks define no levels, so none is given.
+    const reviewed = (await api().get(`/attempts/${attempt}/evaluation`).set(bearer(owner)).expect(200)).body;
+    const workbook = reviewed.evaluation_results.reference_skill_scores as { reference_skill_id: string; score_pct: string; source: string }[];
+    expect(workbook).toEqual([expect.objectContaining({ reference_skill_id: skill.id, source: 'human_reviewed' })]);
+    expect(Number(workbook[0].score_pct)).toBeGreaterThan(0);
+    expect(Number(workbook[0].score_pct)).toBeLessThanOrEqual(100);
+    expect(Object.keys(workbook[0])).not.toContain('level');
+    expect(await rows(candidate)).toEqual([]);
     await api().post(`/evaluations/${evaluation}/release`).set(bearer(owner)).expect(201);
-    expect(JSON.stringify((await api().get(`/attempts/${attempt}/report`).set(bearer(candidate)).expect(200)).body)).not.toContain('Checked against the rubric');
+    const report = (await api().get(`/attempts/${attempt}/report`).set(bearer(candidate)).expect(200)).body;
+    expect(JSON.stringify(report)).not.toContain('Checked against the rubric');
+    expect(report.reference_skill_scores).toEqual([{ score_pct: workbook[0].score_pct, reference_skills: expect.objectContaining({ id: skill.id, name_ar: skill.name_ar }) }]);
+    expect(await rows(candidate)).toHaveLength(1);
+    expect(await rows(outsider)).toEqual([]);
     await api().post(`${base()}/applications/${application}/outcome`).set(bearer(owner)).send({ outcome: 'hired' }).expect(422);
     await api().patch(`/applications/${application}/status`).set(bearer(owner)).send({ status: 'shortlisted' }).expect(200);
     await api().post(`${base()}/applications/${application}/outcome`).set(bearer(owner)).send({ outcome: 'hired', message_en: 'Welcome.' }).expect(201);

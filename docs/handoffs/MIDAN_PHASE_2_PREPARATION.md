@@ -19,7 +19,7 @@ queries on that date.
 
 ## 2. Pending migrations
 
-The owner's brief counted nine. The owner's decisions added two more, and Phase 3 four, so **fifteen** are pending. Apply them in this
+The owner's brief counted nine. The owner's decisions added two more, Phase 3 four and Phase 4 one, so **sixteen** are pending. Apply them in this
 order. Each file runs in its own transaction.
 
 | # | Migration | What it does | Reverse if needed |
@@ -39,6 +39,7 @@ order. Each file runs in its own transaction.
 | 13 | `20261107130100_listing_upload_and_conversion` | Preview and import of uploaded records, and turning an approved record into a draft job, with its lineage | Drop them |
 | 14 | `20261107130200_employer_claims` | Claims to manage an employer, their private evidence bucket and the administrator's decision | Drop them. Claims and evidence are lost |
 | 15 | `20261107130300_team_invitations` | Inviting by email, accepting from the matching account, and the team list | Drop them. Pending invitations are lost |
+| 16 | `20261107140000_reference_skill_scores` | How well reviewed work showed each workbook skill, as a percentage, never a level | Drop the table. Workbook skill scores are lost; overall and criterion scores stay |
 
 ## 3. Dependencies and coordination
 
@@ -69,8 +70,9 @@ hosted credentials. **Stop it before the window.**
 | #11 | Keeps working (additive) | Works, without the audit records | Either order |
 | **#12** | **The public listing of external jobs and the admin listings page fail: they read columns now closed** | Fails: the search columns are missing | **Release together** |
 | #13, #14, #15 | Keeps working (additive) | Upload, conversion, claims and team pages fail | Migrate first |
+| #16 | Keeps working (additive) | Submitting a review fails: it writes the new table | Migrate first |
 
-**Recommendation:** apply all fifteen in one window, then release API and web from this branch straight after. With nothing
+**Recommendation:** apply all sixteen in one window, then release API and web from this branch straight after. With nothing
 deployed, there are no users to interrupt.
 
 ## 4. Backup, before anything else
@@ -116,9 +118,9 @@ This needs `brew install postgresql@17`. It builds a throwaway PostgreSQL 17 clu
 
 **Results:**
 - Backup, as in section 4, restored into a separate database: all 68 tables identical.
-- Each of the fifteen migrations: applied, rolled back to an **identical** schema, roles and data, then applied again.
-- All 25 post-change checks passed (`post_checks.sql`, read-only), as did the database security checks.
-- All fifteen rolled back together, newest first: schema back to the starting point and to hosted's fingerprint.
+- Each of the sixteen migrations: applied, rolled back to an **identical** schema, roles and data, then applied again.
+- All 26 post-change checks passed (`post_checks.sql`, read-only), as did the database security checks.
+- All sixteen rolled back together, newest first: schema back to the starting point and to hosted's fingerprint.
 - A deliberately wrong rollback script was caught, so the comparison does detect mistakes.
 - `--keep` leaves the migrated cluster running. On it, the full platform passed with the ten migrations: API end-to-end 113/113, browser 35/35. Then with all eleven, on PostgreSQL 16: API 114/114, browser 36/36, AI service 143 passed and 1 skipped.
 
@@ -151,7 +153,7 @@ Read-only, on hosted, starting with `supabase/rehearsal/post_checks.sql`, where 
 
 | Check | Expected |
 | --- | --- |
-| `list_migrations` | 38, ending at `20261107130300` |
+| `list_migrations` | 39, ending at `20261107140000` |
 | `pg_policies` on `storage.objects` | "org reads applicant documents" uses `can_view_candidate_document` |
 | `pg_policies` on `public.applications` | No "org updates status" |
 | `has_table_privilege('authenticated', 'public.applications', 'update')` | false |
@@ -272,7 +274,7 @@ Nothing below starts until the owner approves it in writing.
 - [ ] Secrets entered in the host's secret manager (section 8), none in chat
 
 **Explicit approval to run**
-- [ ] Apply the fifteen migrations to `al-midan-ya-hamidan`, in order
+- [ ] Apply the sixteen migrations to `al-midan-ya-hamidan`, in order
 - [ ] Run the checks in section 7
 - [ ] Set up the `midan_importer` and `midan_ai` logins, and re-run the import
 - [ ] Grant the first platform administrator

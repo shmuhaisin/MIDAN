@@ -1016,7 +1016,8 @@
     "skills": "Skill levels",
     "release": "Release result to candidate",
     "released": "Result released to candidate",
-    "previousNotes": "Notes"
+    "previousNotes": "Notes",
+    "workbookSkills": "Sector workbook skills"
   },
   "report": {
     "back": "My dashboard",
@@ -1033,7 +1034,9 @@
     "noImprove": "You reached a proficient level in every skill assessed.",
     "toNext": "To reach {level}:",
     "criteria": "Results by criterion",
-    "criteriaNote": "A result the organization reviewed and released."
+    "criteriaNote": "A result the organization reviewed and released.",
+    "workbookSkills": "Skills from the sector workbooks",
+    "workbookSkillsNote": "How well your work showed each skill the tasks measured, as a share of the marks. The workbooks define no levels, so none is given."
   },
   "fields": {
     "general": "General",

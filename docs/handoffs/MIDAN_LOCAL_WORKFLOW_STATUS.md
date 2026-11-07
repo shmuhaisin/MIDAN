@@ -42,8 +42,8 @@ above now feeds them, and the live journey test covers generation, review, evalu
 | Generate an assessment | Works from the job's stated responsibilities and linked workbook skills. **Two paths:** a configured model, or labeled templates when there's none or it can't give a valid draft | `test_model_generation.py`, `test_requirements_builder.py` |
 | Company reviews and edits the draft, then approves | Works: tasks, rubric, objective questions and answer key are editable before approval, edits are audited, and the screen warns about anything left unmeasured | `pipeline.e2e-spec.ts`, `journeys.spec.ts` |
 | Complete it | Works: saved answers, server-side timer, one submission | `foundation.e2e-spec.ts`, `journeys.spec.ts` |
-| Evaluate | Works: rubric scores with evidence, always waiting for a person. A reviewer starts it | `test_graphs.py`, `pipeline.e2e-spec.ts` |
-| Employer reviews | Works: review, release to the candidate, shortlist, hire | `pipeline.e2e-spec.ts`, `live-journey.live-spec.ts` |
+| Evaluate | Works: rubric scores with evidence, always waiting for a person. A reviewer starts it. The model reads the task and criteria in Arabic and English, and judges an answer in its own language | `test_graphs.py`, `test_evaluation_language_and_workbook_skills.py`, `pipeline.e2e-spec.ts` |
+| Employer reviews | Works: review, release to the candidate, shortlist, hire. Reviewing records a percentage for each workbook skill the tasks measured, shown to the reviewer and, once released, to the candidate | `pipeline.e2e-spec.ts`, `live-journey.live-spec.ts` |
 
 **With a model behind it:** `npm run test:live -w @midan/api` runs the whole journey in live mode, 4 of 4 passing against a local
 stand-in for OpenAI (`services/ai/tests/stub_provider.py`). That proves the plumbing and the records, not the quality of a real
@@ -57,6 +57,11 @@ has too few criteria, or has an answer that isn't one of its options. The model 
 templates run and the draft is labeled demo. Answer keys stay in the rubric and never reach the candidate. Only job details are
 sent, as untrusted data; nothing about a candidate is part of generation.
 
+Evaluation sends the task, instructions and criteria in Arabic first, then English, and the stand-in model refuses a prompt without
+the Arabic, so the live journey fails if the API stops sending it. A provider that can't be reached counts as a failed attempt: it's
+tried again after a pause, then the criterion goes to the reviewer as `model_failed`. Workbook skills get a percentage over the tasks
+that measure them, worked out in code from the reviewed criterion scores. **Never a level:** the workbooks define none.
+
 ## What can continue locally
 
 | Task | Needs |
@@ -64,6 +69,7 @@ sent, as untrusted data; nothing about a candidate is part of generation.
 | Try a real model on real job text and judge the quality | A key the owner adds to the local `.env` themselves, never in chat |
 | Better demo templates for objective questions, which are still general and not job-specific | Nothing. Low priority once a model is available |
 | Start the evaluation automatically when a candidate submits, through the queue | Nothing, but it needs a way for the worker to act for the organization |
+| Read evidence in uploaded files, not only typed answers | An owner decision on what may be sent to a model |
 | Real job listings | An authorized job data source |
 
 ## What waits for deployment only

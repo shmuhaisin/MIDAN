@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import time
 from typing import Any, Protocol
 
 import httpx
@@ -10,7 +11,7 @@ from pydantic import ValidationError
 
 from .schemas import CriterionInput, GeneratedAssessment, OpenScore, Provenance, TaskInput
 
-PROMPT_VERSION = "eval-v1"
+PROMPT_VERSION = "eval-v2"
 GENERATION_PROMPT_VERSION = "gen-v1"
 _WORDS = re.compile(r"[\w؀-ۿ]+")
 _SENTENCES = re.compile(r"(?<=[.!?؟\n])\s*")
@@ -68,9 +69,10 @@ Reply with JSON only: {"tasks": [{"task_type": "written_case_study" or "objectiv
 
 
 class JsonLLMProvider:
-    def __init__(self, complete, name: str, attempts: int = 2):
+    def __init__(self, complete, name: str, attempts: int = 2, pause: float = 1.0):
         self._complete = complete
         self._attempts = attempts
+        self._pause = pause
         self.provenance = Provenance(mode="live", model_version=name, prompt_version=PROMPT_VERSION)
 
     @property
@@ -95,28 +97,46 @@ class JsonLLMProvider:
                 user = f"<job>\n{details}\n</job>\nYour last reply was refused: {reason[:300]}. Reply again."
             except LLMError as error:
                 last = error
+                time.sleep(self._pause)
         raise LLMError(f"No valid draft from the model: {type(last).__name__}")
 
     def score_open(self, task: TaskInput, criterion: CriterionInput, answer: str) -> OpenScore:
         # A candidate must not be able to close the data block.
         safe = answer.replace("</response>", "< /response>")
+        # Both languages, Arabic first: Midan's tasks are Arabic-first, and so are most answers.
         user = (
-            f"Task: {task.title_en}\nInstructions: {task.instructions_en}\n"
-            f"Criterion {criterion.code}: {criterion.description_en}\nMaximum score: {criterion.max_score}\n"
+            f"Task (Arabic): {task.title_ar}\nInstructions (Arabic): {task.instructions_ar}\n"
+            f"Task (English): {task.title_en}\nInstructions (English): {task.instructions_en}\n"
+            f"Criterion {criterion.code} (Arabic): {criterion.description_ar}\nCriterion {criterion.code} (English): {criterion.description_en}\n"
+            f"Maximum score: {criterion.max_score}\n"
+            "The response may be in Arabic or English. Judge it in its own language, and copy evidence_quote exactly as written.\n"
             f"<response>\n{safe}\n</response>"
         )
         last: Exception | None = None
         for _ in range(self._attempts):
             try:
                 return OpenScore.model_validate(json.loads(self._complete(SYSTEM_PROMPT, user)))
-            except (json.JSONDecodeError, ValidationError, LLMError) as error:
+            except (json.JSONDecodeError, ValidationError) as error:
                 last = error
+            except LLMError as error:
+                last = error
+                # The provider was down or refused: a moment before asking again.
+                time.sleep(self._pause)
         raise LLMError(f"No valid response from the model: {type(last).__name__}")
+
+
+def _post(url: str, **kwargs):
+    """A dropped connection or a timeout is the provider being unavailable, like a 5xx: the caller retries, then a person decides.
+    The error names only its class, so nothing sent or received reaches a log."""
+    try:
+        return httpx.post(url, **kwargs)
+    except httpx.HTTPError as error:
+        raise LLMError(f"Provider unreachable: {type(error).__name__}") from None
 
 
 def _openai(model: str, key: str, base: str = "https://api.openai.com"):
     def complete(system: str, user: str) -> str:
-        response = httpx.post(
+        response = _post(
             f"{base}/v1/chat/completions",
             headers={"authorization": f"Bearer {key}"},
             json={
@@ -135,7 +155,7 @@ def _openai(model: str, key: str, base: str = "https://api.openai.com"):
 
 def _gemini(model: str, key: str, base: str = "https://generativelanguage.googleapis.com"):
     def complete(system: str, user: str) -> str:
-        response = httpx.post(
+        response = _post(
             f"{base}/v1beta/models/{model}:generateContent",
             headers={"x-goog-api-key": key},
             json={

@@ -24,6 +24,7 @@ with checks(name, ok) as (values
   ('Claims are never written directly', not has_table_privilege('authenticated', 'public.employer_claims', 'insert')),
   ('Claim evidence bucket is private', not (select public from storage.buckets where id = 'employer-claims')),
   ('Invitations closed to signed-out visitors', not has_function_privilege('anon', 'public.accept_organization_invitation(uuid)', 'execute')),
+  ('Workbook skill scores have row security', (select relrowsecurity from pg_class where oid = 'public.reference_skill_scores'::regclass)),
   ('Only the three authorized job source types', (select regexp_count(pg_get_constraintdef(oid), '''[a-z_]+''::text') = 3 from pg_constraint where conrelid = 'public.external_job_listings'::regclass and conname = 'external_job_listings_source_type_check'))
 )
 select case when ok then 'ok   ' else 'FAIL ' end || name from checks;

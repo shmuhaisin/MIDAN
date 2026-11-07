@@ -122,6 +122,7 @@ class CriterionInput(BaseModel):
     id: str
     code: str
     description_en: str
+    description_ar: str = ""
     max_score: float = Field(gt=0)
     weight: float = Field(default=1, gt=0)
     answer_key: dict[str, str] | None = None
@@ -132,6 +133,9 @@ class TaskInput(BaseModel):
     task_type: TaskType
     title_en: str
     instructions_en: str = ""
+    title_ar: str = ""
+    instructions_ar: str = ""
+    reference_skill_ids: list[str] = []
     weight: float = Field(default=1, gt=0)
     skill_ids: list[str] = []
     skill_weights: dict[str, float] = {}
@@ -147,6 +151,8 @@ class EvaluationInput(BaseModel):
     rubric_version: int
     tasks: list[TaskInput]
     skills: list[SkillRef] = []
+    # Skills from the official sector workbooks the tasks measure. They get a score, not a level: the workbooks define none.
+    reference_skills: list[ReferenceSkillRef] = []
     responses: dict[str, dict[str, Any]] = {}
     evidence: dict[str, list[str]] = {}
 

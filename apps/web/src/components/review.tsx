@@ -21,6 +21,7 @@ export type ReviewData = {
     id: string; status: string; overall_score: string | null; ai_mode: string | null; review_reasons: string[]; released_to_candidate: boolean;
     criterion_scores: Score[];
     skill_scores: { level: number; skills: { name_ar: string; name_en: string } }[];
+    reference_skill_scores?: { score_pct: string; reference_skills: { name_ar: string } }[];
     evaluation_reviews: { id: string; notes: string | null }[];
   } | null;
 };
@@ -184,6 +185,14 @@ export function ReviewPanel({ data }: { data: ReviewData }) {
           <ul className="mt-2 space-y-1 text-deep-muted">
             {evaluation.skill_scores.map((s) => <li key={s.skills.name_en}>{pick(locale, s.skills.name_ar, s.skills.name_en)}: L{s.level}</li>)}
           </ul>
+          {(evaluation.reference_skill_scores ?? []).length > 0 && (
+            <>
+              <h3 className="mt-5 font-semibold">{t('workbookSkills')}</h3>
+              <ul className="mt-2 space-y-1 text-deep-muted">
+                {evaluation.reference_skill_scores!.map((s) => <li key={s.reference_skills.name_ar}>{s.reference_skills.name_ar}: {number(locale, Number(s.score_pct))}%</li>)}
+              </ul>
+            </>
+          )}
           {evaluation.evaluation_reviews.length > 0 && (
             <>
               <h3 className="mt-5 font-semibold">{t('previousNotes')}</h3>

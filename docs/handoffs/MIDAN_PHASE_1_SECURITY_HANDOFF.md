@@ -393,7 +393,7 @@ Still for the owner: see `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`, section 1
   migrations: `20261107090000_scope_candidate_document_access`, `20261107090100_application_status_transitions`,
   `20261107090200_clear_finished_job_links`, and from verification `20261107100000_queue_link_isolation` and
   `20261107100100_hired_is_final_for_outcomes`, and from the owner's decisions `20261107110000_application_decision_rules`
-  `20261107120000_audit_assessment_draft_edits`, and from Phase 3 `20261107130000` to `20261107130300`. **Fifteen in all**, to be applied in that order.
+  `20261107120000_audit_assessment_draft_edits`, from Phase 3 `20261107130000` to `20261107130300`, and from Phase 4 `20261107140000_reference_skill_scores`. **Sixteen in all**, to be applied in that order.
 - **Read-only check, 2026-11-07:** still 23 migrations, all with matching files in the repository. The old S1 storage policy
   and the old "org updates status" policy are **still live there**. Hosted has no applications, 7 accounts and no queue table,
   so nothing is exposed today, but S1 and S2 are not fixed on hosted until those migrations are applied. Advisors: one
@@ -512,7 +512,7 @@ database named `midan`, apply in order:
 
 Phase 2 brings hosted Supabase up to the repository. Before it starts:
 1. Phase 1 merged (F.1.3), with the end-to-end suites green.
-2. The owner's explicit approval to apply the fifteen migrations of section E, in order. See `MIDAN_PHASE_2_PREPARATION.md`.
+2. The owner's explicit approval to apply the sixteen migrations of section E, in order. See `MIDAN_PHASE_2_PREPARATION.md`.
 3. A deployment plan in which the API containing `set_application_status` goes live together with
    `20261107090100` (it revokes the direct update the old API uses).
 4. Owner-held values set outside the repository: the `midan_importer` password (`IMPORT_DATABASE_URL`) to re-run the

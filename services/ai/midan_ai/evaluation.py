@@ -21,6 +21,7 @@ _INJECTION = re.compile(
 
 
 class State(TypedDict, total=False):
+    reference_skills: list[dict[str, Any]]
     input: dict[str, Any]
     answers: dict[str, str]
     proposals: list[dict[str, Any]]
@@ -141,6 +142,26 @@ def _effective(state: State) -> dict[str, float]:
     return scores
 
 
+def reference_skill_scores(data: EvaluationInput, task_ratio: dict[str, float]) -> list[dict[str, Any]]:
+    """How well the work showed each workbook skill, as a percentage over the tasks that measure it. A score, never a level:
+    the sector workbooks define no proficiency levels, so none is made up."""
+    results = []
+    for ref in data.reference_skills:
+        related = [t for t in data.tasks if ref.id in t.reference_skill_ids]
+        if related:
+            results.append({"reference_skill_id": ref.id, "name_ar": ref.name_ar,
+                            "score_pct": round(sum(t.weight * task_ratio[t.id] for t in related) / sum(t.weight for t in related) * 100, 2)})
+    return results
+
+
+def task_ratios(data: EvaluationInput, scores: dict[str, float]) -> dict[str, float]:
+    ratios: dict[str, float] = {}
+    for t in data.tasks:
+        total = sum(c.weight for c in t.criteria)
+        ratios[t.id] = sum(c.weight * min(scores.get(c.id, 0) / c.max_score, 1) for c in t.criteria) / total
+    return ratios
+
+
 def compute_scores(data: EvaluationInput, scores: dict[str, float]) -> tuple[float, list[dict[str, Any]]]:
     """Weighted scoring in plain code. Criteria with no score count as zero."""
     task_ratio: dict[str, float] = {}
@@ -172,8 +193,9 @@ def level_for(ratio: float) -> int:
 
 def aggregate_scores(state: State) -> State:
     data = EvaluationInput.model_validate(state["input"])
-    overall, levels = compute_scores(data, _effective(state))
-    return {"overall": overall, "skill_levels": levels}
+    effective = _effective(state)
+    overall, levels = compute_scores(data, effective)
+    return {"overall": overall, "skill_levels": levels, "reference_skills": reference_skill_scores(data, task_ratios(data, effective))}
 
 
 def make_review_check(provider: Provider):
@@ -200,7 +222,7 @@ def _is_open(state: State, task_id: str) -> bool:
 def human_review(state: State) -> State:
     review = interrupt({
         "proposals": state["proposals"], "overall": state["overall"],
-        "skill_levels": state["skill_levels"], "review_reasons": state["review_reasons"],
+        "skill_levels": state["skill_levels"], "reference_skills": state.get("reference_skills", []), "review_reasons": state["review_reasons"],
     })
     return {"review": review}
 
@@ -218,7 +240,7 @@ def generate_report(state: State) -> State:
         skill = names[item["skill_id"]]
         entry = {"skill_id": skill.id, "name_ar": skill.name_ar, "name_en": skill.name_en, "level": item["level"]}
         (strengths if item["level"] >= 3 else improvements).append(entry)
-    return {"report": {"strengths": strengths, "improvements": improvements}, "outcome": "reviewed"}
+    return {"report": {"strengths": strengths, "improvements": improvements, "reference_skills": state.get("reference_skills", [])}, "outcome": "reviewed"}
 
 
 def _route_failure(state: State) -> str:
