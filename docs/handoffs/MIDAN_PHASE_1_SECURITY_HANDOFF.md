@@ -86,10 +86,10 @@ local values. No test touched hosted Supabase; the only hosted calls were read-o
 | --- | --- | --- |
 | Database security checks | `scripts/local-db.sh psql -f supabase/tests/security_phase1.sql` | **All passed**, including the new S2, S5 and owner-decision checks |
 | API unit tests | `npm test -w @midan/api` | **47 / 47**, 8 suites |
-| Web unit tests | `npm test -w @midan/web` | **16 / 16** |
-| AI service tests | `TEST_CHECKPOINT_DATABASE_URL=… uv run pytest` | **126 passed, 1 skipped** (Arabic OCR) |
-| API end-to-end | `npm run test:e2e -w @midan/api` | Before changes **110 / 111**. After them **113 / 113** |
-| Browser journeys and CSP | `npx playwright test` against `next start` | **35 / 35** |
+| Web unit tests | `npm test -w @midan/web` | **19 / 19** |
+| AI service tests | `TEST_CHECKPOINT_DATABASE_URL=… uv run pytest` | **143 passed, 1 skipped** (Arabic OCR) |
+| API end-to-end | `npm run test:e2e -w @midan/api` | Before changes **110 / 111**. Now **114 / 114** |
+| Browser journeys and CSP | `npx playwright test` against `next start` | **36 / 36** |
 | Forms | `npm run test:forms -w @midan/web` | **9 / 9** |
 | Type checks, builds | `npm run lint`, `npm run build` | **Passed** |
 | Build secret scan | `npm run check:bundle -w @midan/web` with a canary | **Passed**, 992 files |
@@ -97,7 +97,7 @@ local values. No test touched hosted Supabase; the only hosted calls were read-o
 The one failure before changes was a test bug: the status test used the recruiter before a later test made it a member.
 
 **CSP evidence.** During the browser run, a test-only local proxy added a report address to the policy. Chromium reported
-exactly two blocks across all 35 tests, both of them deliberate controls (a blocked image, a framing attempt). That run
+exactly two blocks across the 35 tests then in the suite, both of them deliberate controls (a blocked image, a framing attempt). That run
 covered assessment work, reports, applicant and review screens, the interview screen, and every admin area. Traces were
 tried first and abandoned: they hold no console messages here, so a clean scan of them would have proved nothing.
 
@@ -344,12 +344,12 @@ time (it loses retry after a restart).
 - Employers provide job context; they do not own assessment design.
 - Assessment generation and candidate evaluation are separate engines.
 - Companies may review or approve generated assessments, but MIDAN remains responsible for generating them.
+- **Confirmed by the owner on 2026-11-07:** the company can edit and review a draft before approving it.
 
-**The current implementation differs.** An organization's owners, admins and recruiters generate drafts, add, edit and
-remove tasks and rubric criteria, and owners and admins publish (`apps/api/src/assessments/assessments.controller.ts`,
-`apps/web/src/components/workspace.tsx`, `apps/web/src/app/[locale]/organization/[orgId]/jobs/[jobId]/page.tsx`).
-Generation (Graph A, `services/ai/midan_ai/assessment_builder.py`) and evaluation (Graph B, `evaluation.py`) are already
-separate engines. Aligning ownership is later-phase work; Phase 1 didn't change it.
+The implementation follows this. MIDAN's engine generates the draft from the job. Owners, admins and recruiters review and edit it,
+including objective questions and their answer key, and owners and admins approve it by publishing. Edits are audited, and an approved
+version can't change. Generation (Graph A, `services/ai/midan_ai/assessment_builder.py`) and evaluation (Graph B, `evaluation.py`) are
+separate engines.
 
 ---
 
@@ -392,8 +392,8 @@ Still for the owner: see `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`, section 1
   `20261106160000_assessment_reference_skills`, `20261106170000_employer_profiles_and_job_links`. Plus the three Phase 1
   migrations: `20261107090000_scope_candidate_document_access`, `20261107090100_application_status_transitions`,
   `20261107090200_clear_finished_job_links`, and from verification `20261107100000_queue_link_isolation` and
-  `20261107100100_hired_is_final_for_outcomes`, and from the owner's decisions `20261107110000_application_decision_rules`.
-  **Ten in all**, to be applied in that order.
+  `20261107100100_hired_is_final_for_outcomes`, and from the owner's decisions `20261107110000_application_decision_rules`
+  and `20261107120000_audit_assessment_draft_edits`. **Eleven in all**, to be applied in that order.
 - **Read-only check, 2026-11-07:** still 23 migrations, all with matching files in the repository. The old S1 storage policy
   and the old "org updates status" policy are **still live there**. Hosted has no applications, 7 accounts and no queue table,
   so nothing is exposed today, but S1 and S2 are not fixed on hosted until those migrations are applied. Advisors: one
@@ -512,7 +512,7 @@ database named `midan`, apply in order:
 
 Phase 2 brings hosted Supabase up to the repository. Before it starts:
 1. Phase 1 merged (F.1.3), with the end-to-end suites green.
-2. The owner's explicit approval to apply the ten migrations of section E, in order. See `MIDAN_PHASE_2_PREPARATION.md`.
+2. The owner's explicit approval to apply the eleven migrations of section E, in order. See `MIDAN_PHASE_2_PREPARATION.md`.
 3. A deployment plan in which the API containing `set_application_status` goes live together with
    `20261107090100` (it revokes the direct update the old API uses).
 4. Owner-held values set outside the repository: the `midan_importer` password (`IMPORT_DATABASE_URL`) to re-run the

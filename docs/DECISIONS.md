@@ -1,5 +1,7 @@
 # Decisions
 
+**2026-11-07: A company can edit and review a generated draft before approving it (owner decision).** MIDAN's engine still generates the draft from the job. Owners, admins and recruiters can change its tasks, rubric, objective questions and answer key, and owners and admins approve it. Edits are audited. If an edit leaves a mandatory responsibility or required workbook skill unmeasured, the screen says so before approval and doesn't block it. An approved version can't change. This refines the earlier decision that employers don't own assessment design.
+
 **2026-11-07: There is no permission to publish the source workbooks (owner's answer).** They were committed in `10068b0` and are public on three branches (`feature/midan-complete-data-jobs-assessment`, `feature/midan-phase-1-security`, `midan-security-completion`), though not on `main` or `candidate-portal`. As checked that day, the repository had no forks. Next: make the repository private, which needs its admin. They mustn't reach `main` by merge until their removal is decided. Deleting them or rewriting history needs separate approval.
 
 **2026-11-07: Assessment drafts can come from a model, through one contract for Gemini and OpenAI.** A draft is accepted only if it stays within what the job states and covers its responsibilities and required workbook skills. If no model is configured, or none gives a valid draft, the templates run and the draft is labeled demo. The stored record says which it was.

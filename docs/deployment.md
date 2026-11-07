@@ -51,7 +51,7 @@ These need the owner's dashboard access:
 
 A new environment applies every file in `supabase/migrations` in order. Reference data is then loaded as described in `docs/database/README.md`.
 
-`al-midan-ya-hamidan` is **not** up to date: as checked read-only on 2026-11-07 it has the first 23 migrations. Ten migrations are waiting there for the owner's approval, from `20261106140000` to `20261107110000`. The plan, including backup, rollback and a permission fix one of them needs first, is in `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`.
+`al-midan-ya-hamidan` is **not** up to date: as checked read-only on 2026-11-07 it has the first 23 migrations. Eleven migrations are waiting there for the owner's approval, from `20261106140000` to `20261107120000`. The plan, including backup, rollback and a permission fix one of them needs first, is in `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`.
 
 ## Before calling it production ready
 

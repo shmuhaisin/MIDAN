@@ -19,7 +19,7 @@ queries on that date.
 
 ## 2. Pending migrations
 
-The owner's brief counted nine. The owner's application decisions added a tenth, so **ten** are pending. Apply them in this
+The owner's brief counted nine. The owner's decisions added two more, so **eleven** are pending. Apply them in this
 order. Each file runs in its own transaction.
 
 | # | Migration | What it does | Reverse if needed |
@@ -34,6 +34,7 @@ order. Each file runs in its own transaction.
 | 8 | `20261107100000_queue_link_isolation` | **S5**: closes the link leak and arbitrary-URL fetch, ends jobs whose worker keeps dying, refuses a CV job retry that can't work | Restore the earlier functions (not advised) |
 | 9 | `20261107100100_hired_is_final_for_outcomes` | A later outcome can't undo a hire | Restore the earlier function |
 | 10 | `20261107110000_application_decision_rules` | Owner decisions: reopening needs an owner or admin and is audited; an outcome hire needs a shortlist; no CV without a snapshot, plus explicit sharing | Restore the earlier functions |
+| 11 | `20261107120000_audit_assessment_draft_edits` | Records edits to a draft's tasks and rubric, so what people changed before approval stays visible | Drop the two triggers |
 
 ## 3. Dependencies and coordination
 
@@ -46,7 +47,7 @@ order. Each file runs in its own transaction.
 `SET ROLE` to the owner, and hosted `postgres` isn't a superuser. Local runs hid it because they use a superuser. The migration
 now grants that right first, with the owner's approval.
 
-**How it was checked:** `before the fix, a run as a non-superuser stopped at this migration with `must be able to SET ROLE "midan_ai"`. After it, all 33 applied, and section 5's rehearsal on PostgreSQL 17 confirms it. Hosted's `postgres` was confirmed non-superuser by a read-only query.`
+**How it was checked:** before the fix, a run as a non-superuser stopped at this migration with `must be able to SET ROLE "midan_ai"`. After it, all 33 applied, and section 5's rehearsal on PostgreSQL 17 confirms it. Hosted's `postgres` was confirmed non-superuser by a read-only query.
 
 ### 3.2 Which migrations need an API release
 
@@ -61,8 +62,9 @@ hosted credentials. **Stop it before the window.**
 | **#6** | **Every status change fails with 403: it writes the table directly** | Status changes fail: the function is missing | **Release together** |
 | #9 | Works; another outcome after a hire gets 422 | Works | Either order |
 | **#10** | Offers actions the database now refuses; no share button | **Share-CV fails: the function is missing** | **Release together** |
+| #11 | Keeps working (additive) | Works, without the audit records | Either order |
 
-**Recommendation:** apply all ten in one window, then release API and web from this branch straight after. With nothing
+**Recommendation:** apply all eleven in one window, then release API and web from this branch straight after. With nothing
 deployed, there are no users to interrupt.
 
 ## 4. Backup, before anything else
@@ -108,11 +110,11 @@ This needs `brew install postgresql@17`. It builds a throwaway PostgreSQL 17 clu
 
 **Results:**
 - Backup, as in section 4, restored into a separate database: all 68 tables identical.
-- Each of the ten migrations: applied, rolled back to an **identical** schema, roles and data, then applied again.
-- All 17 post-change checks passed (`post_checks.sql`, read-only), as did the database security checks.
-- All ten rolled back together, newest first: schema back to the starting point and to hosted's fingerprint.
+- Each of the eleven migrations: applied, rolled back to an **identical** schema, roles and data, then applied again.
+- All 18 post-change checks passed (`post_checks.sql`, read-only), as did the database security checks.
+- All eleven rolled back together, newest first: schema back to the starting point and to hosted's fingerprint.
 - A deliberately wrong rollback script was caught, so the comparison does detect mistakes.
-- `--keep` leaves the migrated cluster running. On it, the full platform passed: API end-to-end 113/113, browser 35/35, AI service 143 passed and 1 skipped.
+- `--keep` leaves the migrated cluster running. On it, the full platform passed with the ten migrations: API end-to-end 113/113, browser 35/35. Then with all eleven, on PostgreSQL 16: API 114/114, browser 36/36, AI service 143 passed and 1 skipped.
 
 **What it can't reproduce:**
 - Supabase's `supautils`, which lets `postgres` manage policies and triggers on `auth` and `storage` tables. The rehearsal approximates it by inheriting from those tables' owners. The same kinds of statements ran on hosted in earlier migrations.
@@ -143,7 +145,7 @@ Read-only, on hosted, starting with `supabase/rehearsal/post_checks.sql`, where 
 
 | Check | Expected |
 | --- | --- |
-| `list_migrations` | 33, ending at `20261107110000` |
+| `list_migrations` | 34, ending at `20261107120000` |
 | `pg_policies` on `storage.objects` | "org reads applicant documents" uses `can_view_candidate_document` |
 | `pg_policies` on `public.applications` | No "org updates status" |
 | `has_table_privilege('authenticated', 'public.applications', 'update')` | false |
@@ -264,7 +266,7 @@ Nothing below starts until the owner approves it in writing.
 - [ ] Secrets entered in the host's secret manager (section 8), none in chat
 
 **Explicit approval to run**
-- [ ] Apply the ten migrations to `al-midan-ya-hamidan`, in order
+- [ ] Apply the eleven migrations to `al-midan-ya-hamidan`, in order
 - [ ] Run the checks in section 7
 - [ ] Set up the `midan_importer` and `midan_ai` logins, and re-run the import
 - [ ] Grant the first platform administrator

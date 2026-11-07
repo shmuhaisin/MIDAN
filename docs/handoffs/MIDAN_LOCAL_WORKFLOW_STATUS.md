@@ -11,6 +11,7 @@ and what each remaining item waits for. All data here is fictional.
 | Browse jobs | Works | `pipeline.e2e-spec.ts`, `journeys.spec.ts` |
 | Apply | Works, with a CV copy per application and explicit sharing if there's none | `foundation.e2e-spec.ts`, `journeys.spec.ts` |
 | Generate an assessment | Works from the job's stated responsibilities and linked workbook skills. **Two paths:** a configured model, or labeled templates when there's none or it can't give a valid draft | `test_model_generation.py`, `test_requirements_builder.py` |
+| Company reviews and edits the draft, then approves | Works: tasks, rubric, objective questions and answer key are editable before approval, edits are audited, and the screen warns about anything left unmeasured | `pipeline.e2e-spec.ts`, `journeys.spec.ts` |
 | Complete it | Works: saved answers, server-side timer, one submission | `foundation.e2e-spec.ts`, `journeys.spec.ts` |
 | Evaluate | Works: rubric scores with evidence, always waiting for a person. A reviewer starts it | `test_graphs.py`, `pipeline.e2e-spec.ts` |
 | Employer reviews | Works: review, release to the candidate, shortlist, hire | `pipeline.e2e-spec.ts`, `live-journey.live-spec.ts` |
@@ -31,7 +32,6 @@ sent, as untrusted data; nothing about a candidate is part of generation.
 
 | Task | Needs |
 | --- | --- |
-| Employer's role in assessment design, aligned with the owner's decision C.4 | One owner choice: can a company edit a generated draft, or only approve or ask for a new one? |
 | Try a real model on real job text and judge the quality | A key the owner adds to the local `.env` themselves, never in chat |
 | Better demo templates for objective questions, which are still general and not job-specific | Nothing. Low priority once a model is available |
 | Start the evaluation automatically when a candidate submits, through the queue | Nothing, but it needs a way for the worker to act for the organization |
