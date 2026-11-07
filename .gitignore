@@ -18,3 +18,8 @@ playwright-report/
 .checkpoints.sqlite*
 .next-*/
 .local/
+
+# Official source workbooks: no permission to publish them. Get them from the owner. See data/source/README.md.
+data/source/*.zip
+data/source/*.xlsx
+data/source/sector-skills/

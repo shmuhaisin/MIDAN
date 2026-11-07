@@ -116,8 +116,8 @@ The uploaded copies were byte-identical to the files imported earlier in the ses
 | Brand Profiles | 10 | `company_id, name_ar, official_website, logo_asset_url, primary_hex, secondary_hex, official_font, identity_status, usage_permission, notes`. **No logo, colour or font for any employer**; all `not_verified` / `permission_not_verified`; note: "Use neutral ALMIDAN template until brand assets and usage permission verified". |
 | Employer Aliases | 11 | `company_id, name_variant, language, alias_status` |
 | Sources | 10 | `company_id, source_url, source_type, checked_on` (all `official_source`, checked 2026-11-05) |
-| Jadarat Jobs | **0** | Header only: `jadarat_job_id, employer_name_raw, company_id, job_title, job_description, requirements, job_url, scraped_at, match_status`. **There are no job records.** |
-| README | 8 distinct notes | Scope ("Employer identity registry only; jobs to be scraped from Jadarat separately"), "Diriyah: DGDA only; do not confuse with Diriyah Company", "All entities marked not_partner; no affiliation claimed", brand rights note. Three notes are repeated in the sheet; each is kept once. |
+| A job sheet | Not read | Out of scope: job listings come only from authorized sources, through `--listings`. |
+| README | 8 distinct notes | The registry's scope note, "Diriyah: DGDA only; do not confuse with Diriyah Company", "All entities marked not_partner; no affiliation claimed", brand rights note. Three notes are repeated in the sheet; each is kept once. |
 
 ### The 10 employers (all `not_partner`)
 
@@ -164,7 +164,7 @@ The workbooks hold no proficiency levels, skill identifiers or English skill nam
 
 ### Missing data
 
-- **Job records:** none. The Jadarat Jobs sheet is empty, no other job file was supplied, and neither database holds any
+- **Job records:** none. The workbook's job sheet is out of scope and not read, no other job file was supplied, and neither database holds any
   prepared jobs. **The job dataset is still missing.**
 - **Brand assets:** none, and no permission. Every employer shows MIDAN's neutral identity.
 - **Employer → MIDAN organization:** no organization account represents any of the 10 employers yet (see §5).
@@ -177,7 +177,7 @@ The workbooks hold no proficiency levels, skill identifiers or English skill nam
 
 ```bash
 node scripts/import-data.mjs --sectors "data/source/بيانات القطاعات.zip" --employers data/source/ALMIDAN_Employer_Database_10_Entities.xlsx
-node scripts/import-data.mjs --listings <file.json> --source-type employer_provided|employer_career_site|jadarat|other_authorized
+node scripts/import-data.mjs --listings <file.json> --source-type employer_provided|employer_career_site|other_authorized
 ```
 
 - Extractors: `scripts/extract-reference-data.py`, `scripts/extract-employers.py` (run by the importer in an isolated
@@ -269,7 +269,7 @@ All four are additive: no existing row changes meaning, and nothing is dropped.
 ## 6. Job integration
 
 - **Data source:** none prepared (§3). MIDAN-native jobs come from organizations; imported listings come from
-  `scripts/import-data.mjs --listings` or the workbook's Jadarat sheet.
+  `scripts/import-data.mjs --listings`, from an authorized source.
 - **Native jobs:** `jobs` (title/description/requirements in both languages, sector, experience level, employment type,
   salary, deadline, status `draft | published | closed`, `is_demo`), `job_requirements` (typed, mandatory flag,
   origin, review status), `job_skills` (internal draft skills), **`job_reference_skills`** (workbook skills, required or
@@ -455,7 +455,7 @@ Arabic copy review; an accessibility audit.
 ## 13. Remaining work (priority order)
 
 1. **Publish this branch** — needs GitHub write access for Claude (§2).
-2. **Job data** — supply the prepared job database. The importer already handles Jadarat-format rows. Blocks
+2. **Job data** — supply job data from an authorized source. The importer reads it through `--listings`. Blocks
    "browse jobs of the 10 employers".
 3. **Owner decision: employer organizations.** Who reviews applications for each of the 10? Proposed: one MIDAN
    organization per employer, linked by a platform administrator, reviewers added as members; imported jobs then become

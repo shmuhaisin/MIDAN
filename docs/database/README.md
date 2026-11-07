@@ -46,7 +46,7 @@ Organization -> Jobs -> Job requirements and skills -> Assessments -> Versions -
 
 ## Reference data
 
-Two official sources, in `data/source/` exactly as supplied (see [data/source/README.md](../../data/source/README.md)): `ALMIDAN_Employer_Database_10_Entities.xlsx` (employer registry) and `بيانات القطاعات.zip` (seven sector skills workbooks, also extracted to `data/source/sector-skills/`).
+Two official sources, placed in `data/source/` exactly as supplied and not in the repository, since there is no permission to publish them (see [data/source/README.md](../../data/source/README.md)): `ALMIDAN_Employer_Database_10_Entities.xlsx` (employer registry) and `بيانات القطاعات.zip` (seven sector skills workbooks, also extracted to `data/source/sector-skills/`).
 
 ```bash
 node scripts/import-data.mjs --sectors "data/source/بيانات القطاعات.zip" --employers data/source/ALMIDAN_Employer_Database_10_Entities.xlsx
