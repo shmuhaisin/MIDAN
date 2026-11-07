@@ -1,0 +1,1 @@
+{ "preset": "ts-jest", "testEnvironment": "node", "rootDir": "src", "testRegex": "\\.live-spec\\.ts$", "testTimeout": 180000 }

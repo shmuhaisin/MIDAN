@@ -326,7 +326,7 @@ function proxy(req, res, port, path) {
 }
 
 function startGateway() {
-  createServer(async (req, res) => {
+  const handler = async (req, res) => {
     const url = new URL(req.url, LOCAL.url);
     try {
       if (url.pathname === '/__mail') {
@@ -341,7 +341,11 @@ function startGateway() {
       console.error('gateway error', error.message);
       if (!res.headersSent) json(res, 500, { message: 'Local gateway error' });
     }
-  }).listen(54321, '127.0.0.1', () => console.log(`Local Supabase on ${LOCAL.url} (auth, rest, storage; mail at ${LOCAL.url}/__mail)`));
+  };
+  createServer(handler).listen(54321, '127.0.0.1', () => console.log(`Local Supabase on ${LOCAL.url} (auth, rest, storage; mail at ${LOCAL.url}/__mail)`));
+  // "localhost" can resolve to ::1 first. With nothing listening there, this port being in the ephemeral range lets a client's
+  // socket occasionally connect to itself, read its own request back as the reply, and be reused for every later request.
+  createServer(handler).listen(54321, '::1').on('error', () => undefined);
 }
 
 function startRest() {

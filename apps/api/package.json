@@ -9,6 +9,7 @@
     "lint": "tsc --noEmit",
     "test": "jest",
     "test:e2e": "jest --config jest.e2e.json --runInBand",
+    "test:live": "jest --config jest.live.json --runInBand",
     "db:pull": "node --env-file=../../.env ../../node_modules/prisma/build/index.js db pull",
     "db:generate": "node --env-file=../../.env ../../node_modules/prisma/build/index.js generate",
     "postinstall": "prisma generate"

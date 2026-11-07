@@ -77,6 +77,47 @@ class TaskDraft(BaseModel):
     criteria: list[CriterionDraft] = []
 
 
+class GeneratedCriterion(BaseModel):
+    description_ar: str = Field(min_length=1)
+    description_en: str = Field(min_length=1)
+    max_score: float = Field(default=10, gt=0, le=100)
+    weight: float = Field(default=1, gt=0)
+
+
+class GeneratedOption(BaseModel):
+    id: str = Field(min_length=1)
+    label_ar: str = Field(min_length=1)
+    label_en: str = Field(min_length=1)
+
+
+class GeneratedQuestion(BaseModel):
+    id: str = Field(min_length=1)
+    prompt_ar: str = Field(min_length=1)
+    prompt_en: str = Field(min_length=1)
+    options: list[GeneratedOption] = Field(min_length=2)
+    answer: str
+
+
+class GeneratedTask(BaseModel):
+    task_type: Literal["written_case_study", "objective_questions"]
+    title_ar: str = Field(min_length=1)
+    title_en: str = Field(min_length=1)
+    instructions_ar: str = Field(min_length=1)
+    instructions_en: str = Field(min_length=1)
+    weight: float = Field(default=2, gt=0)
+    requirement_ids: list[str] = []
+    reference_skill_ids: list[str] = []
+    skill_ids: list[str] = []
+    criteria: list[GeneratedCriterion] = []
+    questions: list[GeneratedQuestion] = []
+
+
+class GeneratedAssessment(BaseModel):
+    """What any model must return for an assessment. Gemini and OpenAI answer to this one contract."""
+
+    tasks: list[GeneratedTask] = Field(min_length=1, max_length=8)
+
+
 class CriterionInput(BaseModel):
     id: str
     code: str

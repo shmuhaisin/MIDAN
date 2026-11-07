@@ -13,11 +13,11 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 from pydantic import BaseModel
 
-from .assessment_builder import build_assessment_graph
+from .assessment_builder import TEMPLATE_PROVENANCE, build_assessment_graph, make_generator
 from .cv import analyze as analyze_cv
 from .evaluation import build_evaluation_graph
 from .providers import PROMPT_VERSION, get_provider
-from .schemas import EvaluationInput, JobInput, Provenance
+from .schemas import EvaluationInput, JobInput
 
 app = FastAPI(title="Midan AI Service", version="0.2.0")
 
@@ -45,10 +45,8 @@ def _checkpointer():
 _saver, CHECKPOINTER = _checkpointer()
 
 _provider = get_provider()
-_builder = build_assessment_graph(_saver)
+_builder = build_assessment_graph(_saver, generator=make_generator(_provider))
 _evaluator = build_evaluation_graph(_provider, _saver)
-
-BUILDER_PROVENANCE = Provenance(mode="demo", model_version="templates-v2-requirements", prompt_version="none")
 
 
 def require_token(x_service_token: str = Header(default="")) -> None:
@@ -111,7 +109,9 @@ def run_cv(run: CvRun) -> dict[str, Any]:
 @app.post("/graphs/assessment-builder/runs", dependencies=[Depends(require_token)])
 def run_builder(run: AssessmentRun) -> dict[str, Any]:
     state = _builder.invoke({"job": run.job.model_dump()}, _config(run.thread_id))
-    return {**_result(_builder, run.thread_id, state), "provenance": BUILDER_PROVENANCE.model_dump()}
+    result = _result(_builder, run.thread_id, state)
+    # What actually made this draft: the model, or the templates if it wasn't available.
+    return {**result, "provenance": result["payload"].get("provenance") or TEMPLATE_PROVENANCE.model_dump()}
 
 
 @app.post("/graphs/assessment-builder/runs/{thread_id}/resume", dependencies=[Depends(require_token)])

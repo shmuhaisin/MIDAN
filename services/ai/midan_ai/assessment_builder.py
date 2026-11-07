@@ -6,12 +6,14 @@ from typing import Any, Callable, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
-from .schemas import CriterionDraft, JobInput, SkillRef, TaskDraft
+from .providers import GENERATION_PROMPT_VERSION, LLMError
+from .schemas import CriterionDraft, GeneratedAssessment, JobInput, Provenance, SkillRef, TaskDraft
 from .templates import DATA_SKILL_SLUGS, SKILL_TASK, TEMPLATES
 
 MAX_REPAIRS = 2
 MAX_RESPONSIBILITIES = 4
 MAX_SKILL_TASKS = 3
+TEMPLATE_PROVENANCE = Provenance(mode="demo", model_version="templates-v2-requirements", prompt_version="none")
 TASK_TYPES = {"responsibility", "daily_task"}
 _SPLIT = re.compile(r"[\n.;؛]+")
 
@@ -29,6 +31,7 @@ class State(TypedDict, total=False):
     repairs: int
     review: dict[str, Any]
     outcome: str
+    provenance: dict[str, Any]
 
 
 def parse_job_description(state: State) -> State:
@@ -121,13 +124,98 @@ def generate_tasks(state: State) -> State:
         instructions_ar=t["instructions_ar"], instructions_en=t["instructions_en"],
         weight=1, config=t["config"], skill_ids=[s.id for s in skills],
     ))
-    return {"tasks": [task.model_dump() for task in tasks]}
+    return {"tasks": [task.model_dump() for task in tasks], "provenance": TEMPLATE_PROVENANCE.model_dump()}
+
+
+def check_generated(state: State):
+    """What the schema can't see: a draft may use only what this job states, and must cover what it requires."""
+    job = JobInput.model_validate(state["job"])
+    requirements = {r["requirement_id"] for r in state["responsibilities"] if r.get("requirement_id")}
+    references = {r.id for r in job.reference_skills}
+    required = {r.id for r in job.reference_skills if r.is_required}
+    skills = {s["id"] for s in state["skills"]}
+
+    def check(draft: GeneratedAssessment) -> None:
+        for task in draft.tasks:
+            for kind, used, known in (("requirement", task.requirement_ids, requirements), ("reference skill", task.reference_skill_ids, references), ("skill", task.skill_ids, skills)):
+                unknown = set(used) - known
+                if unknown:
+                    raise ValueError(f"{kind} ids not in this job: {sorted(unknown)}")
+            if task.task_type == "objective_questions":
+                if not task.questions:
+                    raise ValueError("objective_questions needs questions")
+                for q in task.questions:
+                    if q.answer not in {o.id for o in q.options}:
+                        raise ValueError(f"question {q.id}: the answer isn't one of its options")
+            elif len(task.criteria) < 2:
+                raise ValueError("a written task needs at least 2 criteria")
+        missing = (requirements - {r for t in draft.tasks for r in t.requirement_ids}) | (required - {r for t in draft.tasks for r in t.reference_skill_ids})
+        if missing:
+            raise ValueError(f"these aren't covered by any task: {sorted(missing)}")
+
+    return check
+
+
+def make_generator(provider) -> Callable[[State], State]:
+    """Uses the configured model through the shared contract. Without one, or if it can't produce a valid draft, the templates
+    run instead and the draft is labeled as such, so nobody mistakes it for the model's work."""
+    def generate(state: State) -> State:
+        if provider.provenance.mode != "live":
+            return generate_tasks(state)
+        job = JobInput.model_validate(state["job"])
+        context = {
+            "title_ar": job.title_ar, "title_en": job.title_en,
+            "description_ar": job.description_ar, "description_en": job.description_en,
+            "requirements_ar": job.requirements_ar, "requirements_en": job.requirements_en,
+            "responsibilities": [{"id": r["requirement_id"], "ar": r["ar"], "en": r["en"]} for r in state["responsibilities"]],
+            "skills": [{"id": s["id"], "name_ar": s["name_ar"], "name_en": s["name_en"]} for s in state["skills"]],
+            "reference_skills": [r.model_dump() for r in job.reference_skills],
+        }
+        try:
+            draft = provider.generate_assessment(context, check_generated(state))
+        except LLMError:
+            result = generate_tasks(state)
+            return {**result, "warnings": state["warnings"] + ["ai_generation_unavailable"]}
+        tasks = [_to_task_draft(position, task) for position, task in enumerate(draft.tasks, 1)]
+        return {
+            "tasks": [t.model_dump() for t in tasks],
+            "provenance": Provenance(mode="live", model_version=provider.provenance.model_version, prompt_version=GENERATION_PROMPT_VERSION).model_dump(),
+        }
+
+    return generate
+
+
+def _to_task_draft(position: int, task) -> TaskDraft:
+    if task.task_type == "objective_questions":
+        # The questions go to the candidate, so the answers stay only in the rubric.
+        questions = [{"id": q.id, "prompt_ar": q.prompt_ar, "prompt_en": q.prompt_en, "options": [o.model_dump() for o in q.options]} for q in task.questions]
+        key = {q.id: q.answer for q in task.questions}
+        criteria = [CriterionDraft(code="C1", description_ar="الإجابات الصحيحة", description_en="Correct answers", max_score=len(key), answer_key=key)]
+        config: dict[str, Any] = {"questions": questions}
+    else:
+        requirement = task.requirement_ids[0] if task.requirement_ids else None
+        reference = task.reference_skill_ids[0] if task.reference_skill_ids else None
+        criteria = [
+            CriterionDraft(code=f"C{i}", description_ar=c.description_ar, description_en=c.description_en, max_score=c.max_score, weight=c.weight,
+                           requirement_id=requirement, reference_skill_id=reference if i == 1 else None)
+            for i, c in enumerate(task.criteria, 1)
+        ]
+        config = {}
+    return TaskDraft(
+        position=position, task_type=task.task_type, title_ar=task.title_ar, title_en=task.title_en,
+        instructions_ar=task.instructions_ar, instructions_en=task.instructions_en, weight=task.weight, config=config,
+        skill_ids=task.skill_ids, requirement_ids=task.requirement_ids, reference_skill_ids=task.reference_skill_ids, criteria=criteria,
+    )
 
 
 def generate_rubrics(state: State) -> State:
     tasks = []
     for raw in state["tasks"]:
         task = TaskDraft.model_validate(raw)
+        # A model's draft arrives with its own rubric, already checked.
+        if task.criteria:
+            tasks.append(task.model_dump())
+            continue
         if task.task_type == "objective_questions":
             key = TEMPLATES["objective"]["answer_key"]
             task.criteria = [CriterionDraft(
@@ -198,7 +286,7 @@ def repair_assessment(state: State) -> State:
 
 
 def human_review(state: State) -> State:
-    return {"review": interrupt({"tasks": state["tasks"], "warnings": state["warnings"], "skills": state["skills"]})}
+    return {"review": interrupt({"tasks": state["tasks"], "warnings": state["warnings"], "skills": state["skills"], "provenance": state.get("provenance") or TEMPLATE_PROVENANCE.model_dump()})}
 
 
 def finish(state: State) -> State:
