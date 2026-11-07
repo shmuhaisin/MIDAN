@@ -24,8 +24,8 @@ S2 rules are still live (no applications exist there yet).
 
 Owner decisions, implemented: reopening a rejected application is for owners and admins, and is audited; hiring through an
 outcome needs a shortlist; without a CV snapshot, an employer sees no CV until the candidate shares one. `TRUST_PROXY` stays
-unset until hosting is chosen. Hosted Supabase is unchanged, with ten migrations waiting for approval, and one of them needs a
-permission fix first: see [docs/handoffs/MIDAN_PHASE_2_PREPARATION.md](docs/handoffs/MIDAN_PHASE_2_PREPARATION.md). See
+unset until hosting is chosen. The external job platform is out of the code and the import. Hosted Supabase is unchanged, with
+ten migrations waiting for approval: see [docs/handoffs/MIDAN_PHASE_2_PREPARATION.md](docs/handoffs/MIDAN_PHASE_2_PREPARATION.md). See
 [docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md](docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md).
 
 Owner decisions for later phases, in [docs/DECISIONS.md](docs/DECISIONS.md): Gemini and OpenAI behind one provider

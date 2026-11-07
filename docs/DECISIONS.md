@@ -1,5 +1,7 @@
 # Decisions
 
+**2026-11-07: The external job platform is out of the code and the data (owner decision).** Job listings come only from authorized sources, through `--listings`. The employer workbook is read for identity only, and its job sheet and its note about collecting jobs aren't read. `20261106140000` was edited directly, with the owner's approval, because it hasn't reached hosted, so hosted never holds the value. The official workbook stays byte for byte, so the name remains inside that file.
+
 **2026-11-07: Reopening, outcome hires and CV sharing (owner decisions).** A rejected application can be reopened only by an authorized hiring manager, which means the organization's owners and admins since MIDAN has no role by that name, and each reopening writes an audit record. Hiring through an interview outcome needs the application to be shortlisted already, and nothing shortlists it on the way; manual hiring keeps its rule. Without a CV snapshot, an employer sees no CV until the candidate explicitly shares a copy, which can't be replaced afterwards.
 
 **2026-11-07: Every request is checked with Supabase Auth, with no cache (owner decision; an accepted trade-off).** A signed-out token stops working at once. The cost is one network call per request, and 503s while Auth is down. Revisit with real traffic data.

@@ -25,7 +25,7 @@ order. Each file runs in its own transaction.
 | # | Migration | What it does | Reverse if needed |
 | --- | --- | --- | --- |
 | 1 | `20261106140000_platform_admin_and_data_pipeline` | Platform admin list and functions, import runs with row-level lineage, more employer and listing columns, the `midan_importer` role | Additive. Drop the new tables, functions and columns |
-| 2 | `20261106150000_background_jobs_and_job_analysis` | Background queue, `midan_worker` and `midan_ai` roles, `ai_checkpoints` schema, learning catalog, job analysis | Additive. Drop them. **Blocked today, see 3.1** |
+| 2 | `20261106150000_background_jobs_and_job_analysis` | Background queue, `midan_worker` and `midan_ai` roles, `ai_checkpoints` schema, learning catalog, job analysis | Additive. Drop them. Permission fix in 3.1 |
 | 3 | `20261106160000_assessment_reference_skills` | Tasks and rubric criteria can name the reference skill they measure | Additive. Drop the columns and trigger |
 | 4 | `20261106170000_employer_profiles_and_job_links` | Links an organization and its jobs to the employer registry, employer search | Additive. Drop the column and functions |
 | 5 | `20261107090000_scope_candidate_document_access` | **S1**: staff read only the CV for their own application, not the whole folder | Restore the old policy (not advised) |
@@ -40,13 +40,13 @@ order. Each file runs in its own transaction.
 **Order is strict.** #2 uses #1's admin check. #3 and #4 use the reference and registry tables that #1 extends. #7 and #8 need
 #2. #9 and #10 replace functions from #5 and #6.
 
-### 3.1 Must be fixed before #2 can run
+### 3.1 Fixed: schema permission in #2
 
-`20261106150000` line 140 runs `create schema … authorization midan_ai`. PostgreSQL 16 and later refuse this unless the
-current role can `SET ROLE` to the owner. Hosted `postgres` isn't a superuser, so this should fail there. Local runs hid it
-because they use a superuser. Reproduced as a non-superuser on the local PostgreSQL 16:
-`must be able to SET ROLE "…"`. Adding `grant midan_ai to current_user with set true;` before that line fixed it in the same
-test. Hosted's exact behaviour is unverified until the rehearsal in section 5.
+`20261106150000` runs `create schema … authorization midan_ai`. PostgreSQL 16 and later refuse this unless the current role can
+`SET ROLE` to the owner, and hosted `postgres` isn't a superuser. Local runs hid it because they use a superuser. The migration
+now grants that right first, with the owner's approval.
+
+**How it was checked:** `a scratch PostgreSQL 16 cluster where `postgres` is a non-superuser with `createrole`, `createdb` and `bypassrls`, with stand-ins for Supabase's `auth` and `storage` schemas. Before the fix, all migrations stopped at this one with `must be able to SET ROLE "midan_ai"`. After it, all 33 applied. This is strong evidence but not proof for hosted, which runs version 17 and Supabase's real schemas. Section 5's rehearsal still applies.`
 
 ### 3.2 Which migrations need an API release
 
@@ -95,8 +95,8 @@ Finish with `unset PGPASSWORD`.
 ## 5. Rehearsal, before the real run
 
 Restore the backup into a local **PostgreSQL 17** cluster, connect as a **non-superuser** with the same powers as hosted
-`postgres`, and apply all ten migrations. Then run section 7's checks. Local-only tests can't catch hosted permission problems
-any other way, as 3.1 shows. This needs `brew install postgresql@17`, which isn't installed.
+`postgres`, and apply all ten migrations. Then run section 7's checks. The check in 3.1 used version 16 and stand-ins, while this
+one uses hosted's real schema and data. This needs `brew install postgresql@17`, which isn't installed.
 
 ## 6. Rollback and restoration
 
@@ -126,7 +126,7 @@ Read-only, on hosted. **Don't run the end-to-end suites against hosted:** they w
 | Every table in `public` | RLS on |
 | Security advisors | No new finding beyond the known list |
 | Row counts | Accounts, organizations, the CV and the file match the backup |
-| Re-run the import (`IMPORT_DATABASE_URL`) | Rows report unchanged, plus the one skill hosted lacks, giving 5,074 |
+| Re-run the import (`IMPORT_DATABASE_URL`) | Rows report unchanged, plus the one skill hosted lacks, giving 5,074. Two runs: `sector_skills`, `employer_registry` |
 | API `/v1/health/db` from the release | `login: midan_api`, `bypass_rls: false` |
 | Browser console on the deployed site | No CSP violations (`docs/deployment.md`) |
 
@@ -166,24 +166,23 @@ are refused while registration is closed, so it has to be one of the 7 existing 
 6. Whether to review the SECURITY DEFINER functions the advisors list, starting with `job_assessment_overview`, callable while signed out.
 7. Public registration stays **off**.
 
-## 9. External job platform cleanup (proposed, not done)
+## 9. External job platform cleanup (done, with the owner's approval)
 
-The owner removed this platform from scope, but the code on this branch still names it. Search with `git grep -i jadarat`.
+The platform the owner removed from scope is gone from the code, and no longer reaches the database.
 
-| Where | What's there | Proposed change |
-| --- | --- | --- |
-| `supabase/migrations/20261106140000…sql:333` | Allowed `source_type` value | Remove it |
-| Same file, lines 535 and 549 | Reads a job ID field named after it | Use `source_job_id` only |
-| `scripts/import-data.mjs:5-7, 87-96` | Imports the workbook sheet as listings; allowed source type | Remove that run and the value |
-| `scripts/extract-employers.py:11, 27, 73` | Reads the sheet | Read only the identity sheets |
-| `apps/web/src/messages/{ar,en}.json:1734` | Admin label | Remove it |
-| `docs/database/README.md:62`, `docs/audits/MIDAN_PHASE_0_GAP_ANALYSIS.md` (4 lines) | Describes it as a source | Rewrite as "an authorized job data source" |
-| `docs/handoffs/MIDAN_COMPLETE_IMPLEMENTATION_HANDOFF.md` (6 lines) | Older handoff | Add a note that the platform left scope |
-| `data/source/README.md` and an empty sheet in `ALMIDAN_Employer_Database_10_Entities.xlsx` | The official workbook, kept byte for byte with checksums | Leave it, unless you supply a new workbook. The sheet has no rows and would no longer be read |
+| Where | Change |
+| --- | --- |
+| `supabase/migrations/20261106140000…sql` | Edited before reaching hosted, with the owner's approval: the `source_type` value and the job ID field named after the platform are gone. Local databases need a reset (`scripts/local-setup.sh`) |
+| `scripts/import-data.mjs` | The workbook no longer imports as listings, and the source type is gone. Listings come through `--listings` with `employer_provided`, `employer_career_site` or `other_authorized` |
+| `scripts/extract-employers.py` | Reads the identity sheets only. The job sheet and the workbook's note about collecting jobs are left unread, and lineage records it only as "job sheet, out of scope" |
+| `apps/web/src/messages/{ar,en}.json` | Admin label removed |
+| `docs/database/README.md`, `docs/audits/MIDAN_PHASE_0_GAP_ANALYSIS.md` | Rewritten |
+| `docs/handoffs/MIDAN_COMPLETE_IMPLEMENTATION_HANDOFF.md` | A note at the top. The older text stays as a record of that date |
 
-**Recommendation:** edit `20261106140000` directly instead of adding a follow-up migration, so hosted never holds the value. It
-hasn't been applied to hosted, so only local databases need a reset. This changes a pending migration, so it needs your
-approval, and the full test run follows it.
+**Where the name remains, deliberately:**
+- Inside `ALMIDAN_Employer_Database_10_Entities.xlsx`, as an empty sheet and a note. The official file stays byte for byte with its checksums, unless you supply a new one.
+- `data/source/README.md` and that older handoff, which describe the file as it is.
+- Git history, unless you approve rewriting it.
 
 ## 10. Phase 2 approval checklist
 
@@ -196,9 +195,9 @@ Nothing below starts until the owner approves it in writing.
 - [ ] `feat/company-workflow` compared with this branch, and the merge order decided
 - [ ] `midan-security-completion` reviewed and merged, or the migrations approved from this branch
 
-**Approve these changes to pending files, then full test run**
-- [ ] The schema permission fix in `20261106150000` (3.1)
-- [ ] The platform cleanup, including the edit to `20261106140000` (section 9)
+**Changes to pending files**
+- [x] The schema permission fix in `20261106150000` (3.1): approved and made
+- [x] The platform cleanup, including the edit to `20261106140000` (section 9): approved and made
 
 **Before the window (owner)**
 - [ ] Local checkout using hosted credentials stopped

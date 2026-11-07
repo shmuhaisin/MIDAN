@@ -2,10 +2,9 @@
 // nothing is duplicated. Every record, issue and statistic is kept in import_runs and import_records.
 //
 //   node scripts/import-data.mjs --sectors "<folder or .zip of sector workbooks>" --employers <ALMIDAN_Employer_Database.xlsx>
-//   node scripts/import-data.mjs --listings <listings.json> --source-type employer_provided|employer_career_site|jadarat|other_authorized
+//   node scripts/import-data.mjs --listings <listings.json> --source-type employer_provided|employer_career_site|other_authorized
 //
-// The employer workbook's "Jadarat Jobs" sheet is imported as listings with source type jadarat. Today it has no rows,
-// which is recorded as an empty source, not as "no jobs exist".
+// Job listings come only from authorized sources, through --listings. The employer workbook is read for identity only.
 //
 // Connects as midan_importer, which can only call the import functions. Locally the password is set by
 // scripts/local-db.sh; elsewhere set IMPORT_DATABASE_URL. The workbooks stay out of this public repository.
@@ -78,22 +77,17 @@ try {
   }
 
   if (args.employers) {
-    const { employers, job_listings, report } = JSON.parse(python('extract-employers.py', args.employers, basename(args.employers)));
+    const { employers, report } = JSON.parse(python('extract-employers.py', args.employers, basename(args.employers)));
     await run('employer_registry', [{ file: report.file, sha256: report.sha256, sheets: report.sheets }], async (id) => {
       await call('select private.import_employer_batch($1, $2)', [id, JSON.stringify(employers)]);
       await call('select private.record_import_issues($1, $2)', [id, JSON.stringify(report.issues)]);
-      return { readme: report.readme, employers: employers.length, job_rows_in_workbook: report.job_rows };
-    });
-    await run('job_listings', [{ file: report.file, sha256: report.sha256, sheet: 'Jadarat Jobs', rows: job_listings.length }], async (id) => {
-      const rows = job_listings.map((j) => ({ ...j, source_file: report.file, source_sheet: 'Jadarat Jobs', source_name: 'Jadarat' }));
-      if (rows.length) await call('select private.import_listing_batch($1, $2, $3)', [id, 'jadarat', JSON.stringify(rows)]);
-      return { source_type: 'jadarat', rows: rows.length, note: rows.length ? undefined : 'The sheet has no rows. That means none were supplied, not that no jobs exist.' };
+      return { readme: report.readme, employers: employers.length };
     });
   }
 
   if (args.listings) {
     const type = args['source-type'];
-    if (!['jadarat', 'employer_career_site', 'employer_provided', 'other_authorized'].includes(type)) throw new Error('Pass --source-type');
+    if (!['employer_career_site', 'employer_provided', 'other_authorized'].includes(type)) throw new Error('Pass --source-type');
     const listings = JSON.parse(readFileSync(args.listings, 'utf8'));
     if (!Array.isArray(listings)) throw new Error('Listings file must be a JSON array');
     await run('job_listings', [{ file: basename(args.listings), rows: listings.length, source_type: type }], async (id) => {

@@ -330,7 +330,7 @@ alter table public.external_job_listings
   add column requirements_original text,
   add column employer_name_raw text,
   add column source_type text not null default 'other_authorized'
-    check (source_type in ('jadarat', 'employer_career_site', 'employer_provided', 'other_authorized')),
+    check (source_type in ('employer_career_site', 'employer_provided', 'other_authorized')),
   add column source_job_id text,
   add column collected_at timestamptz,
   add column raw_record jsonb,
@@ -532,7 +532,7 @@ begin
       v_counts := jsonb_set(v_counts, '{rejected}', to_jsonb(coalesce((v_counts ->> 'rejected')::integer, 0) + 1));
       continue;
     end if;
-    v_key := p_source_type || ':' || coalesce(nullif(r ->> 'jadarat_job_id', ''), nullif(r ->> 'source_job_id', ''), v_url);
+    v_key := p_source_type || ':' || coalesce(nullif(r ->> 'source_job_id', ''), v_url);
     select * into v_old from public.external_job_listings where dedupe_key = v_key;
     select * into m from private.match_employer(coalesce(r ->> 'employer_name_raw', r ->> 'employer_name'), nullif(r ->> 'company_id', ''));
     c := private.classify_text(concat_ws(' ', v_title, r ->> 'job_description', r ->> 'requirements'));
@@ -546,7 +546,7 @@ begin
       source_type, source_name, source_url, source_job_id, collected_at, raw_record, import_run_id, dedupe_key, duplicate_of,
       match_status, match_confidence, match_evidence, sector_code, subsector_ar, job_family_ar, classification, location, employment_type)
     values (m.registry_id, coalesce(r ->> 'employer_name_raw', r ->> 'employer_name'), v_title, r ->> 'job_description', r ->> 'requirements',
-      p_source_type, coalesce(r ->> 'source_name', p_source_type), v_url, coalesce(r ->> 'jadarat_job_id', r ->> 'source_job_id'),
+      p_source_type, coalesce(r ->> 'source_name', p_source_type), v_url, r ->> 'source_job_id',
       coalesce((r ->> 'scraped_at')::timestamptz, (r ->> 'collected_at')::timestamptz), r, p_run, v_key, v_dup,
       m.status, m.confidence, m.evidence, c ->> 'sector_code', c ->> 'subsector_ar', c ->> 'job_family_ar', c,
       -- Only what the source states. Nothing is filled in.

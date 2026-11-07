@@ -3,6 +3,10 @@
 Branch `feature/midan-complete-data-jobs-assessment`. Written 2026-11-06 at the end of the session that produced it.
 Everything below describes what exists and was run, not what was planned. Where something wasn't verified, it says so.
 
+**Note, 2026-11-07:** the owner removed the external job platform this document mentions from scope. The importer no longer
+reads that sheet or accepts that source type, and job listings come only from authorized sources. This document is kept as a
+record of that date.
+
 ---
 
 ## 1. Project overview

@@ -375,8 +375,9 @@ All are implemented and tested, in `supabase/migrations/20261107110000_applicati
 5. **S4 stays as it is: one Supabase Auth check per request, no cache. An accepted trade-off.** A signed-out token stops working
    at once, and the cost is a network call on each request and 503s if Auth is down. Revisit it only with real traffic data.
 
-Still for the owner, none of it changed here: see `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`, section 10 (the public workbooks,
-`feat/company-workflow`, and the external job platform cleanup in its section 9).
+Still for the owner: see `docs/handoffs/MIDAN_PHASE_2_PREPARATION.md`, section 10 (the public workbooks and
+`feat/company-workflow`). The external job platform cleanup and the migration permission fix were approved and made (its sections
+9 and 3.1).
 
 ---
 
@@ -508,7 +509,7 @@ database named `midan`, apply in order:
 
 Phase 2 brings hosted Supabase up to the repository. Before it starts:
 1. Phase 1 merged (F.1.3), with the end-to-end suites green.
-2. The owner's explicit approval to apply the ten migrations of section E, in order. See `MIDAN_PHASE_2_PREPARATION.md`, which also lists a blocker in `20261106150000`.
+2. The owner's explicit approval to apply the ten migrations of section E, in order. See `MIDAN_PHASE_2_PREPARATION.md`.
 3. A deployment plan in which the API containing `set_application_status` goes live together with
    `20261107090100` (it revokes the direct update the old API uses).
 4. Owner-held values set outside the repository: the `midan_importer` password (`IMPORT_DATABASE_URL`) to re-run the

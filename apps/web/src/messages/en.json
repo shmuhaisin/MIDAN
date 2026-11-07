@@ -1734,7 +1734,6 @@
         "alias_needs_review": "Alias the source marks for review"
       },
       "sourceTypes": {
-        "jadarat": "Jadarat",
         "employer_career_site": "Employer careers site",
         "employer_provided": "Provided by the employer",
         "other_authorized": "Other authorized source"

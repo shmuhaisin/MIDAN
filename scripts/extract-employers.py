@@ -8,9 +8,8 @@ Verification of identity (verification_status) and partnership (partnership_stat
 the workbook states them. Brand fields are read, but the workbook marks usage permission unverified, so screens use
 Midan's neutral identity until permission is established.
 
-The "Jadarat Jobs" sheet is a jobs dataset, not employer data. Its rows (none, today) go to "job_listings", to be
-imported by scripts/import-data.mjs as external listings. An empty sheet means no rows were supplied, not that no
-jobs exist.
+This workbook is read for employer identity only. Job listings come from authorized sources through import-data.mjs
+--listings, so a sheet of jobs here is left unread, and so are notes about collecting jobs.
 """
 
 import hashlib
@@ -24,8 +23,10 @@ import openpyxl
 
 REQUIRED = {"Employers": ["company_id", "name_ar", "name_en", "verification_status", "partnership_status"],
             "Brand Profiles": ["company_id"], "Employer Aliases": ["company_id", "name_variant", "language", "alias_status"],
-            "Sources": ["company_id", "source_url", "source_type"], "Jadarat Jobs": [], "README": []}
+            "Sources": ["company_id", "source_url", "source_type"], "README": []}
 URL = re.compile(r"^https?://[^\s]+$")
+JOB_SHEET = re.compile(r"\bjobs\b", re.IGNORECASE)
+JOB_COLLECTION_NOTE = re.compile(r"\bjobs\b.*\bscrap", re.IGNORECASE)
 
 
 def clean(value):
@@ -61,7 +62,10 @@ def main(path, display_name=None):
     def issue(kind, sheet, row, value, detail=None):
         report["issues"].append({"kind": kind, "source_file": name, "source_sheet": sheet, "source_row": row, "value": value, "detail": detail})
 
-    unknown = [ws.title for ws in wb.worksheets if ws.title not in REQUIRED]
+    # Recorded without its title, so a job source that is out of scope doesn't reach the database through lineage.
+    if any(JOB_SHEET.search(ws.title) for ws in wb.worksheets):
+        report["sheets"].append({"sheet": "job sheet", "handling": "out_of_scope_not_read"})
+    unknown = [ws.title for ws in wb.worksheets if ws.title not in REQUIRED and not JOB_SHEET.search(ws.title)]
     for title in unknown:
         report["sheets"].append({"sheet": title, "handling": "not_recognized_not_read"})
         issue("unrecognized_sheet", title, None, title, "not read; review the workbook")
@@ -70,13 +74,12 @@ def main(path, display_name=None):
     brand = table(wb, "Brand Profiles", report)
     aliases = table(wb, "Employer Aliases", report)
     sources = table(wb, "Sources", report)
-    jobs = table(wb, "Jadarat Jobs", report)
 
     # README rows repeat in the workbook; keep each distinct note once, with its first row.
     seen = set()
     for r in wb["README"].iter_rows(values_only=True):
         cells = tuple(clean(c) for c in r if clean(c))
-        if cells and cells not in seen:
+        if cells and cells not in seen and not JOB_COLLECTION_NOTE.search(" ".join(cells)):
             seen.add(cells)
             report["readme"].append(list(cells))
     report["sheets"].append({"sheet": "README", "handling": "notes_kept_in_report", "rows": len(report["readme"])})
@@ -121,9 +124,7 @@ def main(path, display_name=None):
             "aliases": [{k: v for k, v in a.items() if not k.startswith("_raw")} for a in aliases if a["company_id"] == e["company_id"]],
             "sources": [{k: v for k, v in s.items() if not k.startswith("_raw")} for s in sources if s["company_id"] == e["company_id"]],
         })
-    job_listings = [{**{k: v for k, v in j.items() if not k.startswith("_")}, "source_row": j["_row"], "source_value": j["_raw"]} for j in jobs]
-    report["job_rows"] = len(job_listings)
-    json.dump({"employers": out, "job_listings": job_listings, "report": report}, sys.stdout, ensure_ascii=False)
+    json.dump({"employers": out, "report": report}, sys.stdout, ensure_ascii=False)
 
 
 if __name__ == "__main__":

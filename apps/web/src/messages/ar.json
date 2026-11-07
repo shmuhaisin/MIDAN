@@ -1734,7 +1734,6 @@
         "alias_needs_review": "صيغة يطلب المصدر مراجعتها"
       },
       "sourceTypes": {
-        "jadarat": "جدارات",
         "employer_career_site": "موقع توظيف الجهة",
         "employer_provided": "مقدَّم من الجهة",
         "other_authorized": "مصدر آخر مصرّح به"

@@ -59,7 +59,7 @@ node scripts/import-data.mjs --sectors "data/source/بيانات القطاعا�
 - **Nothing is merged or dropped silently.** Near-identical spellings, skills found only in a sub-sector sheet, priority-list disagreements and descriptions without a listed skill are kept as written and sent to review (`/admin/review`).
 - **Priority is kept both ways the workbooks state it:** `is_priority` (the flag in the skill list) and `priority_listed` (the separate priority sheet).
 - **The workbooks hold no proficiency levels, skill identifiers or English names,** so none exist here.
-- **The employer workbook's "Jadarat Jobs" sheet** is imported as job listings. It has no rows: that is recorded as an empty source, not as "no jobs".
+- **The employer workbook is read for identity only.** Its job sheet has no rows and isn't read. Job listings come only from authorized sources, through `--listings`.
 
 | Workbook | Technical | General | Sub-sector and family links | Job families |
 | --- | --- | --- | --- | --- |

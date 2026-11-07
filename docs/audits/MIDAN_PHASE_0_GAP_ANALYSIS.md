@@ -60,7 +60,7 @@ production builds, API and web unit tests, and 88 of 91 AI-service tests (3 skip
 
 What MIDAN does not yet have is **real content and real AI**:
 
-- **No job records exist.** The employer workbook's `Jadarat Jobs` sheet holds a header row and nothing else. The database
+- **No job records exist.** The employer workbook's job sheet holds a header row and nothing else, and is no longer read. The database
   has only 2 demo jobs. Imported external listings, if supplied, cannot be applied to in MIDAN; no conversion to native jobs
   exists.
 - **None of the 10 registry employers has an organization account.** How employers get organization accounts is an open
@@ -285,7 +285,7 @@ git-ignored): `node_modules/`, `apps/api/dist/`, `apps/web/.next-audit/`, `apps/
 | Brand Profiles | 10 | Logo, colours, font empty for all 10; `not_verified` / `permission_not_verified` |
 | Employer Aliases | 11 rows over 10 companies, all Arabic | 2 official, 7 common, 1 `ambiguous_manual_review` (ALM-004), 1 `common_manual_review` (ALM-008). No English aliases |
 | Sources | 10 | **Only 4 are `official_source` with `checked_on` 2026-11-05; 6 are `official_domain_reference_pending_check` with no check date** |
-| Jadarat Jobs | **0** (header only) | 9 columns defined; no job records |
+| Job sheet | **0** (header only) | 9 columns defined; no job records; not read |
 | README | 7 notes + title row | Title contains a replacement character (`ALMIDAN � Saudi Employer Registry`), an encoding defect in the source |
 
 Extractor (`extract-employers.py`) re-run here: 10 employers, 0 listings, 0 issues.
@@ -399,7 +399,7 @@ in-process worker; a local stack that runs only on Linux x86-64.
 
 **Phase 3 — jobs and employers**
 - New migration: `private.convert_listing_to_job(listing_id, org_id)` (or `admin_create_employer_organization`), keeping `external_job_listings` lineage on the job; indexes for full-text search (`tsvector` over title, description and requirements, Arabic normalization via `private.normalize_arabic`).
-- `scripts/import-data.mjs` (`--listings` accepting `.csv`; column mapping matching the Jadarat sheet header), plus a new API admin upload in `apps/api/src/admin/admin.controller.ts` (multipart, dry-run report).
+- `scripts/import-data.mjs` (`--listings` accepting `.csv`; column mapping for authorized sources), plus a new API admin upload in `apps/api/src/admin/admin.controller.ts` (multipart, dry-run report).
 - `apps/api/src/jobs/jobs.controller.ts` (search over description/requirements, pagination cursor).
 - `apps/web/src/app/[locale]/admin/listings/page.tsx`, `admin/imports/page.tsx`, `components/admin.tsx`, `lib/admin-actions.ts` (upload, convert, link).
 - `apps/web/src/components/jobs-browser.tsx`, `app/[locale]/opportunities/page.tsx` (paging).
@@ -427,7 +427,7 @@ in-process worker; a local stack that runs only on Linux x86-64.
 
 | Item | Owner | Blocks |
 | --- | --- | --- |
-| Job dataset (Jadarat or employer-provided), and authorization to collect it | Owner | Phase 3, "jobs of the 10 employers" |
+| An authorized job dataset (employer-provided, or another authorized source) | Owner | Phase 3, "jobs of the 10 employers" |
 | Who operates each employer's organization account; whether imported listings become applicable jobs | Owner | Phase 3 |
 | Approval to apply 4 migrations and re-import on hosted | Owner | Phase 2 |
 | LLM provider and key (Gemini/OpenAI already wired; Anthropic would be new) and data-residency stance for sending redacted CVs and answers | Owner + privacy review | Phase 4, real evaluation |
