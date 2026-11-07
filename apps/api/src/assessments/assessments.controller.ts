@@ -7,8 +7,9 @@ import { Prisma } from '@prisma/client';
 import { AiClient } from '../ai/ai.client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { PROFESSIONAL_FIELDS } from '../common/fields';
+import { ChangeReasonDto, recordChangeReason } from '../common/change-reason';
 import { BUILDERS, requireRole } from '../common/roles';
-import { AuthUser, DbService } from '../db/db.service';
+import { AuthUser, DbService, Tx } from '../db/db.service';
 
 class AssessmentFieldDto {
   @ApiPropertyOptional({ enum: PROFESSIONAL_FIELDS, nullable: true }) @IsOptional() @IsIn(PROFESSIONAL_FIELDS) professional_field?: string | null;
@@ -27,7 +28,7 @@ class UpdateAssessmentDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(200) title_en?: string;
 }
 
-class VersionSettingsDto {
+class VersionSettingsDto extends ChangeReasonDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(4000) scenario_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(4000) scenario_en?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) @Max(2160) deadline_hours?: number;
@@ -36,7 +37,7 @@ class VersionSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() rubric_shared?: boolean;
 }
 
-class UpdateTaskDto {
+class UpdateTaskDto extends ChangeReasonDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(200) title_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(200) title_en?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(8000) instructions_ar?: string;
@@ -44,7 +45,7 @@ class UpdateTaskDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() @IsPositive() weight?: number;
 }
 
-class UpdateCriterionDto {
+class UpdateCriterionDto extends ChangeReasonDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(2000) description_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(2000) description_en?: string;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @IsPositive() max_score?: number;
@@ -60,8 +61,12 @@ class NewCriterionDto {
   @ApiPropertyOptional() @IsOptional() @IsUUID() requirement_id?: string;
 }
 
+class AddCriterionDto extends NewCriterionDto {
+  @ApiPropertyOptional({ description: 'Why this change was made. Kept in the change history.' }) @IsOptional() @IsString() @MaxLength(1000) reason?: string;
+}
+
 /** A task an organization writes by hand. Open-answer types only: objective questions need an answer key built with them. */
-class NewTaskDto {
+class NewTaskDto extends ChangeReasonDto {
   @ApiPropertyOptional({ enum: ['written_case_study', 'file_submission'] }) @IsIn(['written_case_study', 'file_submission']) task_type!: 'written_case_study' | 'file_submission';
   @ApiPropertyOptional() @IsString() @MinLength(1) @MaxLength(200) title_ar!: string;
   @ApiPropertyOptional() @IsString() @MinLength(1) @MaxLength(200) title_en!: string;
@@ -88,9 +93,15 @@ class QuestionDto {
   @ApiProperty({ description: 'The id of the correct option. It stays in the rubric and never reaches candidates.' }) @IsString() answer!: string;
 }
 
-class UpdateQuestionsDto {
+class UpdateQuestionsDto extends ChangeReasonDto {
   @ApiProperty({ type: [QuestionDto] })
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(50) @ValidateNested({ each: true }) @Type(() => QuestionDto) questions!: QuestionDto[];
+}
+
+class ReviewChangesDto {
+  @ApiPropertyOptional({ description: 'The id of the last change the reviewer saw, from GET …/changes (latest_change_id). Omit when there are none.' })
+  @IsOptional() @IsInt() @Min(0) reviewed_through?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) note?: string;
 }
 
 type DraftTask = {
@@ -201,6 +212,8 @@ export class AssessmentsController {
     if (result.status !== 'awaiting_human_review') throw new UnprocessableEntityException('The draft could not be generated');
 
     return this.db.asUser(user, async (tx) => {
+      // What follows is MIDAN's generated draft, not a person's edit: recorded as generation, and kept as the original.
+      await tx.$queryRaw`select set_config('midan.assessment_change', 'generation', true)`;
       const assessment = target ?? await tx.assessments.create({
         data: { org_id: orgId, job_id: jobId, title_ar: body.title_ar ?? job.title_ar, title_en: body.title_en ?? job.title_en },
       });
@@ -237,6 +250,8 @@ export class AssessmentsController {
       await tx.ai_workflow_runs.create({
         data: { org_id: orgId, workflow: 'assessment_builder', thread_id: threadId, status: 'awaiting_human_review', started_by: user.id, ...result.provenance },
       });
+      await tx.$queryRaw`select set_config('midan.assessment_change', '', true)`;
+      await tx.$queryRaw`select id from public.record_generated_draft(${version.id}::uuid)`;
       return { version_id: version.id, assessment_id: assessment.id, warnings: result.payload.warnings, mode: result.provenance.mode };
     });
   }
@@ -282,6 +297,7 @@ export class AssessmentsController {
       await requireRole(tx, user, orgId, BUILDERS);
       const version = await tx.assessment_versions.findFirst({ where: { id: versionId, org_id: orgId }, select: { id: true, assessment_tasks: { select: { position: true } } } });
       if (!version) throw new NotFoundException();
+      await recordChangeReason(tx, body.reason);
       const position = Math.max(0, ...version.assessment_tasks.map((t) => t.position)) + 1;
       const task = await tx.assessment_tasks.create({
         data: {
@@ -303,16 +319,18 @@ export class AssessmentsController {
   }
 
   @Delete('assessment-tasks/:taskId')
-  @ApiOperation({ summary: 'Removes a task from a draft, with its rubric and links. The last task stays: a version needs at least one.' })
-  removeTask(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('taskId', ParseUUIDPipe) taskId: string) {
+  @ApiOperation({ summary: 'Removes a task from a draft, with its rubric and links. The last task stays: a version needs at least one. The change history keeps what was removed.' })
+  removeTask(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('taskId', ParseUUIDPipe) taskId: string, @Query() query: ChangeReasonDto) {
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
       const task = await tx.assessment_tasks.findFirst({ where: { id: taskId, org_id: orgId }, select: { version_id: true, position: true } });
       if (!task) throw new NotFoundException();
       const remaining = await tx.assessment_tasks.count({ where: { version_id: task.version_id } });
       if (remaining <= 1) throw new UnprocessableEntityException('A version needs at least one task');
+      await recordChangeReason(tx, query.reason);
       await tx.assessment_tasks.delete({ where: { id: taskId } });
-      // Keep positions continuous so candidates see 1, 2, 3.
+      // Keep positions continuous so candidates see 1, 2, 3. Recorded too, with the cause.
+      await recordChangeReason(tx, 'Renumbered after a task was removed');
       const later = await tx.assessment_tasks.findMany({ where: { version_id: task.version_id, position: { gt: task.position } }, orderBy: { position: 'asc' }, select: { id: true, position: true } });
       for (const t of later) await tx.assessment_tasks.update({ where: { id: t.id }, data: { position: t.position - 1 } });
       return { removed: true };
@@ -320,12 +338,13 @@ export class AssessmentsController {
   }
 
   @Post('assessment-tasks/:taskId/criteria')
-  addCriterion(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('taskId', ParseUUIDPipe) taskId: string, @Body() body: NewCriterionDto) {
+  addCriterion(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('taskId', ParseUUIDPipe) taskId: string, @Body() body: AddCriterionDto) {
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
       const task = await tx.assessment_tasks.findFirst({ where: { id: taskId, org_id: orgId }, select: { task_type: true, rubric_criteria: { select: { code: true } } } });
       if (!task) throw new NotFoundException();
       if (task.task_type === 'objective_questions') throw new UnprocessableEntityException('Objective questions are scored by their answer key');
+      await recordChangeReason(tx, body.reason);
       const next = Math.max(0, ...task.rubric_criteria.map((c) => Number(c.code.replace(/\D/g, '')) || 0)) + 1;
       return tx.rubric_criteria.create({
         data: { task_id: taskId, org_id: orgId, code: `C${next}`, description_ar: body.description_ar, description_en: body.description_en, max_score: body.max_score, weight: body.weight ?? 1, requirement_id: body.requirement_id ?? null },
@@ -334,12 +353,13 @@ export class AssessmentsController {
   }
 
   @Delete('rubric-criteria/:criterionId')
-  removeCriterion(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('criterionId', ParseUUIDPipe) id: string) {
+  removeCriterion(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('criterionId', ParseUUIDPipe) id: string, @Query() query: ChangeReasonDto) {
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
       const criterion = await tx.rubric_criteria.findFirst({ where: { id, org_id: orgId }, select: { task_id: true } });
       if (!criterion) throw new NotFoundException();
       if ((await tx.rubric_criteria.count({ where: { task_id: criterion.task_id } })) <= 1) throw new UnprocessableEntityException('A task needs at least one criterion');
+      await recordChangeReason(tx, query.reason);
       await tx.rubric_criteria.delete({ where: { id } });
       return { removed: true };
     });
@@ -347,9 +367,11 @@ export class AssessmentsController {
 
   @Patch('assessment-tasks/:taskId')
   updateTask(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('taskId', ParseUUIDPipe) taskId: string, @Body() body: UpdateTaskDto) {
+    const { reason, ...data } = body;
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
-      const { count } = await tx.assessment_tasks.updateMany({ where: { id: taskId, org_id: orgId }, data: body });
+      await recordChangeReason(tx, reason);
+      const { count } = await tx.assessment_tasks.updateMany({ where: { id: taskId, org_id: orgId }, data });
       if (count === 0) throw new NotFoundException();
       return tx.assessment_tasks.findUniqueOrThrow({ where: { id: taskId } });
     });
@@ -369,6 +391,7 @@ export class AssessmentsController {
       const task = await tx.assessment_tasks.findFirst({ where: { id: taskId, org_id: orgId }, select: { task_type: true, config: true, rubric_criteria: { select: { id: true } } } });
       if (!task) throw new NotFoundException();
       if (task.task_type !== 'objective_questions') throw new UnprocessableEntityException('Only objective questions have an answer key');
+      await recordChangeReason(tx, body.reason);
       const questions = body.questions.map(({ answer: _answer, ...question }) => question);
       const key = Object.fromEntries(body.questions.map((q) => [q.id, q.answer]));
       await tx.assessment_tasks.update({ where: { id: taskId }, data: { config: { ...(task.config as Prisma.JsonObject), questions: JSON.parse(JSON.stringify(questions)) } } });
@@ -379,9 +402,11 @@ export class AssessmentsController {
 
   @Patch('rubric-criteria/:criterionId')
   updateCriterion(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('criterionId', ParseUUIDPipe) id: string, @Body() body: UpdateCriterionDto) {
+    const { reason, ...data } = body;
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
-      const { count } = await tx.rubric_criteria.updateMany({ where: { id, org_id: orgId }, data: body });
+      await recordChangeReason(tx, reason);
+      const { count } = await tx.rubric_criteria.updateMany({ where: { id, org_id: orgId }, data });
       if (count === 0) throw new NotFoundException();
       return tx.rubric_criteria.findUniqueOrThrow({ where: { id } });
     });
@@ -390,19 +415,74 @@ export class AssessmentsController {
   @Patch('assessment-versions/:versionId')
   @ApiOperation({ summary: 'What candidates are told, and the deadline and timer. Locked once published.' })
   updateVersion(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string, @Body() body: VersionSettingsDto) {
+    const { reason, ...data } = body;
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
-      const { count } = await tx.assessment_versions.updateMany({ where: { id, org_id: orgId }, data: body });
+      await recordChangeReason(tx, reason);
+      const { count } = await tx.assessment_versions.updateMany({ where: { id, org_id: orgId }, data });
       if (count === 0) throw new NotFoundException();
       return tx.assessment_versions.findUniqueOrThrow({ where: { id } });
     });
   }
 
+  @Get('assessment-versions/:versionId/changes')
+  @ApiOperation({
+    summary: "Everything the review before approval needs: MIDAN's original, the draft now, every change with its before and after, earlier reviews and MIDAN's validation.",
+  })
+  async changes(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string) {
+    const [row] = await this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      return tx.$queryRaw<{ state: unknown }[]>`
+        select public.assessment_review_state(v.id) as state from public.assessment_versions v where v.id = ${id}::uuid and v.org_id = ${orgId}::uuid`;
+    });
+    if (!row) throw new NotFoundException();
+    return row.state;
+  }
+
+  @Post('assessment-versions/:versionId/review')
+  @ApiOperation({
+    summary: 'An owner or admin records that they reviewed every change up to reviewed_through, with the validation as it stood. Refused if the draft changed since.',
+  })
+  review(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string, @Body() body: ReviewChangesDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, ['owner', 'admin']);
+      return this.recordReview(tx, orgId, id, body);
+    });
+  }
+
+  @Post('assessment-versions/:versionId/revise')
+  @ApiOperation({
+    summary: 'Starts a new draft version from an approved one, to change an assessment candidates already take. The approved version and its attempts never change.',
+  })
+  async revise(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string) {
+    const [version] = await this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const found = await tx.assessment_versions.findFirst({ where: { id, org_id: orgId }, select: { id: true } });
+      if (!found) throw new NotFoundException();
+      return tx.$queryRaw<{ id: string; version_number: number; assessment_id: string }[]>`
+        select id, version_number, assessment_id from public.create_assessment_revision(${id}::uuid)`;
+    });
+    return version;
+  }
+
+  private async recordReview(tx: Tx, orgId: string, versionId: string, body: ReviewChangesDto) {
+    const found = await tx.assessment_versions.findFirst({ where: { id: versionId, org_id: orgId }, select: { id: true } });
+    if (!found) throw new NotFoundException();
+    const [review] = await tx.$queryRaw<unknown[]>`
+      select * from public.review_assessment_changes(${versionId}::uuid, ${body.reviewed_through ?? 0}::bigint, ${body.note ?? null}::text)`;
+    return review;
+  }
+
   @Post('assessment-versions/:versionId/publish')
-  @ApiOperation({ summary: 'Human approval. Only an owner or admin can publish, and the version then becomes immutable.' })
-  async publish(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string) {
+  @ApiOperation({
+    summary: 'Human approval. Only an owner or admin can publish, and the version then becomes immutable.',
+    description: "Every change people made to MIDAN's draft must be reviewed first. Pass reviewed_through (and a note) to review and approve in one step; "
+      + 'without it, a draft with unreviewed changes gets 422. MIDAN validation errors also give 422; its warnings are shown in the review and do not block.',
+  })
+  async publish(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) id: string, @Body() body: ReviewChangesDto) {
     const version = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, ['owner', 'admin']);
+      if (body.reviewed_through !== undefined) await this.recordReview(tx, orgId, id, body);
       const { count } = await tx.assessment_versions.updateMany({ where: { id, org_id: orgId }, data: { status: 'published' } });
       if (count === 0) throw new NotFoundException();
       return tx.assessment_versions.findUniqueOrThrow({ where: { id } });

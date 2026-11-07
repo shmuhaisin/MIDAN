@@ -71,7 +71,9 @@ test('registration data to career development: the whole candidate journey', asy
   await call('PATCH', `/organizations/${org.id}/jobs/${job.id}`, { skills: [{ skill_id: skills[0].id, required_level: 3 }] }).catch(() => undefined);
   const draft = await call('POST', `/organizations/${org.id}/jobs/${job.id}/assessment/generate`, {});
   await call('PATCH', `/organizations/${org.id}/assessment-versions/${draft.version_id}`, { deadline_hours: 72, rubric_shared: true, scenario_en: 'You join a fictional analytics team.', scenario_ar: 'تنضم إلى فريق تحليل خيالي.' });
-  await call('POST', `/organizations/${org.id}/assessment-versions/${draft.version_id}/publish`);
+  // The scenario edit above is a change to MIDAN's draft, so approving it records a review of the changes, as the screen does.
+  const changes = await call('GET', `/organizations/${org.id}/assessment-versions/${draft.version_id}/changes`);
+  await call('POST', `/organizations/${org.id}/assessment-versions/${draft.version_id}/publish`, { reviewed_through: changes.latest_change_id });
 
   const candidate = await pageFor(browser, candidateTokens);
   const owner = await pageFor(browser, ownerTokens);

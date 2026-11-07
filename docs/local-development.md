@@ -81,6 +81,14 @@ The database-level security checks (candidate documents, status transitions, que
 scripts/local-db.sh psql -f supabase/tests/security_phase1.sql
 ```
 
+The assessment editing policy's checks (audit of every draft change, review before approval, validation, revisions) work the same way:
+
+```bash
+scripts/local-db.sh psql -f supabase/tests/assessment_editing_policy.sql
+```
+
+After pulling the editing policy, apply its migration with `scripts/local-db.sh migrate`.
+
 Restart `node scripts/local-supabase.mjs` after pulling this change: its Storage stand-in gained the folder listing that the cross-employer document test uses.
 
 A production web build must not contain the development sign-up code:

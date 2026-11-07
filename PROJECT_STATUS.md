@@ -25,12 +25,29 @@ S2 rules are still live (no applications exist there yet).
 Owner decisions, implemented: reopening a rejected application is for owners and admins, and is audited; hiring through an
 outcome needs a shortlist; without a CV snapshot, an employer sees no CV until the candidate shares one. `TRUST_PROXY` stays
 unset until hosting is chosen. The external job platform is out of the code and the import. Hosted Supabase is unchanged, with
-sixteen migrations waiting for approval, rehearsed locally on PostgreSQL 17 with their rollback. The job-to-review journey works locally, including with a stand-in model, and real providers are still untested: see [docs/handoffs/MIDAN_LOCAL_WORKFLOW_STATUS.md](docs/handoffs/MIDAN_LOCAL_WORKFLOW_STATUS.md) and [docs/handoffs/MIDAN_PHASE_2_PREPARATION.md](docs/handoffs/MIDAN_PHASE_2_PREPARATION.md). See
+seventeen migrations waiting for approval. The first sixteen were rehearsed locally on PostgreSQL 17 with their rollback; the seventeenth (the assessment editing policy) was applied and rolled back on a scratch PostgreSQL 18 only. The job-to-review journey works locally, including with a stand-in model, and real providers are still untested: see [docs/handoffs/MIDAN_LOCAL_WORKFLOW_STATUS.md](docs/handoffs/MIDAN_LOCAL_WORKFLOW_STATUS.md) and [docs/handoffs/MIDAN_PHASE_2_PREPARATION.md](docs/handoffs/MIDAN_PHASE_2_PREPARATION.md). See
 [docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md](docs/handoffs/MIDAN_PHASE_1_SECURITY_HANDOFF.md).
 
 Owner decisions for later phases, in [docs/DECISIONS.md](docs/DECISIONS.md): Gemini and OpenAI behind one provider
-interface; hybrid employer management; MIDAN owns assessment design (today organizations still build and publish their
-own assessments, which a later phase has to change).
+interface; hybrid employer management; MIDAN owns assessment design, with the editing policy below.
+
+## Assessment editing policy (2026-11-07, branch `midan-assessment-editing-policy`, not pushed)
+
+Owners, admins and recruiters may add, edit and delete a draft's tasks, questions, instructions, criteria, options and answer
+keys. Every change is recorded with its state before and after; an owner or admin reviews the changes beside MIDAN's original
+and MIDAN's validation before approving; approved versions never change, and a new version leaves existing attempts alone.
+See [docs/handoffs/MIDAN_ASSESSMENT_EDITING_POLICY.md](docs/handoffs/MIDAN_ASSESSMENT_EDITING_POLICY.md).
+
+| Part | Status |
+| --- | --- |
+| Audit of every create, update and delete, with before and after, actor, organization, version, reason; immutable to employers | Tested on a scratch PostgreSQL 18 (`supabase/tests/assessment_editing_policy.sql`) |
+| Review before approval, stale reviews refused, owners and admins only | Tested on the database. API end-to-end tests written, **not run** (they need the Linux/macOS local stack) |
+| MIDAN validation (coverage, mapping, rubric, scoring, objective answers, duplicates): errors block, warnings recorded | Tested on the database |
+| Generated, revision-base and approved versions kept; published versions immutable; revisions leave attempts alone | Tested on the database. End-to-end tests written, not run |
+| Review screen: changes with before and after, coverage-weakening changes flagged, MIDAN's version beside the draft | Unit-tested helpers, type-checked and built. **Not opened in a browser** (needs the local stack) |
+| Migration `20261107150000` and its rollback | Applied, and rolled back to an identical schema, on PostgreSQL 18. Not on hosted |
+
+Still open: generation doesn't receive the job's sector or the company's type; provenance has no separate provider field.
 
 | Milestone | Item | Status |
 | --- | --- | --- |

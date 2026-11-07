@@ -34,6 +34,12 @@ describe('the journey with a model behind the AI service', () => {
   const slug = `midan-test-live-${RUN}`;
   const api = () => request(app.getHttpServer());
   const bearer = (s: Session) => ({ Authorization: `Bearer ${s.token}` });
+  /** Approves a draft as the screen does: with a review of every change made to MIDAN's draft (20261107150000). */
+  const approve = async (who: Session, version: string) => {
+    const path = `${base()}/assessment-versions/${version}`;
+    const state = await api().get(`${path}/changes`).set(bearer(who)).expect(200);
+    return api().post(`${path}/publish`).set(bearer(who)).send({ reviewed_through: state.body.latest_change_id });
+  };
   const base = () => `/organizations/${org}`;
   // What the Data API gives this person from reference_skill_scores for this evaluation.
   const rows = async (s: Session) => (await (await fetch(`${BASE}/rest/v1/reference_skill_scores?result_id=eq.${evaluation}&select=id`,
@@ -79,7 +85,7 @@ describe('the journey with a model behind the AI service', () => {
 
     await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(outsider)).expect(403);
     await api().patch(`${base()}/jobs/${job}/status`).set(bearer(owner)).send({ status: 'published' }).expect(200);
-    await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(owner)).expect(201);
+    expect((await approve(owner, version)).status).toBe(201);
   });
 
   it('lets a candidate find the job, apply and complete the assessment, without seeing the rubric', async () => {

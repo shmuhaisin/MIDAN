@@ -46,6 +46,12 @@ async function rest(who: Session | null, method: string, path: string, body?: un
   return { status: res.status, body: text ? JSON.parse(text) : null };
 }
 
+/** Records an owner's review of every change made to a draft through the Data API, before approving it there. */
+async function reviewAll(who: Session, version: string) {
+  const state = await rest(who, 'POST', 'rpc/assessment_review_state', { p_version: version });
+  return rest(who, 'POST', 'rpc/review_assessment_changes', { p_version: version, p_through: state.body.latest_change_id });
+}
+
 function storage(who: Session, method: string, path: string, content?: string) {
   return fetch(`${BASE}/storage/v1/${path}`, {
     method,
@@ -66,6 +72,12 @@ describe('Midan database foundation', () => {
 
   const api = () => request(app.getHttpServer());
   const bearer = (s: Session) => ({ Authorization: `Bearer ${s.token}` });
+  /** Approves a draft as the screen does: with a review of every change made to MIDAN's draft (20261107150000). */
+  const approve = async (who: Session, orgId: string, version: string) => {
+    const path = `/organizations/${orgId}/assessment-versions/${version}`;
+    const state = await api().get(`${path}/changes`).set(bearer(who)).expect(200);
+    return api().post(`${path}/publish`).set(bearer(who)).send({ reviewed_through: state.body.latest_change_id });
+  };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -335,6 +347,10 @@ describe('Midan database foundation', () => {
 
       expect((await rest(recruiterA, 'PATCH', `assessment_versions?id=eq.${version}`, { status: 'published' })).status).toBe(403);
       expect((await rest(ownerB, 'PATCH', `assessment_versions?id=eq.${version}`, { status: 'published' })).body).toEqual([]);
+      // Tasks written straight to the table are people's changes: an owner or admin reviews them before approving.
+      expect((await rest(ownerA, 'PATCH', `assessment_versions?id=eq.${version}`, { status: 'published' })).status).toBe(400);
+      expect((await rest(recruiterA, 'POST', 'rpc/review_assessment_changes', { p_version: version, p_through: 0 })).status).toBe(403);
+      expect((await reviewAll(ownerA, version)).status).toBe(200);
       const published = await rest(ownerA, 'PATCH', `assessment_versions?id=eq.${version}`, { status: 'published' });
       expect(published.body[0].status).toBe('published');
       expect(published.body[0].published_by).toBe(ownerA.id);
@@ -418,6 +434,7 @@ describe('Midan database foundation', () => {
         version_id: v, org_id: orgB, position: 1, task_type: 'written_case_study', title_ar: 'x', title_en: 'x', instructions_ar: 'x', instructions_en: 'x',
       })).body[0].id;
       await rest(ownerB, 'POST', 'rubric_criteria', { task_id: t, org_id: orgB, code: 'C', description_ar: 'x', description_en: 'x', max_score: 1 });
+      await reviewAll(ownerB, v);
       await rest(ownerB, 'PATCH', `assessment_versions?id=eq.${v}`, { status: 'published' });
       const open = (await rest(ownerB, 'POST', 'assessment_attempts', { application_id: application.body.id, version_id: v, org_id: orgB, candidate_id: candidateOne.id })).body[0].id;
       const early = await rest(ownerB, 'POST', 'evaluation_results', { attempt_id: open, org_id: orgB });
@@ -548,7 +565,8 @@ describe('Midan database foundation', () => {
     });
 
     it('freezes a snapshot at publish that later edits cannot change, and locks the mappings', async () => {
-      const published = await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).expect(201);
+      const published = await approve(ownerA, orgA, version);
+      expect(published.status).toBe(201);
       const snapshot = published.body.requirements_snapshot;
       expect(snapshot.job.title_en).toBe('Marketer');
       const snapped = snapshot.requirements.find((r: { id: string }) => r.id === responsibility);
@@ -640,8 +658,8 @@ describe('Midan database foundation', () => {
     it('invites a candidate to a chosen assessment, once each', async () => {
       application = (await api().post(`/jobs/${job}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
       await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).expect(422);
-      await api().post(`${base()}/assessment-versions/${firstVersion}/publish`).set(bearer(ownerA)).expect(201);
-      await api().post(`${base()}/assessment-versions/${secondVersion}/publish`).set(bearer(ownerA)).expect(201);
+      expect((await approve(ownerA, orgA, firstVersion)).status).toBe(201);
+      expect((await approve(ownerA, orgA, secondVersion)).status).toBe(201);
       await api().delete(`${base()}/assessments/${second}`).set(bearer(ownerA)).expect(409);
 
       await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).expect(422);
@@ -653,7 +671,7 @@ describe('Midan database foundation', () => {
 
       // Not even a newer version of the same assessment, whichever route writes it.
       const newer = await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({ assessment_id: first }).expect(201);
-      await api().post(`${base()}/assessment-versions/${newer.body.version_id}/publish`).set(bearer(ownerA)).expect(201);
+      expect((await approve(ownerA, orgA, newer.body.version_id)).status).toBe(201);
       await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).send({ assessment_id: first }).expect(409);
       const direct = await rest(ownerA, 'POST', 'assessment_attempts', { application_id: application, version_id: newer.body.version_id, org_id: orgA });
       expect(direct.status).not.toBe(201);
@@ -712,7 +730,7 @@ describe('Midan database foundation', () => {
     it('never overwrites a decision made by a person, and refuses work after withdrawal', async () => {
       await api().patch(`/applications/${application}/status`).set(bearer(ownerA)).send({ status: 'shortlisted' }).expect(200);
       const third = await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({ title_ar: 'ثالث', title_en: 'Third' }).expect(201);
-      await api().post(`${base()}/assessment-versions/${third.body.version_id}/publish`).set(bearer(ownerA)).expect(201);
+      expect((await approve(ownerA, orgA, third.body.version_id)).status).toBe(201);
       const attempt = await api().post(`/applications/${application}/invite`).set(bearer(ownerA)).send({ assessment_id: third.body.assessment_id }).expect(201);
       expect(await status()).toBe('shortlisted');
 
@@ -832,7 +850,7 @@ describe('Midan database foundation', () => {
       version = (await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(ownerA)).send({}).expect(201)).body.version_id;
       await api().patch(`${base()}/assessment-versions/${version}`).set(bearer(ownerA)).send({ deadline_hours: 72, rubric_shared: true, scenario_en: 'You join a fictional team.' }).expect(200);
       await api().patch(`${base()}/assessment-versions/${version}`).set(bearer(candidateOne)).send({ deadline_hours: 1 }).expect(403);
-      await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).expect(201);
+      expect((await approve(ownerA, orgA, version)).status).toBe(201);
       await api().patch(`${base()}/assessment-versions/${version}`).set(bearer(ownerA)).send({ deadline_hours: 1 }).expect(422);
 
       const filtered = await api().get(`/jobs?sector=digital&experience_level=mid&employment_type=full_time&location=${encodeURIComponent('riyadh')}&q=journey`).set(bearer(candidateOne)).expect(200);
@@ -923,7 +941,7 @@ describe('Midan database foundation', () => {
       const timedJob = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: `timed-${RUN}`, title_ar: 'موقوت', title_en: 'Timed', status: 'published' }).expect(201)).body.id;
       const draft = (await api().post(`${base()}/jobs/${timedJob}/assessment/generate`).set(bearer(ownerA)).send({}).expect(201)).body.version_id;
       await api().patch(`${base()}/assessment-versions/${draft}`).set(bearer(ownerA)).send({ is_timed: true, duration_minutes: 1 }).expect(200);
-      await api().post(`${base()}/assessment-versions/${draft}/publish`).set(bearer(ownerA)).expect(201);
+      expect((await approve(ownerA, orgA, draft)).status).toBe(201);
       const applied = (await api().post(`/jobs/${timedJob}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
       const timed = (await api().get(`/me/applications/${applied}`).set(bearer(candidateTwo))).body.assessment_attempts[0].id;
       const started = await api().post(`/attempts/${timed}/start`).set(bearer(candidateTwo)).expect(201);
@@ -1277,7 +1295,10 @@ describe('Midan database foundation', () => {
       await api().patch(`/organizations/${orgA}/assessment-tasks/${tasks[0].id}`).set(bearer(ownerA)).send({ title_en: 'Edited title' }).expect(200);
       await api().post(`/organizations/${orgA}/assessment-versions/${version}/publish`).set(bearer(recruiterA)).expect(403);
       await api().post(`/organizations/${orgA}/assessment-versions/${version}/publish`).set(bearer(ownerB)).expect(403);
-      const done = await api().post(`/organizations/${orgA}/assessment-versions/${version}/publish`).set(bearer(ownerA)).expect(201);
+      // The edit above is a change to MIDAN's draft: approving without reviewing it is refused.
+      await api().post(`/organizations/${orgA}/assessment-versions/${version}/publish`).set(bearer(ownerA)).expect(422);
+      const done = await approve(ownerA, orgA, version);
+      expect(done.status).toBe(201);
       expect(done.body.status).toBe('published');
       await api().patch(`/organizations/${orgA}/assessment-tasks/${tasks[0].id}`).set(bearer(ownerA)).send({ title_en: 'Too late' }).expect(422);
     });
@@ -1512,6 +1533,147 @@ describe('Midan database foundation', () => {
         body: 'MZ',
       });
       expect(res.ok).toBe(false);
+    });
+  });
+
+  describe('the assessment editing policy: employers edit, every change is recorded and reviewed, approved versions never change', () => {
+    const base = () => `/organizations/${orgA}`;
+    let job: string, version: string, revision: string, generatedTask: string, responsibility: string;
+    type Change = { id: number; action: string; entity: string; actor_name: string; needs_review: boolean; details: { reason?: string; task_id?: string; old: Record<string, unknown> | null; new: Record<string, unknown> | null } };
+    const state = async (v = version, who = ownerA) => (await api().get(`${base()}/assessment-versions/${v}/changes`).set(bearer(who)).expect(200)).body;
+
+    it('keeps the draft MIDAN generated, with nothing to review yet', async () => {
+      job = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: `policy-${RUN}`, title_ar: 'محاسب', title_en: 'Accountant', status: 'published' }).expect(201)).body.id;
+      responsibility = (await api().post(`${base()}/jobs/${job}/requirements`).set(bearer(ownerA))
+        .send({ requirement_type: 'responsibility', description_ar: 'مطابقة الحسابات الشهرية', description_en: 'Reconcile the monthly accounts' }).expect(201)).body.id;
+      version = (await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(recruiterA)).send({}).expect(201)).body.version_id;
+      const s = await state(version, recruiterA);
+      expect(s.original.kind).toBe('generated');
+      expect(s.changes).toEqual([]);
+      expect(s.unreviewed).toBe(false);
+      generatedTask = s.current.tasks[0].id;
+      expect(s.validation.some((f: { code: string }) => f.code === 'requirement_not_measured')).toBe(false);
+    });
+
+    it('records an added, an edited and a deleted task, each with who, the reason, and the state before and after', async () => {
+      const added = (await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(recruiterA)).send({
+        task_type: 'written_case_study', title_ar: 'تقرير', title_en: 'Short report', instructions_ar: 'اكتب تقريرًا', instructions_en: 'Write a report',
+        criteria: [{ description_ar: 'واضح', description_en: 'Clear', max_score: 5 }], reason: 'Our team reports weekly',
+      }).expect(201)).body;
+      await api().patch(`${base()}/assessment-tasks/${generatedTask}`).set(bearer(recruiterA)).send({ title_en: 'Reconcile the branch accounts', reason: 'Match our branches' }).expect(200);
+      await api().delete(`${base()}/assessment-tasks/${added.id}?reason=${encodeURIComponent('Not needed after all')}`).set(bearer(recruiterA)).expect(200);
+
+      const changes = (await state()).changes as Change[];
+      const find = (action: string, task: string) => changes.find((c) => c.action === action && c.entity === 'assessment_tasks' && c.details.task_id === task);
+      const creation = find('create', added.id)!;
+      expect(creation.details.old).toBeNull();
+      expect(creation.details.new!.title_en).toBe('Short report');
+      expect(creation.details.reason).toBe('Our team reports weekly');
+      expect(creation.actor_name).toBeTruthy();
+      const edit = find('update', generatedTask)!;
+      expect(edit.details.new!.title_en).toBe('Reconcile the branch accounts');
+      expect(edit.details.old!.title_en).not.toBe('Reconcile the branch accounts');
+      expect(edit.details.reason).toBe('Match our branches');
+      const deletion = find('delete', added.id)!;
+      expect(deletion.details.new).toBeNull();
+      expect(deletion.details.old!.title_en).toBe('Short report');
+      expect((deletion.details.old!.rubric_criteria as unknown[]).length).toBe(1);
+      expect(deletion.details.reason).toBe('Not needed after all');
+      expect(changes.every((c) => c.needs_review)).toBe(true);
+    });
+
+    it('refuses editing to other roles and organizations, and the change history to anyone outside', async () => {
+      const task = { task_type: 'written_case_study', title_ar: 'x', title_en: 'x', instructions_ar: 'x', instructions_en: 'x', criteria: [{ description_ar: 'x', description_en: 'x', max_score: 1 }] };
+      await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(candidateOne)).send(task).expect(403);
+      await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(ownerB)).send(task).expect(403);
+      await api().patch(`${base()}/assessment-tasks/${generatedTask}`).set(bearer(ownerB)).send({ title_en: 'Intruder' }).expect(403);
+      await api().get(`${base()}/assessment-versions/${version}/changes`).set(bearer(ownerB)).expect(403);
+      await api().get(`${base()}/assessment-versions/${version}/changes`).set(bearer(candidateOne)).expect(403);
+      // Reviewing is for owners and admins, not the recruiter who made the changes.
+      await api().post(`${base()}/assessment-versions/${version}/review`).set(bearer(recruiterA)).send({ reviewed_through: (await state()).latest_change_id }).expect(403);
+    });
+
+    it('never lets an employer edit or delete the change history', async () => {
+      const before = (await state()).changes as Change[];
+      const ids = before.map((c) => c.id).join(',');
+      await rest(ownerA, 'PATCH', `audit_logs?id=in.(${ids})`, { details: {} });
+      await rest(ownerA, 'DELETE', `audit_logs?id=in.(${ids})`);
+      expect((await rest(ownerA, 'POST', 'audit_logs', { org_id: orgA, action: 'update', entity: 'assessment_tasks', details: {} })).status).toBeGreaterThanOrEqual(400);
+      expect((await state()).changes).toEqual(before);
+      // The draft MIDAN generated can't be rewritten either.
+      await rest(ownerA, 'PATCH', `assessment_version_snapshots?version_id=eq.${version}`, { content: {} });
+      expect((await state()).original.content.tasks.length).toBeGreaterThan(0);
+    });
+
+    it('shows weakened coverage in MIDAN validation, and records it with the review', async () => {
+      // Unlink the responsibility everywhere the draft measured it.
+      for (const t of (await state()).current.tasks as { id: string; requirement_ids: string[]; criteria: { id: string; requirement_id: string | null }[] }[]) {
+        if (t.requirement_ids.includes(responsibility)) {
+          await api().put(`${base()}/assessment-tasks/${t.id}/requirements`).set(bearer(recruiterA)).send({ requirement_ids: [], reason: 'Covered at interview' }).expect(200);
+        }
+        for (const c of t.criteria.filter((x) => x.requirement_id === responsibility)) {
+          await api().patch(`${base()}/rubric-criteria/${c.id}`).set(bearer(recruiterA)).send({ requirement_id: null }).expect(200);
+        }
+      }
+      const s = await state();
+      expect(s.validation).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'requirement_not_measured', severity: 'warning' })]));
+      expect(s.unreviewed).toBe(true);
+    });
+
+    it('approves only after an owner or admin reviews every change, and refuses a review that missed one', async () => {
+      await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).send({}).expect(422);
+      const latest = (await state()).latest_change_id;
+      await api().post(`${base()}/assessment-versions/${version}/review`).set(bearer(ownerA)).send({ reviewed_through: latest - 1 }).expect(422);
+      const review = (await api().post(`${base()}/assessment-versions/${version}/review`).set(bearer(ownerA)).send({ reviewed_through: latest, note: 'Interview covers it' }).expect(201)).body;
+      expect(review.reviewed_by).toBe(ownerA.id);
+      expect(review.validation).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'requirement_not_measured' })]));
+      // A change after the review needs another one.
+      await api().patch(`${base()}/assessment-tasks/${generatedTask}`).set(bearer(recruiterA)).send({ instructions_en: 'Reconcile the attached branch accounts' }).expect(200);
+      await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).send({}).expect(422);
+      await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(recruiterA)).send({ reviewed_through: (await state()).latest_change_id }).expect(403);
+      // Review and approve in one step, as the screen does.
+      const published = (await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).send({ reviewed_through: (await state()).latest_change_id }).expect(201)).body;
+      expect(published.status).toBe('published');
+      expect(published.published_by).toBe(ownerA.id);
+      const after = await state();
+      expect(after.approved.tasks).toEqual(after.current.tasks);
+      expect(after.reviews).toHaveLength(2);
+    });
+
+    it('never changes an approved version', async () => {
+      await api().patch(`${base()}/assessment-tasks/${generatedTask}`).set(bearer(ownerA)).send({ title_en: 'Too late' }).expect(422);
+      await api().delete(`${base()}/assessment-tasks/${generatedTask}`).set(bearer(ownerA)).expect(422);
+      await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(ownerA)).send({
+        task_type: 'written_case_study', title_ar: 'x', title_en: 'x', instructions_ar: 'x', instructions_en: 'x', criteria: [{ description_ar: 'x', description_en: 'x', max_score: 1 }],
+      }).expect(422);
+      await api().post(`${base()}/assessment-versions/${version}/review`).set(bearer(ownerA)).send({ reviewed_through: 0 }).expect(422);
+    });
+
+    it('changes an assessment candidates already take through a new version, leaving their attempts alone', async () => {
+      const first = (await api().post(`/jobs/${job}/applications`).set(bearer(candidateOne)).send({}).expect(201)).body.id;
+      const attemptOf = async (who: Session, application: string) =>
+        (await api().get('/me/applications').set(bearer(who)).expect(200)).body.find((a: { id: string }) => a.id === application).assessment_attempts[0].assessment_versions.id;
+      expect(await attemptOf(candidateOne, first)).toBe(version);
+
+      await api().post(`${base()}/assessment-versions/${version}/revise`).set(bearer(candidateOne)).expect(403);
+      revision = (await api().post(`${base()}/assessment-versions/${version}/revise`).set(bearer(recruiterA)).expect(201)).body.id;
+      await api().post(`${base()}/assessment-versions/${version}/revise`).set(bearer(recruiterA)).expect(422);
+      const draft = await state(revision);
+      expect(draft.original.kind).toBe('revision_base');
+      expect(draft.changes).toEqual([]);
+      const copied = draft.current.tasks[0].id;
+      await api().patch(`${base()}/assessment-tasks/${copied}`).set(bearer(recruiterA)).send({ title_en: 'Reconcile accounts, version two' }).expect(200);
+
+      const v1 = await state(version);
+      expect(v1.current.tasks).toEqual(v1.approved.tasks);
+      expect(await attemptOf(candidateOne, first)).toBe(version);
+
+      expect((await approve(ownerA, orgA, revision)).status).toBe(201);
+      const second = (await api().post(`/jobs/${job}/applications`).set(bearer(candidateTwo)).send({}).expect(201)).body.id;
+      expect(await attemptOf(candidateTwo, second)).toBe(revision);
+      expect(await attemptOf(candidateOne, first)).toBe(version);
+      await api().post(`/applications/${first}/withdraw`).set(bearer(candidateOne)).expect(201);
+      await api().post(`/applications/${second}/withdraw`).set(bearer(candidateTwo)).expect(201);
     });
   });
 });

@@ -12,6 +12,12 @@ function text(form: FormData, name: string) {
   return String(form.get(name) ?? '').trim();
 }
 
+/** The optional reason a person gives for changing an assessment draft, kept in its change history. */
+function reason(form: FormData) {
+  const given = text(form, 'reason');
+  return given ? { reason: given } : {};
+}
+
 export type ProfilePayload = {
   full_name: string; headline: string | null; city: string | null; summary: string | null; years_experience: number | null;
   share_profile_consent: boolean;
@@ -203,7 +209,7 @@ export async function updateTask(orgId: string, taskId: string, _: FormState, fo
       body: {
         title_ar: text(form, 'title_ar'), title_en: text(form, 'title_en'),
         instructions_ar: text(form, 'instructions_ar'), instructions_en: text(form, 'instructions_en'),
-        weight: Number(form.get('weight')),
+        weight: Number(form.get('weight')), ...reason(form),
       },
     }),
   );
@@ -224,14 +230,28 @@ export async function updateCriterion(orgId: string, id: string, _: FormState, f
       method: 'PATCH',
       body: {
         description_ar: text(form, 'description_ar'), description_en: text(form, 'description_en'),
-        max_score: Number(form.get('max_score')), weight: Number(form.get('weight')),
+        max_score: Number(form.get('max_score')), weight: Number(form.get('weight')), ...reason(form),
       },
     }),
   );
 }
 
-export async function publishVersion(orgId: string, versionId: string) {
-  return result(() => api(`/organizations/${orgId}/assessment-versions/${versionId}/publish`, { method: 'POST' }));
+/** Approval. reviewedThrough is the last change the approver was shown: the database refuses it if the draft changed since. */
+export async function publishVersion(orgId: string, versionId: string, reviewedThrough?: number) {
+  return result(() => api(`/organizations/${orgId}/assessment-versions/${versionId}/publish`, {
+    method: 'POST', body: reviewedThrough === undefined ? {} : { reviewed_through: reviewedThrough },
+  }));
+}
+
+export async function reviewChanges(orgId: string, versionId: string, reviewedThrough: number, note: string) {
+  return result(() => api(`/organizations/${orgId}/assessment-versions/${versionId}/review`, {
+    method: 'POST', body: { reviewed_through: reviewedThrough, ...(note.trim() && { note: note.trim() }) },
+  }));
+}
+
+/** A new draft version from an approved one. The approved version, and every attempt on it, stay as they are. */
+export async function reviseVersion(orgId: string, versionId: string) {
+  return result(() => api(`/organizations/${orgId}/assessment-versions/${versionId}/revise`, { method: 'POST' }));
 }
 
 export async function inviteCandidate(applicationId: string, assessmentId: string) {
@@ -344,6 +364,7 @@ export async function addTask(orgId: string, versionId: string, _: FormState, fo
     task_type: text(form, 'task_type'), title_ar: text(form, 'title_ar'), title_en: text(form, 'title_en'),
     instructions_ar: text(form, 'instructions_ar'), instructions_en: text(form, 'instructions_en'),
     criteria: [{ description_ar: text(form, 'criterion_ar'), description_en: text(form, 'criterion_en'), max_score: Number(form.get('max_score')) }],
+    ...reason(form),
   };
   if (!body.title_ar || !body.title_en || !body.instructions_ar || !body.instructions_en || !body.criteria[0].description_ar || !body.criteria[0].description_en) return { error: 'required' };
   return result(() => api(`/organizations/${orgId}/assessment-versions/${versionId}/tasks`, { method: 'POST', body }));
@@ -354,7 +375,7 @@ export async function removeTask(orgId: string, taskId: string) {
 }
 
 export async function addCriterion(orgId: string, taskId: string, _: FormState, form: FormData): Promise<FormState> {
-  const body = { description_ar: text(form, 'description_ar'), description_en: text(form, 'description_en'), max_score: Number(form.get('max_score')) };
+  const body = { description_ar: text(form, 'description_ar'), description_en: text(form, 'description_en'), max_score: Number(form.get('max_score')), ...reason(form) };
   if (!body.description_ar || !body.description_en || !(body.max_score > 0)) return { error: 'required' };
   return result(() => api(`/organizations/${orgId}/assessment-tasks/${taskId}/criteria`, { method: 'POST', body }));
 }

@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags 
 import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateIf } from 'class-validator';
 import { requirement_type } from '@prisma/client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
+import { ChangeReasonDto, recordChangeReason } from '../common/change-reason';
 import { BUILDERS, requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
 
@@ -27,7 +28,7 @@ class UpdateRequirementDto {
   @ApiPropertyOptional() @ValidateIf((o) => o.skill_id !== null) @IsOptional() @IsUUID() skill_id?: string | null;
 }
 
-class TaskRequirementsDto {
+class TaskRequirementsDto extends ChangeReasonDto {
   @ApiProperty() @IsArray() @ArrayMaxSize(200) @IsUUID(undefined, { each: true }) requirement_ids!: string[];
 }
 
@@ -113,6 +114,7 @@ export class RequirementsController {
       await requireRole(tx, user, orgId, BUILDERS);
       const task = await tx.assessment_tasks.findFirst({ where: { id: taskId, org_id: orgId }, select: { id: true } });
       if (!task) throw new NotFoundException();
+      await recordChangeReason(tx, body.reason);
       const wanted = [...new Set(body.requirement_ids)];
       await tx.task_requirement_mappings.deleteMany({ where: { task_id: taskId, requirement_id: { notIn: wanted } } });
       await tx.task_requirement_mappings.createMany({

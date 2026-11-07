@@ -19,7 +19,7 @@ queries on that date.
 
 ## 2. Pending migrations
 
-The owner's brief counted nine. The owner's decisions added two more, Phase 3 four and Phase 4 one, so **sixteen** are pending. Apply them in this
+The owner's brief counted nine. The owner's decisions added two more, Phase 3 four and Phase 4 one, so **sixteen** were pending; the assessment editing policy (2026-11-07) adds a seventeenth. Apply them in this
 order. Each file runs in its own transaction.
 
 | # | Migration | What it does | Reverse if needed |
@@ -40,6 +40,7 @@ order. Each file runs in its own transaction.
 | 14 | `20261107130200_employer_claims` | Claims to manage an employer, their private evidence bucket and the administrator's decision | Drop them. Claims and evidence are lost |
 | 15 | `20261107130300_team_invitations` | Inviting by email, accepting from the matching account, and the team list | Drop them. Pending invitations are lost |
 | 16 | `20261107140000_reference_skill_scores` | How well reviewed work showed each workbook skill, as a percentage, never a level | Drop the table. Workbook skill scores are lost; overall and criterion scores stay |
+| 17 | `20261107150000_assessment_editing_policy` | Records every change to a draft with its state before and after, keeps MIDAN's generated draft and each approved version, requires an owner or admin to review the changes before approval, validates the edited draft, and lets a new version start from an approved one | Restore `guard_version` and the triggers of #11; drop the rest. Snapshots and reviews are lost; audit rows stay |
 
 ## 3. Dependencies and coordination
 
@@ -71,8 +72,9 @@ hosted credentials. **Stop it before the window.**
 | **#12** | **The public listing of external jobs and the admin listings page fail: they read columns now closed** | Fails: the search columns are missing | **Release together** |
 | #13, #14, #15 | Keeps working (additive) | Upload, conversion, claims and team pages fail | Migrate first |
 | #16 | Keeps working (additive) | Submitting a review fails: it writes the new table | Migrate first |
+| **#17** | Publishing a draft that people edited fails with 422 until the changes are reviewed, which the old API and screen can't do | Fails: generation calls a missing function | **Release together** |
 
-**Recommendation:** apply all sixteen in one window, then release API and web from this branch straight after. With nothing
+**Recommendation:** apply all seventeen in one window, then release API and web from this branch straight after. With nothing
 deployed, there are no users to interrupt.
 
 ## 4. Backup, before anything else
@@ -116,7 +118,7 @@ This needs `brew install postgresql@17`. It builds a throwaway PostgreSQL 17 clu
 - The 23 applied migrations then produce **the same fingerprint as hosted** for tables, columns, policies and functions (`supabase/rehearsal/hosted-baseline.txt`). The script stops if they don't.
 - Data is fictional, in hosted's shape (`03_synthetic_hosted_shape.sql`). Nothing was copied from hosted. It adds two applications hosted doesn't have, so the migrations meet those rows.
 
-**Results:**
+**Results** (for the first sixteen; **#17 has not been through this rehearsal yet**: it was applied, tested and rolled back to an identical schema on a scratch PostgreSQL 18 only, so run `scripts/rehearse-migrations.sh` again before the window):
 - Backup, as in section 4, restored into a separate database: all 68 tables identical.
 - Each of the sixteen migrations: applied, rolled back to an **identical** schema, roles and data, then applied again.
 - All 26 post-change checks passed (`post_checks.sql`, read-only), as did the database security checks.
@@ -153,7 +155,7 @@ Read-only, on hosted, starting with `supabase/rehearsal/post_checks.sql`, where 
 
 | Check | Expected |
 | --- | --- |
-| `list_migrations` | 39, ending at `20261107140000` |
+| `list_migrations` | 40, ending at `20261107150000` |
 | `pg_policies` on `storage.objects` | "org reads applicant documents" uses `can_view_candidate_document` |
 | `pg_policies` on `public.applications` | No "org updates status" |
 | `has_table_privilege('authenticated', 'public.applications', 'update')` | false |
@@ -274,7 +276,7 @@ Nothing below starts until the owner approves it in writing.
 - [ ] Secrets entered in the host's secret manager (section 8), none in chat
 
 **Explicit approval to run**
-- [ ] Apply the sixteen migrations to `al-midan-ya-hamidan`, in order
+- [ ] Apply the seventeen migrations to `al-midan-ya-hamidan`, in order
 - [ ] Run the checks in section 7
 - [ ] Set up the `midan_importer` and `midan_ai` logins, and re-run the import
 - [ ] Grant the first platform administrator

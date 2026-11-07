@@ -48,6 +48,12 @@ describe('Midan administration and data pipeline', () => {
   let admin: Session, ownerA: Session, candidate: Session;
   const api = () => request(app.getHttpServer());
   const bearer = (s: Session) => ({ Authorization: `Bearer ${s.token}` });
+  /** Approves a draft as the screen does: with a review of every change made to MIDAN's draft (20261107150000). */
+  const approve = async (who: Session, orgId: string, version: string) => {
+    const path = `/organizations/${orgId}/assessment-versions/${version}`;
+    const state = await api().get(`${path}/changes`).set(bearer(who)).expect(200);
+    return api().post(`${path}/publish`).set(bearer(who)).send({ reviewed_through: state.body.latest_change_id });
+  };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -409,7 +415,7 @@ describe('Midan administration and data pipeline', () => {
       await api().delete(`${base()}/rubric-criteria/${added.rubric_criteria[0].id}`).set(bearer(ownerA)).expect(422);
       await api().delete(`${base()}/assessment-tasks/${added.id}`).set(bearer(ownerA)).expect(200);
 
-      await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).expect(201);
+      expect((await approve(ownerA, org, version)).status).toBe(201);
       await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(ownerA)).send(task).expect(422);
       const view = await api().get(`${base()}/jobs/${job}/assessment`).set(bearer(ownerA)).expect(200);
       await api().delete(`${base()}/assessment-tasks/${view.body.version.assessment_tasks[0].id}`).set(bearer(ownerA)).expect(422);
@@ -485,7 +491,7 @@ describe('Midan administration and data pipeline', () => {
       }
       await api().patch(`${base()}/jobs/${job}/status`).set(bearer(ownerA)).send({ status: 'published' }).expect(200);
       // The employer's approval: only a published version is ever assigned to a candidate.
-      await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(ownerA)).expect(201);
+      expect((await approve(ownerA, org, version)).status).toBe(201);
     });
 
     it('lets a candidate browse the job, see their workbook-skill match, and apply', async () => {

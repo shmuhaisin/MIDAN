@@ -36,10 +36,14 @@ insert into public.assessments (id, org_id, job_id, title_ar, title_en) values
   ('00000000-0000-4000-8000-0000000002a1', '00000000-0000-4000-8000-0000000000a0', '00000000-0000-4000-8000-0000000001a1', 'تقييم', 'Assessment');
 insert into public.assessment_versions (id, assessment_id, org_id, version_number) values
   ('00000000-0000-4000-8000-0000000003a1', '00000000-0000-4000-8000-0000000002a1', '00000000-0000-4000-8000-0000000000a0', 1);
+-- Written as MIDAN's generation, as the Core API writes a draft, so approving it needs no review of people's changes
+-- (supabase/tests/assessment_editing_policy.sql covers those).
+set local midan.assessment_change to 'generation';
 insert into public.assessment_tasks (id, version_id, org_id, position, task_type, title_ar, title_en, instructions_ar, instructions_en) values
   ('00000000-0000-4000-8000-0000000004a1', '00000000-0000-4000-8000-0000000003a1', '00000000-0000-4000-8000-0000000000a0', 1, 'written_case_study', 'مهمة', 'Task', 'اكتب', 'Write');
 insert into public.rubric_criteria (task_id, org_id, code, description_ar, description_en, max_score) values
   ('00000000-0000-4000-8000-0000000004a1', '00000000-0000-4000-8000-0000000000a0', 'C1', 'معيار', 'Criterion', 10);
+set local midan.assessment_change to '';
 -- Publishing needs an owner or admin, so it's done with organization A's owner as the caller.
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-8000-00000000a001", "role": "authenticated"}';
 update public.assessment_versions set status = 'published' where id = '00000000-0000-4000-8000-0000000003a1';

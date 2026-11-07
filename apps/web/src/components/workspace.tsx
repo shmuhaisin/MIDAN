@@ -439,6 +439,7 @@ function CriterionEditor({ orgId, criterion, editable, canRemove }: { orgId: str
           <TextArea name="description_en" rows={2} dir="ltr" required label={t('descriptionEn').split(' ')[0]} aria-label={`${criterion.code} en`} defaultValue={criterion.description_en} />
           <Field name="max_score" type="number" min="1" step="1" required label={t('maxScore')} defaultValue={Number(criterion.max_score)} />
           <Field name="weight" type="number" min="0.1" step="0.1" required label={t('weight')} defaultValue={Number(criterion.weight)} />
+          {editable && <Field name="reason" maxLength={1000} label={t('changeReason')} aria-label={`${criterion.code} ${t('changeReason')}`} />}
         </div>
         {editable && (
           <div className="flex flex-wrap items-center gap-3">
@@ -484,6 +485,7 @@ function TaskEditor({ orgId, task, editable, requirements, canRemoveTask }: { or
                     <TextArea name="instructions_ar" required dir="rtl" rows={5} label={t('instructionsAr')} defaultValue={task.instructions_ar} />
                     <TextArea name="instructions_en" required dir="ltr" rows={5} label={t('instructionsEn')} defaultValue={task.instructions_en} />
                     <Field name="weight" type="number" min="0.1" step="0.1" required label={t('weight')} defaultValue={Number(task.weight)} />
+                    {editable && <Field name="reason" maxLength={1000} label={t('changeReason')} />}
                   </div>
                   {editable && (
                     <div className="flex items-center gap-3">
@@ -556,6 +558,7 @@ function AddCriterionForm({ orgId, taskId }: { orgId: string; taskId: string }) 
           <TextArea name="description_ar" rows={2} dir="rtl" required label={t('descriptionAr').split(' ')[0]} aria-label={t('criterionAr')} />
           <TextArea name="description_en" rows={2} dir="ltr" required label={t('descriptionEn').split(' ')[0]} aria-label={t('criterionEn')} />
           <Field name="max_score" type="number" min="1" max="100" step="1" required defaultValue={10} label={t('maxScore')} />
+          <Field name="reason" maxLength={1000} label={t('changeReason')} />
         </div>
         <Submit>{t('addCriterion')}</Submit>
       </ActionForm>
@@ -587,6 +590,7 @@ function AddTaskForm({ orgId, versionId }: { orgId: string; versionId: string })
           <TextArea name="criterion_ar" required dir="rtl" rows={2} label={t('criterionAr')} />
           <TextArea name="criterion_en" required dir="ltr" rows={2} label={t('criterionEn')} />
           <Field name="max_score" type="number" min="1" max="100" step="1" required defaultValue={10} label={t('maxScore')} />
+          <Field name="reason" maxLength={1000} label={t('changeReason')} />
         </div>
         <p className="text-sm text-muted">{t('rubricPrivate')}</p>
         <Submit>{t('addTask')}</Submit>
@@ -595,10 +599,17 @@ function AddTaskForm({ orgId, versionId }: { orgId: string; versionId: string })
   );
 }
 
-export function PublishPanel({ orgId, versionId, uncovered = [] }: { orgId: string; versionId: string; uncovered?: string[] }) {
+/**
+ * Approval. review is the change review the page showed (ChangeReview): approving sends the last change in it, so the approval
+ * also records that every change was reviewed, and the database refuses it if the draft changed since. MIDAN's errors block it.
+ */
+export function PublishPanel({ orgId, versionId, uncovered = [], review }: {
+  orgId: string; versionId: string; uncovered?: string[];
+  review?: { latestChangeId: number; unreviewedChanges: number; errors: number };
+}) {
   const t = useTranslations('workspace');
   const [confirming, setConfirming] = useState(false);
-  const { pending, error, fire } = useAction(() => publishVersion(orgId, versionId));
+  const { pending, error, fire } = useAction(() => publishVersion(orgId, versionId, review?.latestChangeId));
   return (
     <div className="rounded-lg bg-surface p-4">
       <p className="text-sm text-muted">{t('publishNote')}</p>
@@ -608,7 +619,10 @@ export function PublishPanel({ orgId, versionId, uncovered = [] }: { orgId: stri
           <ul className="mt-1 list-disc space-y-1 ps-4">{uncovered.map((item) => <li key={item}>{item}</li>)}</ul>
         </div>
       )}
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      {review && review.unreviewedChanges > 0 && <p className="mt-3 text-sm font-semibold">{t('publishReviewNote', { count: review.unreviewedChanges })}</p>}
+      {review && review.errors > 0 ? (
+        <p role="alert" className="mt-3 text-sm font-semibold text-error">{t('publishBlocked')}</p>
+      ) : <div className="mt-3 flex flex-wrap items-center gap-3">
         {confirming ? (
           <>
             <button type="button" disabled={pending} aria-busy={pending} onClick={fire} className={PRIMARY}>{t('publishConfirm')}</button>
@@ -617,7 +631,7 @@ export function PublishPanel({ orgId, versionId, uncovered = [] }: { orgId: stri
         ) : (
           <button type="button" onClick={() => setConfirming(true)} className={PRIMARY}>{t('publish')}<Arrow /></button>
         )}
-      </div>
+      </div>}
       <div className="mt-2"><ErrorText code={error} /></div>
     </div>
   );

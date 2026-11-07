@@ -8,7 +8,8 @@ import { JobAnalysisPanel, type Analysis } from '@/components/job-analysis';
 import { AssessmentSwitcher, AssessmentTitle, VersionSettings, EmptyAssessment, FieldSelect, GenerateButton, InviteButton, JobDetailsForm, PublishPanel, TaskList } from '@/components/workspace';
 import { Link, redirect } from '@/i18n/navigation';
 import { api, apiForPage } from '@/lib/api';
-import { uncoveredItems } from '@/lib/assessment-review';
+import { uncoveredItems, type ReviewState } from '@/lib/assessment-review';
+import { ChangeReview, ReviseButton } from '@/components/change-review';
 import { number, pick } from '@/lib/format';
 import { getSession } from '@/lib/session';
 
@@ -78,6 +79,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const coveredIds = new Set(version?.assessment_tasks.flatMap((x) => x.task_skill_mappings.map((m) => m.skills.id)));
   const required = skills.filter((s) => job.job_skills.some((j) => j.skill_id === s.id));
   const assessments = latest.assessments;
+  // The review before approval: MIDAN's original, every change people made, MIDAN's checks.
+  const review = version && canBuild ? await apiForPage<ReviewState>(`/organizations/${orgId}/assessment-versions/${version.id}/changes`) : null;
+  const reviewedThrough = Math.max(0, ...(review?.reviews ?? []).map((r) => r.reviewed_through));
+  const unreviewedChanges = review ? review.changes.filter((c) => c.needs_review && c.id > reviewedThrough).length : 0;
   const liveAssessments = assessments.filter((a) => a.assessment_versions.some((v) => v.status === 'published'));
   const neverPublished = (a?: Latest['assessments'][number]) => Boolean(a) && a!.assessment_versions.every((v) => ['draft', 'in_review'].includes(v.status));
 
@@ -167,13 +172,20 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             )}
             {canBuild && <VersionSettings key={version.id} orgId={orgId} version={version} canEdit={Boolean(editable)} />}
             <TaskList orgId={orgId} versionId={version.id} tasks={version.assessment_tasks} editable={Boolean(editable)} requirements={requirements ?? []} />
+            {review && (editable || review.changes.length > 0) && <ChangeReview orgId={orgId} state={review} canReview={canPublish} />}
             {editable && canPublish && (
               <PublishPanel
                 orgId={orgId} versionId={version.id}
                 uncovered={uncoveredItems(version.assessment_tasks, requirements ?? [], job.job_reference_skills ?? [], (ar, en) => pick(locale, ar ?? en ?? '', en ?? ar ?? ''))}
+                review={review ? { latestChangeId: review.latest_change_id, unreviewedChanges, errors: review.validation.filter((f) => f.severity === 'error').length } : undefined}
               />
             )}
-            {published && canBuild && <GenerateButton orgId={orgId} jobId={jobId} assessmentId={version.assessments.id} label={t('newVersion')} />}
+            {published && canBuild && (
+              <div className="flex flex-wrap items-start gap-6">
+                <ReviseButton orgId={orgId} versionId={version.id} />
+                <GenerateButton orgId={orgId} jobId={jobId} assessmentId={version.assessments.id} label={t('newVersion')} />
+              </div>
+            )}
           </div>
         )}
       </section>

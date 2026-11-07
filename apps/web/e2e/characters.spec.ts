@@ -259,7 +259,9 @@ test('settings screens save and update Humaidan for real, and a candidate sees i
   await owner.goto(experience('en', org, job));
   expect(await shown(owner)).toEqual([FILES.technology]);
 
-  expect((await call('ORG_A_OWNER', 'POST', `/organizations/${org.id}/assessment-versions/${job.versionId}/publish`)).status).toBe(201);
+  // Approved as the screen does, with a review of any change made to MIDAN's draft.
+  const changes = await call('ORG_A_OWNER', 'GET', `/organizations/${org.id}/assessment-versions/${job.versionId}/changes`);
+  expect((await call('ORG_A_OWNER', 'POST', `/organizations/${org.id}/assessment-versions/${job.versionId}/publish`, { reviewed_through: changes.body.latest_change_id })).status).toBe(201);
   const application = await call('CANDIDATE_TWO', 'POST', `/jobs/${job.jobId}/applications`, {});
   expect(application.status).toBe(201);
   // Applying assigned the approved assessment.
