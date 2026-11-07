@@ -166,8 +166,8 @@ Reports are written only by MIDAN's service role, never by an organization's use
 needing one: a later version without its guide is refused.
 
 **Not standardized.** Versions without a guide (employer-authored assessments, and drafts made by the template fallback when no model
-is configured) keep today's behaviour and validation. The evaluator reports them as not standardized. Whether every version must
-meet the standard is an owner decision (see the handoff).
+is configured) keep today's behaviour and validation. The evaluator reports them as not standardized. The owner decided on
+2026-11-07 that only generated versions are gated, not every version (`docs/DECISIONS.md`).
 
 **Similarity is not quality.** The evaluator never compares a draft with a reference package and has no similarity input. A draft
 is judged against this standard's rules, its own job's inputs, and its own materials.
@@ -206,5 +206,4 @@ Errors block; warnings inform the reviewer. The full list with severities is `RU
 ## 13. What the standard does not decide
 
 - A pass mark (the employer's decision, per role; MIDAN sets none).
-- Whether employer-authored versions must meet the standard (owner decision).
 - Legal accuracy of cited regulations: the standard requires sources and verification status; a specialist verifies them.

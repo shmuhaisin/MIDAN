@@ -128,10 +128,14 @@ the template fallback is `blocked` / not standardized, as it should be.
 6. The evaluator is heuristic for realism and relevance (benchmark doc, section 2). A model-assisted reviewer could be added later
    as advice, never as the gate.
 
-## 8. Owner decisions needed
+## 8. Owner decisions
 
-1. **Scope of the gate.** Today only versions under the standard (with a guide) are gated; employer-authored and template drafts
-   keep today's behaviour. Should every version need the standard? (That would block template drafts, which can't meet it.)
+**Decided 2026-11-07: scope of the gate — only generated versions.** The gate applies to versions MIDAN generates under the
+standard (with an assessor guide) and to their revisions. Employer-authored versions and template-fallback drafts keep today's
+behaviour. This is how the branch already works; nothing in the code changed. Recorded in `docs/DECISIONS.md`.
+
+Still open:
+
 2. **Who writes guides.** Employers may edit the guide under the editing policy (audited, reviewed). Confirm that matches the
    ownership decision, or restrict guide edits to MIDAN.
 3. **Guide language.** MAS-1.0 requires both languages for everything candidates read and for criterion levels, but allows the
