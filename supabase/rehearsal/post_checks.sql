@@ -1,0 +1,21 @@
+-- Read-only. What should be true once all ten migrations are in. Every row must say ok.
+with checks(name, ok) as (values
+  ('S1 storage policy uses the new function', exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'org reads applicant documents' and qual like '%can_view_candidate_document%')),
+  ('S2 direct status policy is gone', not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'applications' and policyname = 'org updates status')),
+  ('S2 no direct update on applications', not has_table_privilege('authenticated', 'public.applications', 'update')),
+  ('S2 status function callable by staff', has_function_privilege('authenticated', 'public.set_application_status(uuid, public.application_status)', 'execute')),
+  ('S2 status function closed to signed-out', not has_function_privilege('anon', 'public.set_application_status(uuid, public.application_status)', 'execute')),
+  ('S5 queue link not readable by signed-in', not has_column_privilege('authenticated', 'public.background_jobs', 'payload', 'select')),
+  ('S5 queue link not readable by signed-out', not has_column_privilege('anon', 'public.background_jobs', 'payload', 'select')),
+  ('S5 caller-named dedupe key is gone', to_regprocedure('public.enqueue_background_job(text, uuid, jsonb, text)') is null),
+  ('S5 no finished job keeps a link', not exists (select 1 from public.background_jobs where status in ('succeeded', 'failed') and payload ? 'file_url')),
+  ('Decision CV sharing function exists', to_regprocedure('public.share_cv_with_application(uuid, text)') is not null),
+  ('Decision CV sharing closed to signed-out', not has_function_privilege('anon', 'public.share_cv_with_application(uuid, text)', 'execute')),
+  ('Roles importer, worker and AI exist', (select count(*) = 3 from pg_roles where rolname in ('midan_importer', 'midan_worker', 'midan_ai'))),
+  ('Worker role cannot log in', not (select rolcanlogin from pg_roles where rolname = 'midan_worker')),
+  ('API role does not bypass row security', not (select rolbypassrls from pg_roles where rolname = 'midan_api')),
+  ('Checkpoint schema belongs to the AI role', (select pg_get_userbyid(nspowner) = 'midan_ai' from pg_namespace where nspname = 'ai_checkpoints')),
+  ('Row security on for every public table', not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity)),
+  ('Removed job source type is not allowed', not exists (select 1 from pg_constraint where conrelid = 'public.external_job_listings'::regclass and pg_get_constraintdef(oid) ilike '%jadarat%'))
+)
+select case when ok then 'ok   ' else 'FAIL ' end || name from checks;
