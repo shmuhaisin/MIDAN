@@ -17,7 +17,7 @@ function expiresSoon(token: string) {
   }
 }
 
-const PRIVATE = /^\/(ar|en)\/(dashboard|onboarding|profile|applications|interviews|development|notifications|settings|reports|experience|organization)(\/|$)/;
+const PRIVATE = /^\/(ar|en)\/(dashboard|onboarding|profile|applications|interviews|development|notifications|settings|reports|experience|organization|invitations)(\/|$)/;
 
 /**
  * Renews an expiring session on page loads, then reloads so the page sees the new cookies.

@@ -362,3 +362,56 @@ export async function addCriterion(orgId: string, taskId: string, _: FormState, 
 export async function removeCriterion(orgId: string, criterionId: string) {
   return result(() => api(`/organizations/${orgId}/rubric-criteria/${criterionId}`, { method: 'DELETE' }));
 }
+
+export async function inviteMember(orgId: string, email: string, role: string) {
+  if (!email.trim()) return { error: 'required' };
+  return result(() => api(`/organizations/${orgId}/team/invitations`, { method: 'POST', body: { email: email.trim().toLowerCase(), role } }));
+}
+
+export async function revokeInvitation(orgId: string, id: string) {
+  return result(() => api(`/organizations/${orgId}/team/invitations/${id}`, { method: 'DELETE' }));
+}
+
+export async function changeMemberRole(orgId: string, userId: string, role: string) {
+  return result(() => api(`/organizations/${orgId}/team/members/${userId}`, { method: 'PATCH', body: { role } }));
+}
+
+export async function removeMember(orgId: string, userId: string) {
+  return result(() => api(`/organizations/${orgId}/team/members/${userId}`, { method: 'DELETE' }));
+}
+
+export async function acceptInvitation(id: string): Promise<{ org_id?: string; error?: string }> {
+  try {
+    const accepted = await api<{ org_id: string }>(`/me/invitations/${id}/accept`, { method: 'POST' });
+    revalidatePath('/', 'layout');
+    return accepted;
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+}
+
+export async function declineInvitation(id: string) {
+  return result(() => api(`/me/invitations/${id}/decline`, { method: 'POST' }));
+}
+
+export async function submitEmployerClaim(orgId: string, form: FormData): Promise<FormState> {
+  const file = form.get('file');
+  if (file instanceof File && file.size === 0) form.delete('file');
+  return result(() => api(`/organizations/${orgId}/employer-claims`, { method: 'POST', form }));
+}
+
+export async function withdrawEmployerClaim(orgId: string, id: string) {
+  return result(() => api(`/organizations/${orgId}/employer-claims/${id}/withdraw`, { method: 'POST' }));
+}
+
+export async function claimEvidenceLink(orgId: string, id: string) {
+  try {
+    return { url: (await api<{ url: string }>(`/organizations/${orgId}/employer-claims/${id}/evidence-url`)).url };
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+}
+
+export async function convertOrganizationListing(orgId: string, id: string) {
+  return result(() => api(`/organizations/${orgId}/listings/${id}/convert`, { method: 'POST' }));
+}

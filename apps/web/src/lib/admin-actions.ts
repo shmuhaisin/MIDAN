@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { api, errorCode } from './api';
+import { api, ApiError, errorCode } from './api';
 import type { FormState } from './auth-actions';
 
 async function run(work: () => Promise<unknown>): Promise<FormState> {
@@ -55,4 +55,47 @@ export async function searchReferenceSkills(q: string): Promise<{ id: string; na
 
 export async function linkOrganizationEmployer(orgId: string, registryId: string | null) {
   return run(() => api(`/admin/organizations/${orgId}/employer`, { method: 'POST', body: { registry_id: registryId } }));
+}
+
+export type ListingPreview = {
+  file: string; sha256: string; format: string; total: number; can_import: boolean; counts: Record<string, number>; unknown_columns: string[]; missing_columns: string[];
+  rows: { row: number; title: string | null; employer: string | null; status: string; errors: string[]; warnings: string[]; match_status?: string; registry_name_ar?: string | null; registry_name_en?: string | null }[];
+};
+
+/** Reasons the API gives for a file it can't read, which the screen explains. */
+const uploadError = (error: unknown) => (error instanceof ApiError && error.status === 422 && error.detail && /^[a-z_]+$/.test(error.detail) ? `file_${error.detail}` : errorCode(error));
+
+export async function previewListings(form: FormData): Promise<{ preview?: ListingPreview; error?: string }> {
+  try {
+    return { preview: await api<ListingPreview>('/admin/listings/preview', { method: 'POST', form }) };
+  } catch (error) {
+    return { error: uploadError(error) };
+  }
+}
+
+export async function importListings(form: FormData): Promise<{ saved?: { run_id: string; counts: Record<string, number>; rejected: number; repeated: number }; error?: string }> {
+  try {
+    const saved = await api<{ run_id: string; counts: Record<string, number>; rejected: number; repeated: number }>('/admin/listings/import', { method: 'POST', form });
+    revalidatePath('/[locale]/admin', 'layout');
+    return { saved };
+  } catch (error) {
+    return { error: uploadError(error) };
+  }
+}
+
+export async function convertListing(id: string) {
+  return run(() => api(`/admin/listings/${id}/convert`, { method: 'POST' }));
+}
+
+export async function reviewEmployerClaim(id: string, decision: 'approved' | 'rejected', note: string) {
+  if (decision === 'rejected' && !note.trim()) return { error: 'required' };
+  return run(() => api(`/admin/employer-claims/${id}/review`, { method: 'POST', body: { decision, ...(note.trim() && { note: note.trim() }) } }));
+}
+
+export async function adminClaimEvidenceLink(id: string) {
+  try {
+    return { url: (await api<{ url: string }>(`/admin/employer-claims/${id}/evidence-url`)).url };
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
 }

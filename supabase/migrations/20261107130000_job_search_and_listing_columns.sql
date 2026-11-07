@@ -29,7 +29,7 @@ begin
     'match_confidence', l.match_confidence, 'match_evidence', l.match_evidence, 'sector_code', l.sector_code, 'subsector_ar', l.subsector_ar, 'job_family_ar', l.job_family_ar,
     'classification_confidence', l.classification -> 'confidence', 'mentions', l.classification -> 'mentions', 'review_status', l.review_status, 'published', l.published,
     'duplicate_of', l.duplicate_of, 'reviewed_at', l.reviewed_at, 'review_note', l.review_note, 'location', l.location, 'employment_type', l.employment_type,
-    'registry_id', e.id, 'registry_name_ar', e.name_ar, 'registry_name_en', e.name_en, 'source_company_id', e.source_company_id,
+    'job_id', (select j.id from public.jobs j where j.source_listing_id = l.id), 'registry_id', e.id, 'registry_name_ar', e.name_ar, 'registry_name_en', e.name_en, 'source_company_id', e.source_company_id,
     'skills', coalesce((select jsonb_agg(jsonb_build_object('name_ar', s.name_ar, 'evidence', k.evidence)) from public.external_job_skills k
       join public.reference_skills s on s.id = k.reference_skill_id where k.listing_id = l.id), '[]')
   )

@@ -69,11 +69,11 @@ test('public pages run under the policy, in both languages', async ({ browser })
 });
 
 test('candidate screens run under the policy', async ({ browser }) => {
-  await visit(await pageFor(browser, 'CANDIDATE_ONE'), ['/en/dashboard', '/en/profile', '/en/development', '/en/notifications', '/en/settings', '/en/onboarding', '/en/opportunities', '/ar/dashboard']);
+  await visit(await pageFor(browser, 'CANDIDATE_ONE'), ['/en/dashboard', '/en/profile', '/en/development', '/en/notifications', '/en/settings', '/en/onboarding', '/en/opportunities', '/ar/dashboard', '/en/invitations', '/ar/invitations']);
 });
 
 test('administration screens run under the policy', async ({ browser }) => {
-  await visit(await pageFor(browser, 'PLATFORM_ADMIN'), ['', '/accounts', '/audit', '/employers', '/imports', '/learning', '/listings', '/queue', '/reference', '/review'].map((p) => `/en/admin${p}`));
+  await visit(await pageFor(browser, 'PLATFORM_ADMIN'), ['', '/accounts', '/audit', '/claims', '/employers', '/imports', '/learning', '/listings', '/queue', '/reference', '/review'].map((p) => `/en/admin${p}`));
 });
 
 test('organization screens run under the policy', async ({ browser }) => {

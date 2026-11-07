@@ -4,6 +4,10 @@ Written 2026-11-07, on `midan-security-completion`. What works on the local stac
 **Browse Jobs → Apply → Generate a job-specific assessment → Complete it → Evaluate performance → Employer reviews results**,
 and what each remaining item waits for. All data here is fictional.
 
+## Phase 3 state, 2026-11-07
+
+Built on `midan-security-completion`: CSV and JSON upload with preview, duplicate detection, record-to-draft-job conversion, search over title, description and requirements with pages, employer claims reviewed by a person, and team invitations with roles. Four new migrations (`20261107130000` to `20261107130300`), so **fifteen** are pending on hosted, all rehearsed with rollback on PostgreSQL 17. `apps/api/src/phase3.e2e-spec.ts` passed 31 of 31. Screens and `apps/web/e2e/phase3.spec.ts` may still need fixes: check the latest run. No real job data has been imported. Email delivery of invitations needs SMTP.
+
 ## The journey today
 
 | Step | State | Evidence |

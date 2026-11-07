@@ -1,12 +1,12 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { ListingActions } from '@/components/admin';
+import { ListingActions, ListingUpload } from '@/components/admin';
 import { Badge, EmptyState } from '@/components/ui';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { formatWhen } from '@/lib/format';
 
 type Listing = {
-  id: string; title_original: string | null; title_ar: string | null; title_en: string | null; employer_name_raw: string | null; source_type: string; source_name: string; source_url: string;
+  id: string; job_id: string | null; title_original: string | null; title_ar: string | null; title_en: string | null; employer_name_raw: string | null; source_type: string; source_name: string; source_url: string;
   collected_at: string | null; match_status: string; match_confidence: string | null; match_evidence: { rule?: string; candidates?: { id: string; name_ar: string; name_en: string }[] } | null;
   sector_code: string | null; job_family_ar: string | null; classification_confidence: number | null; mentions: number | null; review_status: string; published: boolean; duplicate_of: string | null;
   registry_id: string | null; registry_name_ar: string | null; registry_name_en: string | null; skills: { name_ar: string; evidence: string }[]; location: string | null;
@@ -23,6 +23,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   return (
     <div className="space-y-4">
       <p className="max-w-3xl text-sm text-muted">{t('lead')}</p>
+      <ListingUpload />
       <nav aria-label={t('filter')} className="flex flex-wrap gap-2 text-sm">
         {FILTERS.map((f) => (
           <Link key={f || 'all'} href={`/admin/listings${f ? `?review=${f}` : ''}`} aria-current={review === f ? 'page' : undefined}
@@ -59,7 +60,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                 <p className="text-sm"><span className="text-muted">{t('skills')}: </span>{l.skills.map((s) => s.name_ar).join('، ')}</p>
               )}
               <ListingActions id={l.id} matchStatus={l.match_status} reviewStatus={l.review_status} published={l.published} duplicate={Boolean(l.duplicate_of)}
-                candidates={l.match_evidence?.candidates ?? []} registryId={l.registry_id} />
+                candidates={l.match_evidence?.candidates ?? []} registryId={l.registry_id} jobId={l.job_id} />
             </li>
           ))}
         </ul>

@@ -5,7 +5,7 @@ import { redirect } from '@/i18n/navigation';
 import { getAccessToken } from './session';
 
 export class ApiError extends Error {
-  constructor(readonly status: number) {
+  constructor(readonly status: number, readonly detail?: string) {
     super(`API responded ${status}`);
   }
 }
@@ -35,7 +35,10 @@ export async function api<T>(path: string, init?: { method?: string; body?: unkn
     },
     body: init?.form ?? (init?.body === undefined ? undefined : JSON.stringify(init.body)),
   });
-  if (!response.ok) throw new ApiError(response.status);
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { message?: unknown } | null;
+    throw new ApiError(response.status, typeof body?.message === 'string' ? body.message : undefined);
+  }
   // A lookup that finds nothing answers with an empty body.
   const text = await response.text();
   return (text ? JSON.parse(text) : null) as T;

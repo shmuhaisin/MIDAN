@@ -1,8 +1,8 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { useMemo, useState } from 'react';
-import { Link } from '@/i18n/navigation';
+import { useEffect, useState } from 'react';
+import { Link, useRouter } from '@/i18n/navigation';
 import { formatDate, number, pick } from '@/lib/format';
 import { Arrow } from './brand';
 import { Badge, EmptyState } from './ui';
@@ -16,7 +16,8 @@ export type PublicJob = {
 };
 
 export type ExternalListing = {
-  id: string; title_ar: string; title_en: string; employer_name_ar: string | null; employer_name_en: string | null; location: string | null; source_name: string; source_url: string; is_demo: boolean;
+  id: string; title_original: string | null; title_ar: string | null; title_en: string | null; employer_name_ar: string | null; employer_name_en: string | null; location: string | null;
+  source_name: string; source_url: string; employer_registry: { name_ar: string; name_en: string } | null;
 };
 
 const SECTORS = ['digital', 'culture_entertainment', 'tourism_hospitality', 'manufacturing', 'construction_real_estate', 'financial_services', 'wholesale_retail'];
@@ -66,29 +67,61 @@ function JobCard({ job }: { job: PublicJob }) {
   );
 }
 
-export function JobsBrowser({ jobs, external = [], demo = false }: { jobs: PublicJob[]; external?: ExternalListing[]; demo?: boolean }) {
+export type JobsResult = {
+  items: PublicJob[]; total: number; page: number; page_size: number;
+  facets: { locations: string[]; employment_types: string[]; experience_levels: string[]; employers: { name_ar: string; name_en: string }[] };
+};
+export type ListingsResult = { items: ExternalListing[]; total: number; page: number; page_size: number };
+export type JobFilters = { q: string; employer: string; sector: string; location: string; employment_type: string; experience_level: string };
+
+/** The address for these filters. Changing a filter goes back to the first page. */
+function hrefFor(filters: JobFilters, demo: boolean, pages: { page?: number; xpage?: number } = {}) {
+  const params = new URLSearchParams();
+  if (demo) params.set('demo', '1');
+  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+  if (pages.page && pages.page > 1) params.set('page', String(pages.page));
+  if (pages.xpage && pages.xpage > 1) params.set('xpage', String(pages.xpage));
+  const query = params.toString();
+  return `/opportunities${query ? `?${query}` : ''}`;
+}
+
+function Pages({ page, pageSize, total, label, href }: { page: number; pageSize: number; total: number; label: string; href: (page: number) => string }) {
+  const t = useTranslations('jobs');
+  const locale = useLocale();
+  const last = Math.max(1, Math.ceil(total / pageSize));
+  if (last === 1) return null;
+  return (
+    <nav aria-label={label} className="mt-5 flex flex-wrap items-center justify-center gap-4 text-sm">
+      {page > 1 ? <Link href={href(page - 1)} rel="prev" className="font-semibold text-primary underline underline-offset-4">{t('prevPage')}</Link> : <span className="text-muted">{t('prevPage')}</span>}
+      <span aria-current="page">{t('pageOf', { page: number(locale, page), last: number(locale, last) })}</span>
+      {page < last ? <Link href={href(page + 1)} rel="next" className="font-semibold text-primary underline underline-offset-4">{t('nextPage')}</Link> : <span className="text-muted">{t('nextPage')}</span>}
+    </nav>
+  );
+}
+
+export function JobsBrowser({ result, external, filters, demo = false }: { result: JobsResult; external?: ListingsResult; filters: JobFilters; demo?: boolean }) {
   const t = useTranslations('jobs');
   const ts = useTranslations('sectors');
   const locale = useLocale();
-  const [query, setQuery] = useState('');
-  const [city, setCity] = useState('');
-  const [employer, setEmployer] = useState('');
-  const [sector, setSector] = useState('');
-  const [employment, setEmployment] = useState('');
-  const [level, setLevel] = useState('');
-  const cities = useMemo(() => [...new Set(jobs.map((j) => j.location).filter(Boolean))] as string[], [jobs]);
-  const employers = useMemo(() => [...new Map(jobs.map((j) => [j.organizations.name_en, j.organizations])).values()], [jobs]);
-  const present = (key: 'employment_type' | 'experience_level') => [...new Set(jobs.map((j) => j[key]).filter(Boolean))] as string[];
-  const needle = query.trim().toLowerCase();
-  const filtering = Boolean(needle || city || employer || sector || employment || level);
-  const shown = jobs.filter((j) =>
-    (!city || j.location === city) && (!employer || j.organizations.name_en === employer) && (!sector || j.sector === sector) &&
-    (!employment || j.employment_type === employment) && (!level || j.experience_level === level) &&
-    (!needle || [j.title_ar, j.title_en, j.organizations.name_ar, j.organizations.name_en].some((v) => v.toLowerCase().includes(needle))),
-  );
-  const clear = () => { setQuery(''); setCity(''); setEmployer(''); setSector(''); setEmployment(''); setLevel(''); };
+  const router = useRouter();
+  const [query, setQuery] = useState(filters.q);
+  const go = (next: Partial<JobFilters>) => router.replace(hrefFor({ ...filters, ...next }, demo), { scroll: false });
+  // The search follows typing, after a short pause. The address holds it, so a result can be shared or reopened.
+  useEffect(() => {
+    if (query.trim() === filters.q) return;
+    const timer = setTimeout(() => go({ q: query.trim() }), 300);
+    return () => clearTimeout(timer);
+  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setQuery(filters.q), [filters.q]);
 
-  if (jobs.length === 0) {
+  const filtering = Object.values(filters).some(Boolean);
+  const clear = () => {
+    setQuery('');
+    router.replace(hrefFor({ q: '', employer: '', sector: '', location: '', employment_type: '', experience_level: '' }, demo), { scroll: false });
+  };
+  const { items, total, page, page_size: pageSize, facets } = result;
+
+  if (!filtering && total === 0) {
     return (
       <EmptyState title={t('noneTitle')} body={t('noneBody')}>
         <Link href="/employers" className="inline-flex min-h-11 items-center rounded-full bg-primary px-5 py-2 font-semibold text-primary-foreground">{t('browseEmployers')}</Link>
@@ -99,41 +132,45 @@ export function JobsBrowser({ jobs, external = [], demo = false }: { jobs: Publi
 
   return (
     <div>
-      <form role="search" className="card grid gap-3 sm:grid-cols-2 lg:grid-cols-6" onSubmit={(e) => e.preventDefault()}>
+      <form role="search" className="card grid gap-3 sm:grid-cols-2 lg:grid-cols-6" onSubmit={(e) => { e.preventDefault(); go({ q: query.trim() }); }}>
         <label className="block sm:col-span-2 lg:col-span-6">
           <span className="sr-only">{t('search')}</span>
           <input type="search" dir="auto" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('search')} className={CONTROL} />
         </label>
-        <FilterSelect label={t('employerWithJobs')} all={t('allEmployers')} value={employer} onChange={setEmployer} options={employers.map((o) => [o.name_en, pick(locale, o.name_ar, o.name_en)])} />
-        <FilterSelect label={t('sector')} all={t('allSectors')} value={sector} onChange={setSector} options={SECTORS.map((k) => [k, ts(k)])} />
-        <FilterSelect label={t('location')} all={t('allLocations')} value={city} onChange={setCity} options={cities.map((c) => [c, c])} />
-        <FilterSelect label={t('employmentType')} all={t('allTypes')} value={employment} onChange={setEmployment} options={present('employment_type').map((k) => [k, t(`employment.${k}`)])} />
-        <FilterSelect label={t('experienceLevel')} all={t('allLevels')} value={level} onChange={setLevel} options={present('experience_level').map((k) => [k, t(`level.${k}`)])} />
+        <FilterSelect label={t('employerWithJobs')} all={t('allEmployers')} value={filters.employer} onChange={(employer) => go({ employer })} options={facets.employers.map((o) => [o.name_en, pick(locale, o.name_ar, o.name_en)])} />
+        <FilterSelect label={t('sector')} all={t('allSectors')} value={filters.sector} onChange={(sector) => go({ sector })} options={SECTORS.map((k) => [k, ts(k)])} />
+        <FilterSelect label={t('location')} all={t('allLocations')} value={filters.location} onChange={(location) => go({ location })} options={facets.locations.map((c) => [c, c])} />
+        <FilterSelect label={t('employmentType')} all={t('allTypes')} value={filters.employment_type} onChange={(employment_type) => go({ employment_type })} options={facets.employment_types.map((k) => [k, t(`employment.${k}`)])} />
+        <FilterSelect label={t('experienceLevel')} all={t('allLevels')} value={filters.experience_level} onChange={(experience_level) => go({ experience_level })} options={facets.experience_levels.map((k) => [k, t(`level.${k}`)])} />
         <div className="flex items-end">
-          <button type="button" disabled={!filtering} onClick={clear} className="h-11 w-full rounded-lg border border-border text-sm font-semibold hover:bg-surface-2 disabled:opacity-50">{t('clearFilters')}</button>
+          <button type="button" disabled={!filtering && !query} onClick={clear} className="h-11 w-full rounded-lg border border-border text-sm font-semibold hover:bg-surface-2 disabled:opacity-50">{t('clearFilters')}</button>
         </div>
       </form>
-      <p aria-live="polite" className="mt-4 text-sm text-muted">{t('count', { count: shown.length, shown: number(locale, shown.length) })}</p>
-      {shown.length === 0 ? (
+      <p aria-live="polite" className="mt-4 text-sm text-muted">{t('count', { count: total, shown: number(locale, total) })}</p>
+      {items.length === 0 ? (
         <div className="mt-3"><EmptyState title={t('emptyTitle')} body={t('emptyBody')}><button type="button" onClick={clear} className="font-semibold text-primary underline underline-offset-4">{t('clearFilters')}</button></EmptyState></div>
       ) : (
-        <ul className="mt-3 grid gap-3 md:grid-cols-2">{shown.map((job) => <JobCard key={job.id} job={job} />)}</ul>
+        <ul className="mt-3 grid gap-3 md:grid-cols-2">{items.map((job) => <JobCard key={job.id} job={job} />)}</ul>
       )}
+      <Pages page={page} pageSize={pageSize} total={total} label={t('jobPages')} href={(n) => hrefFor(filters, demo, { page: n, xpage: external?.page })} />
       {demo && <p className="mt-6 text-sm"><Link href="/opportunities" className="font-semibold underline underline-offset-4">{t('backToReal')}</Link></p>}
-      {external.length > 0 && (
+      {external && external.items.length > 0 && (
         <section aria-labelledby="external" className="mt-8">
           <h2 id="external" className="section-title">{t('externalTitle')}</h2>
           <p className="text-sm text-muted">{t('externalNote')}</p>
           <ul className="mt-3 grid gap-3 md:grid-cols-2">
-            {external.map((job) => (
+            {external.items.map((job) => (
               <li key={job.id} className="card">
                 <a href={job.source_url} target="_blank" rel="noopener noreferrer" className="block hover:text-primary">
-                  <span className="subsection-title block">{pick(locale, job.title_ar, job.title_en)}</span>
-                  <span className="text-sm text-muted">{pick(locale, job.employer_name_ar ?? '', job.employer_name_en ?? '')}{job.location && ` · ${job.location}`} · {t('onSource', { source: job.source_name })}</span>
+                  <span dir="auto" className="subsection-title block">{job.title_original ?? pick(locale, job.title_ar ?? '', job.title_en ?? '')}</span>
+                  <span className="text-sm text-muted">
+                    {pick(locale, job.employer_registry?.name_ar ?? job.employer_name_ar ?? '', job.employer_registry?.name_en ?? job.employer_name_en ?? '')}{job.location && ` · ${job.location}`} · {t('externalSource', { source: job.source_name })}
+                  </span>
                 </a>
               </li>
             ))}
           </ul>
+          <Pages page={external.page} pageSize={external.page_size} total={external.total} label={t('listingPages')} href={(n) => hrefFor(filters, demo, { page, xpage: n })} />
         </section>
       )}
     </div>

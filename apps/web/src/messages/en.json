@@ -495,7 +495,13 @@
     "google_failed": "Signing in with Google didn't finish. Try again.",
     "same_password": "Choose a password different from your current one.",
     "reset_link_invalid": "This link isn't valid or has expired. Request a new one.",
-    "https_only": "Use a link that starts with https://."
+    "https_only": "Use a link that starts with https://.",
+    "file_not_utf8": "Save the file as UTF-8 and try again.",
+    "file_unsupported_format": "Upload a CSV or JSON file.",
+    "file_invalid_json": "This JSON can't be read. It should be a list of records.",
+    "file_empty_file": "This file has no records.",
+    "file_too_many_rows": "This file has too many records: 5,000 is the most at once.",
+    "file_unterminated_quote": "This CSV has a quotation mark that never closes."
   },
   "applicationStatus": {
     "submitted": "Submitted",
@@ -587,7 +593,12 @@
     "clearFilters": "Clear filters",
     "viewDetails": "Details",
     "viewDetailsOf": "Details of {job}",
-    "employerProfile": "Employer profile"
+    "employerProfile": "Employer profile",
+    "prevPage": "Previous",
+    "nextPage": "Next",
+    "pageOf": "Page {page} of {last}",
+    "jobPages": "Pages of jobs",
+    "listingPages": "Pages of listings on other sites"
   },
   "dashboard": {
     "hello": "Welcome, {name}",
@@ -746,7 +757,11 @@
     "changeStatus": "Change status of {name}'s application",
     "noProfile": "Profile incomplete",
     "readOnly": "Your role can't change status.",
-    "humanNote": "Status decisions here belong to you and your team. AI doesn't accept or reject anyone."
+    "humanNote": "Status decisions here belong to you and your team. AI doesn't accept or reject anyone.",
+    "listingsTitle": "Job records for your employer",
+    "listingsLead": "Approved records from an authorized source. Creating a job makes a draft for you to review, edit and publish.",
+    "createDraftJob": "Create a draft job",
+    "openJob": "Open the job"
   },
   "errorPage": {
     "title": "Something broke on our side",
@@ -1353,7 +1368,10 @@
       "interview_invited": "Interview invitation: {job}",
       "interview_changed": "An update on your interview for {job}",
       "interview_response": "The candidate answered about the interview for {job}",
-      "hiring_decision": "A decision was issued on your application for {job}"
+      "hiring_decision": "A decision was issued on your application for {job}",
+      "organization_invitation": "You've been invited to join an organization's team",
+      "employer_claim_approved": "Your request to manage an employer profile was approved",
+      "employer_claim_rejected": "Your request to manage an employer profile wasn't approved"
     }
   },
   "development": {
@@ -1530,7 +1548,8 @@
       "learning": "Learning catalog",
       "accounts": "Accounts",
       "queue": "Background jobs",
-      "audit": "Audit log"
+      "audit": "Audit log",
+      "claims": "Employer claims"
     },
     "overview": {
       "counts": {
@@ -1769,7 +1788,9 @@
         "construction_real_estate": "Construction and real estate",
         "financial_services": "Financial services and insurance",
         "wholesale_retail": "Wholesale and retail"
-      }
+      },
+      "convert": "Create a draft job",
+      "converted": "Draft job created"
     },
     "reference": {
       "title": "Skills reference",
@@ -1884,6 +1905,80 @@
       "details": "Details",
       "system": "System",
       "older": "Older entries"
+    },
+    "upload": {
+      "title": "Upload job records (CSV or JSON)",
+      "lead": "Only records you have permission to use. You'll see what would happen before anything is saved, nothing is published, and each record waits for review.",
+      "sourceType": "Where they come from",
+      "sourceTypes": {
+        "employer_provided": "Provided by the employer",
+        "employer_career_site": "The employer's careers site",
+        "other_authorized": "Another authorized source"
+      },
+      "sourceName": "Source name",
+      "authorization": "What permits using these records",
+      "authorizationHint": "For example, the agreement or the person who gave permission. It's kept with the import.",
+      "file": "File",
+      "fileHint": "Needs a job title and an https link for each record. Also read: employer, description, requirements, job ID, location, employment type, date. Up to 5 MB and 5,000 records.",
+      "previewButton": "Preview",
+      "summary": "{file}: {total} records",
+      "row": "Row",
+      "jobTitle": "Job title",
+      "employer": "Employer",
+      "result": "What would happen",
+      "saveNote": "Saving imports the valid records from this same file. Rows with problems stay in the import's record, and repeated rows are skipped.",
+      "saveButton": "Save these records",
+      "saved": "Saved. Each record now waits for review below.",
+      "openRun": "Open the import record",
+      "missingColumns": "Required columns are missing: {columns}",
+      "unknownColumns": "These columns aren't read: {columns}",
+      "status": {
+        "new": "New",
+        "update": "Updates an existing record",
+        "unchanged": "Unchanged",
+        "duplicate_in_file": "Repeated in this file",
+        "cross_source_duplicate": "Same job from another source",
+        "invalid": "Can't be imported"
+      },
+      "problem": {
+        "missing_title": "No job title",
+        "title_too_long": "The title is too long",
+        "missing_url": "No link",
+        "url_not_https": "The link must start with https://",
+        "invalid_date": "The date can't be read",
+        "text_too_long": "The text is too long",
+        "not_an_object": "This isn't a record",
+        "no_employer": "No employer named",
+        "unknown_employment_type": "Employment type not recognized: it won't be copied to a job",
+        "no_description": "No description or requirements"
+      }
+    },
+    "claims": {
+      "lead": "Organizations asking to manage an employer's profile and jobs. Check the evidence yourself: nothing is granted until you approve, and approval never makes the employer a partner.",
+      "empty": "No requests yet",
+      "emptyBody": "Requests from organizations appear here.",
+      "heading": "{org} asks to manage {employer}",
+      "requester": "Requested by",
+      "roleTitle": "Their role",
+      "companyId": "Company ID",
+      "website": "Official website",
+      "emailDomain": "Email domain",
+      "domainMatches": "Matches the official website",
+      "domainDiffers": "Doesn't match the official website",
+      "evidence": "What they submitted",
+      "decisionNote": "Decision note",
+      "testOrg": "This is a test organization, so it can't be linked to a real employer.",
+      "openEvidence": "Open the evidence file",
+      "note": "Note",
+      "noteHint": "A rejection needs a reason, which the organization sees.",
+      "approve": "Approve",
+      "reject": "Reject",
+      "status": {
+        "pending": "Waiting",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "withdrawn": "Withdrawn"
+      }
     }
   },
   "jobAnalysis": {
@@ -1907,5 +2002,49 @@
     "analyze": "Analyze against the workbooks",
     "analyzeAgain": "Analyze again",
     "analyzing": "Analyzing…"
+  },
+  "team": {
+    "title": "Team",
+    "lead": "Who works in this organization, and what they can do. Owners and admins manage the team, recruiters manage jobs and applicants, and reviewers evaluate work.",
+    "you": "(you)",
+    "roleOf": "Role of {name}",
+    "remove": "Remove",
+    "email": "Email",
+    "role": "Role",
+    "invite": "Send invitation",
+    "sent": "Invitation created for {email}.",
+    "inviteNote": "They accept it after signing in with this same email, from their invitations page. Emails aren't being sent yet, so let them know yourself.",
+    "pending": "Waiting for a reply",
+    "expires": "Expires {date}",
+    "revoke": "Cancel invitation"
+  },
+  "invitations": {
+    "title": "Team invitations",
+    "lead": "Organizations that invited this account to join their team.",
+    "empty": "No invitations",
+    "emptyBody": "When an organization invites this email, you'll find it here.",
+    "role": "Your role would be: {role}",
+    "expires": "Expires {date}",
+    "accept": "Accept",
+    "decline": "Decline"
+  },
+  "employerClaim": {
+    "title": "Official employer profile",
+    "lead": "To manage an employer's profile and jobs on Midan, show that this organization represents it. A Midan administrator checks your evidence, and nothing is granted automatically.",
+    "managed": "This organization manages {employer}.",
+    "notPartnership": "This confirms who manages the account. It doesn't make the employer a partner of Midan.",
+    "pendingTitle": "Your request to manage {employer} is being checked",
+    "pendingBody": "You'll get a notification when it's decided.",
+    "openEvidence": "Open the file you sent",
+    "withdraw": "Withdraw the request",
+    "employer": "Employer",
+    "chooseEmployer": "Choose an employer",
+    "roleTitle": "Your role there",
+    "note": "How can we check this?",
+    "noteHint": "For example, who can confirm it, or an official letter you're attaching.",
+    "file": "Supporting file (optional)",
+    "fileHint": "A PDF, PNG or JPEG file, up to 5 MB. Only your organization's owners and admins and Midan's administrators can open it.",
+    "submit": "Send the request",
+    "rejected": "Your request to manage {employer} wasn't approved. You can send a new one."
   }
 }

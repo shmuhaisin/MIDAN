@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Eyebrow, Parapet } from '@/components/brand';
 import { ApplicantStatus, JobForm, JobStatusButtons } from '@/components/forms';
+import { OrganizationListingRow, type OrgListing } from '@/components/organization-team';
 import { canReopenApplications } from '@/lib/application-status';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
@@ -28,6 +29,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     apiForPage<Applicant[]>(`/organizations/${orgId}/applications`),
   ]);
   if (!org || !jobs || !applicants) notFound();
+  const listings = ['owner', 'admin'].includes(org.my_role) ? (await apiForPage<OrgListing[]>(`/organizations/${orgId}/listings`)) ?? [] : [];
   const t = await getTranslations({ locale, namespace: 'org' });
   const td = await getTranslations({ locale, namespace: 'dashboard' });
   const tb = await getTranslations({ locale, namespace: 'branding' });
@@ -85,6 +87,14 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             </ul>
           )}
         </section>
+
+        {listings.length > 0 && (
+          <section aria-labelledby="listings">
+            <h2 id="listings" className="section-title">{t('listingsTitle')}</h2>
+            <p className="mt-1 text-sm text-muted">{t('listingsLead')}</p>
+            <ul className="mt-3 divide-y divide-border">{listings.map((l) => <OrganizationListingRow key={l.id} orgId={orgId} listing={l} />)}</ul>
+          </section>
+        )}
 
         <section aria-labelledby="applicants">
           <h2 id="applicants" className="section-title">{t('applicants')}</h2>

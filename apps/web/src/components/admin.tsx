@@ -5,12 +5,13 @@ import { useTranslations } from 'next-intl';
 import { useState, useTransition } from 'react';
 import { Link, usePathname } from '@/i18n/navigation';
 import {
-  addEmployerAlias, addLearningResource, linkOrganizationEmployer, resolveImportRecord, retryBackgroundJob, reviewListing, searchReferenceSkills, setPlatformAdmin,
+  addEmployerAlias, addLearningResource, adminClaimEvidenceLink, convertListing, importListings, linkOrganizationEmployer, previewListings, reviewEmployerClaim, resolveImportRecord, retryBackgroundJob, reviewListing, searchReferenceSkills, setPlatformAdmin,
 } from '@/lib/admin-actions';
-import { ErrorText, INPUT, PRIMARY, useAction } from './forms';
+import type { ListingPreview } from '@/lib/admin-actions';
+import { ErrorText, INPUT, openFileLink, PRIMARY, useAction } from './forms';
 
 const SECTIONS = [
-  ['', 'overview'], ['/review', 'review'], ['/imports', 'imports'], ['/employers', 'employers'], ['/listings', 'listings'],
+  ['', 'overview'], ['/review', 'review'], ['/imports', 'imports'], ['/employers', 'employers'], ['/listings', 'listings'], ['/claims', 'claims'],
   ['/reference', 'reference'], ['/learning', 'learning'], ['/accounts', 'accounts'], ['/queue', 'queue'], ['/audit', 'audit'],
 ] as const;
 
@@ -54,8 +55,8 @@ export function RecordActions({ id }: { id: number }) {
 
 type Candidate = { id: string; name_ar: string; name_en: string };
 
-export function ListingActions({ id, matchStatus, reviewStatus, published, duplicate, candidates, registryId }: {
-  id: string; matchStatus: string; reviewStatus: string; published: boolean; duplicate: boolean; candidates: Candidate[]; registryId: string | null;
+export function ListingActions({ id, matchStatus, reviewStatus, published, duplicate, candidates, registryId, jobId }: {
+  id: string; matchStatus: string; reviewStatus: string; published: boolean; duplicate: boolean; candidates: Candidate[]; registryId: string | null; jobId?: string | null;
 }) {
   const t = useTranslations('admin.listings');
   const [choice, setChoice] = useState(registryId ?? candidates[0]?.id ?? '');
@@ -85,6 +86,10 @@ export function ListingActions({ id, matchStatus, reviewStatus, published, dupli
           <button type="button" disabled={pending} onClick={() => act('publish')} className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{t('publish')}</button>
         )}
         {published && <button type="button" disabled={pending} onClick={() => act('unpublish')} className={LINK_BUTTON}>{t('unpublish')}</button>}
+        {reviewStatus === 'approved' && confirmed && !duplicate && !jobId && (
+          <button type="button" disabled={pending} onClick={() => start(async () => setError((await convertListing(id)).error))} className={clsx(LINK_BUTTON, 'text-primary')}>{t('convert')}</button>
+        )}
+        {jobId && <span className="text-sm text-muted">{t('converted')}</span>}
       </div>
       <ErrorText code={error} />
     </div>
@@ -242,5 +247,139 @@ export function EmployerLinkForm({ orgId, current, employers }: { orgId: string;
       <button type="submit" disabled={pending || value === (current ?? '')} className="text-sm font-semibold text-primary underline underline-offset-4 disabled:opacity-50">{t('link')}</button>
       <ErrorText code={error} />
     </form>
+  );
+}
+
+const UPLOAD_STATUSES = ['new', 'update', 'unchanged', 'duplicate_in_file', 'cross_source_duplicate', 'invalid'];
+
+/** Upload, see exactly what would happen, then save that same file. Nothing is saved or published by the preview. */
+export function ListingUpload() {
+  const t = useTranslations('admin.upload');
+  const ts = useTranslations('admin.listings');
+  const [form, setForm] = useState<FormData>();
+  const [preview, setPreview] = useState<ListingPreview>();
+  const [saved, setSaved] = useState<{ run_id: string; counts: Record<string, number>; rejected: number; repeated: number }>();
+  const [error, setError] = useState<string>();
+  const [pending, start] = useTransition();
+  const reset = () => { setPreview(undefined); setSaved(undefined); setError(undefined); };
+  const save = () => start(async () => {
+    if (!form || !preview) return;
+    const data = new FormData();
+    form.forEach((value, key) => data.append(key, value));
+    data.set('preview_sha256', preview.sha256);
+    const outcome = await importListings(data);
+    setError(outcome.error);
+    if (outcome.saved) { setSaved(outcome.saved); setPreview(undefined); }
+  });
+  return (
+    <details className="card">
+      <summary className="cursor-pointer font-semibold">{t('title')}</summary>
+      <p className="mt-2 text-sm text-muted">{t('lead')}</p>
+      <form
+        className="mt-3 grid gap-3 sm:grid-cols-2"
+        onChange={reset}
+        onSubmit={(e) => {
+          e.preventDefault();
+          const data = new FormData(e.currentTarget);
+          setForm(data);
+          reset();
+          start(async () => {
+            const outcome = await previewListings(data);
+            setError(outcome.error);
+            setPreview(outcome.preview);
+          });
+        }}
+      >
+        <label className="block text-sm font-medium">{t('sourceType')}
+          <select name="source_type" required className={INPUT} defaultValue="employer_provided">
+            {['employer_provided', 'employer_career_site', 'other_authorized'].map((k) => <option key={k} value={k}>{t(`sourceTypes.${k}`)}</option>)}
+          </select>
+        </label>
+        <label className="block text-sm font-medium">{t('sourceName')}
+          <input name="source_name" required minLength={2} maxLength={200} className={INPUT} />
+        </label>
+        <label className="block text-sm font-medium sm:col-span-2">{t('authorization')}
+          <textarea name="authorization_note" required minLength={5} maxLength={1000} rows={2} className={clsx(INPUT, 'h-auto py-2')} />
+          <span className="mt-1 block text-xs font-normal text-muted">{t('authorizationHint')}</span>
+        </label>
+        <label className="block text-sm font-medium sm:col-span-2">{t('file')}
+          <input name="file" type="file" required accept=".csv,.json,text/csv,application/json" className="mt-1 block w-full text-sm" />
+          <span className="mt-1 block text-xs font-normal text-muted">{t('fileHint')}</span>
+        </label>
+        <div className="sm:col-span-2"><button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY}>{t('previewButton')}</button></div>
+      </form>
+      <div className="mt-3"><ErrorText code={error} /></div>
+      {preview && (
+        <div className="mt-4 space-y-3" data-testid="listing-preview">
+          <p role="status" className="font-semibold">{t('summary', { file: preview.file, total: preview.total })}</p>
+          <ul className="flex flex-wrap gap-2 text-sm">
+            {UPLOAD_STATUSES.filter((k) => preview.counts[k]).map((k) => <li key={k} className="rounded-full border border-border px-3 py-1">{t(`status.${k}`)}: <span className="tabular-nums font-semibold">{preview.counts[k]}</span></li>)}
+          </ul>
+          {preview.missing_columns.length > 0 && <p role="alert" className="text-sm text-error">{t('missingColumns', { columns: preview.missing_columns.join('، ') })}</p>}
+          {preview.unknown_columns.length > 0 && <p className="text-sm text-muted">{t('unknownColumns', { columns: preview.unknown_columns.join('، ') })}</p>}
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[40rem] text-start text-sm">
+              <caption className="sr-only">{t('summary', { file: preview.file, total: preview.total })}</caption>
+              <thead className="bg-surface-2 text-xs text-muted">
+                <tr>{[t('row'), t('jobTitle'), t('employer'), t('result')].map((h) => <th key={h} scope="col" className="px-3 py-2 text-start font-semibold">{h}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {preview.rows.map((r) => (
+                  <tr key={r.row}>
+                    <td className="px-3 py-2 tabular-nums">{r.row}</td>
+                    <td dir="auto" className="px-3 py-2">{r.title ?? '—'}</td>
+                    <td className="px-3 py-2"><span dir="auto">{r.employer ?? '—'}</span>{r.match_status && <span className="block text-xs text-muted">{ts(`match.${r.match_status}`)}{r.registry_name_ar && ` · ${r.registry_name_ar}`}</span>}</td>
+                    <td className="px-3 py-2">
+                      <span className={r.status === 'invalid' ? 'font-semibold text-error' : 'font-semibold'}>{t(`status.${r.status}`)}</span>
+                      {[...r.errors, ...r.warnings].map((code) => <span key={code} className="block text-xs text-muted">{t(`problem.${code}`)}</span>)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-sm text-muted">{t('saveNote')}</p>
+          <button type="button" disabled={pending || !preview.can_import} aria-busy={pending} onClick={save} className={PRIMARY}>{t('saveButton')}</button>
+        </div>
+      )}
+      {saved && (
+        <p role="status" className="mt-4 rounded-lg bg-accent p-3 text-sm font-medium text-accent-foreground">
+          {t('saved')} <Link href={`/admin/imports/${saved.run_id}`} className="underline underline-offset-4">{t('openRun')}</Link>
+        </p>
+      )}
+    </details>
+  );
+}
+
+export type AdminClaim = {
+  id: string; role_title: string; evidence_note: string; has_evidence: boolean; email_domain_matches: boolean; status: string; review_note: string | null;
+  org_name_ar: string; org_name_en: string; is_test: boolean; employer_name_ar: string; employer_name_en: string; source_company_id: string; official_website: string | null; requested_by_email: string | null;
+};
+
+export function ClaimReview({ claim }: { claim: AdminClaim }) {
+  const t = useTranslations('admin.claims');
+  const [note, setNote] = useState('');
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string>();
+  const decide = (decision: 'approved' | 'rejected') => start(async () => setError((await reviewEmployerClaim(claim.id, decision, note)).error));
+  return (
+    <div className="space-y-2">
+      {claim.has_evidence && (
+        <button type="button" onClick={() => start(() => openFileLink(() => adminClaimEvidenceLink(claim.id), setError))} className="text-sm font-semibold text-primary underline underline-offset-4">{t('openEvidence')}</button>
+      )}
+      {claim.status === 'pending' && (
+        <>
+          <label className="block text-sm font-medium">{t('note')}
+            <textarea rows={2} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} className={clsx(INPUT, 'h-auto py-2')} />
+            <span className="mt-1 block text-xs font-normal text-muted">{t('noteHint')}</span>
+          </label>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" disabled={pending} onClick={() => decide('approved')} className={PRIMARY}>{t('approve')}</button>
+            <button type="button" disabled={pending} onClick={() => decide('rejected')} className="rounded-full border border-border px-4 py-2 text-sm font-semibold">{t('reject')}</button>
+          </div>
+        </>
+      )}
+      <ErrorText code={error} />
+    </div>
   );
 }
