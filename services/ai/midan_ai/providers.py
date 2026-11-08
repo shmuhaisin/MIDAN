@@ -10,9 +10,10 @@ import httpx
 from pydantic import ValidationError
 
 from .schemas import CriterionInput, GeneratedAssessment, OpenScore, Provenance, TaskInput
+from .standard import FAMILIES
 
 PROMPT_VERSION = "eval-v3-guide"
-GENERATION_PROMPT_VERSION = "gen-v2-mas1"
+GENERATION_PROMPT_VERSION = "gen-v3-mas1"
 _WORDS = re.compile(r"[\w؀-ۿ]+")
 _SENTENCES = re.compile(r"(?<=[.!?؟\n])\s*")
 
@@ -80,11 +81,13 @@ Set no pass mark. The score supports a person's decision.
 The rubric totals exactly 100 points: each written criterion has points (5 to 40), a descriptor for each level "0" to "4" in levels_en and
 levels_ar (0 no evidence, 4 complete), and evidence_en/evidence_ar saying which deliverable shows it. An objective_questions task has
 no criteria; its weight is its points. Written tasks need 2 to 5 criteria and at least one deliverable id from candidate_brief.deliverables.
+Every field shown as [string] or [...] is a JSON array, even with a single item. job_family and secondary_families take only
+these values: {families}.
 Reply with JSON only: {"job_family": string, "secondary_families": [string],
  "candidate_brief": {"company_context_ar","company_context_en","scenario_ar","scenario_en","objective_ar","objective_en": string, "rules_ar","rules_en","tools_ar","tools_en": [string], "assumptions_policy_ar","assumptions_policy_en": string, "ai_use_policy": "allowed_with_disclosure"|"not_allowed"|"company_decides", "submission_format_ar","submission_format_en": string, "effort_minutes": number, "deadline_hours": number, "deliverables": [{"id","title_ar","title_en","format","description_ar","description_en": string}]},
  "materials": [{"id","title_ar","title_en": string, "kind": "table"|"log"|"document"|"policy", "provenance": "fictional", "description_ar","description_en": string, "columns": [{"name","meaning_ar","meaning_en","unit": string}], "rows": [object], "content_ar","content_en": string}],
  "tasks": [{"task_type": "written_case_study"|"file_submission"|"objective_questions", "title_ar","title_en","instructions_ar","instructions_en": string, "weight": number, "requirement_ids","reference_skill_ids","skill_ids","deliverable_ids","material_ids": [string], "criteria": [{"description_ar","description_en": string, "points": number, "levels_ar","levels_en": {"0".."4": string}, "evidence_ar","evidence_en": string}], "questions": [{"id","prompt_ar","prompt_en": string, "options": [{"id","label_ar","label_en": string}], "answer": string}]}],
- "assessor_guide": {"language": "both", "scope_and_limits": string, "task_solutions": [{"task_ref": number, "reference_solution": string, "expected_outputs","accepted_alternatives","common_mistakes": [string]}], "calculations": [{"id","label","formula": string, "task_ref": number, "inputs": [string], "result": string, "unit": string, "check": object}], "decision_points": [{"task_ref": number, "point","accepted","not_accepted": string}], "verification_steps","boundaries","not_scored","approval_notes": [string], "sources": [{"title","url","kind","verification","accessed","supports": string}], "skill_map": [{"task_ref": number, "how_measured": string}], "pass_mark": null}}"""
+ "assessor_guide": {"language": "both", "scope_and_limits": string, "task_solutions": [{"task_ref": number, "reference_solution": string, "expected_outputs","accepted_alternatives","common_mistakes": [string]}], "calculations": [{"id","label","formula": string, "task_ref": number, "inputs": [string], "result": string, "unit": string, "check": object}], "decision_points": [{"task_ref": number, "point","accepted","not_accepted": string}], "verification_steps","boundaries","not_scored","approval_notes": [string], "sources": [{"title","url","kind","verification","accessed","supports": string}], "skill_map": [{"task_ref": number, "how_measured": string}], "pass_mark": null}}""".replace("{families}", ", ".join(FAMILIES))
 
 
 def assessor_guidance(criterion: CriterionInput) -> str:
@@ -108,6 +111,13 @@ class JsonLLMProvider:
         self._pause = pause
         self.provenance = Provenance(mode="live", provider=provider, model_version=name, prompt_version=PROMPT_VERSION)
 
+    def _call(self, system: str, user: str, model: type) -> str:
+        """A provider that can be given the reply's JSON Schema (Groq) receives it; the others get the prompt alone. Either
+        way the reply is validated against the same schema here."""
+        if getattr(self._complete, "accepts_schema", False):
+            return self._complete(system, user, schema=(model.__name__, _compact_schema(model.model_json_schema())))
+        return self._complete(system, user)
+
     @property
     def complete(self):
         return self._complete
@@ -120,14 +130,14 @@ class JsonLLMProvider:
         last: Exception | None = None
         for _ in range(self._attempts):
             try:
-                draft = GeneratedAssessment.model_validate(json.loads(self._complete(GENERATION_PROMPT, user)))
+                draft = GeneratedAssessment.model_validate(json.loads(self._call(GENERATION_PROMPT, user, GeneratedAssessment)))
                 if check:
                     check(draft)
                 return draft
             except (json.JSONDecodeError, ValidationError, ValueError) as error:
                 last = error
-                reason = str(error) if type(error) is ValueError else "the reply didn't match the required JSON"
-                user = f"<job>\n{details}\n</job>\nYour last reply was refused: {reason[:300]}. Reply again."
+                reason = str(error) if type(error) is ValueError else _schema_reason(error)
+                user = f"<job>\n{details}\n</job>\nYour last reply was refused: {reason[:600]}. Reply again with the complete JSON."
             except LLMError as error:
                 last = error
                 time.sleep(self._pause)
@@ -149,7 +159,7 @@ class JsonLLMProvider:
         last: Exception | None = None
         for _ in range(self._attempts):
             try:
-                return OpenScore.model_validate(json.loads(self._complete(SYSTEM_PROMPT, user)))
+                return OpenScore.model_validate(json.loads(self._call(SYSTEM_PROMPT, user, OpenScore)))
             except (json.JSONDecodeError, ValidationError) as error:
                 last = error
             except LLMError as error:
@@ -188,7 +198,35 @@ def _openai(model: str, key: str, base: str = "https://api.openai.com"):
 
 
 GROQ_BASE = "https://api.groq.com/openai/v1"
-GROQ_MAX_WAIT = 30.0
+# A retry inside the same minute meets the tokens-per-minute limit (8,000 on Groq's base plan), and retry-after then
+# names the rest of that minute.
+GROQ_MAX_WAIT = 60.0
+# Groq stops at about 3,000 output tokens unless told otherwise. The prompt plus this limit must stay under the account's
+# tokens-per-minute limit, or Groq refuses the request as too large (413): a generation prompt with its schema is about
+# 4,500 tokens, and the base limit is 8,000. Measured on 2026-11-08: a package takes 2,500 to 3,100 output tokens at low
+# reasoning effort. Raise GROQ_MAX_COMPLETION_TOKENS with a higher Groq tier.
+GROQ_DEFAULT_MAX_COMPLETION_TOKENS = 3300
+# Generation's reasoning is kept short so the package fits; scoring keeps the model's default.
+GROQ_EFFORT_BY_SCHEMA = {"GeneratedAssessment": "low"}
+
+
+def _compact_schema(node: Any) -> Any:
+    """The schema's shape without titles, defaults or descriptions: about 40% fewer prompt tokens, which matters on a
+    tokens-per-minute limit. Validation still uses the full schema."""
+    if isinstance(node, dict):
+        return {k: _compact_schema(v) for k, v in node.items() if k not in ("title", "default", "description", "examples")}
+    if isinstance(node, list):
+        return [_compact_schema(v) for v in node]
+    return node
+
+
+def _schema_reason(error: Exception) -> str:
+    """Which fields didn't match, so the model can correct them. Only field paths and the rule broken: the reply is the
+    model's own output about a job, never candidate data."""
+    if isinstance(error, ValidationError):
+        return "these fields don't match the required JSON: " + "; ".join(
+            f"{'.'.join(str(p) for p in e['loc'])} ({e['msg']})" for e in error.errors()[:8])
+    return "the reply wasn't valid JSON"
 
 
 def _retry_after(value: str | None, attempt: int) -> float:
@@ -209,15 +247,21 @@ def _groq(model: str, key: str, base: str = GROQ_BASE, reasoning_effort: str | N
     waits for retry-after, up to a limit, then fails like any other refusal: the caller retries, then a person decides.
     """
 
-    def complete(system: str, user: str) -> str:
+    def complete(system: str, user: str, schema: tuple[str, dict[str, Any]] | None = None) -> str:
+        # With a schema, best-effort JSON Schema mode: the model is shown the exact shape (lists stay lists, enums stay
+        # enums). Not strict: strict mode needs additionalProperties false on every object, which free-form maps such as a
+        # criterion's level descriptors can't satisfy. Without one, JSON Object Mode. Our schemas validate the reply either way.
+        response_format = ({"type": "json_schema", "json_schema": {"name": schema[0], "schema": schema[1], "strict": False}}
+                           if schema else {"type": "json_object"})
         body: dict[str, Any] = {
             "model": model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            "response_format": {"type": "json_object"},
+            "response_format": response_format,
             "include_reasoning": False,
         }
-        if reasoning_effort:
-            body["reasoning_effort"] = reasoning_effort
+        effort = reasoning_effort or (GROQ_EFFORT_BY_SCHEMA.get(schema[0]) if schema else None)
+        if effort:
+            body["reasoning_effort"] = effort
         if max_tokens:
             body["max_completion_tokens"] = max_tokens
         for attempt in range(rate_retries + 1):
@@ -228,6 +272,17 @@ def _groq(model: str, key: str, base: str = GROQ_BASE, reasoning_effort: str | N
             if attempt == rate_retries or wait > max_wait:
                 raise LLMError(f"Groq rate limit (429): retry after {wait:.0f}s")
             sleep(wait)
+        if response.status_code == 400 and schema:
+            # Groq checks best-effort replies against the schema itself and refuses mismatches, returning the draft as
+            # failed_generation. Our own schema and checks decide instead; a refusal then names the fields to fix.
+            try:
+                failed = ((response.json() or {}).get("error") or {}).get("failed_generation")
+            except ValueError:
+                failed = None
+            if isinstance(failed, str) and failed.strip():
+                return failed
+        if response.status_code == 413:
+            raise LLMError("Groq responded 413: the request is larger than the account's tokens-per-minute limit")
         if response.status_code != 200:
             raise LLMError(f"Groq responded {response.status_code}")
         choice = response.json()["choices"][0]
@@ -238,6 +293,7 @@ def _groq(model: str, key: str, base: str = GROQ_BASE, reasoning_effort: str | N
             raise LLMError("Groq returned no content")
         return content
 
+    complete.accepts_schema = True  # type: ignore[attr-defined]
     return complete
 
 
@@ -272,7 +328,8 @@ def get_provider(env: dict[str, Any] | None = None) -> Provider:
         max_tokens = env.get("GROQ_MAX_COMPLETION_TOKENS")
         return JsonLLMProvider(
             _groq(env["GROQ_MODEL"], env["GROQ_API_KEY"], *_test_url(env, "GROQ_API_URL"),
-                  reasoning_effort=env.get("GROQ_REASONING_EFFORT") or None, max_tokens=int(max_tokens) if max_tokens else None),
+                  reasoning_effort=env.get("GROQ_REASONING_EFFORT") or None,
+                  max_tokens=int(max_tokens) if max_tokens else GROQ_DEFAULT_MAX_COMPLETION_TOKENS),
             env["GROQ_MODEL"], provider="groq",
         )
     if choice == "openai" and env.get("OPENAI_API_KEY") and env.get("OPENAI_MODEL"):

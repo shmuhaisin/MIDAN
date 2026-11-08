@@ -168,6 +168,14 @@ def test_reference_answers_must_follow_from_the_materials():
     assert "task_without_solution" in codes(report(pkg=pkg))
 
 
+def test_a_malformed_check_from_a_model_is_a_finding_not_a_crash():
+    # Seen with a real model: "where" given as text, and a tolerance that isn't a number.
+    for broken in ({"where": "status is open"}, {"tolerance": "about one"}):
+        pkg = fixture.package()
+        pkg["assessor_guide"]["calculations"][1]["check"].update(broken)
+        assert "reference_check_failed" in codes(report(pkg=pkg))
+
+
 def test_recompute_is_a_closed_set_of_operations():
     rows = fixture.ROWS
     assert recompute({"op": "count_distinct", "column": "status"}, rows) == 3

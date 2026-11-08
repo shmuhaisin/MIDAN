@@ -1468,11 +1468,13 @@ describe('Midan database foundation', () => {
       await api().post(`/attempts/${attempt}/evaluate`).set(bearer(ownerA)).expect(409);
 
       const full = await api().get(`/attempts/${attempt}/evaluation`).set(bearer(ownerA)).expect(200);
-      const scores = full.body.evaluation_results.criterion_scores as { source: string; model_version: string; evidence_ref: string; rubric_version: number }[];
+      const scores = full.body.evaluation_results.criterion_scores as { source: string; provider: string | null; model_version: string | null; evidence_ref: string; rubric_version: number }[];
       const ai = scores.filter((s) => s.source === 'ai_assisted');
       expect(ai.length).toBeGreaterThan(0);
       expect(ai.every((s) => s.model_version === 'demo-heuristic-v1' && s.rubric_version === 1 && Boolean(s.evidence_ref))).toBe(true);
       expect(scores.some((s) => s.source === 'deterministic')).toBe(true);
+      // Answer-key scores are MIDAN's rules, never attributed to a model.
+      expect(scores.filter((s) => s.source === 'deterministic').every((s) => s.provider === null && s.model_version === null)).toBe(true);
       await api().get(`/attempts/${attempt}/evaluation`).set(bearer(ownerB)).expect(404);
       await api().get(`/attempts/${attempt}/evaluation`).set(bearer(candidateTwo)).expect(403);
     });

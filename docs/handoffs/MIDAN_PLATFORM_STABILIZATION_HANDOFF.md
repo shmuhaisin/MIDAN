@@ -35,23 +35,27 @@ Checked against Groq's official documentation on 2026-11-08:
 
 What MIDAN does:
 - **Client:** `_groq` in `services/ai/midan_ai/providers.py`, with `AI_PROVIDER=groq`, `GROQ_API_KEY` and `GROQ_MODEL`.
-- **Request:** JSON Object Mode, `include_reasoning: false`, and nothing Groq rejects. `GROQ_REASONING_EFFORT` and `GROQ_MAX_COMPLETION_TOKENS` are optional.
+- **Request:**
+  - JSON Schema mode, best effort (`strict: false`), when the caller has a schema (generation and scoring); JSON Object Mode otherwise. The schema is sent without titles and descriptions to save tokens.
+  - `include_reasoning: false`, and nothing Groq rejects.
+  - `max_completion_tokens` is 3,300 unless `GROQ_MAX_COMPLETION_TOKENS` says otherwise: Groq's own default stopped generation at about 3,072 tokens.
+  - Generation asks for `reasoning_effort: low`; scoring keeps the model's default. `GROQ_REASONING_EFFORT` overrides both.
+  - When best-effort mode refuses a reply (400 `json_validate_failed`), MIDAN's own validation judges Groq's `failed_generation` instead. A refused draft is retried with the names of the fields that were wrong.
 - **Failures:**
   - a 429 waits for `retry-after`, at most 30 seconds and twice, then fails;
   - a timeout or dropped connection counts as unavailable;
-  - output stopped at the length limit is an error, not partial JSON.
+  - output stopped at the length limit is an error, not partial JSON;
+  - a 413 (the request is larger than the account's tokens-a-minute limit) says so.
   - In every case the caller retries, then a person reviews (`model_failed`). Error messages carry only a status, never the key or content.
 - **Provenance:** `provider` (`groq`) and `model_version` (`openai/gpt-oss-120b`) are recorded on AI runs, criterion scores and CV analyses (migration `20261108090700_ai_provider_provenance`, with its rollback). Generation used to lose the provider, recording it as "demo"; fixed.
 - **Missing key:** the AI service's `/health` shows the requested provider and the names of missing settings. The service runs in labelled demo mode, never as Groq.
 - **Tests:**
-  - **Without network:** `services/ai/tests/test_groq_provider.py`, 13 tests. They cover the request shape, unsupported fields absent, rate limits, refusals, truncation, timeouts, provenance and status.
+  - **Without network:** `services/ai/tests/test_groq_provider.py`, 17 tests. They cover the request shape, schema mode, the output limit, reasoning effort, `failed_generation`, unsupported fields absent, rate limits, refusals, truncation, timeouts, provenance and status.
   - **Stand-in:** the live journey runs as Groq against `tests/stub_provider.py`, which refuses what Groq refuses, and checks the stored provider and model.
   - **Real calls**, only with `MIDAN_REAL_PROVIDER_TESTS=1` and a key, never faked otherwise:
     - generation: `test_assessment_standard.py`, parameter `groq`;
     - CV analysis and evaluation: `test_real_groq.py`.
-- **Known risk:** a full generated package is large. On the 8,000 tokens-a-minute base limit, one generation can approach the limit by itself; a 413 or 429 is reported, not hidden.
-
-**Real Groq calls: NOT RUN yet.** No key was in the local `.env` when this was written.
+- **Known risk:** a full generated package is large. On the 8,000 tokens-a-minute base limit, one generation uses most of the limit by itself; a 413 or 429 is reported, not hidden. Results with the real service are in section 0d.
 
 ## 0c. Which settings the demo and the tests use (2026-11-08)
 
@@ -64,6 +68,35 @@ What MIDAN does:
 - **Migrations stay local.** `scripts/local-db.sh` (start and migrate) is fixed to the local cluster on 127.0.0.1:54322. The rehearsal uses its own temporary PostgreSQL 17 cluster. Test cleanup runs with an explicit local address.
 - **New guard.** Every API end-to-end and live spec (`apps/api/test/local-only.setup.ts`), and both Playwright configs (`apps/web/e2e/local-only.ts`), refuse to start if any database, Supabase, API, AI or app address points off this machine. The message names the setting, never its value. Checked by pointing each runner at a fictional hosted address: all four refused before any test ran.
 - **Calendar invitations.** `GOOGLE_CALENDAR_SEND_UPDATES` (`all` by default; `externalOnly`; `none`) decides whether Google emails attendees. The local demo sets `none`, so no invitation goes out until the owner says so.
+
+## 0d. Real services, verified 2026-11-08
+
+With the keys in the local demo `.env`, fictional data only, local database only. Reports are in `.local/verify/` (git-ignored). Re-run with `node scripts/verify-real-ai.mjs` and `node scripts/verify-integrations.mjs`; each removes its test application from the demo afterwards (`scripts/verify-cleanup.sql`).
+
+- **Groq, `openai/gpt-oss-120b`: works.** The AI service's `/health` shows `live`, `groq`, `openai/gpt-oss-120b`.
+  - **CV analysis, through the API:** the demo's fictional Arabic CV, uploaded by a test candidate, was read in about 5 seconds. It gave one experience, skills (Excel, تحليل البيانات, التواصل), two languages and an achievement. Name, email, phone, city and links stayed local. Stored: `external_ai`, `groq`, `openai/gpt-oss-120b`, waiting for the candidate's review.
+  - **Evaluation, through the API:** a fictional candidate's written answers on the demo job were scored by Groq in about 50 seconds. Every written criterion has a score, an explanation, a quote from the answer and a confidence. Stored: `source ai_assisted`, `provider groq`, `model_version openai/gpt-oss-120b`, `prompt_version eval-v3-guide`. The result waited as `needs_human_review` until a person reviewed it.
+  - **Fixed:** answer-key scores (objective questions) were stored with the model's provider and version. They are computed by MIDAN's rules, so they now carry none; the end-to-end test checks it.
+  - **Generation, through the API:** a draft package with an assessor guide in about 8 seconds, recorded as `live`, `groq`, `openai/gpt-oss-120b`, `gen-v3-mas1`. Its quality report: **blocked**, 95/100. The scenario was too short, and a data table didn't describe its columns. Approval was refused (422) as the standard requires. **No Groq draft has passed the quality gate yet.** An owner can revise the draft until it does; the gate wasn't loosened.
+  - **Limit:** the account allows 8,000 tokens a minute. One generation uses most of that, so two in a row get a 413 or 429, reported as such. A higher Groq tier removes it.
+  - The demo job's published assessment was built earlier from MIDAN's own templates, and is labelled that way (`demo`, `templates-v2-requirements`), not as Groq.
+- **Daily.co: works.**
+  - Joining an interview created a **private** room on the account's Daily domain, closing with the join window.
+  - The candidate and the interviewer each got a token for that room only, about 95 minutes long. Only the interviewer's token owns the room.
+  - Refused: the candidate before accepting (403), another candidate (404), another organization (404), signed out (401), and an interviewer after being removed (403). A second interviewer could join (201).
+  - The test room was deleted from Daily afterwards.
+- **Google Calendar: works.**
+  - **Authorization:** `scripts/google-calendar-token.mjs` asks for calendar events only. The calendar's owner opens `http://127.0.0.1:53682/start` (or the printed link) in a browser on this Mac, signs in and allows access. The refresh token is written straight into `.env`, never printed.
+  - **Google Cloud setting it needs:** `http://127.0.0.1:53682/callback` among the Web application client's Authorized redirect URIs. Without it Google answers `redirect_uri_mismatch`.
+  - **Verified:**
+    - scheduling a fictional interview created its event (`sent`), with the two fictional attendees;
+    - rescheduling moved it by a day (`sent`);
+    - cancelling removed it (`sent`; Google shows it as `cancelled`).
+  - Every write used `sendUpdates=none`, so Google emailed nobody. `scripts/verify-integrations.mjs` refuses to run with any other setting.
+  - The checks touch only the event with that interview's own id (`midan…`). Afterwards, no MIDAN test event was left, and nothing else on the calendar was changed.
+  - `GOOGLE_CALENDAR_ID` is `primary`. A separate test calendar would be safer for regular use.
+- **Tests never use the real services.** An end-to-end run read the demo `.env`'s real Daily key and created one real room; it was deleted. Now every API end-to-end and live spec blanks the Daily and Google credentials before any test (`apps/api/test/local-only.setup.ts`), and the specs that need them use their local stand-ins. Those suites also expect the AI service in its labelled demo mode, not live Groq.
+- **Email: not configured.** There are no email settings in the `.env`. Sign-up and recovery emails go to the local mail sink at `http://localhost:54321/__mail`. Nothing was sent to anyone.
 
 ## 1. What changed, in the order the work was done
 

@@ -135,3 +135,56 @@ def test_a_missing_key_is_reported_by_name_and_nothing_pretends_to_be_groq():
     assert provider_status(env) == {"requested_provider": "groq", "missing_settings": ["GROQ_API_KEY"]}
     assert provider_status(ENV) == {"requested_provider": "groq", "missing_settings": []}
     assert "fictional-test-key" not in json.dumps(provider_status(ENV))
+
+
+def test_a_schema_is_sent_in_best_effort_json_schema_mode_and_the_default_output_limit_applies(calls):
+    from midan_ai.providers import GROQ_DEFAULT_MAX_COMPLETION_TOKENS
+    from midan_ai.schemas import OpenScore
+
+    seen, queue = calls
+    queue.append(ok(json.dumps({"score": 7, "evidence_quote": "", "explanation": "Fictional.", "confidence": 0.5})))
+    provider = get_provider(ENV)
+    provider._call("s", "u", OpenScore)
+    body = seen[0]["json"]
+    assert body["response_format"]["type"] == "json_schema"
+    assert body["response_format"]["json_schema"]["name"] == "OpenScore"
+    assert body["response_format"]["json_schema"]["strict"] is False
+    assert body["response_format"]["json_schema"]["schema"]["properties"]["score"]
+    assert body["max_completion_tokens"] == GROQ_DEFAULT_MAX_COMPLETION_TOKENS == 3300
+    # Scoring keeps the model's default reasoning; only generation asks for less.
+    assert "reasoning_effort" not in body
+
+
+def test_a_refused_draft_is_retried_with_the_fields_that_were_wrong(calls):
+    _, queue = calls
+    queue.extend([ok(json.dumps({"job_family": "invented_family", "tasks": "not a list"})), ok("{}")])
+    seen_users = []
+    provider = get_provider(ENV)
+    original = provider._complete
+
+    def spy(system, user, schema=None):
+        seen_users.append(user)
+        return original(system, user, schema=schema)
+
+    spy.accepts_schema = True
+    provider._complete = spy
+    with pytest.raises(Exception):
+        provider.generate_assessment({"title_en": "Fictional analyst"})
+    assert "these fields don't match the required JSON" in seen_users[1]
+    assert "job_family" in seen_users[1]
+
+
+def test_generation_asks_for_low_reasoning_and_a_refused_draft_is_judged_by_our_schema(calls):
+    seen, queue = calls
+    draft = json.dumps({"job_family": "data_analytical", "tasks": []})
+    queue.append(Reply(400, {"error": {"code": "json_validate_failed", "message": "fictional", "failed_generation": draft}}))
+    out = _groq("openai/gpt-oss-120b", "k")("s", "u", schema=("GeneratedAssessment", {"type": "object"}))
+    assert out == draft
+    assert seen[0]["json"]["reasoning_effort"] == "low"
+
+
+def test_a_too_large_request_says_why(calls):
+    _, queue = calls
+    queue.append(Reply(413))
+    with pytest.raises(LLMError, match="tokens-per-minute"):
+        _groq("m", "k")("s", "u")

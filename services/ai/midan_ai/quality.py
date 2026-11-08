@@ -384,13 +384,16 @@ def evaluate(job: JobInput, pkg: GeneratedAssessment, rows: dict[str, list[dict[
             skipped += 1
             continue
         run += 1
+        # The check comes from the draft, often a model's: a malformed one (a "where" that isn't a mapping, a tolerance that
+        # isn't a number) is a finding about the draft, never a crash of the evaluator.
         try:
             actual = recompute(calc.check, rows[mid])
-        except (ValueError, TypeError) as error:
-            c.add("reference_check_failed", f"calculation {calc.id}", str(error))
+            tolerance = float(calc.check.get("tolerance", 0))
+        except (ValueError, TypeError, AttributeError, KeyError) as error:
+            c.add("reference_check_failed", f"calculation {calc.id}", f"the check can't be run: {type(error).__name__}")
             continue
         expected = calc.check.get("expect", calc.result)
-        if not _equal(actual, expected, float(calc.check.get("tolerance", 0))):
+        if not _equal(actual, expected, tolerance):
             c.add("reference_check_failed", f"calculation {calc.id}", f"recomputed {actual!r}, guide says {expected!r}")
     c.ok("data_sufficiency", f"{len(pkg.materials)} materials ({len(tables)} tables or logs); {len(guide.calculations)} calculations "
                              f"with inputs checked")
