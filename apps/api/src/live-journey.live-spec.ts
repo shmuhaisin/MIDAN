@@ -110,12 +110,15 @@ describe('the journey with a model behind the AI service', () => {
     const full = (await api().get(`/attempts/${attempt}/evaluation`).set(bearer(owner)).expect(200)).body;
     expect(full.evaluation_results.ai_mode).toBe('live');
     expect(full.evaluation_results.status).toBe('needs_human_review');
-    const scores = full.evaluation_results.criterion_scores as { source: string; score: string; model_version: string; evidence_ref: string | null; explanation: string }[];
+    const scores = full.evaluation_results.criterion_scores as { source: string; score: string; model_version: string; provider: string | null; evidence_ref: string | null; explanation: string }[];
+    // Provenance names the provider and the exact model the AI service is running, e.g. groq and openai/gpt-oss-120b.
+    const running = (await (await fetch(`${process.env.AI_SERVICE_URL}/health`)).json()) as { provider: string; model: string };
     expect(scores.length).toBeGreaterThan(0);
     const written = scores.filter((s) => s.source === 'ai_assisted');
     expect(written.length).toBeGreaterThan(0);
     for (const s of written) {
-      expect(s.model_version).toBeTruthy();
+      expect(s.model_version).toBe(running.model);
+      expect(s.provider).toBe(running.provider);
       expect(s.explanation).toBeTruthy();
     }
     // Objective questions are graded by plain code, against the employer's corrected key.

@@ -116,7 +116,7 @@ export class EvaluationsController {
         data: proposed.proposals.map((p) => ({
           result_id: evaluation.id, criterion_id: p.criterion_id, org_id: orgId, score: p.score, source: p.source,
           evidence_ref: p.evidence_ref, explanation: p.explanation, confidence: p.confidence,
-          model_version: provenance.model_version, prompt_version: provenance.prompt_version, rubric_version: rubricVersion,
+          provider: provenance.provider ?? null, model_version: provenance.model_version, prompt_version: provenance.prompt_version, rubric_version: rubricVersion,
         })),
       });
       await tx.ai_workflow_runs.create({

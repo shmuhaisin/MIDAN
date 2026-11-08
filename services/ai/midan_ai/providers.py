@@ -26,7 +26,7 @@ class Provider(Protocol):
 class DemoProvider:
     """A deterministic heuristic, not an AI model. It is always low confidence and always labeled."""
 
-    provenance = Provenance(mode="demo", model_version="demo-heuristic-v1", prompt_version="none")
+    provenance = Provenance(mode="demo", provider="demo", model_version="demo-heuristic-v1", prompt_version="none")
 
     def score_open(self, task: TaskInput, criterion: CriterionInput, answer: str) -> OpenScore:
         words = _WORDS.findall(answer)
@@ -102,11 +102,11 @@ def assessor_guidance(criterion: CriterionInput) -> str:
 
 
 class JsonLLMProvider:
-    def __init__(self, complete, name: str, attempts: int = 2, pause: float = 1.0):
+    def __init__(self, complete, name: str, attempts: int = 2, pause: float = 1.0, provider: str = "openai"):
         self._complete = complete
         self._attempts = attempts
         self._pause = pause
-        self.provenance = Provenance(mode="live", model_version=name, prompt_version=PROMPT_VERSION)
+        self.provenance = Provenance(mode="live", provider=provider, model_version=name, prompt_version=PROMPT_VERSION)
 
     @property
     def complete(self):
@@ -187,6 +187,60 @@ def _openai(model: str, key: str, base: str = "https://api.openai.com"):
     return complete
 
 
+GROQ_BASE = "https://api.groq.com/openai/v1"
+GROQ_MAX_WAIT = 30.0
+
+
+def _retry_after(value: str | None, attempt: int) -> float:
+    """Groq's retry-after is in seconds, and only sent with a 429. Without it, back off: 2, 4, 8 seconds."""
+    try:
+        return max(0.0, float(value)) if value is not None else 2.0 * (2**attempt)
+    except ValueError:
+        return 2.0 * (2**attempt)
+
+
+def _groq(model: str, key: str, base: str = GROQ_BASE, reasoning_effort: str | None = None, max_tokens: int | None = None,
+          sleep=time.sleep, rate_retries: int = 2, max_wait: float = GROQ_MAX_WAIT):
+    """Groq's OpenAI-compatible chat completions (https://console.groq.com/docs/openai), for models such as openai/gpt-oss-120b.
+
+    JSON Object Mode, not strict JSON Schema: strict mode needs every field required and additionalProperties false, which the
+    shared schemas don't follow, and every reply is validated by those schemas anyway. Nothing Groq rejects is sent (logprobs,
+    logit_bias, top_logprobs, messages[].name, n other than 1). Reasoning stays out of the reply (include_reasoning false). A 429
+    waits for retry-after, up to a limit, then fails like any other refusal: the caller retries, then a person decides.
+    """
+
+    def complete(system: str, user: str) -> str:
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "response_format": {"type": "json_object"},
+            "include_reasoning": False,
+        }
+        if reasoning_effort:
+            body["reasoning_effort"] = reasoning_effort
+        if max_tokens:
+            body["max_completion_tokens"] = max_tokens
+        for attempt in range(rate_retries + 1):
+            response = _post(f"{base}/chat/completions", headers={"authorization": f"Bearer {key}"}, json=body, timeout=120)
+            if response.status_code != 429:
+                break
+            wait = _retry_after(response.headers.get("retry-after"), attempt)
+            if attempt == rate_retries or wait > max_wait:
+                raise LLMError(f"Groq rate limit (429): retry after {wait:.0f}s")
+            sleep(wait)
+        if response.status_code != 200:
+            raise LLMError(f"Groq responded {response.status_code}")
+        choice = response.json()["choices"][0]
+        if choice.get("finish_reason") == "length":
+            raise LLMError("Groq stopped at the output limit")
+        content = (choice.get("message") or {}).get("content")
+        if not content:
+            raise LLMError("Groq returned no content")
+        return content
+
+    return complete
+
+
 def _gemini(model: str, key: str, base: str = "https://generativelanguage.googleapis.com"):
     def complete(system: str, user: str) -> str:
         response = _post(
@@ -214,8 +268,24 @@ def _test_url(env: dict[str, Any], name: str) -> list[str]:
 def get_provider(env: dict[str, Any] | None = None) -> Provider:
     env = os.environ if env is None else env
     choice = env.get("AI_PROVIDER", "gemini")
+    if choice == "groq" and env.get("GROQ_API_KEY") and env.get("GROQ_MODEL"):
+        max_tokens = env.get("GROQ_MAX_COMPLETION_TOKENS")
+        return JsonLLMProvider(
+            _groq(env["GROQ_MODEL"], env["GROQ_API_KEY"], *_test_url(env, "GROQ_API_URL"),
+                  reasoning_effort=env.get("GROQ_REASONING_EFFORT") or None, max_tokens=int(max_tokens) if max_tokens else None),
+            env["GROQ_MODEL"], provider="groq",
+        )
     if choice == "openai" and env.get("OPENAI_API_KEY") and env.get("OPENAI_MODEL"):
-        return JsonLLMProvider(_openai(env["OPENAI_MODEL"], env["OPENAI_API_KEY"], *_test_url(env, "OPENAI_API_URL")), env["OPENAI_MODEL"])
+        return JsonLLMProvider(_openai(env["OPENAI_MODEL"], env["OPENAI_API_KEY"], *_test_url(env, "OPENAI_API_URL")), env["OPENAI_MODEL"], provider="openai")
     if choice == "gemini" and env.get("GEMINI_API_KEY") and env.get("GEMINI_MODEL"):
-        return JsonLLMProvider(_gemini(env["GEMINI_MODEL"], env["GEMINI_API_KEY"], *_test_url(env, "GEMINI_API_URL")), env["GEMINI_MODEL"])
+        return JsonLLMProvider(_gemini(env["GEMINI_MODEL"], env["GEMINI_API_KEY"], *_test_url(env, "GEMINI_API_URL")), env["GEMINI_MODEL"], provider="gemini")
     return DemoProvider()
+
+
+def provider_status(env: dict[str, Any] | None = None) -> dict[str, Any]:
+    """What was asked for and what is running, so a missing key shows as missing, never as a working model."""
+    env = os.environ if env is None else env
+    requested = env.get("AI_PROVIDER", "gemini")
+    names = {"groq": ("GROQ_API_KEY", "GROQ_MODEL"), "openai": ("OPENAI_API_KEY", "OPENAI_MODEL"), "gemini": ("GEMINI_API_KEY", "GEMINI_MODEL")}
+    missing = [n for n in names.get(requested, ()) if not env.get(n)]
+    return {"requested_provider": requested, "missing_settings": missing}

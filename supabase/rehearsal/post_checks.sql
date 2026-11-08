@@ -23,6 +23,8 @@ with checks(name, ok) as (values
     and not exists (select 1 from pg_trigger where tgname = 'write_audit' and tgrelid in ('public.assessment_tasks'::regclass, 'public.rubric_criteria'::regclass))),
   ('Organizations read applications, not live candidate profiles', not exists (select 1 from pg_policies where schemaname = 'public'
     and tablename in ('candidate_profiles', 'candidate_skills', 'candidate_reference_skills') and policyname in ('org reads applicants', 'org reads applicant skills'))),
+  ('Provenance names the provider', (select count(*) = 3 from information_schema.columns where table_schema = 'public' and column_name = 'provider'
+    and table_name in ('ai_workflow_runs', 'criterion_scores', 'cv_analyses'))),
   ('Only interview participants can join', exists (select 1 from pg_proc where proname = 'can_join_interview') and (select relrowsecurity from pg_class where oid = 'public.interview_participants'::regclass)),
   ('Listing source records are closed to signed-out visitors', not has_column_privilege('anon', 'public.external_job_listings', 'raw_record', 'select')),
   ('Listing review notes are closed to signed-in users', not has_column_privilege('authenticated', 'public.external_job_listings', 'review_note', 'select')),

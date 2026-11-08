@@ -24,6 +24,35 @@ Written 2026-11-08. Branch **`midan-platform-p0`**, cut from `midan-platform-aud
   - it writes `.local/demo/fictional-cv.docx` and `.local/demo/ACCOUNTS.md` (git-ignored, local logins).
   - The demo services are started from the worktree through `.claude/launch.json` entries named `demo-*`, never with the hosted `.env`.
 
+## 0b. Groq as the AI provider (2026-11-08)
+
+Checked against Groq's official documentation on 2026-11-08:
+- the model page `openai/gpt-oss-120b`: 131,072-token context, 65,536 max output, JSON Object and JSON Schema modes, reasoning;
+- the OpenAI compatibility page: base URL `https://api.groq.com/openai/v1`; `logprobs`, `logit_bias`, `top_logprobs` and `messages[].name` give a 400, and `n` must be 1;
+- structured outputs: strict mode needs every field required and `additionalProperties: false`, and isn't available with streaming or tools;
+- reasoning: `reasoning_effort` low, medium or high; `include_reasoning: false` drops the reasoning text;
+- rate limits: 429 with `retry-after` in seconds. The base Developer-plan figures shown for this model are 30 requests a minute, 1,000 a day, 8,000 tokens a minute and 200,000 a day. Your account's own limits are in the Groq console.
+
+What MIDAN does:
+- **Client:** `_groq` in `services/ai/midan_ai/providers.py`, with `AI_PROVIDER=groq`, `GROQ_API_KEY` and `GROQ_MODEL`.
+- **Request:** JSON Object Mode, `include_reasoning: false`, and nothing Groq rejects. `GROQ_REASONING_EFFORT` and `GROQ_MAX_COMPLETION_TOKENS` are optional.
+- **Failures:**
+  - a 429 waits for `retry-after`, at most 30 seconds and twice, then fails;
+  - a timeout or dropped connection counts as unavailable;
+  - output stopped at the length limit is an error, not partial JSON.
+  - In every case the caller retries, then a person reviews (`model_failed`). Error messages carry only a status, never the key or content.
+- **Provenance:** `provider` (`groq`) and `model_version` (`openai/gpt-oss-120b`) are recorded on AI runs, criterion scores and CV analyses (migration `20261108090700_ai_provider_provenance`, with its rollback). Generation used to lose the provider, recording it as "demo"; fixed.
+- **Missing key:** the AI service's `/health` shows the requested provider and the names of missing settings. The service runs in labelled demo mode, never as Groq.
+- **Tests:**
+  - **Without network:** `services/ai/tests/test_groq_provider.py`, 13 tests. They cover the request shape, unsupported fields absent, rate limits, refusals, truncation, timeouts, provenance and status.
+  - **Stand-in:** the live journey runs as Groq against `tests/stub_provider.py`, which refuses what Groq refuses, and checks the stored provider and model.
+  - **Real calls**, only with `MIDAN_REAL_PROVIDER_TESTS=1` and a key, never faked otherwise:
+    - generation: `test_assessment_standard.py`, parameter `groq`;
+    - CV analysis and evaluation: `test_real_groq.py`.
+- **Known risk:** a full generated package is large. On the 8,000 tokens-a-minute base limit, one generation can approach the limit by itself; a 413 or 429 is reported, not hidden.
+
+**Real Groq calls: NOT RUN yet.** No key was in the local `.env` when this was written.
+
 ## 1. What changed, in the order the work was done
 
 ### P0 security
@@ -162,7 +191,7 @@ Remaining failures: **none**. External integrations verified for real: **none**:
 
 | What | For | Where it goes |
 | --- | --- | --- |
-| Gemini or OpenAI key and model name | Real CV structuring, generation, scoring; `MIDAN_REAL_PROVIDER_TESTS=1` | The owner's own `.env`, never chat |
+| Groq API key (active provider; `GROQ_MODEL=openai/gpt-oss-120b` is already set) | Real CV structuring, generation, scoring; `MIDAN_REAL_PROVIDER_TESTS=1` | `GROQ_API_KEY=` in the local `.env` at the repository root, never chat |
 | Google Cloud OAuth client, refresh token and calendar ID | Real calendar events (one MIDAN calendar today) | `GOOGLE_CALENDAR_*` in `.env` |
 | Daily.co API key | Real private rooms | `DAILY_API_KEY` |
 | SMTP or an email provider | Any email beyond Supabase Auth's own | Not wired: notifications are in-app only |
@@ -194,7 +223,7 @@ npm run dev:api
 npm run dev:web
 ```
 
-Then `node scripts/demo-seed.mjs` for the fictional demo organization, job and CV. Open http://localhost:3100/ar. The logins (fictional, local only) are in `.local/demo/ACCOUNTS.md`, copied from `.env.test.local`.
+Or all of it in the background, after `npm run build -w @midan/api && npm run build -w @midan/web`: `scripts/demo-up.sh` (and `scripts/demo-up.sh stop`). Then `node scripts/demo-seed.mjs` for the fictional demo organization, job and CV. Open http://localhost:3100/ar. The logins (fictional, local only) are in `.local/demo/ACCOUNTS.md`, copied from `.env.test.local`.
 
 ### The demo, step by step
 

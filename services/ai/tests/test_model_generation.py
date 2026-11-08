@@ -61,8 +61,9 @@ def draft(provider):
 
 def test_a_valid_draft_keeps_the_models_tasks_and_rubric_and_says_it_came_from_the_model():
     complete, _ = fake(GOOD)
-    result = draft(JsonLLMProvider(complete, "test-model"))
-    assert result["provenance"] == {"mode": "live", "model_version": "test-model", "prompt_version": GENERATION_PROMPT_VERSION}
+    result = draft(JsonLLMProvider(complete, "test-model", provider="groq"))
+    # The provider that served the draft is recorded with the exact model, never left as "demo".
+    assert result["provenance"] == {"mode": "live", "provider": "groq", "model_version": "test-model", "prompt_version": GENERATION_PROMPT_VERSION}
     written = result["tasks"][0]
     assert written["title_en"] == "Review a contract" and written["requirement_ids"] == ["r1"] and written["reference_skill_ids"] == ["k1"]
     assert [c["description_en"] for c in written["criteria"]] == ["Identifies the risky clauses", "Proposes a practical change"]

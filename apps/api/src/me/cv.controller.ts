@@ -84,6 +84,7 @@ type AnalyzeResult = {
   status: 'ok' | 'blocked' | 'failed';
   code?: string;
   mode?: 'external_ai' | 'local_only';
+  provenance?: { provider?: string; model_version?: string };
   personal?: Prisma.InputJsonValue;
   professional?: Prisma.InputJsonValue;
   counts?: Record<string, number>;
@@ -126,7 +127,7 @@ export class CvController {
     const result = await this.ai.analyzeCv<AnalyzeResult>({ file_base64: bytes.toString('base64'), known_names: names });
     this.logger.log(`CV analysis ${analysisId}: ${result.status} ${result.code ?? ''} redactions=${Object.values(result.counts ?? {}).reduce((a, b) => a + b, 0)}`);
     if (result.status === 'ok') {
-      await finish({ status: 'awaiting_review', mode: result.mode, personal: result.personal, professional: result.professional, redaction_counts: result.counts ?? {} });
+      await finish({ status: 'awaiting_review', mode: result.mode, provider: result.provenance?.provider ?? null, model_version: result.provenance?.model_version ?? null, personal: result.personal, professional: result.professional, redaction_counts: result.counts ?? {} });
     } else {
       await finish({ status: result.status, failure_code: result.code ?? 'analysis_failed', redaction_counts: result.counts ?? {} });
     }

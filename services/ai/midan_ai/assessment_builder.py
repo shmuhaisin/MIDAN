@@ -16,7 +16,7 @@ from .templates import DATA_SKILL_SLUGS, SKILL_TASK, TEMPLATES
 MAX_REPAIRS = 2
 MAX_RESPONSIBILITIES = 4
 MAX_SKILL_TASKS = 3
-TEMPLATE_PROVENANCE = Provenance(mode="demo", model_version="templates-v2-requirements", prompt_version="none")
+TEMPLATE_PROVENANCE = Provenance(mode="demo", provider="demo", model_version="templates-v2-requirements", prompt_version="none")
 TASK_TYPES = {"responsibility", "daily_task"}
 _SPLIT = re.compile(r"[\n.;؛]+")
 
@@ -198,7 +198,8 @@ def make_generator(provider) -> Callable[[State], State]:
             "tasks": stored["tasks"], "stored_version": stored["version"], "stored_guide": stored["guide"],
             # The templates' limit on responsibilities didn't apply to the model.
             "warnings": [w for w in state["warnings"] if w != "responsibilities_truncated"] + ([] if draft.standardized else ["not_standardized"]),
-            "provenance": Provenance(mode="live", model_version=provider.provenance.model_version, prompt_version=GENERATION_PROMPT_VERSION).model_dump(),
+            "provenance": Provenance(mode="live", provider=provider.provenance.provider, model_version=provider.provenance.model_version,
+                                     prompt_version=GENERATION_PROMPT_VERSION).model_dump(),
         }
 
     return generate

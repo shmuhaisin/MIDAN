@@ -1,6 +1,6 @@
 import { Injectable, ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
 
-export type Provenance = { mode: 'demo' | 'live'; model_version: string; prompt_version: string };
+export type Provenance = { mode: 'demo' | 'live'; provider?: string; model_version: string; prompt_version: string };
 export type GraphResult<T> = { status: string; payload: T; provenance: Provenance };
 
 /** The only route to the private AI service. Its token never leaves the backend. */

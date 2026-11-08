@@ -9,6 +9,9 @@ TaskType = Literal["written_case_study", "data_analysis", "objective_questions",
 
 class Provenance(BaseModel):
     mode: Literal["demo", "live"]
+    # Who served the model: "groq", "openai" or "gemini" when live, "demo" for the labelled heuristic and templates.
+    provider: str = "demo"
+    # The provider's exact model ID, such as openai/gpt-oss-120b on Groq.
     model_version: str
     prompt_version: str
 

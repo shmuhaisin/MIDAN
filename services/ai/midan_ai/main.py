@@ -18,7 +18,7 @@ from .package import from_stored
 from .quality import evaluate
 from .cv import analyze as analyze_cv
 from .evaluation import build_evaluation_graph
-from .providers import PROMPT_VERSION, get_provider
+from .providers import PROMPT_VERSION, get_provider, provider_status
 from .schemas import EvaluationInput, JobInput
 
 app = FastAPI(title="Midan AI Service", version="0.2.0")
@@ -102,8 +102,10 @@ def _result(graph, thread_id: str, state: dict[str, Any]) -> dict[str, Any]:
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "service": "midan-ai", "mode": _provider.provenance.mode, "checkpointer": CHECKPOINTER}
+def health() -> dict[str, Any]:
+    # Names of missing settings only, never values. "demo" with a requested provider means its settings are incomplete.
+    return {"status": "ok", "service": "midan-ai", "mode": _provider.provenance.mode, "provider": _provider.provenance.provider,
+            "model": _provider.provenance.model_version, **provider_status(), "checkpointer": CHECKPOINTER}
 
 
 @app.post("/cv/analyze", dependencies=[Depends(require_token)])
@@ -114,7 +116,10 @@ def run_cv(run: CvRun) -> dict[str, Any]:
     except (binascii.Error, ValueError):
         return {"status": "failed", "code": "unreadable", "counts": {}}
     try:
-        return analyze_cv(data, run.known_names, getattr(_provider, "complete", None))
+        result = analyze_cv(data, run.known_names, getattr(_provider, "complete", None))
+        if result.get("mode") == "external_ai":
+            result["provenance"] = _provider.provenance.model_dump()
+        return result
     except Exception:
         return {"status": "failed", "code": "analysis_failed", "counts": {}}
 

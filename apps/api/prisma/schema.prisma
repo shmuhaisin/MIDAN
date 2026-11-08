@@ -18,6 +18,7 @@ model ai_workflow_runs {
   status         String
   mode           String
   model_version  String
+  provider       String?
   prompt_version String
   started_by     String?       @db.Uuid
   created_at     DateTime      @default(now()) @db.Timestamptz(6)
@@ -309,6 +310,7 @@ model criterion_scores {
   explanation        String?
   confidence         Decimal?           @db.Decimal(3, 2)
   model_version      String?
+  provider       String?
   prompt_version     String?
   rubric_version     Int?
   created_by         String?            @db.Uuid
@@ -334,6 +336,8 @@ model cv_analyses {
   status           String       @default("pending")
   failure_code     String?
   mode             String?
+  provider         String?
+  model_version    String?
   personal         Json?
   professional     Json?
   redaction_counts Json?

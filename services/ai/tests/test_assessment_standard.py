@@ -300,7 +300,7 @@ REAL = os.environ.get("MIDAN_REAL_PROVIDER_TESTS") == "1"
 
 
 @pytest.mark.skipif(not REAL, reason="Real provider tests run only with MIDAN_REAL_PROVIDER_TESTS=1 and real keys (NOT RUN)")
-@pytest.mark.parametrize("choice", ["openai", "gemini"])
+@pytest.mark.parametrize("choice", ["groq", "openai", "gemini"])
 def test_real_provider_generates_a_package_the_evaluator_can_judge(choice):
     env = {**os.environ, "AI_PROVIDER": choice}
     provider = get_provider(env)
@@ -308,6 +308,7 @@ def test_real_provider_generates_a_package_the_evaluator_can_judge(choice):
         pytest.skip(f"No {choice} key and model configured (NOT RUN)")
     payload = _graph_payload(provider, fixture.job())
     assert payload["provenance"]["mode"] == "live"
+    assert payload["provenance"]["provider"] == choice
     # A real model's draft is judged, not assumed good: the report must exist and say why if it isn't ready.
     assert payload["quality"]["verdict"] in ("ready", "needs_revision", "blocked")
     assert payload["quality"]["verdict"] == "ready" or payload["quality"]["required_revisions"]

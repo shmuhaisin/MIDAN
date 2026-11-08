@@ -68,6 +68,12 @@ def reply(system: str, user: str) -> str:
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["content-length"])))
+        # Like Groq (https://console.groq.com/docs/openai): these fields are refused with a 400, and n must be 1.
+        if any(k in body for k in ("logprobs", "logit_bias", "top_logprobs")) or body.get("n", 1) != 1 \
+                or any("name" in m for m in body.get("messages", [])):
+            self.send_response(400)
+            self.end_headers()
+            return
         if "messages" in body:
             system, user = body["messages"][0]["content"], body["messages"][1]["content"]
             out = {"choices": [{"message": {"content": reply(system, user)}}]}
