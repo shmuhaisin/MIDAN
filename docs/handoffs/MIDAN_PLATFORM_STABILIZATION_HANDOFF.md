@@ -53,6 +53,18 @@ What MIDAN does:
 
 **Real Groq calls: NOT RUN yet.** No key was in the local `.env` when this was written.
 
+## 0c. Which settings the demo and the tests use (2026-11-08)
+
+- **The demo and every test read the `.env` at the root of this checkout,** with `.env.test.local` for test logins:
+  - the API through `apps/api/src/common/load-env.ts`, resolved from its own folder;
+  - the AI service through `uv run --env-file ../../.env`;
+  - the web app through `apps/web/next.config.ts`, public values and the API address only.
+- **Checked while running:** every address in that `.env` is on this machine. No database or Supabase URL was exported in the shell or inherited by a service, and the local database showed the API, AI service, Auth and PostgREST connected to it.
+- **The hosted URLs are in another file.** The `.env` in the `candidate-portal` checkout, the folder this session started in, points at hosted Supabase. Nothing here reads it. The demo's launch entries change into this checkout before starting anything.
+- **Migrations stay local.** `scripts/local-db.sh` (start and migrate) is fixed to the local cluster on 127.0.0.1:54322. The rehearsal uses its own temporary PostgreSQL 17 cluster. Test cleanup runs with an explicit local address.
+- **New guard.** Every API end-to-end and live spec (`apps/api/test/local-only.setup.ts`), and both Playwright configs (`apps/web/e2e/local-only.ts`), refuse to start if any database, Supabase, API, AI or app address points off this machine. The message names the setting, never its value. Checked by pointing each runner at a fictional hosted address: all four refused before any test ran.
+- **Calendar invitations.** `GOOGLE_CALENDAR_SEND_UPDATES` (`all` by default; `externalOnly`; `none`) decides whether Google emails attendees. The local demo sets `none`, so no invitation goes out until the owner says so.
+
 ## 1. What changed, in the order the work was done
 
 ### P0 security

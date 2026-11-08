@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { parseEnv } from 'node:util';
 import { defineConfig } from '@playwright/test';
+import { assertLocalStack } from './e2e/local-only';
+
+assertLocalStack();
 
 // The test checks this value never appears in what the browser receives.
 process.env.DEV_TEST_ACCESS_CODE ??= parseEnv(readFileSync('../../.env', 'utf8')).DEV_TEST_ACCESS_CODE;

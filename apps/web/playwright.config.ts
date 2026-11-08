@@ -1,10 +1,13 @@
 import { defineConfig } from '@playwright/test';
+import { assertLocalStack } from './e2e/local-only';
+
+assertLocalStack();
 
 export default defineConfig({
   testDir: 'e2e',
   workers: 1,
   timeout: 420_000,
-  // The local API talks to the database in another region, so each save takes a few seconds.
+  // Generous waits: some steps wait on the local AI service and background queue.
   expect: { timeout: 20_000 },
   use: {
     baseURL: 'http://localhost:3100', locale: 'ar',

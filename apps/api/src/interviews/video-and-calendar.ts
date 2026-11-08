@@ -62,6 +62,14 @@ type CalendarEvent = { id?: string; interviewId: string; title: string; start: D
  * One event per interview. Google accepts an id the caller chooses (base32hex: 0-9 and a-v, which a UUID's hex digits
  * are), so a retry after a timeout that Google had in fact saved finds the same event instead of adding a second one.
  */
+/**
+ * Whether Google emails the attendees: all (the default), externalOnly, or none. A local demo sets none, so no invitation
+ * reaches anyone until the owner says so. Anything else falls back to the default.
+ */
+export function sendUpdates(value = process.env.GOOGLE_CALENDAR_SEND_UPDATES) {
+  return value && ['all', 'externalOnly', 'none'].includes(value) ? value : 'all';
+}
+
 export const calendarEventId = (interviewId: string) => `midan${interviewId.replace(/-/g, '')}`;
 
 /** Google Calendar, with a refresh token for one calendar. A result says what happened, and never claims a send that failed. */
@@ -105,7 +113,7 @@ export class CalendarClient {
         attendees: event.attendees.map((email) => ({ email })),
       };
       const token = await this.accessToken();
-      const write = (id: string | undefined) => fetch(`${this.calendarUrl}${id ? `/${id}` : ''}?sendUpdates=all`, {
+      const write = (id: string | undefined) => fetch(`${this.calendarUrl}${id ? `/${id}` : ''}?sendUpdates=${sendUpdates()}`, {
         method: id ? 'PATCH' : 'POST',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
         body: JSON.stringify(id ? body : { ...body, id: calendarEventId(event.interviewId) }),
@@ -124,7 +132,7 @@ export class CalendarClient {
   async cancel(eventId: string) {
     if (!this.configured) return false;
     try {
-      const response = await fetch(`${this.calendarUrl}/${eventId}?sendUpdates=all`, { method: 'DELETE', headers: { authorization: `Bearer ${await this.accessToken()}` } });
+      const response = await fetch(`${this.calendarUrl}/${eventId}?sendUpdates=${sendUpdates()}`, { method: 'DELETE', headers: { authorization: `Bearer ${await this.accessToken()}` } });
       return response.ok || response.status === 410;
     } catch {
       return false;

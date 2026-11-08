@@ -1004,7 +1004,9 @@ describe('Midan database foundation', () => {
           });
         });
         await new Promise<void>((resolve) => stub.listen(54398, 'localhost', () => resolve()));
-        for (const key of ['DAILY_API_KEY', 'DAILY_API_URL', 'GOOGLE_API_URL', 'GOOGLE_TOKEN_URL', 'GOOGLE_CALENDAR_CLIENT_ID', 'GOOGLE_CALENDAR_CLIENT_SECRET', 'GOOGLE_CALENDAR_REFRESH_TOKEN']) saved[key] = process.env[key];
+        for (const key of ['DAILY_API_KEY', 'DAILY_API_URL', 'GOOGLE_API_URL', 'GOOGLE_TOKEN_URL', 'GOOGLE_CALENDAR_CLIENT_ID', 'GOOGLE_CALENDAR_CLIENT_SECRET', 'GOOGLE_CALENDAR_REFRESH_TOKEN', 'GOOGLE_CALENDAR_SEND_UPDATES']) saved[key] = process.env[key];
+        // The default (all), whatever the local demo .env says; restored afterwards.
+        delete process.env.GOOGLE_CALENDAR_SEND_UPDATES;
       });
       afterAll(async () => {
         Object.entries(saved).forEach(([key, value]) => { if (value === undefined) delete process.env[key]; else process.env[key] = value; });
@@ -1102,6 +1104,11 @@ describe('Midan database foundation', () => {
         expect(sent.body).toMatchObject({ calendar_status: 'sent', calendar_event_id: 'event-1' });
         const event = last((c) => c.path.startsWith('/calendars') && c.method === 'POST');
         expect(event?.path).toContain('sendUpdates=all');
+        // A demo or test calendar can keep invitations from going out at all.
+        process.env.GOOGLE_CALENDAR_SEND_UPDATES = 'none';
+        await api().post(`${base()}/interviews/${interview}/calendar-retry`).set(bearer(ownerA)).expect(201);
+        expect(last((c) => c.path.startsWith('/calendars'))?.path).toContain('sendUpdates=none');
+        delete process.env.GOOGLE_CALENDAR_SEND_UPDATES;
         // One event per interview, whatever the retries: its id comes from the interview.
         const fixedId = `midan${interview.replace(/-/g, '')}`;
         expect(event?.body.id).toBe(fixedId);
