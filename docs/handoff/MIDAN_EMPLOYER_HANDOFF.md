@@ -63,4 +63,5 @@ Results and known rerun-state failures: current state §19.
 
 ## Known blockers
 AI key, SMTP, Google OAuth client (credentials); person-level account suspension and extra team roles (owner decisions);
-hosted database has neither new migration (owner decision). Branch and commit: see current state §4 — **not committed yet**.
+hosted database has neither new migration (owner decision). Branch `feature/midan-employer-experience`, implementation
+commit `dc7faf1` (current state §4).

@@ -26,8 +26,8 @@ saved jobs and a database deadline guard, migration `20261110150000`). **Never m
 ## 4. Git
 - Branch: `feature/midan-employer-experience`, created locally from `feature/midan-teammate-completion` @
   `67a0c20eee266757d026c63a3ef81dc8ad1fbcd9`.
-- **Nothing on this branch is committed or pushed yet** (the owner asked for commits only when authorized). Every change is
-  in the working tree of `MIDAN-teammate/` (a git worktree of the repository). See §9 for the file list.
+- Pushed to `origin/feature/midan-employer-experience`. Implementation commit: `dc7faf1b1bb232736dd6bd81a085a02f48f0094f`
+  (2026-11-09, authorized by the owner); the next commit records this handoff update. See §9 for the file list.
 - `main` (`8f0235b`) and both teammates' branches are untouched.
 
 ## 5. Status in one paragraph
@@ -56,7 +56,7 @@ of translation, generation and evaluation (needs keys); browser re-walk of job s
 
 ## 8. Current task and next steps
 Last task: handoff documents. Next:
-1. Owner authorizes commit/push of this branch (nothing committed yet).
+1. Done: committed and pushed (`dc7faf1`).
 2. With a Groq key in the local `.env` (`AI_PROVIDER=groq`, `GROQ_API_KEY`, `GROQ_MODEL`), restart the AI service and check
    translation in the browser (type Arabic title → English fills in ~1 s; edit English; type more Arabic → English stays).
 3. Merge plan with the candidate branch (see contract §7), then the full API e2e on a fresh database.
@@ -172,6 +172,6 @@ CANDIDATE_TWO, UNVERIFIED, PLATFORM_ADMIN, UI_EMPLOYER, UI_CANDIDATE, UI_REVIEW_
 - Interviews: shortlist rule in the database; rescheduling is an update and stays allowed.
 
 ## 23. Next recommended task
-Get commit/push authorization, then: per-organization Google Calendar OAuth (needs credentials), or — if credentials wait —
+Per-organization Google Calendar OAuth (needs credentials), or — if credentials wait —
 job opening/closing dates with Saudi-time states after merging the candidate branch's deadline guard, then AI interview
 questions.
