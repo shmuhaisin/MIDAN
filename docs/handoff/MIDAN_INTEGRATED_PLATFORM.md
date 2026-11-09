@@ -43,3 +43,17 @@ WSL (the services themselves are listed in `MIDAN_CANDIDATE_CURRENT_STATE.md` fo
 ## Hosted Supabase (production)
 Not used by this environment and not changed. Moving the hosted project to this code needs, in one approval: the newer
 migrations, the access-code hash for sign-up, redirect URLs for the site, and an email provider.
+
+## ATS matching model (verified 2026-11-09)
+- `.env`: `EMBEDDING_PROVIDER=e5-local`. The AI service's `/health` reports `matching: e5-local`, and generation uses
+  Groq `openai/gpt-oss-120b`. The model files sit in `.local/hf` (about 1.1 GB, loaded offline), with
+  sentence-transformers 3.4.1 and torch installed through `uv run --extra matching`.
+- Direct `/match/requirements` call (Arabic CV evidence against English requirements): provenance `provider: e5-local`,
+  `model_version: intfloat/multilingual-e5-base`, with no `fallback` field, in 1.3 s on a cold start.
+- Through the app: the employer's applicant match and the candidate's own match both return e5-local results (about
+  120 ms warm). In the browser, both "Requirements match" panels (employer, English and Arabic) and both "How your
+  profile meets each requirement" panels (candidate, English and Arabic) show these results.
+- e5's similarity scores sit close together, so MIDAN's conservative thresholds (match 0.80/0.83, review floor 0.77)
+  mark many lines "partly shown" or "needs review" rather than "shown". This is by design: a person confirms.
+- If the model can't load, matching falls back to lexical and records `fallback` in the result's provenance, so a
+  fallback is never shown as e5. BGE-M3 and paid hosted models are not used.
