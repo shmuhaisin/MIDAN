@@ -30,6 +30,17 @@ state. Nothing here depends on any previous chat.
   branch already uses for `assessment_task_order`).
 - Tests: `apps/api/src/candidate-discovery.e2e-spec.ts` 4/4, web unit 33/33 (`lib/deadline.test.ts` added).
 
+## Test results on this branch (2026-11-10)
+- API e2e **192/192** (includes `candidate-discovery`, `skills`, `accounts`, `match` specs). Web unit 33/33. Lint and types pass.
+- Forms 9/9 (run alone). Browser 39/44 in the full run; rerun alone, `security-headers` passes. **4 browser specs fail
+  because of the base branch's task reordering (employer side), not the candidate work:** `journeys.spec.ts` "full MVP
+  journey", "requirements…", "workbook skills…", "an organization reviews and corrects a generated draft…". The new
+  "Move “<task>” up/down" buttons share the task's name, so `getByRole('button', { name: /<task title>/ }).first()` now
+  matches the (disabled) move button and the click waits until the 7-minute test timeout. **Fix for the employer
+  developer:** select the task toggle explicitly, for example
+  `getByRole('button', { name: new RegExp(`^\\d+\\s+${title}`) })` or `locator('li button[aria-expanded]')` filtered by
+  the title. Left unchanged here to avoid conflicting with the employer branch.
+
 ## Next steps (in order)
 1. Done 2026-11-10: saved jobs and closed-job pages walked in the browser, Arabic and English.
 2. Interview portal polish: show the reschedule request state clearly on the list; decline only if the backend adds it.

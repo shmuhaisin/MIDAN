@@ -78,6 +78,10 @@ Every candidate route filters by `auth.uid()` (RLS and controller checks); every
 `requireRole(tx, user, orgId, ...)`. Cross-tenant and cross-candidate reads return 403/404 (covered by the API e2e suites
 `foundation`, `match`, `accounts`, `skills`, and browser `roles.spec.ts`).
 
+## 8b. Integration issue found (employer side)
+Task reordering ("Move “<task>” up/down" buttons, base branch) breaks four employer browser specs in
+`apps/web/e2e/journeys.spec.ts` whose selectors match the task title. See `MIDAN_CANDIDATE_CURRENT_STATE.md` → Test results.
+
 ## 9. Known gaps for the candidate side (not built yet)
 - Saved jobs (no table or API) — **Coordinate** if a schema is added.
 - A released-feedback field for interviews — **Coordinate**.
