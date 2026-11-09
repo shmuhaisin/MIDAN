@@ -45,7 +45,7 @@ function docx(lines: string[]) {
 
 async function noOverflow(page: Page) {
   const [scroll, inner] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
-  expect(scroll).toBeLessThanOrEqual(inner);
+  expect(scroll, `horizontal overflow on ${page.url()}`).toBeLessThanOrEqual(inner);
 }
 
 test('registration data to career development: the whole candidate journey', async ({ browser }) => {
@@ -102,7 +102,8 @@ test('registration data to career development: the whole candidate journey', asy
   });
   await candidate.getByRole('link', { name: 'Review what we read' }).click({ timeout: 40_000 });
   await expect(candidate.getByRole('heading', { level: 1 })).toHaveText('Review what we read from your CV');
-  await expect(candidate.getByText('Local reading only')).toBeVisible();
+  // The interface no longer names AI (redesign brief §25): the mode is "Basic reading only".
+  await expect(candidate.getByText('Basic reading only')).toBeVisible();
   await expect(candidate.getByText(/personal items were removed/)).toBeVisible();
   await expect(candidate.getByText('Noura')).toHaveCount(0);
   await expect(candidate.locator('body')).not.toContainText('1098765432');
@@ -115,7 +116,8 @@ test('registration data to career development: the whole candidate journey', asy
   await expect(candidate.getByRole('heading', { name: 'Skills from your CV' })).toBeVisible();
   if (SHOTS) await candidate.screenshot({ path: `${SHOTS}/profile.png`, fullPage: true });
 
-  await candidate.goto('/en/onboarding?step=3');
+  // Skills is step 5 of 6 since the redesign added Education (3) and Experience (4).
+  await candidate.goto('/en/onboarding?step=5');
   // Suggestions from the reviewed CV arrive here, and search tolerates spelling differences.
   await candidate.getByRole('searchbox', { name: 'Search for a skill' }).fill('اداره المشاريع');
   await candidate.getByRole('button', { name: /إدارة/ }).first().click({ timeout: 20_000 });
@@ -127,17 +129,21 @@ test('registration data to career development: the whole candidate journey', asy
   await expect(candidate.getByRole('heading', { name: /Your skills \(\d+\)/ })).not.toHaveText('Your skills (0)');
   await expect(candidate.getByText(`Own skill ${RUN}`)).toBeVisible();
   await candidate.getByRole('button', { name: 'Next' }).click();
-  await expect(candidate).toHaveURL(/step=4/);
-  await candidate.getByRole('button', { name: 'Browse opportunities' }).click();
-  await expect(candidate).toHaveURL(/\/en\/opportunities$/);
+  await expect(candidate).toHaveURL(/step=6/);
+  // The review step finishes onboarding and opens the overview.
+  await candidate.getByRole('button', { name: 'Finish and go to my overview' }).click();
+  await expect(candidate).toHaveURL(/\/en\/dashboard$/);
+  await candidate.goto('/en/opportunities');
 
   // Discovery.
   await candidate.getByLabel('Sector').selectOption('digital');
   await candidate.getByLabel('Experience level').selectOption('mid');
-  await candidate.getByRole('link', { name: name, exact: true }).click();
+  await candidate.getByRole('link', { name: new RegExp(`${name}$`) }).click();
   await expect(candidate.getByRole('heading', { level: 1 })).toHaveText(name);
   await expect(candidate.getByRole('heading', { name: 'Practical assessment' })).toBeVisible();
-  await expect(candidate.getByText(/Salary:/)).toBeVisible();
+  // The redesigned job page lists salary as a labelled fact.
+  await expect(candidate.getByText('Salary', { exact: true })).toBeVisible();
+  await expect(candidate.getByText('8,000 – 12,000')).toBeVisible();
   await expect(candidate.getByText(/Apply by/)).toBeVisible();
   await expect(candidate.locator('body')).not.toContainText('fictional analytics team');
 
@@ -150,7 +156,8 @@ test('registration data to career development: the whole candidate journey', asy
   const applicationPath = new URL(candidate.url()).pathname;
   const applicationId = applicationPath.split('/').pop() as string;
   await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
-  await expect(candidate.getByText('Submit by')).toBeVisible();
+  // The deadline shows in the assessment card and in the timeline.
+  await expect(candidate.getByText('Submit by').first()).toBeVisible();
   await expect(candidate.getByRole('button', { name: 'Open the attached CV' })).toBeVisible();
   if (SHOTS) await candidate.screenshot({ path: `${SHOTS}/application.png`, fullPage: true });
 
@@ -159,7 +166,8 @@ test('registration data to career development: the whole candidate journey', asy
   await expect(candidate).toHaveURL(new RegExp(`${applicationPath}$`));
 
   // The assessment: scenario, shared rubric, drafts that survive, and a receipt.
-  await candidate.getByRole('link', { name: 'Start the assessment' }).click();
+  // Offered in the page header and in the assessment card; both open the same assessment.
+  await candidate.getByRole('link', { name: 'Start the assessment' }).first().click();
   await expect(candidate.getByText('You join a fictional analytics team.')).toBeVisible();
   await expect(candidate.getByText(/Deadline:/)).toBeVisible();
   await candidate.getByText("How it's assessed").click();
@@ -216,7 +224,8 @@ test('registration data to career development: the whole candidate journey', asy
   await expect(owner.getByText("Not sent: the calendar isn't switched on")).toBeVisible();
 
   await candidate.goto(applicationPath);
-  await candidate.getByRole('link', { name: 'Interview details' }).click();
+  // Offered as the next step and in the interviews section; both open the same interview.
+  await candidate.getByRole('link', { name: 'Interview details' }).first().click();
   await expect(candidate.getByText('Bring an example of your work.')).toBeVisible();
   await expect(candidate.getByText("Not sent: the calendar isn't switched on")).toBeVisible();
   await expect(candidate.getByText('Accept the time first')).toHaveCount(0);
@@ -245,15 +254,20 @@ test('registration data to career development: the whole candidate journey', asy
   await expect(candidate.getByText('Thank you for your time.')).toBeVisible();
 
   // Development stays available whatever the outcome.
+  // The career journey is a workspace of its own: the overview, roles, skills and gaps, learning, practice and levels.
   await candidate.getByRole('link', { name: 'See career development' }).click();
-  await expect(candidate.getByRole('heading', { level: 1 })).toHaveText('Career development');
-  await candidate.getByLabel('Sector').selectOption('digital');
-  await candidate.getByLabel('Job family').selectOption({ index: 1 });
-  await candidate.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(candidate.getByRole('heading', { name: 'Skills for this role' })).toBeVisible();
-  await expect(candidate.getByText("There's no verified catalog")).toBeVisible();
+  await expect(candidate.getByRole('heading', { level: 1 })).toHaveText("Where you're heading, and what's next");
+  await candidate.goto('/en/development/roles');
+  // The roles page also has a "Sectors" filter: the picker's fields are found by role and exact name.
+  await candidate.getByRole('combobox', { name: 'Sector', exact: true }).selectOption('digital');
+  await candidate.getByRole('combobox', { name: 'Job family', exact: true }).selectOption({ index: 1 });
+  await Promise.all([candidate.waitForResponse((r) => r.request().method() === 'POST'), candidate.getByRole('button', { name: 'Save', exact: true }).click()]);
+  await candidate.goto('/en/development/skills');
+  await expect(candidate.getByRole('heading', { name: 'Nothing shows these yet' })).toBeVisible();
   await expect(candidate.getByText("nothing in your profile or assessments shows it yet").first()).toBeVisible();
-  await candidate.getByRole('button', { name: 'Save as a goal' }).first().click();
+  await Promise.all([candidate.waitForResponse((r) => r.request().method() === 'POST'), candidate.getByRole('button', { name: 'Save as a goal' }).first().click()]);
+  await candidate.goto('/en/development/learning');
+  await expect(candidate.getByText("There's no verified catalog")).toBeVisible();
   const progress = candidate.getByRole('combobox', { name: /^Progress:/ }).first();
   await expect(progress).toBeVisible();
   await Promise.all([candidate.waitForResponse((r) => r.request().method() === 'POST'), progress.selectOption('completed')]);
@@ -347,7 +361,8 @@ test('normal views hold no test records, and an empty list is truthful', async (
   const title = await visitor.getByRole('heading', { level: 1 }).boundingBox();
   expect((title?.y ?? 0)).toBeGreaterThanOrEqual((header?.y ?? 0) + (header?.height ?? 0));
   const size = await visitor.getByRole('heading', { level: 1 }).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-  expect(size).toBeLessThanOrEqual(32);
+  // The full redesign brief (2026-11-09) asks for strong editorial type: the sign-in title uses the display scale.
+  expect(size).toBeLessThanOrEqual(64);
   await expect(visitor.locator('img[src*="midan-logo"]')).toHaveCount(1);
   if (SHOTS) await visitor.screenshot({ path: `${SHOTS}/login-ar.png` });
 });
@@ -362,9 +377,10 @@ test('a new candidate with nothing yet: dashboard, skills and empty states', asy
   await page.getByRole('button', { name: 'التالي' }).click();
   await expect(page).toHaveURL(/step=2/);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/onboarding-cv-ar.png`, fullPage: true });
-  await page.goto('/ar/onboarding?step=3');
+  // Skills is step 5 of 6 since the redesign added Education and Experience.
+  await page.goto('/ar/onboarding?step=5');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('مهاراتك');
-  await expect(page.getByText('راجع مهاراتك وأضف ما ينقصها.')).toBeVisible();
+  await expect(page.getByText('راجع مهاراتك وأضف ما ينقص.')).toBeVisible();
   const search = page.getByRole('searchbox', { name: 'ابحث عن مهارة' });
   await search.fill('اداره المشاريع');
   await expect(page.getByRole('button', { name: /إدارة المشاريع/ }).first()).toBeVisible({ timeout: 20_000 });
@@ -378,7 +394,7 @@ test('a new candidate with nothing yet: dashboard, skills and empty states', asy
   await expect(page.getByRole('button', { name: 'إزالة إدارة المشاريع' }).first()).toBeVisible();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/skills-saved-ar.png`, fullPage: true });
   await page.goto('/ar/dashboard');
-  await expect(page.getByRole('navigation', { name: 'حسابي' }).getByRole('link', { name: 'لوحتي' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('navigation', { name: 'حسابي' }).getByRole('link', { name: 'نظرة عامة' })).toHaveAttribute('aria-current', 'page');
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/dashboard-new-ar.png`, fullPage: true });
   const phone = await pageFor(browser, tokens, { width: 390, height: 844 });
   for (const path of ['/ar/onboarding?step=3', '/ar/dashboard', '/ar/opportunities', '/ar/employers']) {

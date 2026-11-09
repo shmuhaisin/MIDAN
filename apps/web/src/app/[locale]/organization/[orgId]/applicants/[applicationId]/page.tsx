@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Arrow } from '@/components/brand';
@@ -5,10 +6,15 @@ import { ApplicantStatus } from '@/components/forms';
 import { HiringPanel } from '@/components/hiring-panel';
 import { ApplicationNotes, InterviewFeedback } from '@/components/applicant-review';
 import { ApplicantCvButton } from '@/components/profile';
+import { type MatchData, RequirementMatch } from '@/components/requirement-match';
+import { Badge, statusTone, Timeline } from '@/components/ui';
+import { Icon } from '@/components/icons';
+import { LaneHeader, LaneTrack, Panel, STAGE_RANK } from '@/components/workspace-kit';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { canReopenApplications } from '@/lib/application-status';
 import { formatDate, formatWhen, number, pick } from '@/lib/format';
+import { PIPELINE } from '@/lib/org-data';
 import { getSession } from '@/lib/session';
 
 type Person = { user_id: string; email: string | null; display_name: string | null; role: string | null } | null;
@@ -50,204 +56,289 @@ type Review = {
 const ZONE = 'Asia/Riyadh';
 const who = (p: Person) => p?.display_name || p?.email || '—';
 
+/**
+ * One applicant as a dossier: who they are and where they stand at the top, the decision beside it, then the evidence
+ * (required skills, assessments, profile), the hiring steps, the team's notes and the history.
+ */
 export default async function Page({ params }: { params: Promise<{ locale: string; orgId: string; applicationId: string }> }) {
   const { locale, orgId, applicationId } = await params;
   setRequestLocale(locale);
   if (!(await getSession())) return redirect({ href: '/login?as=organization', locale });
   if (!/^[0-9a-f-]{36}$/.test(applicationId)) notFound();
-  const data = await apiForPage<Review>(`/organizations/${orgId}/applications/${applicationId}/review`);
+  const [data, match] = await Promise.all([
+    apiForPage<Review>(`/organizations/${orgId}/applications/${applicationId}/review`),
+    apiForPage<MatchData>(`/organizations/${orgId}/applications/${applicationId}/match`),
+  ]);
   if (!data) notFound();
   const t = await getTranslations({ locale, namespace: 'applicant' });
+  const tm = await getTranslations({ locale, namespace: 'match' });
   const ts = await getTranslations({ locale, namespace: 'applicationStatus' });
   const tr = await getTranslations({ locale, namespace: 'review' });
+  const tn = await getTranslations({ locale, namespace: 'orgShell' });
+  const n = (v: number) => number(locale, v);
   const canManage = ['owner', 'admin', 'recruiter'].includes(data.my_role ?? '');
+  // The API allows the same roles to record a match review (BUILDERS).
+  const canReview = canManage;
   const profile = data.profile;
   const name = (s: Named) => pick(locale, s.name_ar, s.name_en ?? s.name_ar);
+  const sep = locale === 'ar' ? '، ' : ', ';
   const span = (i: Item) => (i.start_year ? `${i.start_year} – ${i.end_year ?? t('present')}` : '');
   const list = (items: Item[] | undefined, title: (i: Item) => string, sub?: (i: Item) => string) =>
-    (items ?? []).length === 0 ? <p className="mt-3 text-muted">{t('none')}</p> : (
-      <ul className="mt-3 border-t border-border">
+    (items ?? []).length === 0 ? <p className="mt-2 text-sm text-muted">{t('none')}</p> : (
+      <ul className="mt-2 space-y-3">
         {items!.map((e, i) => (
-          <li key={i} className="border-b border-border py-3">
+          <li key={i} className="border-s-2 border-border ps-3">
             <p className="font-semibold"><bdi>{title(e)}</bdi></p>
             {sub && sub(e) && <p className="text-sm text-muted"><bdi>{sub(e)}</bdi></p>}
-            {e.description && <p className="mt-1 leading-relaxed"><bdi>{e.description}</bdi></p>}
+            {e.description && <p className="mt-1 text-sm leading-relaxed"><bdi>{e.description}</bdi></p>}
           </li>
         ))}
       </ul>
     );
 
+  const siblings = (await apiForPage<{ id: string }[]>(`/organizations/${orgId}/applications`)) ?? [];
+  const position = siblings.findIndex((x) => x.id === applicationId);
+  const display = profile?.full_name || profile?.email || t('noProfile');
+  const stations = PIPELINE.map(([key]) => tn(`stage.${key}`));
+  const open = data.status in STAGE_RANK;
+  const at = STAGE_RANK[data.status] ?? 0;
+  const assessed = data.relevance.matched.filter((s) => s.evidence === 'assessed').length;
+  const listed = data.relevance.matched.length - assessed;
+
   return (
-    <article className="mx-auto max-w-5xl space-y-12 px-4 py-10 sm:px-6">
-      <header className="space-y-3">
-        <Link href={`/organization/${orgId}/jobs/${data.job.id}`} className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground">
-          <Arrow className="rotate-180" />{t('back')}
+    <article className="space-y-8">
+      {/* Way back, and through the list without leaving the dossier. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link href={`/organization/${orgId}/candidates`} className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground">
+          <Icon name="chevron" className="size-4 rotate-180" />{tn('candidates')}
         </Link>
-        <h1 className="page-title"><bdi>{profile?.full_name || profile?.email || t('noProfile')}</bdi></h1>
-        {profile?.headline && <p className="text-base"><bdi>{profile.headline}</bdi></p>}
-        <p className="text-muted">
-          {[profile?.city, profile?.years_experience != null ? t('years', { count: number(locale, Number(profile.years_experience)) }) : null].filter(Boolean).join(' · ')}
-        </p>
-        <p className="text-sm font-medium">{t('appliedFor', { job: pick(locale, data.job.title_ar, data.job.title_en) })} · {formatDate(locale, data.created_at, ZONE)}</p>
-        {profile && (
-          <p className="text-sm text-muted">
-            {profile.email && <bdi dir="ltr">{profile.email}</bdi>}{profile.phone && <> · <bdi dir="ltr">{profile.phone}</bdi></>}
-          </p>
+        {position >= 0 && siblings.length > 1 && (
+          <nav aria-label={tn('candidates')} className="flex items-center gap-2 text-sm">
+            {siblings[position - 1] ? <Link href={`/organization/${orgId}/applicants/${siblings[position - 1].id}`} className="btn btn-secondary btn-sm"><Icon name="chevron" className="size-4 rotate-180" />{tn('previous')}</Link> : <span aria-disabled="true" className="btn btn-secondary btn-sm opacity-50">{tn('previous')}</span>}
+            <span className="num px-1 text-muted">{tn('position', { n: position + 1, total: siblings.length })}</span>
+            {siblings[position + 1] ? <Link href={`/organization/${orgId}/applicants/${siblings[position + 1].id}`} className="btn btn-secondary btn-sm">{tn('next')}<Icon name="chevron" className="size-4" /></Link> : <span aria-disabled="true" className="btn btn-secondary btn-sm opacity-50">{tn('next')}</span>}
+          </nav>
         )}
-        <p className="border-s-2 border-gold ps-4 text-sm">{t('snapshotNote', { date: data.captured_at ? formatDate(locale, data.captured_at, ZONE) : '—' })}</p>
-        <div className="flex flex-wrap items-end gap-6 pt-2">
-          <div>
-            <p className="text-sm font-medium">{t('statusNow')}</p>
-            {canManage ? <ApplicantStatus id={data.id} status={data.status} label={t('statusLabel')} canReopen={canReopenApplications(data.my_role ?? undefined)} />
-              : <p className="mt-1 font-semibold">{ts(data.status)}</p>}
+      </div>
+
+      {/* Identity and position, with the decision beside it. */}
+      <header className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="rounded-[var(--radius-panel)] border border-border bg-surface">
+          <div className="flex flex-wrap items-start gap-5 p-6 lg:p-8">
+            <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--brand-mint)_40%,var(--surface))] font-display text-2xl font-bold text-forest dark:text-mint">{display.trim().charAt(0).toUpperCase()}</span>
+            <div className="min-w-0 flex-1">
+              <p className="label-caps">{t('appliedFor', { job: pick(locale, data.job.title_ar, data.job.title_en) })}</p>
+              <h1 className="mt-1 font-display text-[clamp(1.75rem,3.5vw,2.75rem)] leading-tight font-bold"><bdi>{display}</bdi></h1>
+              {profile?.headline && <p className="mt-1 text-lg text-muted"><bdi>{profile.headline}</bdi></p>}
+              <ul className="mt-4 flex flex-wrap gap-2 text-sm">
+                {profile?.city && <li className="rounded-full bg-surface-2 px-3 py-1"><bdi>{profile.city}</bdi></li>}
+                {profile?.years_experience != null && <li className="rounded-full bg-surface-2 px-3 py-1">{t('years', { count: n(Number(profile.years_experience)) })}</li>}
+                {profile?.email && <li className="rounded-full bg-surface-2 px-3 py-1"><bdi dir="ltr">{profile.email}</bdi></li>}
+                {profile?.phone && <li className="rounded-full bg-surface-2 px-3 py-1"><bdi dir="ltr">{profile.phone}</bdi></li>}
+                <li className="rounded-full bg-surface-2 px-3 py-1">{formatDate(locale, data.created_at, ZONE)}</li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-border bg-surface-2/40 px-6 py-5 lg:px-8">
+            {open ? (
+              <>
+                <div aria-hidden className="mb-3 hidden sm:block"><LaneHeader stations={stations} /></div>
+                <LaneTrack status={data.status} stations={stations.length} label={`${stations[at]}: ${ts(data.status)}`} />
+                <p className="mt-3 text-sm font-semibold sm:hidden">{stations[at]}</p>
+              </>
+            ) : <p className="flex items-center gap-3 text-sm"><Badge tone={statusTone(data.status)}>{ts(data.status)}</Badge></p>}
           </div>
         </div>
-        <p className="text-sm text-muted">{t('decisionsNote')}</p>
+
+        <aside aria-labelledby="decision" className="on-deep flex flex-col rounded-[var(--radius-panel)] bg-deep p-6 text-deep-foreground">
+          <h2 id="decision" className="label-caps text-brand-gold!">{t('statusNow')}</h2>
+          <p className="mt-2 font-display text-2xl font-bold">{ts(data.status)}</p>
+          <div className="mt-4 [&_select]:bg-ivory [&_select]:text-forest">
+            {canManage ? <ApplicantStatus id={data.id} status={data.status} label={t('statusLabel')} canReopen={canReopenApplications(data.my_role ?? undefined)} /> : null}
+          </div>
+          <p className="mt-4 text-xs leading-relaxed text-deep-muted">{t('decisionsNote')}</p>
+          <dl className="mt-auto grid grid-cols-3 gap-3 border-t border-mint/15 pt-5 text-center">
+            <div><dt className="text-[0.6875rem] text-deep-muted">{t('assessmentsTitle')}</dt><dd className="num font-display text-2xl font-bold">{n(data.assessment_attempts.length)}</dd></div>
+            <div><dt className="text-[0.6875rem] text-deep-muted">{t('interviewsShort')}</dt><dd className="num font-display text-2xl font-bold">{n(data.interviews.length)}</dd></div>
+            <div><dt className="text-[0.6875rem] text-deep-muted">{t('notesShort')}</dt><dd className="num font-display text-2xl font-bold">{n(data.notes.length)}</dd></div>
+          </dl>
+        </aside>
       </header>
 
-      {data.cover_note && (
-        <section aria-labelledby="cover"><h2 id="cover" className="section-title">{t('coverNote')}</h2><p className="mt-3 max-w-3xl leading-relaxed whitespace-pre-line"><bdi>{data.cover_note}</bdi></p></section>
-      )}
+      <p className="flex gap-2 text-sm text-muted"><Icon name="shield" className="mt-0.5 size-4 shrink-0 text-primary" />{t('snapshotNote', { date: data.captured_at ? formatDate(locale, data.captured_at, ZONE) : '—' })}</p>
 
-      <section aria-labelledby="relevance">
-        <h2 id="relevance" className="section-title">{t('relevanceTitle')}</h2>
-        <p className="mt-1 max-w-3xl text-sm text-muted">{t('relevanceNote')}</p>
-        {data.relevance.total === 0 ? <p className="mt-3 text-muted">{t('relevanceNone')}</p> : (
-          <>
-            <p className="mt-3 font-semibold">{t('relevanceCount', { matched: number(locale, data.relevance.matched.length), total: number(locale, data.relevance.total) })}</p>
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {data.relevance.matched.map((s) => (
-                <li key={s.id} className={s.evidence === 'assessed' ? 'rounded-full bg-accent px-3 py-1 text-sm font-medium text-accent-foreground' : 'rounded-full border border-border px-3 py-1 text-sm'}>
-                  {name(s)} · {t(`evidence.${s.evidence}`)}
-                </li>
-              ))}
-            </ul>
-            {data.relevance.gaps.length > 0 && <p className="mt-3 text-sm text-muted">{t('relevanceGaps')}: {data.relevance.gaps.map(name).join(locale === 'ar' ? '، ' : ', ')}</p>}
-          </>
-        )}
-      </section>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0 space-y-6">
+          {data.cover_note && (
+            <Panel id="cover" title={t('coverNote')}>
+              <blockquote className="border-s-4 border-gold ps-4 text-lg leading-relaxed whitespace-pre-line"><bdi>{data.cover_note}</bdi></blockquote>
+            </Panel>
+          )}
 
-      <section aria-labelledby="assessments">
-        <h2 id="assessments" className="section-title">{t('assessmentsTitle')}</h2>
-        {data.assessment_attempts.length === 0 ? <p className="mt-3 text-muted">{t('assessmentsNone')}</p> : (
-          <ul className="mt-3 space-y-8">
-            {data.assessment_attempts.map((a) => {
-              const e = a.evaluation_results;
-              return (
-                <li key={a.id} className="border-t border-border pt-4">
-                  <div className="flex flex-wrap items-baseline justify-between gap-3">
-                    <p className="font-semibold">{pick(locale, a.assessment_versions.assessments.title_ar, a.assessment_versions.assessments.title_en)} · {t('version', { number: a.assessment_versions.version_number })}</p>
-                    {a.status === 'submitted' && <Link href={`/organization/${orgId}/review/${a.id}`} className="inline-flex items-center gap-2 text-sm font-semibold text-primary underline underline-offset-4">{t('openReview')}<Arrow /></Link>}
-                  </div>
-                  <p className="text-sm text-muted">{t(`attempt.${a.status}`)}{a.submitted_at && ` · ${formatDate(locale, a.submitted_at, ZONE)}`}</p>
-                  {!e && a.status === 'submitted' && <p className="mt-2 text-sm">{t('notEvaluated')}</p>}
-                  {e && (
-                    <div className="mt-3 space-y-4">
-                      <p className="text-sm">
-                        <span className="font-semibold">{t(`evaluation.${e.status}`)}</span>
-                        {e.status === 'reviewed' && e.overall_score != null && <> · {t('overall', { score: number(locale, Number(e.overall_score)) })}</>}
-                        {e.ai_mode === 'demo' && <> · {t('demoMode')}</>}
-                      </p>
-                      {e.status !== 'reviewed' && <p className="text-sm text-muted">{t('proposalsOnly')}</p>}
-                      {e.skill_scores.length > 0 && (
-                        <p className="text-sm"><span className="font-semibold">{tr('skillLevels')}: </span>{e.skill_scores.map((s) => `${name(s.skills)} L${s.level}`).join(locale === 'ar' ? '، ' : ', ')}</p>
-                      )}
-                      {e.reference_skill_scores.length > 0 && (
-                        <p className="text-sm"><span className="font-semibold">{tr('workbookSkills')}: </span>{e.reference_skill_scores.map((s) => `${s.reference_skills.name_ar} ${number(locale, Number(s.score_pct))}%`).join('، ')}</p>
-                      )}
-                      {e.criterion_scores.length > 0 && (
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[36rem] text-start text-sm">
-                            <thead className="border-b border-border text-muted">
-                              <tr><th className="py-2 text-start font-medium">{t('criterion')}</th><th className="py-2 text-start font-medium">{t('score')}</th><th className="py-2 text-start font-medium">{t('evidenceCol')}</th></tr>
-                            </thead>
-                            <tbody>
-                              {e.criterion_scores.sort((x, y) => x.rubric_criteria.code.localeCompare(y.rubric_criteria.code)).map((c) => (
-                                <tr key={c.rubric_criteria.code} className="border-b border-border align-top">
-                                  <td className="py-2 pe-4"><span className="font-semibold">{c.rubric_criteria.code}</span> {pick(locale, c.rubric_criteria.description_ar, c.rubric_criteria.description_en)}</td>
-                                  <td className="py-2 pe-4 tabular-nums whitespace-nowrap">{number(locale, Number(c.score))} / {number(locale, Number(c.rubric_criteria.max_score))}<br /><span className="text-muted">{t(`source.${c.source}`)}</span></td>
-                                  <td className="py-2">{c.evidence_ref && <q className="block"><bdi>{c.evidence_ref}</bdi></q>}{c.explanation && <span className="text-muted"><bdi>{c.explanation}</bdi></span>}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+          <Panel id="relevance" title={t('relevanceTitle')} lead={t('relevanceNote')}>
+            {data.relevance.total === 0 ? <p className="text-muted">{t('relevanceNone')}</p> : (
+              <div className="grid gap-6 md:grid-cols-[auto_minmax(0,1fr)] md:items-center md:gap-10">
+                <p className="text-center md:text-start">
+                  <span className="num font-display text-5xl font-bold">{n(data.relevance.matched.length)}</span>
+                  <span className="num font-display text-2xl text-muted"> / {n(data.relevance.total)}</span>
+                  <span className="mt-1 block text-sm text-muted">{t('relevanceCount', { matched: n(data.relevance.matched.length), total: n(data.relevance.total) })}</span>
+                </p>
+                <div>
+                  <span aria-hidden className="flex h-3 overflow-hidden rounded-full bg-surface-2">
+                    <span style={{ width: `${(assessed / data.relevance.total) * 100}%` }} className="bg-[var(--brand-deep)] dark:bg-mint" />
+                    <span style={{ width: `${(listed / data.relevance.total) * 100}%` }} className="bg-[var(--brand-mint)]" />
+                  </span>
+                  <ul className="mt-4 flex flex-wrap gap-2">
+                    {data.relevance.matched.map((s) => (
+                      <li key={s.id} className={clsx('rounded-full px-3 py-1 text-sm', s.evidence === 'assessed' ? 'bg-[var(--brand-deep)] font-medium text-ivory dark:bg-mint dark:text-forest' : 'bg-[color-mix(in_srgb,var(--brand-mint)_45%,transparent)] text-forest dark:text-mint')}>
+                        {name(s)} · {t(`evidence.${s.evidence}`)}
+                      </li>
+                    ))}
+                    {data.relevance.gaps.map((s) => <li key={s.id} className="rounded-full border border-dashed border-border-strong px-3 py-1 text-sm text-muted">{name(s)}</li>)}
+                  </ul>
+                  {data.relevance.gaps.length > 0 && <p className="mt-3 text-xs text-muted">{t('relevanceGaps')}: {data.relevance.gaps.map(name).join(sep)}</p>}
+                </div>
+              </div>
+            )}
+          </Panel>
+
+          <Panel id="requirements-match" title={tm('title')} lead={tm('lead')}>
+            {match ? <RequirementMatch orgId={orgId} applicationId={applicationId} data={match} canReview={canReview} /> : <p role="alert" className="text-sm text-muted">{tm('unavailable')}</p>}
+          </Panel>
+
+          <Panel id="assessments" flush title={t('assessmentsTitle')} count={n(data.assessment_attempts.length)}>
+            {data.assessment_attempts.length === 0 ? <p className="px-6 py-8 text-muted lg:px-8">{t('assessmentsNone')}</p> : (
+              <ul className="divide-y divide-border">
+                {data.assessment_attempts.map((a) => {
+                  const e = a.evaluation_results;
+                  return (
+                    <li key={a.id} className="space-y-5 px-6 py-6 lg:px-8">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-display text-lg font-bold">{pick(locale, a.assessment_versions.assessments.title_ar, a.assessment_versions.assessments.title_en)}</p>
+                          <p className="text-sm text-muted">{t('version', { number: a.assessment_versions.version_number })} · {t(`attempt.${a.status}`)}{a.submitted_at && ` · ${formatDate(locale, a.submitted_at, ZONE)}`}</p>
                         </div>
+                        <div className="flex items-center gap-4">
+                          {e?.status === 'reviewed' && e.overall_score != null && (
+                            <p className="text-end"><span className="num font-display text-3xl font-bold">{n(Number(e.overall_score))}</span><span className="block text-xs text-muted">{t('overallLabel')}</span></p>
+                          )}
+                          {a.status === 'submitted' && <Link href={`/organization/${orgId}/review/${a.id}`} className="btn btn-primary btn-sm">{t('openReview')}<Arrow /></Link>}
+                        </div>
+                      </div>
+                      {!e && a.status === 'submitted' && <p className="text-sm">{t('notEvaluated')}</p>}
+                      {e && (
+                        <>
+                          <p className="flex flex-wrap items-center gap-2 text-sm">
+                            <span className={clsx('inline-flex items-center gap-1.5 font-semibold', e.status === 'reviewed' ? 'text-success' : 'text-gold-text')}><span aria-hidden className="size-1.5 rounded-full bg-current" />{t(`evaluation.${e.status}`)}</span>
+                            {e.ai_mode === 'demo' && <span className="text-muted">· {t('demoMode')}</span>}
+                            {e.status !== 'reviewed' && <span className="text-muted">· {t('proposalsOnly')}</span>}
+                          </p>
+                          {e.skill_scores.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-muted">{t('skillLevels')}</p>
+                              <ul className="mt-2 flex flex-wrap gap-2">
+                                {e.skill_scores.map((s) => <li key={s.skills.id} className="rounded-[var(--radius-control)] border border-border px-3 py-1.5 text-sm">{name(s.skills)} <span className="num ms-1 font-display font-bold text-primary">L{s.level}</span></li>)}
+                              </ul>
+                            </div>
+                          )}
+                          {e.reference_skill_scores.length > 0 && (
+                            <p className="text-sm"><span className="font-semibold">{tr('workbookSkills')}: </span>{e.reference_skill_scores.map((s) => `${s.reference_skills.name_ar} ${n(Number(s.score_pct))}%`).join('، ')}</p>
+                          )}
+                          {e.criterion_scores.length > 0 && (
+                            <ul className="space-y-4">
+                              {[...e.criterion_scores].sort((x, y) => x.rubric_criteria.code.localeCompare(y.rubric_criteria.code)).map((c) => {
+                                const max = Number(c.rubric_criteria.max_score) || 1;
+                                return (
+                                  <li key={c.rubric_criteria.code} className="grid gap-2 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:gap-6">
+                                    <div>
+                                      <p className="text-sm"><span className="num font-semibold text-gold-text">{c.rubric_criteria.code}</span> {pick(locale, c.rubric_criteria.description_ar, c.rubric_criteria.description_en)}</p>
+                                      <p className="text-xs text-muted">{t(`source.${c.source}`)}</p>
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center gap-3">
+                                        <span aria-hidden className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2"><span className="block h-full rounded-full bg-primary" style={{ width: `${(Number(c.score) / max) * 100}%` }} /></span>
+                                        <span className="num w-14 shrink-0 text-end text-sm font-semibold">{n(Number(c.score))} / {n(max)}</span>
+                                      </div>
+                                      {(c.evidence_ref || c.explanation) && (
+                                        <p className="mt-1.5 text-sm">{c.evidence_ref && <q className="me-2 italic"><bdi>{c.evidence_ref}</bdi></q>}{c.explanation && <span className="text-muted"><bdi>{c.explanation}</bdi></span>}</p>
+                                      )}
+                                    </div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                          {e.evaluation_reviews.filter((r) => r.notes).map((r, i) => (
+                            <p key={i} className="rounded-[var(--radius-control)] bg-surface-2/60 p-3 text-sm"><span className="font-semibold">{t('assessorNote')}: </span><bdi>{r.notes}</bdi></p>
+                          ))}
+                        </>
                       )}
-                      {e.evaluation_reviews.filter((r) => r.notes).map((r, i) => (
-                        <p key={i} className="border-s-2 border-border ps-3 text-sm"><span className="font-semibold">{t('assessorNote')}: </span><bdi>{r.notes}</bdi></p>
-                      ))}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Panel>
 
-      <section aria-labelledby="profile">
-        <h2 id="profile" className="section-title">{t('profileTitle')}</h2>
-        {profile?.summary && <p className="mt-3 max-w-3xl leading-relaxed whitespace-pre-line"><bdi>{profile.summary}</bdi></p>}
-        <h3 className="mt-6 font-semibold">{t('skills')}</h3>
-        <p className="mt-1 text-sm text-muted">{t('skillsNote')}</p>
-        {data.skills.listed.length + data.skills.reference.length + (profile?.self_reported_skills?.length ?? 0) === 0 ? <p className="mt-3 text-muted">{t('none')}</p> : (
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {data.skills.reference.map((s) => <li key={s.id} className="rounded-full border border-border px-3 py-1 text-sm">{s.name_ar}</li>)}
-            {data.skills.listed.map((s) => <li key={s.id} className="rounded-full bg-surface-2 px-3 py-1 text-sm">{name(s)}</li>)}
-            {profile?.self_reported_skills?.map((s) => <li key={s} className="rounded-full border border-dashed border-border px-3 py-1 text-sm"><bdi>{s}</bdi></li>)}
-          </ul>
-        )}
-        <div className="mt-6 grid gap-8 md:grid-cols-2">
-          <div><h3 className="font-semibold">{t('experience')}</h3>{list(profile?.experience, (e) => [e.title, e.organization].filter(Boolean).join(' · '), span)}</div>
-          <div><h3 className="font-semibold">{t('education')}</h3>{list(profile?.education, (e) => [e.qualification, e.field].filter(Boolean).join(' · '), (e) => [e.institution, span(e)].filter(Boolean).join(' · '))}</div>
-          <div><h3 className="font-semibold">{t('projects')}</h3>{list(profile?.projects, (e) => e.title ?? '')}</div>
-          <div><h3 className="font-semibold">{t('certifications')}</h3>{list([...(profile?.certifications ?? []), ...(profile?.courses ?? [])], (e) => e.title ?? '')}</div>
-          <div><h3 className="font-semibold">{t('achievements')}</h3>{list(profile?.achievements, (e) => e.title ?? '')}</div>
-          <div><h3 className="font-semibold">{t('languages')}</h3>{list((profile?.languages ?? []).map((l) => ({ title: [l.name, l.level].filter(Boolean).join(' · ') })), (e) => e.title ?? '')}</div>
+          <Panel id="profile" title={t('profileTitle')} action={data.has_cv ? <ApplicantCvButton applicationId={applicationId} /> : <span className="text-sm text-muted">{t('cvNone')}</span>}>
+            {profile?.summary && <p className="max-w-3xl leading-relaxed whitespace-pre-line"><bdi>{profile.summary}</bdi></p>}
+            <div className={clsx(profile?.summary && 'mt-6')}>
+              <h3 className="text-xs font-semibold text-muted">{t('skills')}</h3>
+              <p className="text-xs text-muted">{t('skillsNote')}</p>
+              {data.skills.listed.length + data.skills.reference.length + (profile?.self_reported_skills?.length ?? 0) === 0 ? <p className="mt-2 text-sm text-muted">{t('none')}</p> : (
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {data.skills.reference.map((s) => <li key={s.id} className="rounded-full border border-border px-3 py-1 text-sm">{s.name_ar}</li>)}
+                  {data.skills.listed.map((s) => <li key={s.id} className="rounded-full bg-[color-mix(in_srgb,var(--brand-mint)_45%,transparent)] px-3 py-1 text-sm text-forest dark:text-mint">{name(s)}</li>)}
+                  {profile?.self_reported_skills?.map((s) => <li key={s} className="rounded-full border border-dashed border-border-strong px-3 py-1 text-sm"><bdi>{s}</bdi></li>)}
+                </ul>
+              )}
+            </div>
+            <div className="mt-8 grid gap-x-10 gap-y-7 md:grid-cols-2">
+              <div><h3 className="text-xs font-semibold text-muted">{t('experience')}</h3>{list(profile?.experience, (e) => [e.title, e.organization].filter(Boolean).join(' · '), span)}</div>
+              <div><h3 className="text-xs font-semibold text-muted">{t('education')}</h3>{list(profile?.education, (e) => [e.qualification, e.field].filter(Boolean).join(' · '), (e) => [e.institution, span(e)].filter(Boolean).join(' · '))}</div>
+              <div><h3 className="text-xs font-semibold text-muted">{t('projects')}</h3>{list(profile?.projects, (e) => e.title ?? '')}</div>
+              <div><h3 className="text-xs font-semibold text-muted">{t('certifications')}</h3>{list([...(profile?.certifications ?? []), ...(profile?.courses ?? [])], (e) => e.title ?? '')}</div>
+              <div><h3 className="text-xs font-semibold text-muted">{t('achievements')}</h3>{list(profile?.achievements, (e) => e.title ?? '')}</div>
+              <div><h3 className="text-xs font-semibold text-muted">{t('languages')}</h3>{list((profile?.languages ?? []).map((l) => ({ title: [l.name, l.level].filter(Boolean).join(' · ') })), (e) => e.title ?? '')}</div>
+            </div>
+          </Panel>
+
+          <div className="rounded-[var(--radius-panel)] border border-border bg-surface p-6 lg:p-8">
+            <HiringPanel orgId={orgId} applicationId={applicationId} interviews={data.interviews} outcomes={data.hiring_outcomes} canManage={canManage} status={data.status}
+              team={data.team.filter((m) => m.user_id !== data.my_user_id)} />
+          </div>
+
+          {data.interviews.length > 0 && (
+            <Panel id="feedback" title={t('feedbackTitle')} lead={t('feedbackNote')}>
+              <ul className="space-y-8">
+                {data.interviews.map((i) => (
+                  <li key={i.id} className="border-t border-border pt-4 first:border-t-0 first:pt-0">
+                    <p className="font-semibold">{formatWhen(locale, i.scheduled_at, i.time_zone)}</p>
+                    <p className="text-sm text-muted">{t('participants')}: {i.participants.map(who).join(sep)}</p>
+                    <InterviewFeedback
+                      orgId={orgId} applicationId={applicationId} interviewId={i.id}
+                      canWrite={i.participants.some((p) => p?.user_id === data.my_user_id) && i.status !== 'cancelled'}
+                      mine={i.feedback.find((f) => f.author_id === data.my_user_id) ?? null}
+                      submitted={i.feedback.filter((f) => f.status === 'submitted').map((f) => ({ ...f, authorName: who(f.author) }))}
+                      suggested={[...data.relevance.matched, ...data.relevance.gaps].map(name)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
         </div>
-        <h3 className="mt-6 font-semibold">{t('cv')}</h3>
-        <div className="mt-3">{data.has_cv ? <ApplicantCvButton applicationId={applicationId} /> : <p className="text-muted">{t('cvNone')}</p>}</div>
-      </section>
 
-      <HiringPanel orgId={orgId} applicationId={applicationId} interviews={data.interviews} outcomes={data.hiring_outcomes} canManage={canManage} status={data.status}
-        team={data.team.filter((m) => m.user_id !== data.my_user_id)} />
-
-      {data.interviews.length > 0 && (
-        <section aria-labelledby="feedback">
-          <h2 id="feedback" className="section-title">{t('feedbackTitle')}</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted">{t('feedbackNote')}</p>
-          <ul className="mt-3 space-y-8">
-            {data.interviews.map((i) => (
-              <li key={i.id} className="border-t border-border pt-4">
-                <p className="font-semibold">{formatWhen(locale, i.scheduled_at, i.time_zone)}</p>
-                <p className="text-sm text-muted">{t('participants')}: {i.participants.map(who).join(locale === 'ar' ? '، ' : ', ')}</p>
-                <InterviewFeedback
-                  orgId={orgId} applicationId={applicationId} interviewId={i.id}
-                  canWrite={i.participants.some((p) => p?.user_id === data.my_user_id) && i.status !== 'cancelled'}
-                  mine={i.feedback.find((f) => f.author_id === data.my_user_id) ?? null}
-                  submitted={i.feedback.filter((f) => f.status === 'submitted').map((f) => ({ ...f, authorName: who(f.author) }))}
-                  suggested={[...data.relevance.matched, ...data.relevance.gaps].map(name)}
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <ApplicationNotes orgId={orgId} applicationId={applicationId} notes={data.notes.map((n) => ({ ...n, authorName: who(n.author) }))} />
-
-      <section aria-labelledby="history">
-        <h2 id="history" className="section-title">{t('historyTitle')}</h2>
-        <ol className="mt-3 border-s border-border ps-5">
-          {data.application_status_history.map((h) => (
-            <li key={h.id} className="relative pb-4">
-              <span aria-hidden className="absolute -start-[1.6rem] top-1.5 size-2.5 rounded-full bg-primary" />
-              <p className="font-semibold">{ts(h.to_status)}</p>
-              <p className="text-sm text-muted">{formatDate(locale, h.created_at, ZONE)}{h.changed_by && ` · ${who(h.changed_by)}`}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
+        <aside className="space-y-6 xl:sticky xl:top-28 xl:self-start">
+          <section aria-labelledby="history" className="rounded-[var(--radius-panel)] border border-border bg-surface p-5">
+            <h2 id="history" className="mb-4 font-display text-lg font-bold">{t('historyTitle')}</h2>
+            <Timeline label={t('historyTitle')} items={data.application_status_history.map((h) => ({ key: h.id, title: ts(h.to_status), when: <>{formatDate(locale, h.created_at, ZONE)}{h.changed_by && ` · ${who(h.changed_by)}`}</> }))} />
+          </section>
+          <div className="rounded-[var(--radius-panel)] border border-border bg-surface p-5">
+            <ApplicationNotes orgId={orgId} applicationId={applicationId} notes={data.notes.map((nt) => ({ ...nt, authorName: who(nt.author) }))} />
+          </div>
+        </aside>
+      </div>
     </article>
   );
 }

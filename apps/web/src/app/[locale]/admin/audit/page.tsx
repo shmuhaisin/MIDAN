@@ -20,8 +20,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       <p className="max-w-3xl text-sm text-muted">{t('lead')}</p>
       <form className="flex gap-2" role="search">
         <label className="sr-only" htmlFor="entity">{t('entity')}</label>
-        <input id="entity" name="entity" defaultValue={entity} dir="ltr" placeholder={t('entityPlaceholder')} className="h-10 w-full max-w-sm rounded-lg border border-border bg-surface px-3" />
-        <button type="submit" className="rounded-full border border-border px-4 text-sm font-semibold">{t('filter')}</button>
+        <input id="entity" name="entity" defaultValue={entity} dir="ltr" placeholder={t('entityPlaceholder')} className="h-10 w-full max-w-sm px-3" />
+        <button type="submit" className="btn btn-secondary btn-sm">{t('filter')}</button>
       </form>
       {entries.length === 0 ? <EmptyState title={t('empty')} /> : (
         <DataTable caption={t('title')} head={[t('when'), t('actor'), t('action'), t('entity'), t('details')]}>

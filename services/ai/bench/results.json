@@ -1,0 +1,47 @@
+{
+  "set": {
+    "requirements": 16,
+    "evidence": 16
+  },
+  "results": [
+    {
+      "model": "lexical baseline (token coverage, as matching.Lexical)",
+      "where": "in process",
+      "top1": 0.188,
+      "mrr": 0.33,
+      "auc": 0.143,
+      "mean_match": 0.059,
+      "mean_unrelated": 0.003,
+      "match_p25": 0.0,
+      "match_p50": 0.0,
+      "unrelated_p95": 0.0,
+      "unrelated_max": 0.25,
+      "encode_seconds": 0.0016
+    },
+    {
+      "model": "intfloat/multilingual-e5-base",
+      "where": "local CPU",
+      "top1": 0.688,
+      "mrr": 0.783,
+      "auc": 0.922,
+      "mean_match": 0.814,
+      "mean_unrelated": 0.767,
+      "match_p25": 0.79,
+      "match_p50": 0.803,
+      "unrelated_p95": 0.802,
+      "unrelated_max": 0.823,
+      "load_seconds": 8.77,
+      "encode_seconds": 1.52,
+      "one_request_seconds": 0.067,
+      "texts_encoded": 32,
+      "peak_rss_mb": 766.8,
+      "cpu_seconds": 7.54,
+      "dimensions": 768
+    },
+    {
+      "model": "BAAI/bge-m3",
+      "where": "Hugging Face hosted inference",
+      "error": "not measured: HF_TOKEN is not set (the hosted endpoint answers 401 without one)"
+    }
+  ]
+}

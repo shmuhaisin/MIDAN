@@ -10,6 +10,7 @@ import { saveAnswer, startAttempt, submitAttempt, uploadEvidence } from '@/lib/a
 import { formatWhen, list, number, pick, readableOnWhite } from '@/lib/format';
 import { resolveHumaidan } from '@/lib/humaidan';
 import { Arrow, Humaidan } from './brand';
+import { Icon } from './icons';
 import { ErrorText, PRIMARY, useAction } from './forms';
 
 type Question = { id: string; prompt_ar: string; prompt_en: string; options: { id: string; label_ar: string; label_en: string }[] };
@@ -160,22 +161,26 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
   }
 
 
+  const assessmentTitle = pick(locale, data.version.assessments.title_ar, data.version.assessments.title_en);
+  const jobTitle = pick(locale, data.job.title_ar, data.job.title_en);
   const header = (
-    <header className="border-b-4 bg-surface" style={{ borderColor: brand ?? 'var(--primary)' }}>
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-1 px-4 py-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {logoUrl && <img src={logoUrl} alt="" className="h-11 w-auto max-w-32 rounded object-contain" />}
-          <div>
-            <p className="subsection-title">{orgName}</p>
-            <p className="text-sm text-muted">
-              {pick(locale, data.job.title_ar, data.job.title_en)}
-              {pick(locale, data.version.assessments.title_ar, data.version.assessments.title_en) !== pick(locale, data.job.title_ar, data.job.title_en) && ` · ${pick(locale, data.version.assessments.title_ar, data.version.assessments.title_en)}`}
+    <header className="border-b border-border bg-surface">
+      <div aria-hidden className="h-1" style={{ background: brand ?? 'var(--brand-deep)' }} />
+      <div className="container-page flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4">
+        <div className="flex min-w-0 items-center gap-4">
+          {logoUrl
+            ? <img src={logoUrl} alt="" className="h-11 w-auto max-w-32 shrink-0 rounded-[var(--radius-control)] object-contain" />
+            : <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-[var(--radius-control)] font-display text-lg font-bold text-ivory" style={{ background: brand ?? 'var(--brand-deep)' }}>{orgName.trim().charAt(0)}</span>}
+          <div className="min-w-0">
+            <p className="truncate font-display font-bold">{orgName}</p>
+            <p className="truncate text-sm text-muted">
+              {jobTitle}
+              {assessmentTitle !== jobTitle && ` · ${assessmentTitle}`}
               {field && field !== 'general' && ` · ${t('fieldLabel', { field: tf(field) })}`}
             </p>
           </div>
         </div>
-        <p className="text-xs text-muted">{t('poweredBy')}</p>
+        <p className="flex items-center gap-2 text-xs text-muted"><span aria-hidden className="size-1.5 rotate-45 bg-gold" />{t('poweredBy')}</p>
       </div>
     </header>
   );
@@ -185,14 +190,22 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
     return (
       <>
         {header}
-        <section className="mx-auto flex max-w-xl flex-col items-center px-4 py-10 text-center">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-24"><Humaidan outfit={variant} sizes="96px" /></motion.div>
-          <h1 className="mt-6 page-title">{t('doneTitle')}</h1>
-          <p className="mt-3 text-muted">{t('doneBody', { org: orgName })}</p>
-          {attempt?.receipt_code && attempt.submitted_at && (
-            <p role="status" className="mt-4 rounded-lg bg-surface p-4 text-sm">{t('receipt', { code: attempt.receipt_code, date: formatWhen(locale, attempt.submitted_at, 'Asia/Riyadh') })}</p>
-          )}
-          <Link href="/dashboard" className={clsx(PRIMARY, 'mt-6')}>{t('toDashboard')}<Arrow /></Link>
+        <section className="container-page flex min-h-[70svh] items-center py-14">
+          <div className="mx-auto grid w-full max-w-3xl items-center gap-10 md:grid-cols-[12rem_minmax(0,1fr)]">
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} aria-hidden className="relative mx-auto w-36 md:w-full">
+              <div className="najdi-arch aspect-[5/6] bg-deep"><span className="absolute inset-x-[8%] bottom-0 h-1 bg-mint" /></div>
+              <div className="absolute inset-x-0 bottom-0 mx-auto w-[74%]"><Humaidan outfit={variant} sizes="190px" /></div>
+            </motion.div>
+            <div className="text-center md:text-start">
+              <p className="inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-success-surface px-2.5 py-1 text-sm font-semibold text-success"><Icon name="check" className="size-4" />{t('submittedBadge')}</p>
+              <h1 className="display-lg mt-4">{t('doneTitle')}</h1>
+              <p className="mt-3 text-lg leading-relaxed text-muted">{t('doneBody', { org: orgName })}</p>
+              {attempt?.receipt_code && attempt.submitted_at && (
+                <p role="status" className="callout mt-6 text-sm">{t('receipt', { code: attempt.receipt_code, date: formatWhen(locale, attempt.submitted_at, 'Asia/Riyadh') })}</p>
+              )}
+              <Link href="/dashboard" className={clsx(PRIMARY, 'btn-lg mt-8')}>{t('toDashboard')}<Arrow /></Link>
+            </div>
+          </div>
         </section>
       </>
     );
@@ -202,10 +215,12 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
     return (
       <>
         {header}
-        <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-          <h1 className="page-title">{t('expiredTitle')}</h1>
-          <p className="mt-2 text-muted">{t('expiredBody')}</p>
-          <Link href="/dashboard" className="mt-6 inline-block font-semibold text-primary underline underline-offset-4">{t('backToDashboard')}</Link>
+        <section className="container-page max-w-3xl py-14">
+          <div className="callout">
+            <h1 className="page-title">{t('expiredTitle')}</h1>
+            <p className="mt-2 text-muted">{t('expiredBody')}</p>
+            <Link href="/dashboard" className="btn btn-primary mt-6">{t('backToDashboard')}</Link>
+          </div>
         </section>
       </>
     );
@@ -213,103 +228,145 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
 
   if (view === 'intro') {
     const bandColor = brand && readableOnWhite(brand) ? brand : 'var(--deep)';
+    const scenario = pick(locale, data.version.scenario_ar ?? '', data.version.scenario_en ?? '');
+    const facts = [
+      data.version.duration_minutes ? t(data.version.is_timed ? 'timedFor' : 'estimated', { minutes: number(locale, data.version.duration_minutes) }) : null,
+      t('tasksCount', { count: number(locale, tasks.length) }),
+      attempt?.deadline_at ? t('deadlineOn', { date: formatWhen(locale, attempt.deadline_at, 'Asia/Riyadh') }) : null,
+    ].filter(Boolean) as string[];
     return (
       <>
         {header}{banner}
-        <section className="on-deep text-white" style={{ background: bandColor }}>
-          <div className="mx-auto grid max-w-5xl items-end gap-4 px-4 pt-6 sm:px-6 sm:grid-cols-[1fr_auto]">
-            <div className="pb-6">
-              <h1 className="page-title">{t('introTitle', { job: pick(locale, data.job.title_ar, data.job.title_en) })}</h1>
-              {welcome && <p className="mt-3 leading-relaxed opacity-90">{welcome}</p>}
+        <section className="on-deep relative overflow-hidden text-white" style={{ background: bandColor }}>
+          <div className="container-page relative grid items-end gap-6 pt-10 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="pb-10">
+              <p className="label-caps text-white/75!">{assessmentTitle}</p>
+              <h1 className="display-lg mt-3 max-w-3xl text-balance">{t('introTitle', { job: jobTitle })}</h1>
+              {welcome && <p className="mt-4 max-w-2xl text-lg leading-relaxed opacity-90">{welcome}</p>}
             </div>
-            <div className="mx-auto w-20 sm:w-24"><Humaidan outfit={variant} sizes="96px" priority idle /></div>
+            <div className="mx-auto w-28 sm:w-36"><Humaidan outfit={variant} sizes="144px" priority idle /></div>
           </div>
         </section>
-        <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-          {pick(locale, data.version.scenario_ar ?? '', data.version.scenario_en ?? '') && (
-            <div className="mb-6 rounded-lg bg-surface p-4">
-              <h2 className="subsection-title">{t('scenario')}</h2>
-              <p className="mt-1 leading-relaxed whitespace-pre-line">{pick(locale, data.version.scenario_ar ?? '', data.version.scenario_en ?? '')}</p>
-            </div>
-          )}
-          <CandidateMaterials pkg={data.version.candidate_package ?? null} />
-          <p className="leading-relaxed text-muted">{pick(locale, data.version.instructions_ar ?? '', data.version.instructions_en ?? '')}</p>
-          <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-1 font-medium">
-            {data.version.duration_minutes && <li>{t(data.version.is_timed ? 'timedFor' : 'estimated', { minutes: number(locale, data.version.duration_minutes) })}</li>}
-            <li>{t('tasksCount', { count: number(locale, tasks.length) })}</li>
-            {attempt?.deadline_at && <li>{t('deadlineOn', { date: formatWhen(locale, attempt.deadline_at, 'Asia/Riyadh') })}</li>}
+        <div className="container-page">
+          <ul className="-mt-px grid gap-px overflow-hidden rounded-b-[var(--radius-panel)] border border-t-0 border-border bg-border sm:grid-cols-3">
+            {facts.map((f) => <li key={f} className="bg-surface px-5 py-4 font-semibold">{f}</li>)}
           </ul>
-          {data.version.is_timed && <p className="mt-2 text-sm text-muted">{t('timedNote')}</p>}
-          {targetSkills.length > 0 && (
-            <p className="mt-4"><span className="font-semibold">{t('targetSkills')}: </span>{targetSkills.map((s) => pick(locale, s.name_ar, s.name_en)).join(locale === 'ar' ? '، ' : ', ')}</p>
-          )}
-          {data.version.candidate_rubric && data.version.candidate_rubric.length > 0 && (
-            <details className="mt-5 rounded-lg bg-surface p-4">
-              <summary className="cursor-pointer font-semibold">{t('rubricTitle')}</summary>
-              {data.version.candidate_rubric.map((task) => (
-                <div key={task.title_en} className="mt-3">
-                  <p className="font-medium">{pick(locale, task.title_ar, task.title_en)}</p>
-                  <ul className="mt-1 list-disc space-y-1 ps-5 text-sm text-muted">
-                    {task.criteria.map((c) => <li key={c.code}>{pick(locale, c.description_ar, c.description_en)} ({t('maxScore', { score: number(locale, Number(c.max_score)) })})</li>)}
-                  </ul>
-                </div>
-              ))}
-            </details>
-          )}
-          <h2 className="mt-7 subsection-title">{t('rulesTitle')}</h2>
-          <ul className="mt-2 space-y-1.5 text-muted">{(t.raw('rules') as string[]).map((r) => <li key={r}>{r}</li>)}</ul>
-          <div className="mt-7">
-            {preview ? (
-              <button type="button" onClick={() => setView(0)} className={PRIMARY}>{t('start')}<Arrow /></button>
-            ) : (
-              <button type="button" onClick={begin.fire} disabled={begin.pending} aria-busy={begin.pending} className={PRIMARY}>{t('start')}<Arrow /></button>
+        </div>
+        <section className="container-page grid gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12">
+          <div className="min-w-0 space-y-8">
+            {scenario && (
+              <div className="callout">
+                <h2 className="label-caps">{t('scenario')}</h2>
+                <p className="mt-2 text-lg leading-relaxed whitespace-pre-line">{scenario}</p>
+              </div>
             )}
-            <div className="mt-2"><ErrorText code={begin.error} /></div>
+            <CandidateMaterials pkg={data.version.candidate_package ?? null} />
+            <p className="text-lg leading-relaxed text-foreground/85">{pick(locale, data.version.instructions_ar ?? '', data.version.instructions_en ?? '')}</p>
+            {data.version.is_timed && <p className="flex items-center gap-2 text-sm text-muted"><Icon name="clock" className="size-4" />{t('timedNote')}</p>}
+            {data.version.candidate_rubric && data.version.candidate_rubric.length > 0 && (
+              <details className="panel group">
+                <summary className="flex cursor-pointer items-center justify-between gap-3 px-5 py-4 font-semibold">{t('rubricTitle')}<Icon name="chevron" className="size-4 rotate-90 transition-transform group-open:-rotate-90" /></summary>
+                <div className="border-t border-border px-5 pb-5">
+                  {data.version.candidate_rubric.map((rt) => (
+                    <div key={rt.title_en} className="mt-4">
+                      <p className="font-medium">{pick(locale, rt.title_ar, rt.title_en)}</p>
+                      <ul className="mt-2 space-y-1.5 text-sm text-muted">
+                        {rt.criteria.map((c) => <li key={c.code} className="flex justify-between gap-4"><span>{pick(locale, c.description_ar, c.description_en)}</span><span className="num shrink-0">{t('maxScore', { score: number(locale, Number(c.max_score)) })}</span></li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
+          <aside className="space-y-5 lg:sticky lg:top-28 lg:self-start">
+            {targetSkills.length > 0 && (
+              <div className="panel panel-body">
+                <p className="subsection-title">{t('targetSkills')}</p>
+                <ul className="mt-3 flex flex-wrap gap-1.5">{targetSkills.map((sk) => <li key={sk.id} className="rounded-[3px] bg-accent px-2 py-1 text-sm font-medium text-accent-foreground">{pick(locale, sk.name_ar, sk.name_en)}</li>)}</ul>
+              </div>
+            )}
+            <div className="panel panel-body">
+              <p className="subsection-title">{t('rulesTitle')}</p>
+              <ol className="mt-3 space-y-2.5 text-sm">
+                {(t.raw('rules') as string[]).map((r, i) => <li key={r} className="flex gap-3"><span className="num font-semibold text-gold-text">{number(locale, i + 1)}</span><span className="text-foreground/85">{r}</span></li>)}
+              </ol>
+              <div className="mt-6 border-t border-border pt-5">
+                {preview ? (
+                  <button type="button" onClick={() => setView(0)} className={clsx(PRIMARY, 'btn-lg btn-block')}>{t('start')}<Arrow /></button>
+                ) : (
+                  <button type="button" onClick={begin.fire} disabled={begin.pending} aria-busy={begin.pending} className={clsx(PRIMARY, 'btn-lg btn-block')}>{t('start')}<Arrow /></button>
+                )}
+                <div className="mt-2"><ErrorText code={begin.error} /></div>
+              </div>
+            </div>
+          </aside>
         </section>
       </>
     );
   }
 
+  const answeredCount = tasks.filter((tk) => isAnswered(tk, answers[tk.id])).length;
   const nav = (
-    <nav aria-label={t('tasks')} className="flex gap-2 overflow-x-auto pb-1">
-      {tasks.map((task, i) => (
-        <button
-          key={task.id}
-          type="button"
-          aria-current={view === i ? 'step' : undefined}
-          onClick={() => setView(i)}
-          className={clsx(
-            'grid size-10 shrink-0 place-items-center rounded-full font-semibold transition-colors',
-            view === i ? 'bg-primary text-primary-foreground' : isAnswered(task, answers[task.id]) ? 'bg-accent text-accent-foreground' : 'bg-surface-2 text-muted',
-          )}
-        >
-          {number(locale, i + 1)}
-        </button>
-      ))}
-      <button type="button" aria-current={view === 'review' ? 'step' : undefined} onClick={() => setView('review')} className={clsx('h-10 shrink-0 rounded-full px-4 text-sm font-semibold', view === 'review' ? 'bg-primary text-primary-foreground' : 'bg-surface-2')}>
+    <nav aria-label={t('tasks')} className="flex items-center gap-1.5 overflow-x-auto pb-1">
+      {tasks.map((tk, i) => {
+        const done = isAnswered(tk, answers[tk.id]);
+        return (
+          <button
+            key={tk.id}
+            type="button"
+            aria-current={view === i ? 'step' : undefined}
+            aria-label={`${number(locale, i + 1)}. ${pick(locale, tk.title_ar, tk.title_en)}`}
+            onClick={() => setView(i)}
+            className={clsx(
+              'relative grid size-10 shrink-0 place-items-center rounded-[var(--radius-control)] border font-semibold transition-colors',
+              view === i ? 'border-transparent bg-[var(--button)] text-[var(--button-foreground)]' : done ? 'border-primary/40 bg-accent text-accent-foreground' : 'border-border bg-surface text-muted hover:text-foreground',
+            )}
+          >
+            {number(locale, i + 1)}
+            {done && view !== i && <span aria-hidden className="absolute -top-1 -end-1 size-2 rotate-45 bg-gold" />}
+          </button>
+        );
+      })}
+      <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-border-strong" />
+      <button type="button" aria-current={view === 'review' ? 'step' : undefined} onClick={() => setView('review')} className={clsx('btn btn-sm shrink-0', view === 'review' ? 'btn-primary' : 'btn-secondary')}>
         {t('review')}
       </button>
     </nav>
   );
 
   if (view === 'review') {
-    const answered = tasks.filter((task) => isAnswered(task, answers[task.id])).length;
-    const missing = tasks.filter((task) => !isAnswered(task, answers[task.id]));
+    const missing = tasks.filter((tk) => !isAnswered(tk, answers[tk.id]));
     return (
       <>
         {header}{banner}
-        <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        <section className="container-page max-w-4xl py-8">
           {nav}
-          <h1 className="mt-8 page-title">{t('reviewTitle')}</h1>
-          <p className="mt-3 text-lg">{t('answered', { answered: number(locale, answered), total: number(locale, tasks.length) })}</p>
+          <h1 className="display-lg mt-10">{t('reviewTitle')}</h1>
+          <p className="mt-3 text-lg">{t('answered', { answered: number(locale, answeredCount), total: number(locale, tasks.length) })}</p>
+          <ul className="mt-6 divide-y divide-border overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface">
+            {tasks.map((tk, i) => {
+              const done = isAnswered(tk, answers[tk.id]);
+              return (
+                <li key={tk.id}>
+                  <button type="button" onClick={() => setView(i)} className="flex w-full items-center gap-4 px-5 py-4 text-start hover:bg-surface-2/60">
+                    <span aria-hidden className={clsx('grid size-7 shrink-0 place-items-center rounded-full', done ? 'bg-primary text-primary-foreground' : 'border border-border-strong text-muted')}>
+                      {done ? <Icon name="check" className="size-4" /> : <span className="num text-xs">{number(locale, i + 1)}</span>}
+                    </span>
+                    <span className="min-w-0 flex-1 font-medium">{pick(locale, tk.title_ar, tk.title_en)}</span>
+                    <Icon name="chevron" className="size-4 text-muted" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
           {missing.length > 0 && (
-            <p className="mt-1 text-muted">{t('unanswered', { tasks: list(locale, missing.map((m) => pick(locale, m.title_ar, m.title_en))) })}</p>
+            <p className="mt-3 text-sm text-muted">{t('unanswered', { tasks: list(locale, missing.map((m) => pick(locale, m.title_ar, m.title_en))) })}</p>
           )}
-          <p className="mt-5 border-s-2 border-gold ps-4 font-medium">{t('submitNote')}</p>
-          <div className="mt-6 flex flex-wrap items-center gap-4">
-            {!preview && <button type="button" onClick={submit.fire} disabled={submit.pending} aria-busy={submit.pending} className={PRIMARY}>{t('submit')}</button>}
-            <button type="button" onClick={() => setView(0)} className="font-semibold">{t('back')}</button>
+          <p className="mt-6 callout font-medium">{t('submitNote')}</p>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            {!preview && <button type="button" onClick={submit.fire} disabled={submit.pending} aria-busy={submit.pending} className={clsx(PRIMARY, 'btn-lg')}>{t('submit')}</button>}
+            <button type="button" onClick={() => setView(0)} className="btn btn-ghost btn-lg">{t('back')}</button>
           </div>
           <div className="mt-3"><ErrorText code={submit.error} /></div>
         </section>
@@ -335,98 +392,117 @@ export function Experience({ data, logoUrl }: { data: ExperienceData; logoUrl: s
     });
   }
 
+  const deliverables = locale === 'ar' ? task.config.deliverables_ar : task.config.deliverables_en;
   return (
     <>
       {header}{banner}
-      <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        {nav}
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-medium text-muted">{t('taskOf', { current: number(locale, index + 1), total: number(locale, tasks.length) })}</p>
-          <div className="flex items-center gap-4">
+      <div className="sticky top-[4.5rem] z-20 border-b border-border bg-background/95 backdrop-blur">
+        <div className="container-page flex flex-wrap items-center justify-between gap-3 py-3">
+          {nav}
+          <div className="flex items-center gap-3">
             {attempt?.expires_at ? <Remaining expiresAt={attempt.expires_at} /> : attempt?.started_at && <Elapsed startedAt={attempt.started_at} />}
-            <p aria-live="polite" className={clsx('min-w-16 text-sm font-medium', save === 'failed' ? 'text-error' : 'text-primary')}>
-              {save === 'saving' ? t('saving') : save === 'saved' ? t('saved') : save === 'failed' ? t('saveFailed') : ''}
+            <p aria-live="polite" className={clsx('inline-flex min-h-7 items-center gap-1.5 rounded-[var(--radius-control)] px-2 text-xs font-semibold', save === 'failed' ? 'bg-error-surface text-error' : save === 'idle' ? '' : 'bg-success-surface text-success')}>
+              {save === 'saving' ? t('saving') : save === 'saved' ? <><Icon name="check" className="size-3.5" />{t('saved')}</> : save === 'failed' ? t('saveFailed') : ''}
             </p>
           </div>
         </div>
-        <h1 className="mt-2 section-title">{pick(locale, task.title_ar, task.title_en)}</h1>
-        <p className="mt-3 leading-relaxed whitespace-pre-line">{pick(locale, task.instructions_ar, task.instructions_en)}</p>
+        <span aria-hidden className="block h-0.5 bg-gold transition-[width] duration-500" style={{ width: `${(answeredCount / Math.max(1, tasks.length)) * 100}%` }} />
+      </div>
 
-        {(task.config.deliverables_en?.length || task.config.deliverables_ar?.length || task.config.materials?.length || task.config.accepted_formats?.length) ? (
-          <div className="mt-4 space-y-2 rounded-lg bg-surface p-4 text-sm">
-            {(locale === 'ar' ? task.config.deliverables_ar : task.config.deliverables_en)?.length ? (
-              <div><p className="font-semibold">{t('deliverables')}</p><ul className="mt-1 list-disc ps-5">{(locale === 'ar' ? task.config.deliverables_ar : task.config.deliverables_en)?.map((d) => <li key={d}>{d}</li>)}</ul></div>
-            ) : null}
-            {task.config.materials?.length ? (
-              <div><p className="font-semibold">{t('materials')}</p><ul className="mt-1 space-y-1">{task.config.materials.filter((m) => m.url.startsWith('https://')).map((m) => <li key={m.url}><a href={m.url} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">{m.title}</a></li>)}</ul></div>
-            ) : null}
-            {task.config.accepted_formats?.length ? <p><span className="font-semibold">{t('acceptedFormats')}: </span><bdi>{task.config.accepted_formats.join(', ')}</bdi></p> : null}
-          </div>
-        ) : null}
-        {task.config.dataset_csv && (
-          <div className="mt-5">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h2 className="font-semibold">{t('dataset')}</h2>
-              <a href={`data:text/csv;charset=utf-8,${encodeURIComponent(task.config.dataset_csv)}`} download={task.config.dataset_name} className="text-sm font-semibold text-primary underline underline-offset-4">{t('download')}</a>
+      <section className="container-page grid gap-8 py-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-10">
+        <article className="min-w-0 lg:sticky lg:top-40 lg:max-h-[calc(100svh-11rem)] lg:self-start lg:overflow-y-auto">
+          <p className="text-sm font-semibold text-gold-text">{t('taskOf', { current: number(locale, index + 1), total: number(locale, tasks.length) })}</p>
+          <h1 className="page-title mt-2">{pick(locale, task.title_ar, task.title_en)}</h1>
+          <p className="mt-4 leading-relaxed whitespace-pre-line text-foreground/90">{pick(locale, task.instructions_ar, task.instructions_en)}</p>
+
+          {(deliverables?.length || task.config.materials?.length || task.config.accepted_formats?.length) ? (
+            <div className="panel mt-6 divide-y divide-border text-sm">
+              {deliverables?.length ? (
+                <div className="p-4"><p className="font-semibold">{t('deliverables')}</p><ul className="mt-2 space-y-1.5">{deliverables.map((d) => <li key={d} className="flex gap-2"><span aria-hidden className="mt-1.5 size-1.5 shrink-0 rotate-45 bg-gold" />{d}</li>)}</ul></div>
+              ) : null}
+              {task.config.materials?.length ? (
+                <div className="p-4"><p className="font-semibold">{t('materials')}</p><ul className="mt-2 space-y-1.5">{task.config.materials.filter((m) => m.url.startsWith('https://')).map((m) => <li key={m.url}><a href={m.url} target="_blank" rel="noopener noreferrer" className="link inline-flex items-center gap-1.5"><Icon name="external" className="size-3.5" />{m.title}</a></li>)}</ul></div>
+              ) : null}
+              {task.config.accepted_formats?.length ? <p className="p-4"><span className="font-semibold">{t('acceptedFormats')}: </span><bdi>{task.config.accepted_formats.join(', ')}</bdi></p> : null}
             </div>
-            <CsvTable csv={task.config.dataset_csv} />
-          </div>
-        )}
-
-        {task.task_type === 'objective_questions' ? (
-          <div className="mt-6 space-y-6">
-            {(task.config.questions ?? []).map((q, qi) => (
-              <fieldset key={q.id}>
-                <legend className="font-semibold">{number(locale, qi + 1)}. {pick(locale, q.prompt_ar, q.prompt_en)}</legend>
-                <div className="mt-2 space-y-2">
-                  {q.options.map((o) => (
-                    <label key={o.id} className={clsx('flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors', answer.choices?.[q.id] === o.id ? 'border-primary bg-surface' : 'border-border')}>
-                      <input
-                        type="radio" name={q.id} value={o.id} checked={answer.choices?.[q.id] === o.id}
-                        onChange={() => update(task, { choices: { ...answer.choices, [q.id]: o.id } })}
-                        className="size-4 accent-[var(--primary)]"
-                      />
-                      {pick(locale, o.label_ar, o.label_en)}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-6">
-            <label className="block">
-              <span className="font-semibold">{t('yourAnswer')}</span>
-              <textarea
-                rows={10} value={answer.text ?? ''} placeholder={t('placeholder')}
-                onChange={(e) => update(task, { text: e.target.value })}
-                className="mt-2 block w-full rounded-lg border border-border bg-surface p-3.5 leading-relaxed outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
-              />
-            </label>
-            {!preview && (
-              <div className="mt-4">
-                <label className={clsx('inline-flex cursor-pointer items-center gap-2 rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold has-focus-visible:outline-2 has-focus-visible:outline-primary', uploading && 'opacity-60')}>
-                  <input type="file" className="sr-only" disabled={uploading} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
-                  {uploading ? t('uploading') : t('upload')}
-                </label>
-                <p className="mt-1 text-xs text-muted">{t('uploadHint')}</p>
-                <div className="mt-2"><ErrorText code={uploadError} /></div>
-                {taskFiles.length > 0 && (
-                  <div className="mt-2 text-sm">
-                    <p className="font-medium">{t('uploaded')}</p>
-                    <ul className="text-muted" dir="ltr">{taskFiles.map((f) => <li key={f.id}>{f.file_name}</li>)}</ul>
-                  </div>
-                )}
+          ) : null}
+          {task.config.dataset_csv && (
+            <div className="mt-6">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h2 className="font-semibold">{t('dataset')}</h2>
+                <a href={`data:text/csv;charset=utf-8,${encodeURIComponent(task.config.dataset_csv)}`} download={task.config.dataset_name} className="link text-sm">{t('download')}</a>
               </div>
-            )}
-          </div>
-        )}
+              <CsvTable csv={task.config.dataset_csv} />
+            </div>
+          )}
+        </article>
 
-        <div className="mt-8 flex items-center justify-between">
-          <button type="button" disabled={index === 0} onClick={() => setView(index - 1)} className="font-semibold disabled:invisible">{t('previous')}</button>
-          <button type="button" onClick={() => setView(index + 1 < tasks.length ? index + 1 : 'review')} className={PRIMARY}>
-            {index + 1 < tasks.length ? t('next') : t('review')}<Arrow />
-          </button>
+        <div className="min-w-0">
+          {task.task_type === 'objective_questions' ? (
+            <div className="space-y-8">
+              {(task.config.questions ?? []).map((q, qi) => (
+                <fieldset key={q.id} className="panel panel-body">
+                  <legend className="sr-only">{pick(locale, q.prompt_ar, q.prompt_en)}</legend>
+                  <p aria-hidden className="font-semibold"><span className="num me-2 text-gold-text">{number(locale, qi + 1)}</span>{pick(locale, q.prompt_ar, q.prompt_en)}</p>
+                  <div className="mt-4 space-y-2">
+                    {q.options.map((o) => {
+                      const chosen = answer.choices?.[q.id] === o.id;
+                      return (
+                        <label key={o.id} className={clsx('flex cursor-pointer items-center gap-3 rounded-[var(--radius-control)] border p-3.5 transition-colors', chosen ? 'border-primary bg-accent/60' : 'border-border hover:border-border-strong')}>
+                          <input
+                            type="radio" name={q.id} value={o.id} checked={chosen}
+                            onChange={() => update(task, { choices: { ...answer.choices, [q.id]: o.id } })}
+                            className="size-4"
+                          />
+                          {pick(locale, o.label_ar, o.label_en)}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <label className="block">
+                <span className="field-label">{t('yourAnswer')}</span>
+                <textarea
+                  rows={14} value={answer.text ?? ''} placeholder={t('placeholder')}
+                  onChange={(e) => update(task, { text: e.target.value })}
+                  className="input min-h-80 p-4 leading-relaxed"
+                />
+              </label>
+              {!preview && (
+                <div className="rounded-[var(--radius-panel)] border border-dashed border-border-strong bg-surface p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="flex items-center gap-3">
+                      <span aria-hidden className="grid size-10 place-items-center rounded-[var(--radius-control)] bg-accent text-accent-foreground"><Icon name="file" /></span>
+                      <span className="text-sm text-muted">{t('uploadHint')}</span>
+                    </span>
+                    <label className={clsx('btn btn-secondary btn-sm cursor-pointer has-focus-visible:outline-2 has-focus-visible:outline-primary', uploading && 'opacity-60')}>
+                      <input type="file" className="sr-only" disabled={uploading} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
+                      {uploading && <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-current border-e-transparent" />}
+                      {uploading ? t('uploading') : t('upload')}
+                    </label>
+                  </div>
+                  <div className="mt-2"><ErrorText code={uploadError} /></div>
+                  {taskFiles.length > 0 && (
+                    <div className="mt-4 border-t border-border pt-3 text-sm">
+                      <p className="font-medium">{t('uploaded')}</p>
+                      <ul className="mt-1.5 space-y-1" dir="ltr">{taskFiles.map((f) => <li key={f.id} className="flex items-center gap-2 text-muted"><Icon name="check" className="size-4 text-success" />{f.file_name}</li>)}</ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-8 flex items-center justify-between gap-3 border-t border-border pt-6">
+            <button type="button" disabled={index === 0} onClick={() => setView(index - 1)} className="btn btn-ghost disabled:invisible"><Icon name="chevron" className="size-4 rotate-180" />{t('previous')}</button>
+            <button type="button" onClick={() => setView(index + 1 < tasks.length ? index + 1 : 'review')} className={clsx(PRIMARY, 'btn-lg')}>
+              {index + 1 < tasks.length ? t('next') : t('review')}<Arrow />
+            </button>
+          </div>
         </div>
       </section>
     </>

@@ -79,7 +79,7 @@ test('sign-in: mistakes are explained, and each role lands in its own place', as
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).last().click();
   await expect(page).toHaveURL(/\/en\/dashboard$/);
-  await expect(page.getByRole('heading', { name: 'My applications' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your applications, step by step' })).toBeVisible();
   const cookie = (await context.cookies()).find((c) => c.name === 'midan_at');
   expect(cookie?.httpOnly).toBe(true);
   expect(await page.evaluate(() => document.cookie)).not.toContain('midan_at');

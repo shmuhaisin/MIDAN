@@ -50,7 +50,8 @@ export async function apiForPage<T>(path: string): Promise<T | null> {
     return await api<T>(path);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
-      redirect({ href: '/login', locale: await getLocale() });
+      // Through the route that clears the stale cookies: sign-in would otherwise send the person straight back.
+      redirect({ href: '/auth/ended', locale: await getLocale() });
     }
     if (error instanceof ApiError && (error.status === 403 || error.status === 404)) return null;
     throw error;

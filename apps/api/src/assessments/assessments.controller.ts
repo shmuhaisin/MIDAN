@@ -148,6 +148,20 @@ const ASSESSMENT_SUMMARY = {
   assessment_versions: { orderBy: { version_number: 'desc' }, select: { id: true, version_number: true, status: true } },
 } satisfies Prisma.assessmentsSelect;
 
+class RegenerateTaskDto {
+  /** What the employer wants different, passed to the model as data. Optional. */
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500) note?: string;
+}
+
+type RegeneratedTask = {
+  task: {
+    task_type: string; title_ar: string; title_en: string; instructions_ar: string; instructions_en: string; weight: number;
+    config: { questions?: unknown[] }; skill_ids: string[]; requirement_ids: string[]; reference_skill_ids: string[];
+    criteria: { code: string; description_ar: string; description_en: string; max_score: number; weight: number; answer_key: Record<string, string> | null; requirement_id: string | null; reference_skill_id: string | null }[];
+  };
+  provenance: { mode: string; provider?: string; model_version: string; prompt_version: string };
+};
+
 @ApiTags('assessments')
 @ApiBearerAuth()
 @UseGuards(AuthGuard)
@@ -472,6 +486,67 @@ export class AssessmentsController {
       const { count } = await tx.assessment_tasks.updateMany({ where: { id: taskId, org_id: orgId }, data });
       if (count === 0) throw new NotFoundException();
       return tx.assessment_tasks.findUniqueOrThrow({ where: { id: taskId } });
+    });
+  }
+
+  @Post('assessment-tasks/:taskId/regenerate')
+  @ApiOperation({ summary: "Writes one task of a draft again with the live AI model, keeping its type and place. Recorded as a change to review before approval; needs the model (503 without it). A published version refuses it." })
+  async regenerateTask(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('taskId', ParseUUIDPipe) taskId: string, @Body() body: RegenerateTaskDto) {
+    const loaded = await this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const task = await tx.assessment_tasks.findFirst({
+        where: { id: taskId, org_id: orgId },
+        include: {
+          rubric_criteria: { orderBy: { code: 'asc' } },
+          task_requirement_mappings: { select: { requirement_id: true } },
+          task_skill_mappings: { select: { skill_id: true } },
+          assessment_versions: { select: { status: true, assessment_tasks: { where: { id: { not: taskId } }, select: { title_en: true }, orderBy: { position: 'asc' } }, assessments: { select: { job_id: true } } } },
+        },
+      });
+      if (!task) throw new NotFoundException();
+      if (!['draft', 'in_review'].includes(task.assessment_versions.status)) throw new UnprocessableEntityException('Only a draft can change; an approved version cannot');
+      const job = await loadJobInput(tx, orgId, task.assessment_versions.assessments.job_id);
+      if (!job) throw new NotFoundException();
+      return { task, job };
+    });
+    const { task, job } = loaded;
+    const result = await this.ai.regenerateTask<RegeneratedTask>({
+      job,
+      task: {
+        task_type: task.task_type, title_ar: task.title_ar, title_en: task.title_en, instructions_ar: task.instructions_ar, instructions_en: task.instructions_en,
+        weight: Number(task.weight), requirement_ids: task.task_requirement_mappings.map((m) => m.requirement_id),
+        skill_ids: task.task_skill_mappings.map((m) => m.skill_id), reference_skill_ids: task.reference_skill_ids,
+        criteria: task.task_type === 'objective_questions' ? [] : task.rubric_criteria.map((c) => ({ description_ar: c.description_ar, description_en: c.description_en, max_score: Number(c.max_score), weight: Number(c.weight) })),
+      },
+      other_titles: task.assessment_versions.assessment_tasks.map((t) => t.title_en),
+      ...(body.note && { note: body.note }),
+    });
+    const next = result.task;
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      // A person asked for it and reviews it: recorded as their change, saying where the text came from.
+      await recordChangeReason(tx, `Regenerated with AI (${result.provenance.provider ?? 'model'} ${result.provenance.model_version})${body.note ? `: ${body.note}` : ''}`.slice(0, 1000));
+      const config = task.task_type === 'objective_questions'
+        ? { ...(task.config as Prisma.JsonObject), questions: JSON.parse(JSON.stringify(next.config.questions ?? [])) }
+        : (task.config as Prisma.JsonObject);
+      const { count } = await tx.assessment_tasks.updateMany({
+        where: { id: taskId, org_id: orgId },
+        data: { title_ar: next.title_ar, title_en: next.title_en, instructions_ar: next.instructions_ar, instructions_en: next.instructions_en, weight: next.weight, config, reference_skill_ids: next.reference_skill_ids },
+      });
+      if (count === 0) throw new NotFoundException();
+      await tx.rubric_criteria.deleteMany({ where: { task_id: taskId } });
+      await tx.rubric_criteria.createMany({
+        data: next.criteria.map((c) => ({
+          task_id: taskId, org_id: orgId, code: c.code, description_ar: c.description_ar, description_en: c.description_en, max_score: c.max_score,
+          weight: c.weight, answer_key: c.answer_key ?? Prisma.DbNull, requirement_id: c.requirement_id ?? null, reference_skill_id: c.reference_skill_id ?? null,
+        })),
+      });
+      await tx.task_requirement_mappings.deleteMany({ where: { task_id: taskId } });
+      if (next.requirement_ids.length) await tx.task_requirement_mappings.createMany({ data: next.requirement_ids.map((requirement_id) => ({ task_id: taskId, requirement_id, org_id: orgId })) });
+      await tx.task_skill_mappings.deleteMany({ where: { task_id: taskId } });
+      if (next.skill_ids.length) await tx.task_skill_mappings.createMany({ data: [...new Set(next.skill_ids)].map((skill_id) => ({ task_id: taskId, skill_id, org_id: orgId })) });
+      const saved = await tx.assessment_tasks.findUniqueOrThrow({ where: { id: taskId }, include: { rubric_criteria: true } });
+      return { task: saved, provenance: result.provenance };
     });
   }
 

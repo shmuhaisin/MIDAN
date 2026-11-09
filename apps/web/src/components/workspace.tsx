@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useActionState, useState, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
-import { addAssessment, addCriterion, addTask, generateAssessment, inviteCandidate, publishVersion, removeAssessment, removeCriterion, removeTask, renameAssessment, saveQuestions, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
+import { addAssessment, addCriterion, addTask, generateAssessment, inviteCandidate, publishVersion, regenerateTask, removeAssessment, removeCriterion, removeTask, renameAssessment, saveQuestions, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
 import type { FormState } from '@/lib/auth-actions';
 import { nextId } from '@/lib/assessment-review';
 import { list, pick } from '@/lib/format';
@@ -18,7 +18,7 @@ import { TaskRequirementPicker, type Requirement } from './requirements';
 function TextArea({ label, hint, name, ...props }: { label: string; hint?: string; name: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <label className="block">
-      <span className="text-sm font-medium">{label}</span>
+      <span className="field-label">{label}</span>
       <textarea name={name} rows={4} className={clsx(INPUT, 'h-auto py-2.5 leading-relaxed')} {...props} />
       {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}
     </label>
@@ -60,8 +60,8 @@ export function VersionSettings({ orgId, version, canEdit }: { orgId: string; ve
     <form className="space-y-3 rounded-lg bg-surface p-4" onSubmit={(e) => { e.preventDefault(); fire(); }}>
       <p className="font-semibold">{t('candidateSettings')}</p>
       <fieldset disabled={!canEdit} className="grid gap-3 sm:grid-cols-2">
-        <label className="block"><span className="text-sm font-medium">{t('scenarioAr')}</span><textarea dir="rtl" rows={2} value={scenarioAr} onChange={(e) => setScenarioAr(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} /></label>
-        <label className="block"><span className="text-sm font-medium">{t('scenarioEn')}</span><textarea dir="ltr" rows={2} value={scenarioEn} onChange={(e) => setScenarioEn(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} /></label>
+        <label className="block"><span className="field-label">{t('scenarioAr')}</span><textarea dir="rtl" rows={2} value={scenarioAr} onChange={(e) => setScenarioAr(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} /></label>
+        <label className="block"><span className="field-label">{t('scenarioEn')}</span><textarea dir="ltr" rows={2} value={scenarioEn} onChange={(e) => setScenarioEn(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} /></label>
         <Field name="deadline_hours" type="number" min={1} max={2160} label={t('deadlineHours')} hint={t('deadlineHint')} value={deadline} onChange={(e) => setDeadline(e.target.value)} />
         <Field name="duration_minutes" type="number" min={1} max={1440} label={t('durationMinutes')} value={minutes} onChange={(e) => setMinutes(e.target.value)} />
         <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={timed} onChange={(e) => setTimed(e.target.checked)} className="size-4 accent-[var(--primary)]" />{t('isTimed')}</label>
@@ -69,7 +69,7 @@ export function VersionSettings({ orgId, version, canEdit }: { orgId: string; ve
       </fieldset>
       {canEdit && (
         <div className="flex items-center gap-3">
-          <button type="submit" disabled={pending} aria-busy={pending} className="rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold">{t('saveSettings')}</button>
+          <button type="submit" disabled={pending} aria-busy={pending} className="btn btn-secondary btn-sm">{t('saveSettings')}</button>
           {saved && !pending && <span role="status" className="text-sm font-semibold text-primary">{t('saved')}</span>}
         </div>
       )}
@@ -98,21 +98,21 @@ export function JobDetailsForm({ orgId, job, skills, canEdit }: { orgId: string;
           <TextArea name="requirements_en" dir="ltr" rows={3} label={t('requirementsEn')} defaultValue={job.requirements_en ?? ''} />
           <Field name="location" label={t('location')} defaultValue={job.location ?? ''} />
           <label className="block">
-            <span className="text-sm font-medium">{t('sector')}</span>
+            <span className="field-label">{t('sector')}</span>
             <select name="sector" defaultValue={job.sector ?? ''} className={INPUT}>
               <option value="">{t('notSpecified')}</option>
               {['digital', 'culture_entertainment', 'tourism_hospitality', 'manufacturing', 'construction_real_estate', 'financial_services', 'wholesale_retail', 'other'].map((k) => <option key={k} value={k}>{ts(k)}</option>)}
             </select>
           </label>
           <label className="block">
-            <span className="text-sm font-medium">{t('experienceLevel')}</span>
+            <span className="field-label">{t('experienceLevel')}</span>
             <select name="experience_level" defaultValue={job.experience_level ?? ''} className={INPUT}>
               <option value="">{t('notSpecified')}</option>
               {['entry', 'junior', 'mid', 'senior', 'lead'].map((k) => <option key={k} value={k}>{tj(`level.${k}`)}</option>)}
             </select>
           </label>
           <label className="block">
-            <span className="text-sm font-medium">{t('employmentType')}</span>
+            <span className="field-label">{t('employmentType')}</span>
             <select name="employment_type" defaultValue={job.employment_type ?? ''} className={INPUT}>
               <option value="">{t('notSpecified')}</option>
               {['full_time', 'part_time', 'contract', 'temporary', 'internship', 'flexible'].map((k) => <option key={k} value={k}>{t(`employment.${k}`)}</option>)}
@@ -212,7 +212,7 @@ export function AssessmentSwitcher({ orgId, jobId, assessments, selected, canBui
           );
         })}
         {canBuild && !adding && (
-          <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-2 rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold transition-colors hover:bg-surface-2">
+          <button type="button" onClick={() => setAdding(true)} className="btn btn-secondary btn-sm">
             <span aria-hidden>+</span>{t('addAssessment')}
           </button>
         )}
@@ -406,7 +406,7 @@ function QuestionsEditor({ orgId, taskId, questions, answerKey, editable }: { or
             </ul>
             {editable && (
               <div className="mt-3 flex flex-wrap gap-4">
-                <button type="button" onClick={() => change(index, { options: [...q.options, { id: nextId(q.options.map((o) => o.id), (n) => String.fromCharCode(96 + n)), label_ar: '', label_en: '' }] })} className="text-sm font-semibold text-primary underline underline-offset-4">{t('addOption')}</button>
+                <button type="button" onClick={() => change(index, { options: [...q.options, { id: nextId(q.options.map((o) => o.id), (n) => String.fromCharCode(96 + n)), label_ar: '', label_en: '' }] })} className="text-sm link">{t('addOption')}</button>
                 {items.length > 1 && <button type="button" onClick={() => { setSaved(false); setItems((all) => all.filter((_, i) => i !== index)); }} className="text-sm text-muted underline underline-offset-4">{t('removeQuestion')}</button>}
               </div>
             )}
@@ -415,7 +415,7 @@ function QuestionsEditor({ orgId, taskId, questions, answerKey, editable }: { or
       </fieldset>
       {editable && (
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={addQuestion} className="rounded-full border border-border px-3 py-1.5 text-sm font-semibold hover:bg-surface-2">{t('addQuestion')}</button>
+          <button type="button" onClick={addQuestion} className="btn btn-secondary btn-sm">{t('addQuestion')}</button>
           <button type="button" onClick={fire} disabled={pending} aria-busy={pending} className={PRIMARY}>{t('saveQuestions')}</button>
           <Saved show={saved} label={t('saved')} />
         </div>
@@ -443,7 +443,7 @@ function CriterionEditor({ orgId, criterion, editable, canRemove }: { orgId: str
         </div>
         {editable && (
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="rounded-full border border-border px-3 py-1.5 text-sm font-semibold hover:bg-surface-2">{t('saveCriterion')}</button>
+            <button type="submit" className="btn btn-secondary btn-sm">{t('saveCriterion')}</button>
             <Saved show={state.ok} label={t('saved')} />
             {canRemove && <button type="button" onClick={remove.fire} disabled={remove.pending} className="text-sm text-muted underline underline-offset-4 disabled:opacity-60">{t('removeCriterion')}</button>}
           </div>
@@ -451,6 +451,36 @@ function CriterionEditor({ orgId, criterion, editable, canRemove }: { orgId: str
         <ErrorText code={remove.error} />
       </fieldset>
     </ActionForm>
+  );
+}
+
+/** Asks the AI model for a new version of this task, with an optional note on what should change. Only on a draft. */
+function RegenerateTask({ orgId, taskId }: { orgId: string; taskId: string }) {
+  const t = useTranslations('workspace');
+  const router = useRouter();
+  const [note, setNote] = useState('');
+  const [pending, start] = useTransition();
+  const [state, setState] = useState<FormState>({});
+  return (
+    <div className="rounded-[var(--radius-control)] border border-dashed border-border-strong p-4">
+      <p className="font-semibold">{t('regenerateTitle')}</p>
+      <p className="mt-1 text-sm text-muted">{t('regenerateHint')}</p>
+      <label className="mt-3 block">
+        <span className="field-label">{t('regenerateNote')}</span>
+        <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} dir="auto" className={INPUT} />
+      </label>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button" disabled={pending} aria-busy={pending} className="btn btn-secondary btn-sm"
+          onClick={() => start(async () => { const r = await regenerateTask(orgId, taskId, note); setState(r); if (r.ok) { setNote(''); router.refresh(); } })}
+        >
+          {pending && <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-current border-e-transparent" />}
+          {pending ? t('regenerating') : t('regenerate')}
+        </button>
+        <Saved show={state.ok && !pending} label={t('regenerated')} />
+      </div>
+      <ErrorText code={state.error} />
+    </div>
   );
 }
 
@@ -476,7 +506,7 @@ function TaskEditor({ orgId, task, editable, requirements, canRemoveTask }: { or
         {open && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
             <div className="space-y-5 pb-6">
-              <ActionForm action={action}>
+              <ActionForm key={`${task.title_en}|${task.instructions_en.length}`} action={action}>
                 <fieldset disabled={!editable} className="space-y-3">
                   <ErrorText code={state.error} />
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -495,8 +525,10 @@ function TaskEditor({ orgId, task, editable, requirements, canRemoveTask }: { or
                   )}
                 </fieldset>
               </ActionForm>
+              {editable && <RegenerateTask orgId={orgId} taskId={task.id} />}
               {task.task_type === 'objective_questions' && (
                 <QuestionsEditor
+                  key={JSON.stringify(task.config?.questions ?? []).length}
                   orgId={orgId} taskId={task.id} editable={editable} questions={task.config?.questions ?? []}
                   answerKey={(task.rubric_criteria[0]?.answer_key ?? {}) as Record<string, string>}
                 />
@@ -571,12 +603,12 @@ function AddTaskForm({ orgId, versionId }: { orgId: string; versionId: string })
   const t = useTranslations('workspace');
   const [state, action] = useActionState<FormState, FormData>(addTask.bind(null, orgId, versionId), {});
   return (
-    <details className="rounded-xl border border-border p-4">
+    <details className="rounded-lg border border-border p-4">
       <summary className="cursor-pointer font-semibold">{t('addTask')}</summary>
       <ActionForm action={action} className="mt-3 space-y-3">
         <ErrorText code={state.error} />
         <label className="block">
-          <span className="text-sm font-medium">{t('newTaskType')}</span>
+          <span className="field-label">{t('newTaskType')}</span>
           <select name="task_type" className={INPUT} defaultValue="written_case_study">
             <option value="written_case_study">{t('taskType.written_case_study')}</option>
             <option value="file_submission">{t('taskType.file_submission')}</option>
@@ -615,7 +647,7 @@ export function PublishPanel({ orgId, versionId, uncovered = [], review }: {
       <p className="text-sm text-muted">{t('publishNote')}</p>
       {/* With a change review, MIDAN's checks there already name what isn't measured; listing it twice was noise. */}
       {!review && uncovered.length > 0 && (
-        <div role="status" className="mt-3 border-s-2 border-gold ps-4 text-sm">
+        <div role="status" className="mt-3 callout text-sm">
           <p className="font-semibold">{t('uncoveredTitle')}</p>
           <ul className="mt-1 list-disc space-y-1 ps-4">{uncovered.map((item) => <li key={item}>{item}</li>)}</ul>
         </div>
@@ -643,7 +675,7 @@ export function InviteButton({ applicationId, assessmentId, title }: { applicati
   const { pending, error, fire } = useAction(() => inviteCandidate(applicationId, assessmentId));
   return (
     <div>
-      <button aria-label={t('inviteNamed', { title })} type="button" disabled={pending} aria-busy={pending} onClick={fire} className="rounded-full bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{t('invite')}</button>
+      <button aria-label={t('inviteNamed', { title })} type="button" disabled={pending} aria-busy={pending} onClick={fire} className="btn btn-primary btn-sm">{t('invite')}</button>
       <ErrorText code={error} />
     </div>
   );

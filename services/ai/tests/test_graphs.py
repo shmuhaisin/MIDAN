@@ -271,4 +271,4 @@ def test_health_reports_mode():
     # The tests run with the local SQLite checkpointer; production sets CHECKPOINT_DATABASE_URL for Postgres.
     health = client.get("/health").json()
     assert {k: health[k] for k in ("status", "service", "mode", "provider", "checkpointer")} == {"status": "ok", "service": "midan-ai", "mode": "demo", "provider": "demo", "checkpointer": "sqlite"}
-    assert set(health) == {"status", "service", "mode", "provider", "model", "requested_provider", "missing_settings", "checkpointer"}
+    assert set(health) == {"status", "service", "mode", "provider", "model", "requested_provider", "missing_settings", "checkpointer", "matching"}

@@ -6,10 +6,11 @@ import { useLocale, useMessages, useTranslations } from 'next-intl';
 import { useRef, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { number } from '@/lib/format';
-import { Arrow, Eyebrow, Humaidan, TriangleField } from './brand';
+import { Arrow, Eyebrow, Humaidan } from './brand';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
+/** Content that rises into place once, when it scrolls into view. Without JavaScript it simply shows (see layout). */
 export function Reveal({
   children,
   delay = 0,
@@ -21,87 +22,15 @@ export function Reveal({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 18 }}
+      data-reveal
+      initial={{ opacity: 0, y: 22 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-60px' }}
-      transition={{ duration: 0.55, delay, ease: EASE }}
+      transition={{ duration: 0.7, delay, ease: EASE }}
       className={className}
     >
       {children}
     </motion.div>
-  );
-}
-
-export function Hero() {
-  const t = useTranslations();
-  return (
-    <section className="relative mx-auto grid max-w-7xl gap-8 px-4 pt-8 sm:px-6 lg:grid-cols-12 lg:items-end lg:gap-4 lg:pt-10">
-      <div className="pb-6 lg:col-span-7 lg:pb-20">
-        <Eyebrow className="text-muted">{t('home.eyebrow')}</Eyebrow>
-        <h1 className="mt-6 font-display text-[2.5rem] leading-[1.25] font-bold sm:text-6xl xl:text-[4.25rem]">
-          <span className="block">
-            {t('home.heroLine1')}{' '}
-            <span className="relative inline-block text-muted">
-              {t('home.heroStrike')}
-              <motion.span
-                aria-hidden
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ duration: 0.6, delay: 0.5, ease: EASE }}
-                className="absolute inset-x-0 top-[55%] h-[0.09em] origin-left bg-gold rtl:origin-right"
-              />
-            </span>
-          </span>
-          <motion.span
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.85, ease: EASE }}
-            className="mt-1 block text-primary"
-          >
-            {t('home.heroLine2')}
-          </motion.span>
-        </h1>
-        <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">{t('home.heroLead')}</p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <Link
-            href="/register?as=candidate"
-            className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 active:translate-y-0"
-          >
-            {t('cta.candidate')}
-            <Arrow className="transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />
-          </Link>
-          <Link
-            href="/register?as=organization"
-            className="inline-flex items-center justify-center rounded-full border border-foreground/30 px-6 py-3.5 font-semibold transition-colors hover:bg-surface-2"
-          >
-            {t('cta.organization')}
-          </Link>
-        </div>
-      </div>
-      <div className="relative mx-auto w-full max-w-md lg:col-span-5 lg:max-w-none">
-        <div className="najdi-arch relative mx-auto aspect-[5/6] w-[88%] overflow-hidden bg-deep text-mint/15">
-          <TriangleField />
-        </div>
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: EASE }}
-          className="absolute inset-x-0 bottom-0 mx-auto w-[74%]"
-        >
-          <motion.div animate={{ y: [0, -5, 0] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}>
-            <Humaidan sizes="(min-width: 1024px) 30vw, 70vw" priority />
-          </motion.div>
-        </motion.div>
-        <motion.p
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, delay: 1.2 }}
-          className="absolute end-0 top-[20%] rounded-2xl rounded-es-sm bg-surface px-4 py-2.5 text-sm font-semibold shadow-soft"
-        >
-          {t('home.bubble')}
-        </motion.p>
-      </div>
-    </section>
   );
 }
 
@@ -117,44 +46,72 @@ type FieldMessage = {
 
 const FIELD_KEYS = ['tech', 'finance', 'legal', 'engineering', 'events', 'healthcare'] as const;
 
-export function LevelStairs({
-  levels,
-  value,
-  onChange,
-  label,
-  buttonLabel,
-}: {
-  levels: string[];
-  value: number;
-  onChange: (index: number) => void;
-  label: string;
-  buttonLabel: (index: number) => string;
-}) {
+type Scale = { code: string; name: string; body: string }[];
+
+/**
+ * MIDAN's five skill levels as a ladder you can read. For each level: what it means (the product's own definition),
+ * what it looks like in practice for one skill, and what changed from the level below, side by side. Nothing here is
+ * invented: the definitions and examples are the ones the product already states.
+ */
+export function LevelGuide({ field, value, onChange }: { field: FieldMessage; value: number; onChange: (index: number) => void }) {
+  const t = useTranslations('levels');
+  const scale = (useMessages() as unknown as { how: { scale: Scale } }).how.scale;
+  const level = scale[value];
   return (
-    <div role="group" aria-label={label} className="flex items-end gap-1">
-      {levels.map((_, i) => {
-        const active = i === value;
-        return (
-          <button
-            key={i}
-            type="button"
-            aria-pressed={active}
-            aria-label={buttonLabel(i)}
-            onClick={() => onChange(i)}
-            style={{ height: `${2.75 + i * 0.75}rem` }}
-            className={clsx(
-              'min-w-11 flex-1 rounded-t-md pt-1.5 pb-1 text-sm font-semibold transition-colors',
-              active
-                ? 'bg-primary text-primary-foreground'
-                : i < value
-                  ? 'bg-accent text-accent-foreground'
-                  : 'bg-surface-2 text-muted hover:text-foreground',
-            )}
-          >
-            L{i}
-          </button>
-        );
-      })}
+    <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-8">
+      <div role="radiogroup" aria-label={t('label')} className="relative flex gap-1 md:flex-col-reverse md:gap-1.5">
+        {scale.map((s, i) => {
+          const active = i === value;
+          return (
+            <button
+              key={s.code}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => onChange(i)}
+              className={clsx(
+                'relative flex flex-1 flex-col items-start gap-0.5 rounded-[var(--radius-control)] border px-3 py-2.5 text-start transition-colors md:flex-none',
+                active ? 'border-transparent bg-[var(--button)] text-[var(--button-foreground)]' : i < value ? 'border-primary/30 bg-accent text-accent-foreground' : 'border-border bg-surface text-muted hover:text-foreground',
+              )}
+            >
+              {active && <motion.span layoutId={`level-${field.skill}`} aria-hidden className="absolute inset-y-1.5 start-0 w-0.5 bg-brand-gold" transition={{ duration: 0.3, ease: EASE }} />}
+              <span className="num text-xs font-bold">{s.code}</span>
+              <span className="hidden text-sm font-semibold md:block">{s.name}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div aria-live="polite" className="min-w-0">
+        <AnimatePresence mode="wait">
+          <motion.div key={`${field.skill}-${value}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }}>
+            <p className="flex items-baseline gap-3">
+              <span className="num font-display text-3xl font-bold text-gold-text">{level.code}</span>
+              <span className="font-display text-2xl font-bold">{level.name}</span>
+            </p>
+            <dl className="mt-5 space-y-5">
+              <div>
+                <dt className="label-caps">{t('means')}</dt>
+                <dd className="mt-1.5 text-lg leading-relaxed">{level.body}</dd>
+              </div>
+              <div>
+                <dt className="label-caps">{t('inPractice', { skill: field.skill })}</dt>
+                <dd className="callout mt-2 leading-relaxed">{field.levels[value]}</dd>
+              </div>
+              <div>
+                <dt className="label-caps">{value === 0 ? t('startingPoint') : t('changed', { from: scale[value - 1].code })}</dt>
+                <dd className="mt-2 text-sm leading-relaxed text-muted">
+                  {value === 0 ? t('startingBody') : (
+                    <span className="grid gap-2 sm:grid-cols-2">
+                      <span className="rounded-[var(--radius-control)] border border-border px-3 py-2"><span className="num me-1 font-semibold">{scale[value - 1].code}</span>{field.levels[value - 1]}</span>
+                      <span className="rounded-[var(--radius-control)] border border-primary/40 bg-accent/50 px-3 py-2 text-foreground"><span className="num me-1 font-semibold">{level.code}</span>{field.levels[value]}</span>
+                    </span>
+                  )}
+                </dd>
+              </div>
+            </dl>
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
@@ -167,95 +124,73 @@ export function FieldExplorer() {
   const field = messages.home.fields[fieldKey];
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-24">
-      <Reveal>
-        <Eyebrow className="text-muted">{t('explorerEyebrow')}</Eyebrow>
-        <h2 className="mt-4 max-w-3xl font-display text-3xl leading-tight font-bold sm:text-4xl">{t('explorerTitle')}</h2>
-      </Reveal>
-
-      <div role="group" aria-label={t('fieldsLabel')} className="-mx-4 mt-8 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0">
-        {FIELD_KEYS.map((key) => {
-          const active = key === fieldKey;
-          return (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setFieldKey(key)}
-              className={clsx(
-                'relative shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
-                active ? 'border-transparent text-primary-foreground' : 'border-border text-muted hover:text-foreground',
-              )}
-            >
-              {active && <motion.span layoutId="field-pill" className="absolute inset-0 rounded-full bg-primary" transition={{ duration: 0.25, ease: EASE }} />}
-              <span className="relative">{messages.home.fields[key].label}</span>
-            </button>
-          );
-        })}
+    <section className="container-page py-20 lg:py-28">
+      <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
+        <Reveal className="lg:col-span-8">
+          <Eyebrow className="text-muted">{t('explorerEyebrow')}</Eyebrow>
+          <h2 className="display-lg mt-4 max-w-3xl text-balance">{t('explorerTitle')}</h2>
+        </Reveal>
+        <p className="text-sm leading-relaxed text-muted lg:col-span-4">{t('explorerNote')}</p>
       </div>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-12 lg:gap-10">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={fieldKey}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="lg:col-span-7"
-          >
-            <p className="text-sm font-medium text-muted">{t('jobSays')}</p>
-            <p className="mt-2 text-lg text-muted line-through decoration-gold decoration-1">{field.jobLine}</p>
-            <p className="mt-8 text-sm font-medium text-primary">{t('midanAsks')}</p>
-            <p className="mt-2 text-2xl leading-snug font-semibold sm:text-[1.7rem]">{field.task}</p>
-            <dl className="mt-8 grid gap-5 border-t border-border pt-5 sm:grid-cols-2">
-              <div>
-                <dt className="text-sm text-muted">{t('deliverable')}</dt>
-                <dd className="mt-1 font-medium">{field.deliverable}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-muted">{t('skillsMeasured')}</dt>
-                <dd className="mt-1 font-medium">{field.skills.join(' · ')}</dd>
-              </div>
-            </dl>
-          </motion.div>
-        </AnimatePresence>
+      <div role="group" aria-label={t('fieldsLabel')} className="-mx-4 mt-10 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0">
+        {FIELD_KEYS.map((key) => (
+          <button key={key} type="button" aria-pressed={key === fieldKey} onClick={() => setFieldKey(key)} className="chip shrink-0 hover:border-foreground">
+            {messages.home.fields[key].label}
+          </button>
+        ))}
+      </div>
 
-        <div className="rounded-lg bg-surface p-5 lg:col-span-5">
-          <p className="font-semibold">{t('levelsTitle', { skill: field.skill })}</p>
-          <p className="mt-1 text-sm text-muted">{t('levelsHint')}</p>
-          <div className="mt-5">
-            <LevelStairs
-              levels={field.levels}
-              value={level}
-              onChange={setLevel}
-              label={t('levelsHint')}
-              buttonLabel={(i) => t('levelButton', { level: i })}
-            />
-          </div>
-          <p aria-live="polite" className="mt-4 min-h-20 border-t border-border pt-4 leading-relaxed">
-            {field.levels[level]}
-          </p>
+      <div className="mt-8 overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface">
+        <div className="p-6 sm:p-8 lg:p-10">
+          <AnimatePresence mode="wait">
+            <motion.div key={fieldKey} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.28, ease: EASE }}>
+              <p className="label-caps">{t('jobSays')}</p>
+              <p className="mt-2 text-lg text-muted line-through decoration-gold decoration-2">{field.jobLine}</p>
+              <p className="label-caps mt-8 text-primary!">{t('midanAsks')}</p>
+              <p className="mt-2 font-display text-2xl leading-snug font-semibold sm:text-[1.75rem]">{field.task}</p>
+              <dl className="mt-8 grid gap-5 border-t border-border pt-5 sm:grid-cols-2">
+                <div>
+                  <dt className="text-sm text-muted">{t('deliverable')}</dt>
+                  <dd className="mt-1 font-medium">{field.deliverable}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted">{t('skillsMeasured')}</dt>
+                  <dd className="mt-1.5 flex flex-wrap gap-1.5">
+                    {field.skills.map((s) => <span key={s} className="rounded-[3px] bg-accent px-2 py-0.5 text-sm font-medium text-accent-foreground">{s}</span>)}
+                  </dd>
+                </div>
+              </dl>
+            </motion.div>
+          </AnimatePresence>
         </div>
+
       </div>
-      <p className="mt-6 text-sm text-muted">{t('explorerNote')}</p>
+      <div className="mt-6 rounded-[var(--radius-panel)] border border-border bg-surface p-6 sm:p-8 lg:p-10">
+        <p className="font-semibold">{t('levelsTitle', { skill: field.skill })}</p>
+        <p className="mt-1 mb-6 text-sm text-muted">{t('levelsHint')}</p>
+        <LevelGuide field={field} value={level} onChange={setLevel} />
+      </div>
     </section>
   );
 }
 
-function Rail({ title, steps, locale }: { title: string; steps: string[]; locale: string }) {
+function Rail({ title, steps, locale, index }: { title: string; steps: string[]; locale: string; index: string }) {
   const ref = useRef<HTMLOListElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start 75%', 'end 60%'] });
   const scaleY = useSpring(scrollYProgress, { stiffness: 90, damping: 24 });
   return (
     <div>
-      <h3 className="font-display text-2xl font-semibold text-mint">{title}</h3>
-      <ol ref={ref} className="relative mt-6">
+      <p className="flex items-baseline gap-3">
+        <span className="num text-sm font-semibold text-brand-gold">{index}</span>
+        <span className="font-display text-2xl font-bold text-ivory">{title}</span>
+      </p>
+      <ol ref={ref} className="relative mt-8">
         <span aria-hidden className="absolute start-[0.95rem] top-2 bottom-2 w-px bg-mint/20" />
-        <motion.span aria-hidden style={{ scaleY }} className="absolute start-[0.95rem] top-2 bottom-2 w-px origin-top bg-mint" />
+        <motion.span aria-hidden style={{ scaleY }} className="absolute start-[0.95rem] top-2 bottom-2 w-px origin-top bg-brand-gold" />
         {steps.map((step, i) => (
           <li key={step} className="relative flex items-center gap-4 pb-5 last:pb-0">
-            <span className="relative grid size-8 shrink-0 place-items-center rounded-full bg-deep-2 text-sm font-semibold text-mint ring-1 ring-mint/40">{number(locale, i + 1)}</span>
+            <span className="num relative grid size-8 shrink-0 place-items-center rounded-full bg-deep-2 text-sm font-semibold text-mint ring-1 ring-mint/40">{number(locale, i + 1)}</span>
             <span className="text-lg">{step}</span>
           </li>
         ))}
@@ -268,13 +203,15 @@ export function Journeys() {
   const t = useTranslations('home.flow');
   const locale = useLocale();
   return (
-    <section className="on-deep relative bg-deep text-deep-foreground">
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-24">
-        <Eyebrow className="text-deep-muted">{t('eyebrow')}</Eyebrow>
-        <h2 className="mt-4 max-w-4xl font-display text-4xl leading-tight font-bold sm:text-5xl">{t('title')}</h2>
-        <div className="mt-12 grid gap-12 md:grid-cols-2">
-          <Rail title={t('orgTitle')} steps={t.raw('org') as string[]} locale={locale} />
-          <Rail title={t('candidateTitle')} steps={t.raw('candidate') as string[]} locale={locale} />
+    <section className="on-deep deep-grain relative overflow-hidden bg-deep text-deep-foreground">
+      <div className="container-page relative py-20 lg:py-28">
+        <Reveal>
+          <Eyebrow className="text-deep-muted">{t('eyebrow')}</Eyebrow>
+          <h2 className="display-lg mt-4 max-w-4xl text-balance">{t('title')}</h2>
+        </Reveal>
+        <div className="mt-14 grid gap-14 md:grid-cols-2 lg:gap-20">
+          <Rail index="A" title={t('candidateTitle')} steps={t.raw('candidate') as string[]} locale={locale} />
+          <Rail index="B" title={t('orgTitle')} steps={t.raw('org') as string[]} locale={locale} />
         </div>
       </div>
     </section>
@@ -284,8 +221,8 @@ export function Journeys() {
 export function Audience() {
   const t = useTranslations();
   const panels = [
-    { title: 'home.candidateTitle', body: 'home.candidateBody', cta: 'cta.candidate', href: '/register?as=candidate', more: '/for-candidates', moreLabel: 'nav.candidates', figure: true, deep: false },
-    { title: 'home.organizationTitle', body: 'home.organizationBody', cta: 'cta.organization', href: '/register?as=organization', more: '/for-organizations', moreLabel: 'nav.organizations', figure: false, deep: true },
+    { title: 'home.candidateTitle', body: 'home.candidateBody', cta: 'journey.ctaCandidate', href: '/register?as=candidate', more: '/for-candidates', moreLabel: 'nav.candidates', figure: true, deep: false },
+    { title: 'home.organizationTitle', body: 'home.organizationBody', cta: 'journey.ctaEmployer', href: '/register?as=organization', more: '/for-organizations', moreLabel: 'nav.organizations', figure: false, deep: true },
   ];
   return (
     <section aria-label={t('home.audienceEyebrow')} className="flex flex-col lg:flex-row">
@@ -293,31 +230,26 @@ export function Audience() {
         <div
           key={p.title}
           className={clsx(
-            'group relative flex flex-1 overflow-hidden transition-[flex-grow] duration-500 ease-out lg:hover:grow-[1.35] lg:focus-within:grow-[1.35]',
-            p.deep ? 'on-deep bg-deep-2 text-deep-foreground' : 'bg-accent text-accent-foreground',
+            'group relative flex flex-1 overflow-hidden transition-[flex-grow] duration-700 ease-out lg:hover:grow-[1.3] lg:focus-within:grow-[1.3]',
+            p.deep ? 'on-deep deep-grain bg-deep-2 text-deep-foreground' : 'bg-accent text-accent-foreground',
           )}
         >
-          <div className={clsx('relative z-10 flex w-full flex-col items-start px-4 py-14 sm:px-10 lg:py-20', p.figure && 'pe-[38%] sm:pe-[38%]')}>
-            <h2 className="font-display text-3xl leading-tight font-bold sm:text-4xl">{t(p.title)}</h2>
-            <p className={clsx('mt-4 max-w-md text-lg leading-relaxed', p.deep ? 'text-deep-muted' : '')}>{t(p.body)}</p>
-            <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <Link
-                href={p.href}
-                className={clsx(
-                  'inline-flex items-center gap-2 rounded-full px-5 py-3 font-semibold transition-transform hover:-translate-y-0.5',
-                  p.deep ? 'bg-mint text-forest' : 'bg-forest text-ivory',
-                )}
-              >
+          <div className={clsx('relative z-10 flex w-full flex-col items-start px-4 py-16 sm:px-10 lg:py-24', p.figure && 'pe-[38%] sm:pe-[38%]')}>
+            <p className="label-caps text-current! opacity-70">{t(p.deep ? 'nav.organizations' : 'nav.candidates')}</p>
+            <h2 className="display-lg mt-3 max-w-md text-balance">{t(p.title)}</h2>
+            <p className={clsx('mt-4 max-w-md text-lg leading-relaxed', p.deep ? 'text-deep-muted' : 'opacity-85')}>{t(p.body)}</p>
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <Link href={p.href} className={clsx('btn btn-lg', p.deep ? 'btn-gold' : 'btn-primary')}>
                 {t(p.cta)}
                 <Arrow />
               </Link>
-              <Link href={p.more} className="font-medium underline decoration-1 underline-offset-4">
+              <Link href={p.more} className="font-semibold underline decoration-1 underline-offset-[0.3em] hover:decoration-2">
                 {t(p.moreLabel)}
               </Link>
             </div>
           </div>
           {p.figure && (
-            <div aria-hidden className="absolute end-2 bottom-0 w-[36%] max-w-60">
+            <div aria-hidden className="absolute end-2 bottom-0 w-[36%] max-w-64 transition-transform duration-700 group-hover:-translate-y-1">
               <Humaidan sizes="(min-width: 1024px) 16vw, 36vw" />
             </div>
           )}
@@ -373,28 +305,20 @@ export function Faq() {
 }
 
 export function ScaleExplorer() {
-  const t = useTranslations('how');
-  const scale = t.raw('scale') as { code: string; name: string; body: string }[];
+  const th = useTranslations('home');
+  const messages = useMessages() as unknown as { home: { fields: Record<string, FieldMessage> } };
+  const [fieldKey, setFieldKey] = useState<(typeof FIELD_KEYS)[number]>('tech');
   const [level, setLevel] = useState(3);
   return (
-    <div className="grid gap-8 lg:grid-cols-2 lg:items-end">
-      <LevelStairs
-        levels={scale.map((s) => s.code)}
-        value={level}
-        onChange={setLevel}
-        label={t('scaleTitle')}
-        buttonLabel={(i) => scale[i].name}
-      />
-      <div aria-live="polite">
-        <AnimatePresence mode="wait">
-          <motion.div key={level} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-            <p className="font-display text-3xl font-bold">
-              {scale[level].code} · {scale[level].name}
-            </p>
-            <p className="mt-2 text-lg leading-relaxed text-muted">{scale[level].body}</p>
-          </motion.div>
-        </AnimatePresence>
+    <div>
+      <div role="group" aria-label={th('fieldsLabel')} className="-mx-4 mb-8 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0">
+        {FIELD_KEYS.map((key) => (
+          <button key={key} type="button" aria-pressed={key === fieldKey} onClick={() => setFieldKey(key)} className="chip shrink-0 hover:border-foreground">
+            {messages.home.fields[key].label}
+          </button>
+        ))}
       </div>
+      <LevelGuide field={messages.home.fields[fieldKey]} value={level} onChange={setLevel} />
     </div>
   );
 }

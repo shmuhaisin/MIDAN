@@ -166,7 +166,7 @@ export function EmployerClaimPanel({ orgId, claims, employer, isDemo, options }:
           <p className="font-semibold">{t('pendingTitle', { employer: pick(locale, open.employer_name_ar, open.employer_name_en) })}</p>
           <p className="mt-1 text-muted">{t('pendingBody')}</p>
           <div className="mt-2 flex flex-wrap gap-4">
-            {open.has_evidence && <button type="button" onClick={() => start(() => openFileLink(() => claimEvidenceLink(orgId, open.id), setError))} className="font-semibold text-primary underline underline-offset-4">{t('openEvidence')}</button>}
+            {open.has_evidence && <button type="button" onClick={() => start(() => openFileLink(() => claimEvidenceLink(orgId, open.id), setError))} className="link">{t('openEvidence')}</button>}
             <button type="button" disabled={pending} onClick={() => start(async () => setError((await withdrawEmployerClaim(orgId, open.id)).error))} className="text-muted underline underline-offset-4">{t('withdraw')}</button>
           </div>
         </div>
@@ -206,7 +206,7 @@ export function EmployerClaimPanel({ orgId, claims, employer, isDemo, options }:
       )}
       <div className="mt-2"><ErrorText code={error} /></div>
       {claims.filter((c) => c.status === 'rejected').slice(0, 1).map((c) => (
-        <p key={c.id} className="mt-3 border-s-2 border-gold ps-4 text-sm">
+        <p key={c.id} className="mt-3 callout text-sm">
           {t('rejected', { employer: pick(locale, c.employer_name_ar, c.employer_name_en) })}{c.review_note && <span dir="auto" className="block text-muted">{c.review_note}</span>}
         </p>
       ))}
@@ -227,7 +227,7 @@ export function OrganizationListingRow({ orgId, listing }: { orgId: string; list
         <ErrorText code={error} />
       </div>
       {listing.job_id
-        ? <Link href={`/organization/${orgId}/jobs/${listing.job_id}`} className="font-semibold text-primary underline underline-offset-4">{t('openJob')}</Link>
+        ? <Link href={`/organization/${orgId}/jobs/${listing.job_id}`} className="link">{t('openJob')}</Link>
         : <button type="button" disabled={pending} aria-busy={pending} onClick={fire} className={PRIMARY}>{t('createDraftJob')}</button>}
     </li>
   );

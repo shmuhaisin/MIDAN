@@ -53,7 +53,7 @@ export function JobAnalysisPanel({ orgId, jobId, analysis, linked, canEdit }: { 
       </div>
 
       {analysis?.status === 'proposed' ? (
-        <div className="space-y-3 rounded-xl border border-border p-4">
+        <div className="space-y-3 rounded-lg border border-border p-4">
           <p className="text-sm">
             {t('result', { sector: sector(analysis.sector_code) })}
             {analysis.job_family_ar && ` · ${t('family', { family: analysis.job_family_ar })}`}
@@ -104,7 +104,7 @@ export function JobAnalysisPanel({ orgId, jobId, analysis, linked, canEdit }: { 
         </div>
       ) : canEdit && (
         <button type="button" disabled={pending} onClick={() => run(() => analyzeJob(orgId, jobId))}
-          className="rounded-full border border-foreground/30 px-4 py-2.5 text-sm font-semibold disabled:opacity-60">
+          className="btn btn-secondary btn-sm">
           {pending ? t('analyzing') : analysis ? t('analyzeAgain') : t('analyze')}
         </button>
       )}

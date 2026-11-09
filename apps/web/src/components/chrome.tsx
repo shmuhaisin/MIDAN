@@ -7,14 +7,17 @@ import { ThemeProvider, useTheme } from 'next-themes';
 import { useEffect, useState, useSyncExternalStore, useTransition } from 'react';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { Arrow, Logo } from './brand';
+import { Icon } from './icons';
 
 const NAV = [
   ['/opportunities', 'opportunities'],
   ['/how-it-works', 'how'],
   ['/for-candidates', 'candidates'],
   ['/for-organizations', 'organizations'],
-  ['/faq', 'faq'],
+  ['/about', 'about'],
 ] as const;
+
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 /** nonce: this request's Content-Security-Policy nonce, which the theme script needs to run. */
 export function Providers({ children, nonce }: { children: React.ReactNode; nonce?: string }) {
@@ -36,7 +39,7 @@ export function Providers({ children, nonce }: { children: React.ReactNode; nonc
 
 const subscribeNoop = () => () => {};
 
-function ThemeSwitch() {
+export function ThemeSwitch({ className }: { className?: string }) {
   const t = useTranslations('theme');
   const { theme, setTheme } = useTheme();
   const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
@@ -46,7 +49,7 @@ function ThemeSwitch() {
     ['system', 'M3 5h14v8H3zM7 16.5h6M10 13v3.5'],
   ] as const;
   return (
-    <div role="radiogroup" aria-label={t('label')} className="flex rounded-full border border-border p-0.5">
+    <div role="radiogroup" aria-label={t('label')} className={clsx('flex rounded-[var(--radius-control)] border border-border p-0.5', className)}>
       {options.map(([value, d]) => {
         const active = mounted && theme === value;
         return (
@@ -59,12 +62,12 @@ function ThemeSwitch() {
             title={t(value)}
             onClick={() => setTheme(value)}
             className={clsx(
-              'relative grid size-8 place-items-center rounded-full transition-colors',
-              active ? 'text-primary-foreground' : 'text-muted hover:text-foreground',
+              'relative grid size-8 place-items-center rounded-[calc(var(--radius-control)-2px)] transition-colors',
+              active ? 'text-[var(--button-foreground)]' : 'text-muted hover:text-foreground',
             )}
           >
             {active && (
-              <motion.span layoutId="theme-pill" className="absolute inset-0 rounded-full bg-primary" transition={{ duration: 0.2 }} />
+              <motion.span layoutId="theme-pill" className="absolute inset-0 rounded-[calc(var(--radius-control)-2px)] bg-[var(--button)]" transition={{ duration: 0.25, ease: EASE }} />
             )}
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="relative size-4">
               <path d={d} />
@@ -76,7 +79,7 @@ function ThemeSwitch() {
   );
 }
 
-function LocaleSwitch() {
+export function LocaleSwitch({ className }: { className?: string }) {
   const t = useTranslations('locale');
   const locale = useLocale();
   const pathname = usePathname();
@@ -91,10 +94,23 @@ function LocaleSwitch() {
       onClick={() =>
         start(() => router.replace(`${pathname}${window.location.search}`, { locale: locale === 'ar' ? 'en' : 'ar' }))
       }
-      className="h-9 rounded-full border border-border px-3.5 text-sm font-medium transition-colors hover:bg-surface-2 disabled:opacity-60"
+      className={clsx('btn btn-ghost btn-sm gap-1.5 px-2.5', className)}
     >
+      <Icon name="globe" className="size-4 text-muted" />
       {t('switch')}
     </button>
+  );
+}
+
+/** The official logo beside the name, set as one lockup. */
+export function Brand({ className, onDeep = false }: { className?: string; onDeep?: boolean }) {
+  const t = useTranslations('brand');
+  return (
+    <Link href="/" aria-label="الميدان — MIDAN" className={clsx('group flex shrink-0 items-center gap-3', className)}>
+      <Logo decorative priority className="h-11 transition-transform duration-500 group-hover:scale-[1.04] sm:h-12" sizes="96px" />
+      <span aria-hidden className={clsx('h-7 w-px', onDeep ? 'bg-mint/30' : 'bg-gold/70')} />
+      <span className="font-display text-xl leading-none font-bold">{t('name')}</span>
+    </Link>
   );
 }
 
@@ -121,63 +137,78 @@ export function Header({ signedIn, candidate, signOut }: { signedIn: boolean; ca
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflow;
+    };
   }, [open]);
 
   // Candidates have their own navigation under the header.
   const items = candidate ? [] : signedIn ? NAV.filter(([href]) => href === '/opportunities') : NAV;
+  const isCurrent = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <header
       className={clsx(
-        'sticky top-0 z-40 border-b transition-colors',
-        scrolled || open ? 'border-border bg-background/95 backdrop-blur' : 'border-transparent bg-background',
+        'sticky top-0 z-40 border-b transition-[background-color,border-color,box-shadow] duration-300',
+        scrolled || open ? 'border-border bg-background/90 backdrop-blur-md' : 'border-transparent bg-background',
       )}
     >
       <a href="#main" className="skip-link">{t('nav.skip')}</a>
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
-        <Link href="/" aria-label="الميدان — MIDAN" className="flex shrink-0 items-center gap-2 font-display font-bold">
-          <Logo decorative priority className="h-9 sm:h-10" sizes="80px" />
-          <span className="text-lg">{t('brand.name')}</span>
-        </Link>
+      <div className="container-page flex h-[4.5rem] items-center gap-8">
+        <Brand />
         <nav aria-label={t('nav.primary')} className="hidden flex-1 items-center gap-1 lg:flex">
-          {items.map(([href, key]) => (
-            <Link
-              key={href}
-              href={href}
-              aria-current={pathname === href ? 'page' : undefined}
-              className={clsx(
-                'rounded-full px-3 py-1.5 text-sm transition-colors hover:bg-surface-2',
-                pathname === href ? 'font-semibold text-primary' : 'text-muted hover:text-foreground',
-              )}
-            >
-              {t(`nav.${key}`)}
-            </Link>
-          ))}
+          {items.map(([href, key]) => {
+            const current = isCurrent(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={current ? 'page' : undefined}
+                className={clsx(
+                  'group relative px-3 py-2 text-[0.9375rem] transition-colors',
+                  current ? 'font-semibold text-foreground' : 'text-muted hover:text-foreground',
+                )}
+              >
+                {t(`nav.${key}`)}
+                {current ? (
+                  <motion.span layoutId="nav-current" aria-hidden className="absolute inset-x-3 -bottom-px h-0.5 bg-gold" transition={{ duration: 0.35, ease: EASE }} />
+                ) : (
+                  <span aria-hidden className="absolute inset-x-3 -bottom-px h-px origin-left scale-x-0 bg-foreground/40 transition-transform duration-300 group-hover:scale-x-100 rtl:origin-right" />
+                )}
+              </Link>
+            );
+          })}
         </nav>
         <div className="ms-auto flex items-center gap-2">
-          <div className="hidden items-center gap-2 sm:flex">
-            <ThemeSwitch />
+          <div className="hidden items-center gap-1.5 md:flex">
             <LocaleSwitch />
+            <ThemeSwitch />
           </div>
           {signedIn ? (
             <>
               {!candidate && (
-              <Link href="/dashboard" className="hidden h-9 items-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-px active:translate-y-0 lg:inline-flex">
-                {t('nav.dashboard')}
-              </Link>
+                <Link href="/dashboard" className="btn btn-primary btn-sm hidden lg:inline-flex">
+                  {t('nav.dashboard')}
+                </Link>
               )}
               <form action={signOut} className="hidden lg:block">
-                <button type="submit" className="h-9 rounded-full px-3 text-sm text-muted transition-colors hover:text-foreground">{t('nav.signOut')}</button>
+                <button type="submit" className="btn btn-ghost btn-sm text-muted">
+                  <Icon name="logout" className="size-4" />
+                  {t('nav.signOut')}
+                </button>
               </form>
             </>
           ) : (
             <>
-              <Link href="/login" className="hidden h-9 items-center rounded-full px-3 text-sm font-medium transition-colors hover:bg-surface-2 lg:inline-flex">
+              <Link href="/login" className="btn btn-ghost btn-sm hidden lg:inline-flex">
                 {t('nav.login')}
               </Link>
-              <Link href="/register" className="hidden h-9 items-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-px active:translate-y-0 lg:inline-flex">
+              <Link href="/register" className="btn btn-primary btn-sm hidden lg:inline-flex">
                 {t('nav.getStarted')}
+                <Arrow />
               </Link>
             </>
           )}
@@ -187,51 +218,70 @@ export function Header({ signedIn, candidate, signOut }: { signedIn: boolean; ca
             aria-controls="mobile-nav"
             aria-label={open ? t('nav.closeMenu') : t('nav.menu')}
             onClick={() => setOpen((v) => !v)}
-            className="grid size-10 place-items-center rounded-full border border-border lg:hidden"
+            className="grid size-11 place-items-center rounded-[var(--radius-control)] border border-border transition-colors hover:bg-surface-2 lg:hidden"
           >
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="size-5">
-              <path d={open ? 'M5 5l10 10M15 5L5 15' : 'M3 6h14M3 10h14M3 14h14'} />
-            </svg>
+            <Icon name={open ? 'close' : 'menu'} />
           </button>
         </div>
       </div>
-      <AnimatePresence initial={false}>
+      <AnimatePresence>
         {open && (
           <motion.nav
             id="mobile-nav"
             aria-label={t('nav.primary')}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            className="overflow-hidden border-t border-border lg:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-x-0 top-[4.5rem] bottom-0 z-40 flex flex-col overflow-y-auto border-t border-border bg-background lg:hidden"
           >
-            <div className="flex flex-col gap-1 px-4 py-4">
-              {items.map(([href, key]) => (
-                <Link
+            <ol className="container-page flex-1 py-6">
+              {items.map(([href, key], i) => (
+                <motion.li
                   key={href}
-                  href={href}
-                  aria-current={pathname === href ? 'page' : undefined}
-                  className="flex items-center justify-between rounded-lg px-3 py-3 font-medium hover:bg-surface-2"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: 0.04 * i, ease: EASE }}
+                  className="border-b border-border"
                 >
-                  {t(`nav.${key}`)}
-                  <Arrow className="text-muted" />
-                </Link>
+                  <Link
+                    href={href}
+                    aria-current={isCurrent(href) ? 'page' : undefined}
+                    className="flex items-baseline gap-4 py-4 font-display text-2xl font-bold aria-[current=page]:text-primary"
+                  >
+                    <span aria-hidden className="num w-7 text-sm font-semibold text-gold-text">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="flex-1">{t(`nav.${key}`)}</span>
+                    <Arrow className="size-5 self-center text-muted" />
+                  </Link>
+                </motion.li>
               ))}
+              {candidate && ([['/assessments', 'assessments', 'file'], ['/notifications', 'notifications', 'bell'], ['/interviews', 'interviews', 'calendar'], ['/assistant', 'assistant', 'inbox'], ['/settings', 'settings', 'settings']] as const).map(([href, key, icon]) => (
+                <li key={href} className="border-b border-border">
+                  <Link href={href} aria-current={isCurrent(href) ? 'page' : undefined} className="flex items-center gap-4 py-4 text-lg font-semibold aria-[current=page]:text-primary">
+                    <Icon name={icon} className="text-muted" />
+                    {t(`candidateNav.${key}`)}
+                  </Link>
+                </li>
+              ))}
+            </ol>
+            <div className="container-page space-y-3 border-t border-border bg-surface py-5">
               {signedIn ? (
                 <>
-                  <Link href="/dashboard" className="mt-2 rounded-full bg-primary px-4 py-3 text-center font-semibold text-primary-foreground">{t('nav.dashboard')}</Link>
+                  {!candidate && <Link href="/dashboard" className="btn btn-primary btn-lg btn-block">{t('nav.dashboard')}</Link>}
                   <form action={signOut}>
-                    <button type="submit" className="w-full rounded-full px-4 py-3 font-medium text-muted">{t('nav.signOut')}</button>
+                    <button type="submit" className="btn btn-secondary btn-block">
+                      <Icon name="logout" className="size-4" />
+                      {t('nav.signOut')}
+                    </button>
                   </form>
                 </>
               ) : (
                 <>
-                  <Link href="/register" className="mt-2 rounded-full bg-primary px-4 py-3 text-center font-semibold text-primary-foreground">{t('nav.getStarted')}</Link>
-                  <Link href="/login" className="rounded-full px-4 py-3 text-center font-medium">{t('nav.login')}</Link>
+                  <Link href="/register" className="btn btn-primary btn-lg btn-block">{t('nav.getStarted')}<Arrow /></Link>
+                  <Link href="/login" className="btn btn-secondary btn-block">{t('nav.login')}</Link>
                 </>
               )}
-              <div className="mt-3 flex items-center justify-between sm:hidden">
+              <div className="flex items-center justify-between pt-2">
                 <ThemeSwitch />
                 <LocaleSwitch />
               </div>

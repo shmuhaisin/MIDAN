@@ -60,7 +60,7 @@ function RowList({ title, addLabel, rows, setRows, blank, children }: {
       <button
         type="button"
         onClick={() => { setRows([...rows, blank]); setKeys([...keys, next]); setNext(next + 1); }}
-        className="mt-3 inline-flex items-center gap-2 rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold transition-colors hover:bg-surface-2"
+        className="btn btn-secondary btn-sm mt-3"
       >
         <span aria-hidden>+</span>{addLabel}
       </button>
@@ -132,7 +132,7 @@ export function ProfileForm({ profile, selected, fallbackName }: { profile: Prof
           <Field name="years_experience" type="number" min={0} max={70} step={0.5} label={t('years')} value={years} onChange={(e) => setYears(e.target.value)} />
         </div>
         <label className="block">
-          <span className="text-sm font-medium">{t('summary')}</span>
+          <span className="field-label">{t('summary')}</span>
           <textarea rows={3} maxLength={4000} value={summary} onChange={(e) => setSummary(e.target.value)} aria-describedby="summary-hint" className={clsx(INPUT, 'h-auto py-2.5 leading-relaxed')} />
           <span id="summary-hint" className="mt-1 block text-xs text-muted">{t('summaryHint')}</span>
         </label>
@@ -145,7 +145,7 @@ export function ProfileForm({ profile, selected, fallbackName }: { profile: Prof
             <Field name="organization" maxLength={200} label={t('organization')} value={row.organization ?? ''} onChange={(e) => update('organization', e.target.value)} />
             <YearFields row={row} update={update} />
             <label className="block sm:col-span-2">
-              <span className="text-sm font-medium">{t('description')}</span>
+              <span className="field-label">{t('description')}</span>
               <textarea rows={2} maxLength={2000} value={row.description ?? ''} onChange={(e) => update('description', e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} />
             </label>
           </>
@@ -236,13 +236,13 @@ export function CvPanel({ hasCv, hasProfile, analysis }: { hasCv: boolean; hasPr
       <p className="mt-1 text-xs text-muted">{t('cvHint')}</p>
       {hasProfile ? (
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <label className={clsx('inline-flex cursor-pointer items-center rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold has-focus-visible:outline-2 has-focus-visible:outline-primary', pending && 'opacity-60')}>
+          <label className={clsx('btn btn-secondary btn-sm cursor-pointer has-focus-visible:outline-2 has-focus-visible:outline-primary', pending && 'opacity-60')}>
             <input type="file" accept=".pdf,.docx" className="sr-only" disabled={pending} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
             {pending ? t('uploading') : hasCv ? t('cvReplace') : t('cvUpload')}
           </label>
           {hasCv && (
             <>
-              <button type="button" onClick={() => start(() => openFileLink(myCvLink, setError))} className="text-sm font-semibold text-primary underline underline-offset-4">{t('cvView')}</button>
+              <button type="button" onClick={() => start(() => openFileLink(myCvLink, setError))} className="text-sm link">{t('cvView')}</button>
               {confirming ? (
                 <button type="button" disabled={pending} onClick={() => start(async () => { setError((await removeCv()).error); setConfirming(false); })} className="text-sm font-semibold text-error underline underline-offset-4">{t('cvRemove')}</button>
               ) : (
@@ -266,7 +266,7 @@ export function ApplicantCvButton({ applicationId }: { applicationId: string }) 
   const [error, setError] = useState<string>();
   return (
     <div>
-      <button type="button" disabled={pending} aria-busy={pending} onClick={() => start(() => openFileLink(() => applicantCvLink(applicationId), setError))} className="rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold transition-colors hover:bg-surface-2 disabled:opacity-60">
+      <button type="button" disabled={pending} aria-busy={pending} onClick={() => start(() => openFileLink(() => applicantCvLink(applicationId), setError))} className="btn btn-secondary btn-sm">
         {t('cvOpen')}
       </button>
       <ErrorText code={error} />

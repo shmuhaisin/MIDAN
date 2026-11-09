@@ -19,7 +19,7 @@ export function CompanyTypeForm({ orgId, value, canEdit }: { orgId: string; valu
       <p className="mt-1 max-w-3xl text-sm text-muted">{t('companyTypeNote')}</p>
       <form className="mt-3 flex flex-wrap items-end gap-3" onSubmit={(e) => { e.preventDefault(); fire(); }}>
         <label className="block min-w-64">
-          <span className="text-sm font-medium">{t('companyType')}</span>
+          <span className="field-label">{t('companyType')}</span>
           <select value={type} disabled={!canEdit} onChange={(e) => setType(e.target.value)} className={INPUT}>
             <option value="">{t('notSet')}</option>
             {COMPANY_TYPES.map((k) => <option key={k} value={k}>{t(`companyTypes.${k}`)}</option>)}
@@ -88,7 +88,7 @@ export function QualityPanel({ orgId, versionId, quality, canCheck, gated }: { o
           <p className="text-xs text-muted">{t('qualityEnglish')}</p>
         </div>
       )}
-      {canCheck && <button type="button" disabled={pending} aria-busy={pending} onClick={fire} className="mt-3 rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold">{t('runCheck')}</button>}
+      {canCheck && <button type="button" disabled={pending} aria-busy={pending} onClick={fire} className="btn btn-secondary btn-sm mt-3">{t('runCheck')}</button>}
       <ErrorText code={error} />
     </section>
   );

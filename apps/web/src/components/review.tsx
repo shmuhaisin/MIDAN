@@ -49,7 +49,7 @@ function EvidenceLink({ id, name }: { id: string; name: string }) {
       <button
         type="button"
         onClick={() => openFileLink(() => evidenceLink(id), setError)}
-        className="font-semibold text-primary underline underline-offset-4"
+        className="link"
       >
         {t('open')}: <span dir="ltr">{name}</span>
       </button>
@@ -78,7 +78,7 @@ export function ReviewPanel({ data }: { data: ReviewData }) {
 
   return (
     <div className="space-y-10">
-      {evaluation?.ai_mode === 'demo' && <p className="border-s-2 border-gold ps-4 font-medium">{t('demoLabel')}</p>}
+      {evaluation?.ai_mode === 'demo' && <p className="callout font-medium">{t('demoLabel')}</p>}
       {!reviewed && reasons.length > 0 && (
         <section className="rounded-lg bg-surface p-5">
           <h2 className="font-semibold">{t('reasons')}</h2>
@@ -144,7 +144,7 @@ export function ReviewPanel({ data }: { data: ReviewData }) {
                       </div>
                       {!reviewed && (
                         <label>
-                          <span className="text-sm font-medium">{t('yourScore')}</span>
+                          <span className="field-label">{t('yourScore')}</span>
                           <input
                             type="number" min="0" max={Number(c.max_score)} step="0.5"
                             required={!proposal}

@@ -73,10 +73,10 @@
     "organizationTitle": "For those who want to see before deciding",
     "organizationBody": "Build assessments from job responsibilities and review evidence against shared criteria, under your own brand, with data isolated from other organizations.",
     "trustEyebrow": "Clear limits",
-    "trustTitle": "AI assists. People decide.",
+    "trustTitle": "MIDAN informs. People decide.",
     "trust": [
-      "It never makes a final hiring decision",
-      "It never rejects a candidate on a model score alone",
+      "MIDAN never makes a final hiring decision",
+      "It never rejects a candidate on a score alone",
       "It never invents evidence or qualifications",
       "It never publishes an assessment without human approval"
     ],
@@ -205,7 +205,7 @@
       "org": [
         "Create the job",
         "Define the skills",
-        "Generate a practical assessment",
+        "Build a practical assessment",
         "Review the rubrics",
         "Approve and publish",
         "Invite candidates",
@@ -236,7 +236,7 @@
       },
       {
         "title": "Build the assessment",
-        "body": "AI helps propose tasks and rubrics. The team reviews and edits everything."
+        "body": "MIDAN proposes tasks and rubrics from the job. The team reviews and edits everything."
       },
       {
         "title": "Approve and publish",
@@ -248,7 +248,7 @@
       },
       {
         "title": "Evaluate",
-        "body": "Objective questions are graded automatically, AI proposes evidence-backed scores, and uncertain cases go to a human reviewer."
+        "body": "Objective questions are graded automatically, MIDAN proposes evidence-backed scores, and uncertain cases go to a human reviewer."
       },
       {
         "title": "Report and develop",
@@ -318,7 +318,7 @@
     "points": [
       {
         "title": "Assessments from the heart of the job",
-        "body": "AI helps build drafts. Your team edits and approves them."
+        "body": "MIDAN prepares the drafts. Your team edits and approves them."
       },
       {
         "title": "Shared, recorded criteria",
@@ -337,7 +337,7 @@
     "not": [
       "Not a general job board",
       "Not a conventional applicant tracking system",
-      "Not a chatbot that decides who gets hired"
+      "Not a black box that decides who gets hired"
     ]
   },
   "about": {
@@ -350,7 +350,7 @@
         "body": "A platform that assesses people by what they can do, and helps them understand and develop their skills."
       },
       {
-        "title": "The model",
+        "title": "One platform",
         "body": "One central platform serving candidates and organizations, with each organization's data isolated from the others."
       },
       {
@@ -374,8 +374,8 @@
         "a": "No. You can browse and apply to opportunities, but Midan's core is practical simulation and evidence-based assessment."
       },
       {
-        "q": "Does AI decide who gets hired?",
-        "a": "No. It proposes scores and cites evidence. The final decision always belongs to people at the organization."
+        "q": "Does MIDAN decide who gets hired?",
+        "a": "No. MIDAN proposes scores and cites evidence. The final decision always belongs to people at the organization."
       },
       {
         "q": "Can organizations see all my data?",
@@ -402,7 +402,12 @@
   "footer": {
     "tagline": "Skill proves itself. A Saudi product for assessing and developing talent through real work.",
     "status": "Under development. Examples on this site are illustrative.",
-    "explore": "Explore"
+    "explore": "Explore",
+    "columns": {
+      "platform": "Platform",
+      "audiences": "Who it's for",
+      "company": "MIDAN"
+    }
   },
   "notFound": {
     "title": "This field is empty",
@@ -468,7 +473,9 @@
     "resetLinkBad": "This link isn't valid or has expired.",
     "resetAgain": "Request a new link",
     "changePassword": "Change password",
-    "passwordChanged": "Your password was changed."
+    "passwordChanged": "Your password was changed.",
+    "showPassword": "Show",
+    "hidePassword": "Hide"
   },
   "errors": {
     "invalid_credentials": "Incorrect email or password.",
@@ -502,7 +509,9 @@
     "file_empty_file": "This file has no records.",
     "file_too_many_rows": "This file has too many records: 5,000 is the most at once.",
     "file_unterminated_quote": "This CSV has a quotation mark that never closes.",
-    "feedback_incomplete": "Rate every competency and choose a recommendation before submitting."
+    "feedback_incomplete": "Rate every competency and choose a recommendation before submitting.",
+    "invalid_year": "Check the year: it should be a four-digit year.",
+    "ai_unavailable": "The AI model isn't available right now, so the task wasn't changed. Try again in a minute, or edit it yourself."
   },
   "applicationStatus": {
     "submitted": "Submitted",
@@ -599,7 +608,8 @@
     "nextPage": "Next",
     "pageOf": "Page {page} of {last}",
     "jobPages": "Pages of jobs",
-    "listingPages": "Pages of listings on other sites"
+    "listingPages": "Pages of listings on other sites",
+    "salaryLabel": "Salary"
   },
   "dashboard": {
     "hello": "Welcome, {name}",
@@ -658,7 +668,60 @@
     "development": "Career development",
     "developmentPlan": "{count} items in your plan",
     "developmentNone": "Choose a role you're aiming for to see what it asks for.",
-    "developmentOpen": "Open career development"
+    "developmentOpen": "Open career development",
+    "nextLabel": "Your next step",
+    "attention": "Needs your attention",
+    "guideNoApplications": "Start with an opportunity that fits your skills. Applying takes a minute: your profile is reused, so you don't type anything twice.",
+    "seeAll": "See all",
+    "allInterviews": "All interviews",
+    "greeting": {
+      "morning": "Good morning, {name}",
+      "afternoon": "Good afternoon, {name}",
+      "evening": "Good evening, {name}"
+    },
+    "waitingCount": "{count, plural, =0 {Nothing waiting on you} one {One thing waiting on you} other {{shown} things waiting on you}}",
+    "activeCount": "{count, plural, =0 {No active applications} one {One active application} other {{shown} active applications}}",
+    "interviewCount": "{count, plural, one {One interview coming up} other {{shown} interviews coming up}}",
+    "journeyTitle": "Your applications, step by step",
+    "journeyLead": "Where each application stands, from applying to the decision.",
+    "noActive": "None of your applications is active right now. A new opportunity starts a new journey.",
+    "laneJob": "Opportunity",
+    "laneStages": [
+      "Applied",
+      "In review",
+      "Assessment",
+      "Evaluated",
+      "Shortlisted",
+      "Hired"
+    ],
+    "laneAria": "Stage {n} of {total}, {stage}: {status}",
+    "stageOf": "Stage {n} of {total}",
+    "updated": "updated {when}",
+    "lane": {
+      "withOrg": "The organization is reviewing it",
+      "shortlisted": "You're on the shortlist",
+      "hired": "You were hired. Congratulations"
+    },
+    "closedCount": "{count, plural, one {One closed application} other {{shown} closed applications}}",
+    "allOpportunities": "All opportunities",
+    "matchedSkills": "Skills of yours this job asks for",
+    "waitingTitle": "Waiting on you",
+    "waitingEmpty": "Nothing needs you right now. When something does, it appears here first.",
+    "daysLeft": "{count, plural, =0 {Due today} one {1 day left} other {{shown} days left}}",
+    "answerInvitation": "Answer the interview invitation",
+    "comingUpTitle": "Coming up",
+    "activityTitle": "What's new",
+    "activityEmpty": "No new updates.",
+    "strengthTitle": "Profile strength",
+    "strength": {
+      "headline": "A headline",
+      "summary": "A short summary",
+      "experience": "Your experience",
+      "education": "Your education",
+      "skills": "Your skills",
+      "cv": "Your CV"
+    },
+    "strengthComplete": "Every part of your profile is filled in."
   },
   "profile": {
     "title": "Your professional profile",
@@ -758,7 +821,7 @@
     "changeStatus": "Change status of {name}'s application",
     "noProfile": "Profile incomplete",
     "readOnly": "Your role can't change status.",
-    "humanNote": "Status decisions here belong to you and your team. AI doesn't accept or reject anyone.",
+    "humanNote": "Status decisions here belong to you and your team. MIDAN doesn't accept or reject anyone.",
     "listingsTitle": "Job records for your employer",
     "listingsLead": "Approved records from an authorized source. Creating a job makes a draft for you to review, edit and publish.",
     "createDraftJob": "Create a draft job",
@@ -788,10 +851,10 @@
     "saved": "Saved",
     "assessment": "Practical assessment",
     "noAssessmentTitle": "Let's build the assessment from the job's responsibilities",
-    "noAssessmentBody": "This creates a draft of tasks and criteria you can edit. Nothing is published without your approval.",
-    "generate": "Create assessment draft",
-    "generating": "Building…",
-    "demoLabel": "Demo mode: this draft was built from templates, with no AI model involved. Review it carefully.",
+    "noAssessmentBody": "MIDAN's AI model writes a draft from this job's title, description, requirements and skills: realistic tasks, deliverables, time limits and a weighted rubric. You review and edit it, and nothing is published without your approval. If the model isn't available, MIDAN builds the draft from its templates and labels it so.",
+    "generate": "Generate assessment with AI",
+    "generating": "The AI model is writing the draft…",
+    "demoLabel": "Demo mode: this draft was built from templates only. Review it carefully.",
     "version": "Version {n}",
     "status": {
       "draft": "Draft",
@@ -835,7 +898,7 @@
     "tasksCount": "{count, plural, one {{shown} task} other {{shown} tasks}}",
     "preview": "Preview what candidates see",
     "publish": "Approve and publish this version",
-    "publishNote": "A published version can't be edited. You need to be an owner or admin.",
+    "publishNote": "Approving publishes this version as final: it can no longer be edited, and later changes start a new version. Only owners and admins approve.",
     "publishConfirm": "Confirm publishing",
     "cancel": "Cancel",
     "publishedNote": "This version is published and fixed. Every candidate is assessed on it exactly as it is.",
@@ -865,7 +928,7 @@
     "flow": [
       "Create the job",
       "Define the skills",
-      "Generate the assessment",
+      "Build the assessment",
       "Review rubrics and approve",
       "Invite candidates",
       "Review submissions",
@@ -920,7 +983,7 @@
     "rubricPrivate": "Candidates see the title and instructions only. The criteria stay internal.",
     "changeReason": "Reason for this change (optional)",
     "reviewTitle": "Changes to MIDAN's draft",
-    "reviewIntroGenerated": "MIDAN generated this draft. Every change people made since is listed with what it was before and after. An owner or admin reviews them before approving.",
+    "reviewIntroGenerated": "MIDAN prepared this draft. Every change people made since is listed with what it was before and after. An owner or admin reviews them before approving.",
     "reviewIntroRevision": "This draft started as a copy of approved version {number}. Every change since is listed with what it was before and after. An owner or admin reviews them before approving.",
     "reviewNoOriginal": "MIDAN's original of this draft wasn't recorded: it was made before changes were tracked. Changes are listed from then on.",
     "reviewNoChanges": "No one has changed MIDAN's draft.",
@@ -976,7 +1039,14 @@
     "publishReviewNote": "Approving also records that you reviewed {count, plural, one {this change} other {these # changes}}.",
     "publishBlocked": "MIDAN found errors in this draft. Fix them before approving.",
     "revise": "Start a new version from this one",
-    "reviseNote": "Candidates who already have this version keep it exactly as it is. New applicants get the new version once it is approved."
+    "reviseNote": "Candidates who already have this version keep it exactly as it is. New applicants get the new version once it is approved.",
+    "onThisPage": "On this page",
+    "regenerateTitle": "Regenerate this task with AI",
+    "regenerateHint": "The AI model writes this task and its rubric again, keeping its type. It replaces the current text; the change history keeps the previous version, and the change is reviewed before approval.",
+    "regenerateNote": "What should change? (optional)",
+    "regenerate": "Regenerate with AI",
+    "regenerating": "Writing a new version…",
+    "regenerated": "New version ready to review"
   },
   "experience": {
     "poweredBy": "Powered by Midan",
@@ -1033,15 +1103,16 @@
     "backToDashboard": "Back to my dashboard",
     "deliverables": "What to submit",
     "materials": "Attached materials",
-    "acceptedFormats": "Accepted formats"
+    "acceptedFormats": "Accepted formats",
+    "submittedBadge": "Submitted"
   },
   "review": {
     "back": "Job",
     "title": "Review {name}'s work",
-    "run": "Run AI-assisted evaluation",
+    "run": "Prepare proposed scores",
     "runNote": "This only produces proposals. The decision is yours.",
     "notSubmitted": "The candidate hasn't submitted yet, so this can't be evaluated.",
-    "demoLabel": "Demo mode: these proposed scores come from the length and structure of the answer, not its quality, and no AI model is involved. You need to judge this yourself.",
+    "demoLabel": "Demo mode: these proposed scores come from the length and structure of the answer, not its quality. You need to judge this yourself.",
     "reasons": "Why this case needs your attention",
     "reason": {
       "demo_mode": "The system is running in demo mode",
@@ -1077,14 +1148,15 @@
     "release": "Release result to candidate",
     "released": "Result released to candidate",
     "previousNotes": "Notes",
-    "workbookSkills": "Sector workbook skills"
+    "workbookSkills": "Sector workbook skills",
+    "skillLevels": "Skill levels"
   },
   "report": {
     "back": "My dashboard",
     "eyebrow": "Assessment report",
     "title": "What your work showed",
     "reviewedNote": "A person at {org} reviewed this report before releasing it to you.",
-    "demoNote": "A report from a demo stage with fictional data, with no AI model involved.",
+    "demoNote": "A report from a demo stage with fictional data.",
     "overall": "Overall score",
     "overallHint": "Out of 100, calculated from task and criterion weights.",
     "skills": "Your skills, as shown in the work",
@@ -1182,14 +1254,14 @@
       "reviewed": "Reviewed"
     },
     "overall": "overall {score} of 100",
-    "demoMode": "scored without an AI model (demo mode)",
+    "demoMode": "scored in demo mode, from answer length and structure",
     "proposalsOnly": "These are proposals waiting for a person's review, not results.",
     "criterion": "Criterion",
     "score": "Score",
     "evidenceCol": "Evidence and explanation",
     "source": {
       "deterministic": "checked by code",
-      "ai_assisted": "AI proposal",
+      "ai_assisted": "MIDAN proposal",
       "human_reviewed": "reviewed by a person"
     },
     "assessorNote": "Reviewer's note",
@@ -1236,7 +1308,11 @@
     "saveDraft": "Save draft",
     "submitFeedback": "Submit feedback",
     "achievements": "Achievements",
-    "languages": "Languages"
+    "languages": "Languages",
+    "skillLevels": "Skill levels",
+    "interviewsShort": "Interviews",
+    "notesShort": "Notes",
+    "overallLabel": "overall, out of 100"
   },
   "requirements": {
     "title": "Job requirements",
@@ -1289,10 +1365,16 @@
     "label": "My account",
     "dashboard": "My dashboard",
     "jobs": "Opportunities",
-    "development": "Career development",
+    "development": "My career",
     "notifications": "Notifications",
     "profile": "My profile",
-    "settings": "Settings"
+    "settings": "Settings",
+    "overview": "Overview",
+    "applications": "My applications",
+    "assessments": "My assessments",
+    "interviews": "Interviews",
+    "notificationsCount": "Notifications, {count} unread",
+    "assistant": "Ask MIDAN"
   },
   "candidateSkills": {
     "search": "Search for a skill",
@@ -1321,13 +1403,84 @@
     "step1Lead": "Each step saves, so you can finish later.",
     "step2Title": "Upload your CV",
     "step2Lead": "We read it and suggest details, and nothing is saved until you approve. You can skip this step.",
-    "step3Title": "Your skills",
-    "step3Lead": "Review your skills and add what's missing.",
-    "step4Title": "You're ready for the field",
-    "step4Lead": "Skill proves itself. Browse opportunities or finish your profile.",
+    "step3Title": "Your education",
+    "step3Lead": "Add your qualifications. You can skip this and add them later.",
+    "step4Title": "Your experience",
+    "step4Lead": "Add roles, internships or volunteering. You can skip this too.",
     "browse": "Browse opportunities",
     "completeProfile": "Finish my profile",
-    "privacy": "Your CV is read inside Midan. Your personal data is removed before any request to an external AI service, and the file itself is never sent."
+    "privacy": "Your CV is read inside Midan. Your personal data is removed before any external analysis service sees it, and the file itself is never sent.",
+    "stepsLabel": "Onboarding steps",
+    "stepName1": "About you",
+    "stepName2": "CV",
+    "stepName3": "Education",
+    "stepName4": "Experience",
+    "stepName5": "Skills",
+    "stepName6": "Review",
+    "step5Title": "Your skills",
+    "step5Lead": "Review your skills and add what's missing.",
+    "step6Title": "Review your profile",
+    "step6Lead": "Check everything before you start. You can edit any part.",
+    "whyTitle": "Why we ask",
+    "why1": "Your name and contact details let organizations recognize your application and reach you.",
+    "why2": "Your CV can fill in the next steps for you. Nothing is saved until you approve it.",
+    "why3": "Organizations see your education when you apply, so it's worth adding what's relevant.",
+    "why4": "Experience helps organizations understand what you've already done, even if it was short.",
+    "why5": "Skills connect you to opportunities: MIDAN shows how your skills match each job's requirements.",
+    "continueWithoutCv": "Continue without a CV",
+    "cvYes": "CV attached",
+    "cvNo": "No CV yet",
+    "notAdded": "Not added",
+    "edit": "Edit",
+    "readyTitle": "You're ready",
+    "readyBody": "Finish to go to your overview, where your next step is always shown first.",
+    "finish": "Finish and go to my overview",
+    "optional": "optional",
+    "remove": "Remove",
+    "saveContinue": "Save and continue",
+    "skip": "Skip for now",
+    "education": {
+      "item": "Qualification {n}",
+      "add": "Add a qualification",
+      "qualification": "Qualification",
+      "institution": "Institution",
+      "field": "Field of study",
+      "start_year": "Start year",
+      "end_year": "End year",
+      "empty": "No qualifications added. You can add one or skip this step."
+    },
+    "experience": {
+      "item": "Role {n}",
+      "add": "Add a role",
+      "title": "Job title",
+      "organization": "Organization",
+      "start_year": "Start year",
+      "end_year": "End year",
+      "description": "What you did",
+      "empty": "No roles added. You can add one or skip this step."
+    },
+    "problem": {
+      "required": "Fill in the first field, or remove this entry.",
+      "invalid_years": "The end year comes before the start year.",
+      "invalid_year": "Use a four-digit year."
+    },
+    "buildProfile": "Building your profile",
+    "stepState": {
+      "done": "completed",
+      "current": "current step",
+      "next": "not started"
+    },
+    "savedNote": "Each step is saved when you continue",
+    "reviewSummary": "{done} of {total} parts of your profile are filled in",
+    "reviewHint": "Anything not added yet can be completed now or later from your profile.",
+    "add": "Add",
+    "groupWho": "Who you are",
+    "groupWhoHint": "How your name and role appear to organizations.",
+    "headlineHint": "One line, for example: Data analyst with two years in retail.",
+    "groupReach": "How to reach you",
+    "groupReachHint": "Only organizations you apply to can see these.",
+    "untitled": "New entry",
+    "entryDone": "Done"
   },
   "cvAnalysis": {
     "pending": "We're reading your CV…",
@@ -1356,11 +1509,11 @@
     "lead": "Only what you choose is saved. Change any value first.",
     "back": "Back to my profile",
     "closed": "This review is closed.",
-    "modeExternal": "Professional sections were analyzed with AI after personal data was removed.",
-    "modeLocal": "Local reading only: no AI service is switched on, so check the result carefully.",
+    "modeExternal": "Professional sections were analyzed by an external analysis service after personal data was removed.",
+    "modeLocal": "Basic reading only: the full analysis service is off, so check the result carefully.",
     "privacyNote": "{count} personal items were removed from the text before analysis.",
     "uncertain": "Unsure about: {sections}",
-    "personalNote": "Read inside Midan, and never sent to AI services.",
+    "personalNote": "Read inside Midan, and never sent to external services.",
     "use": "Use {field}",
     "currentValue": "Current: {value}",
     "skillsNote": "Saved as skills you reported, not proven by an assessment.",
@@ -1532,6 +1685,32 @@
       "cancelled": "Cancelled",
       "completed": "Completed",
       "no_show": "Not attended"
+    },
+    "room": {
+      "waiting": "Waiting room",
+      "soon": "Your interview",
+      "startsIn": "{minutes, plural, =0 {Starting now} one {Starts in # minute} other {Starts in # minutes}}",
+      "startedAgo": "{minutes, plural, =0 {Started just now} one {Started # minute ago} other {Started # minutes ago}}",
+      "live": "In the call",
+      "elapsedLabel": "Time in the call: {time}",
+      "leaveHint": "Use Leave in the call to end it for you.",
+      "leftTitle": "You left the call",
+      "devices": {
+        "title": "Camera and microphone",
+        "unknown": "Not checked yet. The browser will ask for permission when you join.",
+        "checking": "Asking the browser…",
+        "ready": "Your camera and microphone work. They were switched off again after the check.",
+        "blocked": "The browser blocked them. Allow the camera and microphone for this site in the browser's settings, then check again.",
+        "missing": "No camera or microphone was found on this device.",
+        "check": "Check now"
+      },
+      "expectTitle": "What to expect",
+      "expect": [
+        "You'll see a preview and can choose your camera and microphone before entering.",
+        "Only the people taking part in this interview can join the room.",
+        "The call is not recorded automatically.",
+        "Leaving the call doesn't change the interview's status. You can go back while the room is open."
+      ]
     }
   },
   "notifications": {
@@ -1556,6 +1735,17 @@
       "application_shortlisted": "You've been shortlisted for {job}",
       "application_rejected": "The organization decided not to continue with your application for {job}",
       "interview_cancelled": "Your interview for {job} was cancelled"
+    },
+    "filter": "Show notifications",
+    "noneHere": "Nothing here.",
+    "filters": {
+      "all": "All",
+      "unread": "Unread",
+      "applications": "Applications",
+      "assessments": "Assessments",
+      "interviews": "Interviews",
+      "decisions": "Decisions",
+      "account": "Account"
     }
   },
   "development": {
@@ -1663,7 +1853,7 @@
     "privacy": "Privacy",
     "privacyPoints": [
       "Your CV stays private. Only an organization you applied to can reach it, while your application is active.",
-      "Your personal data is removed before any request to an external AI service, and the file itself is never sent.",
+      "Your personal data is removed before any external analysis service sees your CV, and the file itself is never sent.",
       "An organization's access to what you submitted ends when you withdraw.",
       "You can remove your CV from your profile at any time."
     ],
@@ -1805,16 +1995,46 @@
       "configured": "Configured",
       "notConfigured": "Not configured",
       "unreachable": "Unreachable",
-      "ai": "AI service",
+      "ai": "Analysis service",
       "aiMode": {
-        "live": "Live model",
-        "demo": "Demo mode: no AI model"
+        "live": "Live",
+        "demo": "Demo mode"
       },
       "daily": "Daily video interviews",
       "calendar": "Google Calendar",
       "email": "Email",
       "emailState": "In-app notifications only",
-      "worker": "Background worker"
+      "worker": "Background worker",
+      "eyebrow": "Platform operations",
+      "title": "What needs attention",
+      "lead": "The platform's queues, what it holds, and whether its services are set up. Organizations manage their own workspaces; this console is for the platform team.",
+      "attentionTitle": "Waiting for a person",
+      "attentionLead": "Queues that need a decision or a fix, largest first. Each opens where it is dealt with.",
+      "attentionTotal": "{count, plural, =0 {Nothing waiting} one {# item waiting} other {# items waiting}}",
+      "allClear": "Nothing is waiting. Every queue is clear.",
+      "alsoClear": "Clear: {list}.",
+      "open": "Open",
+      "queueNote": {
+        "openReview": "Imported records to approve, edit or reject before anyone sees them.",
+        "listingsPending": "External listings to check before they are shown.",
+        "uncertainMatches": "Listings whose employer wasn't matched with confidence: confirm or correct the match.",
+        "failedJobs": "Background tasks that stopped: read the reason, then retry or dismiss.",
+        "failedImports": "Files that didn't import: read the reason and upload again."
+      },
+      "glanceTitle": "The platform at a glance",
+      "glanceLead": "Counts of what is stored right now. No trends are shown, because these are counts at this moment, not a history.",
+      "groups": {
+        "people": "People",
+        "market": "Opportunities",
+        "knowledge": "Knowledge"
+      },
+      "serviceNote": {
+        "ai": "Reads CVs and proposes scores. People make every decision.",
+        "daily": "Private interview rooms, joined only by participants.",
+        "calendar": "Interview events; whether attendees get emails is set on the server.",
+        "email": "No email provider is set up. Sign-up and recovery emails use the auth service.",
+        "worker": "Runs imports and other long tasks in the background."
+      }
     },
     "imports": {
       "title": "Import runs",
@@ -2118,7 +2338,7 @@
       "kinds": {
         "cv_analysis": "CV analysis",
         "job_analysis": "Job analysis",
-        "assessment_generation": "Assessment generation",
+        "assessment_generation": "Assessment drafting",
         "evaluation": "Evaluation",
         "learning_recommendations": "Learning recommendations",
         "data_import": "Data import"
@@ -2281,7 +2501,7 @@
   },
   "assessmentIntel": {
     "companyTypeTitle": "Company type",
-    "companyTypeNote": "MIDAN uses it, with the job's sector and level, to shape the fictional company in generated assessments. Your organization's name is never sent.",
+    "companyTypeNote": "MIDAN uses it, with the job's sector and level, to shape the fictional company in the assessments it prepares. Your organization's name is never sent.",
     "companyType": "Type",
     "notSet": "Not set",
     "save": "Save",
@@ -2296,8 +2516,8 @@
       "multinational": "Multinational"
     },
     "qualityTitle": "MIDAN's quality report",
-    "qualityGated": "This version was generated to the MIDAN Assessment Standard, so approving it needs a ready report on its current content.",
-    "qualityNotGated": "For information. Only generated versions must pass this check before approval.",
+    "qualityGated": "MIDAN prepared this version to the MIDAN Assessment Standard, so approving it needs a ready report on its current content.",
+    "qualityNotGated": "For information. Only versions MIDAN prepares must pass this check before approval.",
     "qualityNone": "No report yet.",
     "qualityScore": "{score} of 100",
     "qualityStale": "Out of date: the draft changed after this report",
@@ -2327,5 +2547,920 @@
     },
     "fictional": "fictional data",
     "rowsShown": "Showing {shown} of {total} rows"
+  },
+  "orgShell": {
+    "nav": "Workspace navigation",
+    "workspace": "Workspace",
+    "overview": "Overview",
+    "jobs": "Jobs",
+    "applicants": "Applicants",
+    "settings": "Organization settings",
+    "overviewLead": "Your jobs, your applicants, and where each person stands, in one place.",
+    "pipeline": "Hiring pipeline",
+    "pipelineLead": "Every application, counted at its current stage.",
+    "stage": {
+      "new": "New",
+      "review": "In review",
+      "assessment": "Assessment",
+      "evaluated": "Evaluated",
+      "shortlisted": "Shortlisted",
+      "hired": "Hired"
+    },
+    "closed": "Closed: {rejected} not selected, {withdrawn} withdrawn.",
+    "candidates": "Candidates",
+    "assessments": "Assessments",
+    "interviews": "Interviews",
+    "hiring": "Hiring",
+    "reports": "Reports",
+    "previous": "Previous",
+    "next": "Next",
+    "position": "{n} of {total}",
+    "assistant": "Ask MIDAN"
+  },
+  "journey": {
+    "eyebrow": "Welcome to the world of MIDAN",
+    "line1": "Your next move",
+    "line2": "starts here.",
+    "lead": "Where talent meets opportunity. A journey that begins with your skills and moves you closer to what's next.",
+    "ctaCandidate": "I'm looking for opportunities",
+    "ctaEmployer": "I'm hiring",
+    "srTitle": "The MIDAN journey, in five scenes",
+    "destination": "Destination",
+    "scroll": "Scroll to start the journey",
+    "progressLabel": "Journey stages",
+    "goTo": "Go to stage {n}: {title}",
+    "finalTitle": "Every step brings you closer to what's next.",
+    "finalLead": "Whether you're looking for your next role or building your team, the journey starts with one step.",
+    "stages": [
+      {
+        "title": "Discover opportunities",
+        "short": "Discovery",
+        "body": "Browse roles from organizations on MIDAN, with clear requirements, the skills each role needs, and how your profile matches."
+      },
+      {
+        "title": "Show your skills",
+        "short": "Skills",
+        "body": "Prove what you can do through a practical task tied to the job: clear requirements, a set deadline, and your work submitted in one place."
+      },
+      {
+        "title": "Meet your future",
+        "short": "Interviews",
+        "body": "Once an organization shortlists you, your interview is scheduled, you confirm the time, and you join from MIDAN."
+      },
+      {
+        "title": "Your next chapter",
+        "short": "Destination",
+        "body": "Every step brings you closer to what's next."
+      }
+    ],
+    "previews": {
+      "illustrative": "Illustrative",
+      "discover": {
+        "title": "Opportunities",
+        "filter": "Riyadh · Technology · Mid level",
+        "match": "3 of 4 skills",
+        "items": [
+          {
+            "role": "Security operations analyst",
+            "org": "Oasis Digital",
+            "city": "Riyadh",
+            "skills": [
+              "Log analysis",
+              "Incident response"
+            ]
+          },
+          {
+            "role": "Financial analyst",
+            "org": "Dune Capital",
+            "city": "Jeddah",
+            "skills": [
+              "Variance analysis",
+              "Reporting"
+            ]
+          },
+          {
+            "role": "Event operations lead",
+            "org": "Red Sand Events",
+            "city": "AlUla",
+            "skills": [
+              "Team management",
+              "Planning"
+            ]
+          }
+        ]
+      },
+      "assessment": {
+        "title": "Practical task",
+        "task": "Review one hour of system logs and two alerts. Decide which one is a real incident.",
+        "checklist": [
+          "Read the brief and the materials",
+          "Identify the incident and its cause",
+          "Write a short report backed by log lines"
+        ],
+        "file": "incident-report.pdf",
+        "uploading": "Uploading",
+        "deadline": "Due in 3 days",
+        "step": "Task 2 of 3",
+        "skillsLabel": "Measures",
+        "skills": [
+          "Log analysis",
+          "Prioritization",
+          "Technical writing"
+        ]
+      },
+      "interview": {
+        "title": "Interview",
+        "role": "Security operations analyst · Oasis Digital",
+        "day": "Tuesday, 14 October",
+        "time": "10:30 AM · 30 min",
+        "mode": "Video, from MIDAN",
+        "status": "Confirmed",
+        "weekdays": [
+          "S",
+          "M",
+          "T",
+          "W",
+          "T",
+          "F",
+          "S"
+        ],
+        "dates": [
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        "selected": 14
+      }
+    },
+    "arrival": "Arrival"
+  },
+  "myApplications": {
+    "eyebrow": "My applications",
+    "title": "Where each application stands",
+    "lead": "Every application you've made, its current stage, and the one thing to do next.",
+    "find": "Find opportunities",
+    "views": "Application views",
+    "view": {
+      "active": "In progress",
+      "closed": "Closed"
+    },
+    "applied": "applied {date}",
+    "emptyTitle": "No applications yet",
+    "emptyBody": "When you apply to an opportunity, it appears here with its stage and your next step.",
+    "none": {
+      "active": "Nothing in progress right now.",
+      "closed": "No closed applications."
+    }
+  },
+  "myAssessments": {
+    "eyebrow": "My assessments",
+    "title": "Your practical assessments",
+    "lead": "Tasks organizations asked you to complete, grouped by what they need from you now.",
+    "emptyTitle": "No assessments yet",
+    "emptyBody": "When an organization invites you to a practical task after you apply, it appears here with its deadline.",
+    "find": "Find opportunities",
+    "group": {
+      "todo": "To do",
+      "waiting": "Submitted, awaiting results",
+      "results": "Results available",
+      "closed": "Closed"
+    },
+    "groupLead": {
+      "todo": "Start or continue before the deadline. Your work saves as you go.",
+      "waiting": "A person at the organization reviews your work. You'll be notified when results are released.",
+      "results": "The organization has released these results to you.",
+      "closed": "The deadline passed before submission."
+    },
+    "due": "due {date}",
+    "start": "Start",
+    "continue": "Continue",
+    "viewResults": "View results",
+    "application": "Application",
+    "howTitle": "How assessments work",
+    "how": [
+      "You receive a practical task linked to the job you applied for.",
+      "Read the brief, then work on it and upload your files. It saves as you go.",
+      "Submit before the deadline. You'll get a receipt.",
+      "A person reviews your work. Results appear here when released."
+    ]
+  },
+  "myInterviews": {
+    "eyebrow": "Interviews",
+    "title": "Your interviews",
+    "lead": "Upcoming interviews first, with their time and status. Open one to confirm or join.",
+    "minutes": "{minutes} min",
+    "emptyTitle": "No interviews yet",
+    "emptyBody": "When an organization shortlists you and schedules an interview, it appears here to confirm.",
+    "toApplications": "My applications",
+    "upcoming": "Upcoming",
+    "past": "Past",
+    "noUpcoming": "No upcoming interviews.",
+    "next": "Your next interview"
+  },
+  "levels": {
+    "label": "Skill levels",
+    "means": "What it means",
+    "inPractice": "What it looks like for “{skill}”",
+    "startingPoint": "The starting point",
+    "startingBody": "L0 means the work doesn't yet show enough to judge the skill. It's not a failure: it's where evidence begins.",
+    "changed": "What changed from {from}"
+  },
+  "command": {
+    "welcomeTitle": "Welcome to {org}'s workspace",
+    "welcomeLead": "Five steps get you from a new organization to your first published job. Start with any of them.",
+    "done": "Done",
+    "noDataYet": "Your dashboard fills in as candidates apply. Nothing here is estimated.",
+    "newJob": "New job",
+    "setupProgress": "Setup {done} of {total}",
+    "continueSetup": "Continue setup",
+    "setup": {
+      "profile": {
+        "title": "Complete your organization profile",
+        "body": "Your colors and welcome message appear in candidates' assessments.",
+        "cta": "Open settings"
+      },
+      "logo": {
+        "title": "Add your logo",
+        "body": "It identifies you in your workspace and on assessments.",
+        "cta": "Upload logo"
+      },
+      "team": {
+        "title": "Invite your team",
+        "body": "Recruiters and reviewers can work with you, each with their own role.",
+        "cta": "Invite people"
+      },
+      "job": {
+        "title": "Create your first job",
+        "body": "Name it, then a short guided sequence covers details, requirements, skills and the assessment.",
+        "cta": "Create a job"
+      },
+      "publish": {
+        "title": "Publish it",
+        "body": "Candidates can apply once a job is published.",
+        "cta": "Review jobs"
+      }
+    },
+    "kpi": {
+      "activeJobs": "Active jobs",
+      "applications": "Applications",
+      "review": "Under review",
+      "shortlisted": "Shortlisted",
+      "toEvaluate": "Submissions to review",
+      "upcoming": "Upcoming interviews",
+      "completed": "Completed interviews",
+      "hired": "Hired",
+      "pendingAssessments": "Assessments in progress"
+    },
+    "pipelineLead": "Where every applicant is now. Select a stage to see who's in it.",
+    "openHiring": "Open the pipeline",
+    "trendTitle": "Applications per week",
+    "trendLead": "The last eight weeks, by application date.",
+    "byJobTitle": "Applications by job",
+    "byJobLead": "Which jobs attract applicants.",
+    "emptyApplications": "No applications yet.",
+    "recentTitle": "Latest applications",
+    "allCandidates": "All candidates",
+    "actionCenter": "Needs your attention",
+    "allClear": "Nothing is waiting on you right now.",
+    "action": {
+      "review": "new applications to review",
+      "evaluate": "assessment submissions to review",
+      "interviews": "interviews in the next seven days",
+      "drafts": "draft jobs not yet published"
+    },
+    "nextInterviews": "Next interviews",
+    "dataNote": "All figures are counted from your organization's own records. Rates between stages and time to hire aren't shown: the data needed to calculate them reliably isn't available yet.",
+    "title": "Recruitment command center",
+    "rangeLabel": "Period shown",
+    "weeks": "{n} weeks",
+    "execTitle": "Executive overview",
+    "inRange": "{count, plural, =0 {none in the last {weeks} weeks} one {# in the last {weeks} weeks} other {{shown} in the last {weeks} weeks}}",
+    "previewLabel": "What appears here",
+    "funnelTitle": "Recruitment funnel",
+    "funnelLead": "How many open applications have reached each stage. Select a stage to see who is in it now.",
+    "reached": "Reached this stage",
+    "hereNow": "{count} here now",
+    "funnelNote": "Counts open applications by their current status. Not selected or withdrawn: {closed}. Rates between stages aren't shown because each application's history isn't available here.",
+    "trendRange": "Applications received each week over the last {weeks} weeks.",
+    "perWeek": "applications",
+    "jobsTitle": "Jobs by applications",
+    "agendaTitle": "Interview schedule",
+    "agendaEmpty": "No interviews scheduled. Shortlist a candidate to arrange one.",
+    "minutes": "{minutes} min"
+  },
+  "jobWizard": {
+    "stepOf": "Step {step} of {total}",
+    "step1Title": "Name the job",
+    "step1Lead": "Start with the title in Arabic and English. It's saved as a draft right away, and the next steps follow.",
+    "createAndContinue": "Create and continue",
+    "savedAsDraft": "Saved as a draft. Nothing is published yet.",
+    "lead": "Create, publish and follow every job. A new job opens a guided setup.",
+    "all": "All",
+    "noneInView": "No jobs in this view.",
+    "firstJobBody": "Create your first job: a short guided sequence covers everything candidates need.",
+    "applicants": "applicants",
+    "newCount": "{count} new",
+    "continueSetup": "Continue setup",
+    "stepsLabel": "Job setup steps",
+    "stepName1": "Name",
+    "step": {
+      "details": "Details",
+      "requirements": "Requirements",
+      "reference-skills": "Skills",
+      "assessment": "Assessment",
+      "review": "Review & publish"
+    },
+    "stepLead": {
+      "details": "Describe the role: what it involves, where, and for whom. Save this step, then continue.",
+      "requirements": "Add what a candidate needs: experience, education, certificates. Save each change, then continue.",
+      "reference-skills": "Confirm the skills this job needs. Save, then continue.",
+      "assessment": "Prepare the practical task candidates will complete. You can come back to it before publishing.",
+      "review": "Check that everything is ready, then publish."
+    },
+    "ready": "Ready",
+    "missing": {
+      "details": "Add a description so candidates understand the role.",
+      "requirements": "No requirements yet. Recommended, not required.",
+      "reference-skills": "No skills yet. Skills connect the job to matching candidates.",
+      "assessment": "No assessment yet. Candidates can still apply."
+    },
+    "edit": "Edit",
+    "alreadyPublished": "This job is published.",
+    "publishTitle": "Ready to publish?",
+    "publishBody": "Publishing makes the job visible to candidates. You can unpublish or close it at any time.",
+    "back": "Back",
+    "saveExit": "Exit setup",
+    "continue": "Continue",
+    "allJobs": "All jobs",
+    "progress": "Step {step} of {total}",
+    "descriptionTitle": "Job description",
+    "descriptionAr": "Job description in Arabic",
+    "descriptionEn": "Job description in English",
+    "descriptionHint": "What the role does day to day and its main responsibilities, one per line. Fill in at least one language. MIDAN builds the requirements, the AI assessment draft and the requirements match from it."
+  },
+  "candidatesPage": {
+    "search": "Search",
+    "searchPlaceholder": "Name, email or headline",
+    "allJobs": "All jobs",
+    "stage": "Stage",
+    "allStages": "All stages",
+    "closed": "Not selected",
+    "apply": "Apply filters",
+    "count": "{shown} candidates",
+    "removeFilter": "Remove filter: {filter}",
+    "clearAll": "Clear all",
+    "noMatch": "No candidates match these filters."
+  },
+  "orgAssessments": {
+    "lead": "Submissions waiting for your review, and how each job's assessments are progressing.",
+    "toReview": "Waiting for review",
+    "toReviewLead": "Proposed scores are only a starting point. A person on your team decides.",
+    "nothingToReview": "Nothing is waiting for review.",
+    "version": "version {n}",
+    "proposed": "Scores proposed",
+    "notStarted": "Not started",
+    "review": "Review",
+    "progressTitle": "Progress by job",
+    "progressLead": "Where candidates are in each job's assessment.",
+    "noAttempts": "No assessments sent yet.",
+    "noAttemptsBody": "Candidates receive the assessment once a job's assessment is published and they apply.",
+    "attempts": "{shown} sent",
+    "state": {
+      "invited": "Not started",
+      "in_progress": "In progress",
+      "submitted": "Submitted",
+      "expired": "Expired"
+    },
+    "reviewedCount": "{shown} submissions reviewed so far."
+  },
+  "orgInterviews": {
+    "lead": "Every interview across your jobs, by day.",
+    "ruleNote": "An interview can only be scheduled for a shortlisted candidate. Schedule it from the candidate's page.",
+    "upcoming": "Upcoming",
+    "noUpcoming": "No upcoming interviews",
+    "readyToSchedule": "{count} shortlisted candidates are ready for an interview.",
+    "noUpcomingBody": "Shortlist a candidate first, then schedule from their page.",
+    "minutes": "{minutes} min",
+    "scheduleTitle": "Shortlisted, ready to schedule",
+    "scheduleLead": "Open a candidate to schedule their interview.",
+    "past": "Past",
+    "howToStart": "Interviews appear here once you shortlist candidates and schedule them.",
+    "summary": {
+      "upcoming": "Upcoming",
+      "awaiting": "Awaiting the candidate",
+      "confirmed": "Confirmed",
+      "ready": "Ready to schedule"
+    },
+    "noneReady": "No one is shortlisted yet. Shortlist a candidate to arrange an interview."
+  },
+  "hiringBoard": {
+    "lead": "Every applicant in the stage they're in now. Change a status from the card; only the moves the system allows are offered.",
+    "allJobs": "All jobs",
+    "show": "Show",
+    "ruleInterview": "Interviews need a shortlisted candidate first.",
+    "ruleHire": "You can mark a candidate as hired once they're evaluated or shortlisted; a shortlist isn't required. Every assessment must be reviewed first.",
+    "emptyColumn": "No one here",
+    "notSelected": "{shown} not selected",
+    "viewThem": "View them"
+  },
+  "orgReports": {
+    "lead": "Your recruitment, from your organization's own records.",
+    "emptyTitle": "No reports yet",
+    "emptyBody": "Reports appear once you have jobs and applicants.",
+    "createJob": "Create a job",
+    "volumeTitle": "Application volume",
+    "volumeLead": "Applications per week over the last twelve weeks.",
+    "noApplications": "No applications yet.",
+    "progressionTitle": "Candidate progression",
+    "progressionLead": "Where applicants are now, by stage. This shows positions, not rates between stages.",
+    "jobsTitle": "Job performance",
+    "jobsLead": "Each job's applicants and assessment activity.",
+    "col": {
+      "applications": "Applications",
+      "inAssessment": "Assessments open",
+      "submitted": "Assessments submitted",
+      "shortlisted": "Shortlisted",
+      "hired": "Hired",
+      "stages": "Where applicants are"
+    },
+    "interviewsTitle": "Interview activity",
+    "interviewsLead": "Interviews by status.",
+    "noInterviews": "No interviews yet.",
+    "interview": {
+      "invited": "Awaiting the candidate",
+      "accepted": "Confirmed",
+      "reschedule_requested": "New time requested",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no_show": "No show"
+    },
+    "outcomesTitle": "Hiring outcomes",
+    "outcomesLead": "Decisions made so far.",
+    "noOutcomes": "No decisions yet.",
+    "outcome": {
+      "hired": "Hired",
+      "shortlisted": "Shortlisted",
+      "rejected": "Not selected"
+    },
+    "limits": "Not shown on purpose: time to hire and conversion rates between stages need each application's full history, which isn't available here yet. Scores aren't averaged across assessment versions because their criteria differ."
+  },
+  "workspacePages": {
+    "legend": "Stage colours"
+  },
+  "career": {
+    "eyebrow": "Your career journey",
+    "title": "Where you're heading, and what's next",
+    "lead": "Choose a professional destination, see what it asks for, and build evidence for it one step at a time. Everything here comes from your own records, and it stays yours whatever happens with any application.",
+    "loadFailed": "Your career information couldn't be loaded just now. Refresh the page to try again.",
+    "source": "Roles and skills come from the sector skills databases issued by the sectoral skills councils. Job families aren't official job titles.",
+    "nav": {
+      "label": "Career journey",
+      "journey": "Journey",
+      "roles": "Roles",
+      "skills": "Skills and gaps",
+      "learning": "Learning",
+      "practice": "Practice and evidence",
+      "levels": "Skill levels"
+    },
+    "destination": {
+      "eyebrow": "Your destination",
+      "none": "No destination yet",
+      "noneLead": "Choose a role to see the skills it asks for and the next step toward it.",
+      "family": "{family}, in the {sector} sector, as the sector skills database describes it.",
+      "titleOnly": "A title in your own words. Link it to a job family to see the skills the sector database lists for it.",
+      "details": "Role details",
+      "change": "Change destination",
+      "choose": "Choose a role"
+    },
+    "road": {
+      "label": "Your journey so far",
+      "steps": [
+        "Destination chosen",
+        "Activities planned",
+        "Work submitted",
+        "Results released",
+        "Applied"
+      ]
+    },
+    "start": {
+      "title": "Start by choosing where you're heading",
+      "body": "Pick a job family from the sector skills databases, or type a title in your own words. You'll see the skills the role asks for, and which of them nothing shows yet.",
+      "action": "Explore roles"
+    },
+    "next": {
+      "title": "What to work on next",
+      "lead": "The role's priority skills that nothing shows yet, first.",
+      "all": "All skills",
+      "none": "Every skill this role lists already has something behind it. Keep building evidence through practice and assessments.",
+      "noFamily": "Link your title to a job family to see which skills to work on.",
+      "learn": "{count, plural, one {# verified resource} other {# verified resources}}"
+    },
+    "evidence": {
+      "title": "What shows your skills",
+      "lead": "Counts of the role's skills by the evidence behind them. There's no readiness score: a skill is shown, listed, or not shown yet.",
+      "aria": "{listed} of {total} skills listed by you, {open} with nothing yet",
+      "listed": "Listed by you",
+      "listedHint": "Skills in your profile. A practical assessment hasn't shown them yet.",
+      "open": "Nothing yet",
+      "openHint": "Nothing shows these yet. That isn't a weakness.",
+      "shown": "Shown in assessments",
+      "shownHint": "At L3 or above, in results organizations released after review.",
+      "noFamily": "Link a job family to see its skills here."
+    },
+    "progress": {
+      "title": "Your progress",
+      "lead": "What you've recorded, done out of planned.",
+      "goals": "Skill goals",
+      "courses": "Courses",
+      "certifications": "Certifications",
+      "projects": "Projects",
+      "practice": "Practice tasks",
+      "resources": "Resources saved",
+      "note": "Progress is what you report. It doesn't verify a course, a certificate or a skill."
+    },
+    "jobs": {
+      "title": "Opportunities on this path",
+      "lead": "Jobs with titles like \"{title}\". Each one's requirements are its organization's own: open a job to see how your profile matches.",
+      "leadNoTitle": "Browse jobs in your target sector. Each one's requirements are its organization's own.",
+      "matching": "Jobs with a similar title",
+      "sector": "Jobs in this sector",
+      "all": "All opportunities"
+    },
+    "skill": {
+      "priority": "Priority",
+      "evidence": {
+        "self_reported": "Listed by you",
+        "no_evidence": "Nothing yet"
+      }
+    },
+    "roles": {
+      "eyebrow": "Choose a destination",
+      "title": "Explore roles",
+      "lead": "The job families of the sector skills databases, named in Arabic as the databases name them, with the number of technical skills each one lists. Open one to read its skills, then choose it as your destination.",
+      "search": "Search roles",
+      "searchPlaceholder": "Family names are in Arabic, for example: بيانات",
+      "searchButton": "Search",
+      "sectors": "Sectors",
+      "allSectors": "All sectors",
+      "familyCount": "{count, plural, one {# job family} other {# job families}}",
+      "skillCount": "{count, plural, one {# technical skill} other {# technical skills}}",
+      "current": "Your destination",
+      "noneTitle": "No role matches",
+      "noneBody": "Family names come from the Arabic sector databases, so search in Arabic. Try a shorter word, another sector, or type your own title below.",
+      "clear": "Clear the search",
+      "ownTitle": "Or describe it in your own words",
+      "ownLead": "Type the title you're aiming for. It's kept as you wrote it, and you can link it to a job family as well.",
+      "choose": "Choose as my destination",
+      "choosing": "Saving…"
+    },
+    "roleDetail": {
+      "breadcrumb": "Where you are",
+      "eyebrow": "Job family · {sector}",
+      "lead": "The sector skills database lists {technical} technical skills for this family. These are the skills it describes, priority skills first.",
+      "technical": "Technical skills",
+      "technicalLead": "What the work itself asks for.",
+      "general": "General skills",
+      "generalLead": "Skills that carry across roles.",
+      "noSkills": "The database lists no skills for this family yet.",
+      "capped": "The first 30 skills are shown, priority skills first.",
+      "afterTitle": "What happens when you choose it",
+      "after": [
+        "Its skills appear in your journey, each marked by what shows it.",
+        "Priority skills with nothing behind them yet become your next steps.",
+        "You can save goals, start practice tasks, and follow verified learning for each skill."
+      ],
+      "missingTitle": "Not shown, because the source doesn't have it",
+      "missingBody": "Responsibilities, tools and typical experience aren't part of the sector skills databases, so MIDAN doesn't make them up.",
+      "jobs": "Opportunities in {sector}"
+    },
+    "skillsPage": {
+      "eyebrow": "Skill gap analysis",
+      "title": "Skills and gaps",
+      "resultsTitle": "What your released results show",
+      "noneYet": "None yet.",
+      "levelsLink": "What the levels mean",
+      "openTitle": "Nothing shows these yet",
+      "openLead": "Priority skills first. Each can become a goal, a practice task or a portfolio project.",
+      "openNone": "Every skill this role lists has something behind it.",
+      "listedTitle": "Listed by you",
+      "listedLead": "In your profile, and not yet shown in a practical assessment. A portfolio project is a way to show one.",
+      "listedNone": "You haven't listed any of this role's skills.",
+      "toProfile": "Update your skills",
+      "familyTitle": "Link a job family to see its skills"
+    },
+    "learning": {
+      "eyebrow": "Courses, certifications and goals",
+      "title": "Learning",
+      "lead": "Your planned activities and verified resources for the role's skills. Each resource says which skill it develops and why it's here.",
+      "kinds": "Kinds of activity",
+      "allKinds": "All",
+      "kind": {
+        "skill_goal": "Skill goal",
+        "project": "Project",
+        "course": "Course",
+        "certification": "Certification"
+      },
+      "columnEmpty": "Nothing here.",
+      "forSkill": "For: {skill}",
+      "newTab": "(opens in a new tab)",
+      "resourcesTitle": "Verified resources for your role",
+      "resourcesLead": "Courses and certifications that MIDAN checked at the source, linked to the skill each one develops.",
+      "addToPlan": "Add to my plan",
+      "missing": "Difficulty, duration and learning outcomes aren't recorded for resources yet, so they aren't shown."
+    },
+    "practice": {
+      "eyebrow": "Practical experience",
+      "title": "Practice and evidence",
+      "filter": "Status",
+      "all": "All",
+      "empty": "You haven't started a practice task yet. Pick one of the suggested skills.",
+      "noneHere": "No practice task has this status.",
+      "evidenceTitle": "Your evidence",
+      "evidenceLead": "Work you've submitted or completed.",
+      "evidenceNone": "Nothing submitted yet.",
+      "notVerified": "Submitted work is your own record. MIDAN checks its shape, not its quality: it isn't verified, and no organization has assessed it.",
+      "suggestTitle": "Suggested skills to practise",
+      "suggestLead": "The role's priority skills with nothing behind them yet."
+    },
+    "levels": {
+      "eyebrow": "L0 to L4",
+      "title": "Skill levels",
+      "lead": "The five levels MIDAN uses when people assess practical work. Choose a level to see its definition, what changes from the level below, and an example.",
+      "ladder": "Skill levels",
+      "mineCount": "{count} yours",
+      "from": "At {code}",
+      "to": "At {code}",
+      "example": "Example: {skill}",
+      "field": "Field",
+      "exampleNote": "An illustrative example, not a criterion of any particular assessment.",
+      "mineTitle": "Your skills released at {code}",
+      "mineNone": "No results have been released to you yet. Levels come only from assessments an organization reviewed and released.",
+      "mineNoneHere": "None of your released results is at this level.",
+      "nextTitle": "Toward {code}",
+      "nextBody": "The next level reads: \"{next}\" Practice builds the experience; only an assessment reviewed by people can show the level.",
+      "toPractice": "Practise a skill",
+      "toAssessments": "Your assessments",
+      "where": "Levels come only from practical assessments reviewed by people and released by the organization. Practice tasks and skills you list never set a level."
+    }
+  },
+  "match": {
+    "title": "Requirements match",
+    "lead": "For each of the job's requirements, whether the profile submitted with this application shows it, and the line it used. A proposal for your team to confirm or correct: it never decides anything.",
+    "unavailable": "The requirements match isn't available right now. Everything else on this page is unaffected.",
+    "noRequirements": "This job has no approved requirements or required skills yet, so there's nothing to match. Add them in the job's workspace.",
+    "scoreNote": "Share of requirements shown, mandatory ones counting twice. Items that need review are left out.",
+    "reviewedCount": "Your team reviewed {reviewed} of {total}.",
+    "mandatoryMissing": "{count, plural, one {# mandatory requirement isn't shown in the profile} other {# mandatory requirements aren't shown in the profile}}",
+    "provenance": "Proposed by MIDAN from the submitted profile only, by comparing texts; nothing in a CV can instruct it. \"Not shown\" isn't proof the applicant lacks something.",
+    "fallback": "The fuller comparison was unavailable, so a simpler word comparison was used this time.",
+    "status": {
+      "matched": "Shown",
+      "partial": "Partly shown",
+      "missing": "Not shown",
+      "needs_review": "Needs review"
+    },
+    "decision": {
+      "confirmed": "Confirmed by your team",
+      "corrected": "Corrected by your team"
+    },
+    "kind": {
+      "qualification": "Qualification",
+      "education": "Education",
+      "experience": "Experience",
+      "responsibility": "Responsibility",
+      "daily_task": "Daily task",
+      "competency": "Competency",
+      "certification": "Certification",
+      "language": "Language",
+      "other": "Requirement",
+      "skill": "Required skill"
+    },
+    "mandatory": "mandatory",
+    "optional": "optional",
+    "source": {
+      "headline": "Headline",
+      "summary": "Summary",
+      "experience": "Experience",
+      "education": "Education",
+      "project": "Project",
+      "course": "Course",
+      "certification": "Certification",
+      "skill": "Listed skill",
+      "reference_skill": "Listed skill",
+      "own_skill": "Skill in their words",
+      "language": "Language"
+    },
+    "reason": {
+      "matched": "The {source} line states this requirement.",
+      "partial": "The {source} line is related, but doesn't clearly state it.",
+      "missing": "Nothing in the submitted profile relates to it.",
+      "needs_review": "MIDAN can't tell from the submitted profile.",
+      "listed_skill": "The applicant listed this skill.",
+      "too_short": "The requirement is too short to compare.",
+      "years_undated": "Asks for {min} years; the experience has no dates to check.",
+      "years_short": "Related experience, about {years} of the {min} years asked for.",
+      "uncertain": "The comparison is uncertain: check the line shown.",
+      "negated": "The profile states the opposite.",
+      "contradictory": "The profile both supports and contradicts it: check both lines.",
+      "assessed_skill": "A released assessment result shows this skill.",
+      "brief_evidence": "Only a title or a few words relate to it: relevant, but not a description of the work."
+    },
+    "similarity": "Similarity {score}%.",
+    "noProposal": "No proposal for this requirement.",
+    "noteLabel": "Note",
+    "confirm": "Confirm: {status}",
+    "correct": "Correct it",
+    "correctTo": "The right status",
+    "save": "Save review",
+    "cancel": "Cancel",
+    "counter": "The profile also says",
+    "candidateTitle": "How your profile meets each requirement",
+    "candidateLead": "Each requirement with the line from your profile that relates to it. A guide for you only: it doesn't affect any application, and a similar line isn't proof of a skill.",
+    "candidateUnavailable": "The requirement-by-requirement view isn't available right now; the skills match above still applies.",
+    "candidateStatus": {
+      "matched": "Your profile shows it",
+      "partial": "Partly shown",
+      "missing": "Not found in your profile",
+      "needs_review": "Unclear"
+    }
+  },
+  "assistant": {
+    "eyebrow": "Ask MIDAN",
+    "title": "Ask about your journey",
+    "leadCandidate": "Questions about your profile, career plan, applications, assessments and interviews, answered from what's in your account.",
+    "leadOrganization": "Questions about this organization's jobs, applicants, assessments and interviews, answered from what your role can see here.",
+    "log": "Conversation",
+    "emptyTitle": "What would you like to know?",
+    "emptyCandidate": "It answers from your own account only, shows what each answer is based on, and links to the page where you can act. It never does anything for you.",
+    "emptyOrganization": "It answers from this organization's records only, shows what each answer is based on, and links to the page where you can act. Decisions stay with your team.",
+    "suggestCandidate": [
+      "What should I work on next?",
+      "Where do my applications stand?",
+      "When is my next interview?",
+      "Which skills does my target role ask for that I haven't shown?"
+    ],
+    "suggestOrganization": [
+      "What needs our review?",
+      "Which shortlisted applicants have no interview yet?",
+      "How is each job doing?",
+      "Who hasn't submitted their assessment?"
+    ],
+    "ask": "Your question",
+    "placeholder": "Type your question",
+    "send": "Ask",
+    "thinking": "Looking through your records…",
+    "basedOn": "{count, plural, one {Based on # record} other {Based on # records}}",
+    "retrievalOnly": "Written answers aren't available right now: these are the closest records MIDAN holds.",
+    "ungrounded": "This answer didn't cite any of your records. Check it on the linked pages.",
+    "footer": "Answers come from your account's records and can be incomplete. Nothing here changes your account or anyone's application.",
+    "errors": {
+      "busy": "Too many questions in a short time. Wait a minute and ask again.",
+      "session": "Your session ended. Sign in again.",
+      "forbidden": "You don't have access to this.",
+      "invalid": "That question couldn't be sent. Shorten it and try again.",
+      "unavailable": "The assistant isn't available right now. Try again in a moment."
+    }
+  },
+  "showcase": {
+    "eyebrow": "Product showcase",
+    "title": "What MIDAN does today, honestly",
+    "lead": "A recruitment and career-development platform where skills are shown through real work. This page separates what works and was tested from what runs on real services and what isn't built yet.",
+    "evidence": "Checked by",
+    "works": {
+      "eyebrow": "Works today",
+      "title": "Implemented and tested",
+      "lead": "Each item runs end to end on the local platform with fictional data, and is covered by automated tests.",
+      "items": [
+        {
+          "title": "Apply once, assess right away",
+          "body": "Candidates apply to published jobs; duplicate applications open the existing one; the job's approved assessment is assigned on applying.",
+          "evidence": "API end-to-end and browser journey tests"
+        },
+        {
+          "title": "Job-specific assessments, published by people",
+          "body": "Drafts are generated from the job's requirements, checked against the MIDAN Assessment Standard, edited and approved by the organization. Nothing is published automatically.",
+          "evidence": "API end-to-end tests; the quality gate refuses drafts that aren't ready"
+        },
+        {
+          "title": "Evaluation with human review",
+          "body": "Written work is scored per criterion with a quote from the answer as evidence; every result waits for a person before it is released.",
+          "evidence": "API end-to-end and live-journey tests"
+        },
+        {
+          "title": "Requirements match with evidence",
+          "body": "For each requirement: shown, partly shown, not shown or needs review, with the line from the submitted profile and a reason. Staff confirm or correct; nothing is decided automatically.",
+          "evidence": "AI service and API end-to-end tests, including tenant isolation"
+        },
+        {
+          "title": "Career journey",
+          "body": "Choose a role from the sector skills databases, see its skills by evidence, plan learning, practise, and see L0–L4 levels. No readiness percentages.",
+          "evidence": "Checked in the browser against the real API"
+        },
+        {
+          "title": "Assistant grounded in your own records",
+          "body": "Candidates and organizations ask questions; answers cite the records they used and link to the page where you act. It never acts itself.",
+          "evidence": "AI service tests and API end-to-end permission tests"
+        },
+        {
+          "title": "Interviews and hiring",
+          "body": "Interviews only for shortlisted applicants, private video rooms, structured feedback, and decisions issued by people.",
+          "evidence": "API end-to-end and browser tests"
+        },
+        {
+          "title": "Organizations kept apart",
+          "body": "Each organization sees only its own jobs, applicants and branding. Row-level security on every table.",
+          "evidence": "Database security tests and cross-organization API tests"
+        },
+        {
+          "title": "Arabic and English, light and dark",
+          "body": "Right-to-left and left-to-right from the same screens, on phone, tablet and desktop.",
+          "evidence": "Browser tests in both languages and both themes"
+        }
+      ]
+    },
+    "real": {
+      "eyebrow": "Real services",
+      "title": "Verified against the live providers",
+      "lead": "These were exercised against the real services with fictional data, not mocks.",
+      "items": [
+        {
+          "title": "CV reading and scoring",
+          "body": "Groq with openai/gpt-oss-120b reads CVs (personal details stay on MIDAN), drafts assessments and scores written work.",
+          "evidence": "Real calls on 8 November 2026; the account's per-minute limit caps how many drafts run back to back"
+        },
+        {
+          "title": "Video interviews",
+          "body": "Private Daily.co rooms with a short-lived token per participant; everyone else is refused.",
+          "evidence": "Real rooms created, joined and deleted on 8 November 2026"
+        },
+        {
+          "title": "Calendar events",
+          "body": "Interview events are created, moved and cancelled in Google Calendar, with attendee emails switched off in the demo.",
+          "evidence": "Real events on 8 November 2026"
+        }
+      ]
+    },
+    "planned": {
+      "eyebrow": "Not built yet",
+      "title": "What isn't there, said plainly",
+      "lead": "These need a decision, a credential or more work. The platform doesn't pretend to do them.",
+      "items": [
+        {
+          "title": "Semantic matching models in production",
+          "body": "multilingual-e5-base was measured locally; BAAI/bge-m3 needs a Hugging Face token to measure. Matching runs on word comparison until a model is chosen and deployed.",
+          "evidence": "docs/ai/ATS_MATCHING.md"
+        },
+        {
+          "title": "Email notifications",
+          "body": "Notifications are in-app; no email provider is set up.",
+          "evidence": "Admin service status"
+        },
+        {
+          "title": "Saved jobs, report export, role responsibilities",
+          "body": "Listed with proposed contracts in the frontend–backend handoff.",
+          "evidence": "docs/design/MIDAN_FRONTEND_BACKEND_HANDOFF.md"
+        },
+        {
+          "title": "Production hosting",
+          "body": "Everything shown runs on a local stack. Deployment, backups and monitoring follow the deployment and recovery checklists.",
+          "evidence": "docs/deployment.md, docs/operations/"
+        }
+      ]
+    },
+    "path": {
+      "eyebrow": "The demo path",
+      "title": "One hiring journey, end to end",
+      "note": "The demo uses synthetic organizations, jobs and people, all labelled as such, on a local copy of the platform.",
+      "steps": [
+        {
+          "who": "Organization",
+          "title": "Publish a job",
+          "body": "Requirements, skills and an approved, job-specific assessment."
+        },
+        {
+          "who": "Candidate",
+          "title": "Apply and do the work",
+          "body": "A real scenario with a deadline, saved as it goes."
+        },
+        {
+          "who": "Organization",
+          "title": "Review with evidence",
+          "body": "Scores with quotes, the requirements match, and a person's review."
+        },
+        {
+          "who": "Both",
+          "title": "Interview and decide",
+          "body": "A private room, feedback, and a decision issued by people."
+        }
+      ]
+    },
+    "honesty": "MIDAN is under development. Nothing on this page refers to customers, revenue or prices; the examples are fictional.",
+    "closing": "See it with real work, not promises",
+    "ctaExplore": "Explore opportunities",
+    "ctaOrganizations": "For organizations"
   }
 }

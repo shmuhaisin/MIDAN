@@ -27,7 +27,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       <nav aria-label={t('filter')} className="flex flex-wrap gap-2 text-sm">
         {FILTERS.map((f) => (
           <Link key={f || 'all'} href={`/admin/listings${f ? `?review=${f}` : ''}`} aria-current={review === f ? 'page' : undefined}
-            className={review === f ? 'rounded-full bg-primary px-3 py-1 font-semibold text-primary-foreground' : 'rounded-full border border-border px-3 py-1'}>
+            className={review === f ? 'btn btn-primary' : 'rounded-full border border-border px-3 py-1'}>
             {t(`filters.${f || 'all'}`)}
           </Link>
         ))}

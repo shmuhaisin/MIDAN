@@ -1,6 +1,7 @@
 import { withApplicantName } from '../common/applicant';
 import { Body, Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Patch, Post, ServiceUnavailableException, UnprocessableEntityException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { randomBytes } from 'node:crypto';
 import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsArray, IsEnum, IsIn, IsInt, IsISO8601, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
@@ -19,10 +20,19 @@ class CreateOrganizationDto {
 }
 
 class CreateJobDto {
-  @ApiProperty() @IsString() @Matches(SLUG) @MaxLength(80) slug!: string;
+  /** Optional: when left out, one is made from the English title. Employers aren't asked for it. */
+  @ApiPropertyOptional() @IsOptional() @IsString() @Matches(SLUG) @MaxLength(80) slug?: string;
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(200) title_ar!: string;
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(200) title_en!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(8000) description_ar?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(8000) description_en?: string;
   @ApiPropertyOptional({ enum: job_status }) @IsOptional() @IsEnum(job_status) status?: job_status;
+}
+
+/** A job's address from its English title, with a random ending so two jobs with the same title don't collide. */
+export function jobSlug(title: string) {
+  const base = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/, '');
+  return `${base || 'job'}-${randomBytes(3).toString('hex')}`;
 }
 
 class BrandingDto {
@@ -147,7 +157,7 @@ export class OrganizationsController {
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, ['owner', 'admin', 'recruiter']);
       return tx.jobs.create({
-        data: { ...body, org_id: orgId, published_at: body.status === 'published' ? new Date() : null },
+        data: { ...body, slug: body.slug ?? jobSlug(body.title_en), org_id: orgId, published_at: body.status === 'published' ? new Date() : null },
       });
     });
   }

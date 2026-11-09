@@ -320,3 +320,56 @@ def test_real_provider_generates_a_package_the_evaluator_can_judge(choice):
     # A real model's draft is judged, not assumed good: the report must exist and say why if it isn't ready.
     assert payload["quality"]["verdict"] in ("ready", "needs_revision", "blocked")
     assert payload["quality"]["verdict"] == "ready" or payload["quality"]["required_revisions"]
+
+
+# --- the repair round: MIDAN's quality findings go back to the model once ---------------------------------------------------
+
+def _short_scenario() -> dict:
+    pkg = fixture.package()
+    pkg["candidate_brief"] = {**pkg["candidate_brief"], "scenario_en": "Sales fell.", "scenario_ar": "انخفضت المبيعات."}
+    return pkg
+
+
+def _scripted(*replies):
+    sent = []
+
+    def complete(system, user):
+        sent.append(user)
+        reply = replies[min(len(sent) - 1, len(replies) - 1)]
+        return reply if isinstance(reply, str) else json.dumps(reply, ensure_ascii=False)
+    return complete, sent
+
+
+def test_a_blocked_live_draft_gets_one_repair_round_and_the_better_draft_is_kept():
+    complete, sent = _scripted(_short_scenario(), fixture.package())
+    payload = _graph_payload(JsonLLMProvider(complete, "mock-model"), fixture.job())
+    assert len(sent) == 2
+    assert "<draft>" in sent[1] and "quality check refused" in sent[1] and "scenario is too short" in sent[1]
+    assert payload["quality"]["verdict"] == "ready" and "ai_repaired" in payload["warnings"]
+    assert payload["provenance"]["mode"] == "live"
+
+
+def test_a_failed_repair_keeps_the_first_live_draft_and_says_so():
+    complete, sent = _scripted(_short_scenario(), "not json")
+    payload = _graph_payload(JsonLLMProvider(complete, "mock-model"), fixture.job())
+    assert len(sent) == 2 and payload["provenance"]["mode"] == "live"  # still the model's draft, not templates
+    assert payload["quality"]["verdict"] != "ready" and "ai_repair_unavailable" in payload["warnings"]
+
+
+def test_a_ready_draft_is_not_sent_back():
+    complete, sent = _scripted(fixture.package())
+    payload = _graph_payload(JsonLLMProvider(complete, "mock-model"), fixture.job())
+    assert len(sent) == 1 and payload["quality"]["verdict"] == "ready"
+    assert not {"ai_repaired", "ai_repair_unavailable", "ai_repair_not_better"} & set(payload["warnings"])
+
+
+def test_when_only_the_guide_is_wrong_only_the_guide_and_materials_go_back():
+    wrong = fixture.package()
+    calc = wrong["assessor_guide"]["calculations"][0]
+    calc["check"] = {**calc["check"], "expect": 999999}
+    complete, sent = _scripted(wrong, fixture.package()["assessor_guide"])
+    payload = _graph_payload(JsonLLMProvider(complete, "mock-model"), fixture.job())
+    assert len(sent) == 2
+    assert sent[1].startswith("<materials>") and "<assessor_guide>" in sent[1] and "<job>" not in sent[1]
+    assert "doesn't match the guide" in sent[1]
+    assert payload["quality"]["verdict"] == "ready" and "ai_repaired" in payload["warnings"]

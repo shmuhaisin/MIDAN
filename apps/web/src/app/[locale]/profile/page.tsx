@@ -5,6 +5,8 @@ import { Link, redirect } from '@/i18n/navigation';
 import type { CvAnalysis } from '@/lib/candidate-actions';
 import { apiForPage } from '@/lib/api';
 import { getSession } from '@/lib/session';
+import { Section } from '@/components/ui';
+import { Masthead } from '@/components/workspace-kit';
 
 type Me = { display_name: string | null; candidate_profiles: ProfileData; candidate_skills: { skill_id: string }[] };
 
@@ -19,24 +21,24 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     apiForPage<{ reference_skills: { id: string; name_ar: string; sector_code: string } }[]>('/me/reference-skills'),
   ]);
   const t = await getTranslations({ locale, namespace: 'profile' });
+  const tc = await getTranslations({ locale, namespace: 'candidateNav' });
   const profile = me?.candidate_profiles ?? null;
   return (
     <>
-    <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <h1 className="page-title">{t('title')}</h1>
-      <p className="mt-1.5 max-w-2xl text-muted">{t('lead')}</p>
-      <p className="mt-3 mb-6 text-sm text-muted">{t('demoWarning')}</p>
-      <div className="grid gap-10 lg:grid-cols-[1fr_20rem] lg:items-start">
-        <ProfileForm profile={profile} selected={me?.candidate_skills.map((s) => s.skill_id) ?? []} fallbackName={me?.display_name ?? ''} />
-        <div className="lg:sticky lg:top-24"><CvPanel hasCv={Boolean(profile?.cv_path)} hasProfile={Boolean(profile)} analysis={analysis} /></div>
+    <section className="container-page py-8 lg:py-10">
+      <Masthead eyebrow={tc('profile')} title={t('title')} lead={t('lead')} />
+      <p className="callout mt-6 mb-10 text-sm">{t('demoWarning')}</p>
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start lg:gap-12">
+        <div className="min-w-0 space-y-12">
+          <ProfileForm profile={profile} selected={me?.candidate_skills.map((s) => s.skill_id) ?? []} fallbackName={me?.display_name ?? ''} />
+          {profile && (
+            <Section id="reference-skills" title={t('skills')} lead={t('skillsLead')}>
+              <SkillsEditor selected={(picked ?? []).map((p) => p.reference_skills)} own={profile.self_reported_skills ?? []} suggestions={suggestions ?? []} />
+            </Section>
+          )}
+        </div>
+        <div className="lg:sticky lg:top-28"><CvPanel hasCv={Boolean(profile?.cv_path)} hasProfile={Boolean(profile)} analysis={analysis} /></div>
       </div>
-      {profile && (
-        <section aria-labelledby="reference-skills" className="mt-10 max-w-3xl">
-          <h2 id="reference-skills" className="section-title">{t('skills')}</h2>
-          <p className="mb-3 text-sm text-muted">{t('skillsLead')}</p>
-          <SkillsEditor selected={(picked ?? []).map((p) => p.reference_skills)} own={profile.self_reported_skills ?? []} suggestions={suggestions ?? []} />
-        </section>
-      )}
     </section>
     </>
   );

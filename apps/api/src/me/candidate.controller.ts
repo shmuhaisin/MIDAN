@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { Body, Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, ServiceUnavailableException, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { AiClient } from '../ai/ai.client';
+import { evidenceFrom } from '../applications/match.controller';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { signedUrl, storageFetch } from '../common/storage';
 import { listableJobs } from '../common/test-data';
@@ -125,7 +127,7 @@ const ATTEMPT_DETAILS = {
 @UseGuards(AuthGuard)
 @Controller('me')
 export class CandidateController {
-  constructor(private readonly db: DbService) {}
+  constructor(private readonly db: DbService, private readonly ai: AiClient) {}
 
   @Get('dashboard')
   @ApiOperation({ summary: "Everything on a candidate's dashboard, from real records. Works with no data at all." })
@@ -302,13 +304,59 @@ export class CandidateController {
   }
 
   @Get('jobs/:id/match')
-  @ApiOperation({ summary: 'Which required skills the candidate has evidence for. See calculateMatch for the definition.' })
-  match(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
-    return this.db.asUser(user, async (tx) => {
+  @ApiOperation({
+    summary: 'How the candidate\'s own profile relates to a published job: required skills with evidence (calculateMatch), and per requirement the line that shows it.',
+    description: 'The semantic part is a proposal: similarity is not proof of competence. If the analysis service is slow or down, `semantic` carries the reason and the skills match still answers.',
+  })
+  async match(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    const data = await this.db.asUser(user, async (tx) => {
       const job = await tx.jobs.findFirst({ where: { id, status: 'published' }, select: JOB_SKILLS });
       if (!job) throw new NotFoundException();
-      return calculateMatch(job, await candidateEvidence(tx, user.id));
+      const [evidence, requirements, profile] = await Promise.all([
+        candidateEvidence(tx, user.id),
+        tx.job_requirements.findMany({
+          where: { job_id: id, retired_at: null, review_status: 'approved', requirement_type: { not: 'daily_task' } },
+          orderBy: [{ position: 'asc' }, { created_at: 'asc' }],
+          select: { id: true, requirement_type: true, description_ar: true, description_en: true, is_mandatory: true, min_years: true, skill_id: true },
+        }),
+        tx.candidate_profiles.findUnique({
+          where: { user_id: user.id },
+          select: { headline: true, summary: true, experience: true, education: true, projects: true, courses: true, certifications: true, self_reported_skills: true, languages: true },
+        }),
+      ]);
+      return { job, evidence, requirements, profile };
     });
+    const base = calculateMatch(data.job, data.evidence);
+    return { ...base, semantic: await this.semanticMatch(data).catch(() => ({ error: 'unavailable' as const })) };
+  }
+
+  /** Requirement-by-requirement matching of the candidate's own profile, through the analysis service. */
+  private async semanticMatch({ job, evidence, requirements, profile }: {
+    job: JobSkills; evidence: Awaited<ReturnType<typeof candidateEvidence>>;
+    requirements: { id: string; requirement_type: string; description_ar: string | null; description_en: string | null; is_mandatory: boolean; min_years: unknown; skill_id: string | null }[];
+    profile: Record<string, unknown> | null;
+  }) {
+    const required = [
+      ...job.job_skills.filter((s) => s.is_required).map((s) => s.skills),
+      ...job.job_reference_skills.filter((s) => s.is_required).map((s) => ({ id: s.reference_skills.id, name_ar: s.reference_skills.name_ar, name_en: null })),
+    ];
+    const items = [
+      ...requirements.map((r) => ({ key: `requirement:${r.id}`, kind: r.requirement_type, text_ar: r.description_ar, text_en: r.description_en, mandatory: r.is_mandatory, min_years: r.min_years == null ? null : Number(r.min_years), skill_id: r.skill_id })),
+      ...required.map((s) => ({ key: `skill:${s.id}`, kind: 'skill', text_ar: s.name_ar, text_en: s.name_en, mandatory: true, min_years: null, skill_id: s.id })),
+    ].filter((r) => r.text_ar || r.text_en);
+    if (items.length === 0) return { requirements: [], summary: null, provenance: null };
+    // Explicit skill evidence travels as structure: a released assessment result, or the skill as the candidate listed it.
+    const structured = required.flatMap((s, k) => [
+      ...(evidence.assessed.has(s.id) ? [{ id: `assessed_skill:${k}`, text: s.name_en ?? s.name_ar, source: 'assessed_skill', skill_id: s.id }] : []),
+      ...(evidence.listed.has(s.id) ? [{ id: `skill:${k}`, text: s.name_en ?? s.name_ar, source: 'skill', skill_id: s.id }] : []),
+    ]);
+    type Proposal = { key: string; status: string; score: number; evidence_text: string | null; evidence_source: string | null; counter_evidence_text: string | null; reason_code: string; reason_params: Record<string, number> };
+    const result = await this.ai.matchRequirements<{ matches: Proposal[]; summary: unknown; provenance: unknown }>({
+      requirements: items.map((r) => ({ key: r.key, text: [r.text_ar, r.text_en].filter(Boolean).join(' / '), mandatory: r.mandatory, min_years: r.min_years, skill_id: r.skill_id })),
+      evidence: [...evidenceFrom(profile as never), ...structured],
+    });
+    const proposals = new Map(result.matches.map((m) => [m.key, m]));
+    return { requirements: items.map((r) => ({ ...r, proposal: proposals.get(r.key) ?? null })), summary: result.summary, provenance: result.provenance };
   }
 
   @Get('notifications')

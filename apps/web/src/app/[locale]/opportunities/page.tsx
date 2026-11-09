@@ -16,6 +16,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: 'jobs' });
+  const tn = await getTranslations({ locale, namespace: 'nav' });
   const query = await searchParams;
   const demo = query.demo === '1';
   const filters = Object.fromEntries(FILTERS.map((key) => [key, (query[key] ?? '').slice(0, 200)])) as JobFilters;
@@ -34,9 +35,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     demo ? undefined : api<ListingsResult>(`/jobs/external?${listingsQuery}`),
   ]);
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <PageHeader title={t(demo ? 'demoTitle' : 'title')} lead={t(demo ? 'demoLead' : 'lead')} className="mb-5">
-        {!demo && <Link href="/employers" className="text-sm font-semibold text-primary underline underline-offset-4">{t('browseEmployers')}</Link>}
+    <section className="container-page py-10 lg:py-14">
+      <PageHeader eyebrow={tn('opportunities')} title={t(demo ? 'demoTitle' : 'title')} lead={t(demo ? 'demoLead' : 'lead')} className="mb-10">
+        {!demo && <Link href="/employers" className="btn btn-secondary btn-sm">{t('browseEmployers')}</Link>}
       </PageHeader>
       <JobsBrowser result={result} external={external} filters={filters} demo={demo} />
     </section>

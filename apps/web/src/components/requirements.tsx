@@ -42,17 +42,17 @@ function RequirementForm({ orgId, jobId, initial, onDone }: { orgId: string; job
   return (
     <form onSubmit={submit} className="grid gap-3 rounded-lg bg-surface p-4 sm:grid-cols-2">
       <label className="block sm:col-span-2">
-        <span className="text-sm font-medium">{t('typeLabel')}</span>
+        <span className="field-label">{t('typeLabel')}</span>
         <select value={type} onChange={(e) => setType(e.target.value)} className={INPUT}>
           {REQUIREMENT_TYPES.map((k) => <option key={k} value={k}>{t(`type.${k}`)}</option>)}
         </select>
       </label>
       <label className="block">
-        <span className="text-sm font-medium">{t('textAr')}</span>
+        <span className="field-label">{t('textAr')}</span>
         <textarea dir="rtl" rows={2} maxLength={4000} value={ar} onChange={(e) => setAr(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} />
       </label>
       <label className="block">
-        <span className="text-sm font-medium">{t('textEn')}</span>
+        <span className="field-label">{t('textEn')}</span>
         <textarea dir="ltr" rows={2} maxLength={4000} value={en} onChange={(e) => setEn(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} />
       </label>
       {type === 'experience' && (
@@ -150,7 +150,7 @@ export function RequirementsEditor({ orgId, jobId, requirements, versionIds, can
                 <RequirementForm orgId={orgId} jobId={jobId} onDone={() => setAdding(false)} />
               </motion.div>
             ) : (
-              <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-2 rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold transition-colors hover:bg-surface-2">
+              <button type="button" onClick={() => setAdding(true)} className="btn btn-secondary btn-sm">
                 <span aria-hidden>+</span>{t('add')}
               </button>
             )}
@@ -194,7 +194,7 @@ export function TaskRequirementPicker({ orgId, taskId, requirements, selected, e
           <button
             type="button" disabled={pending} aria-busy={pending}
             onClick={() => start(async () => setState(await setTaskRequirements(orgId, taskId, [...chosen])))}
-            className="rounded-full border border-border px-3 py-1.5 text-sm font-semibold hover:bg-surface-2 disabled:opacity-60"
+            className="btn btn-secondary btn-sm"
           >
             {t('saveMapping')}
           </button>

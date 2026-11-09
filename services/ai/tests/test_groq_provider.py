@@ -188,3 +188,24 @@ def test_a_too_large_request_says_why(calls):
     queue.append(Reply(413))
     with pytest.raises(LLMError, match="tokens-per-minute"):
         _groq("m", "k")("s", "u")
+
+
+def test_whole_package_generation_sends_no_schema_and_gets_a_larger_output_budget(calls):
+    seen, queue = calls
+    queue.append(Reply(200, {"choices": [{"finish_reason": "stop", "message": {"content": "{}"}}]}))
+    _groq("openai/gpt-oss-120b", "k", max_tokens=3300)("s", "u", schema=("GeneratedAssessment", {"type": "object"}))
+    body = seen[0]["json"]
+    assert body["response_format"] == {"type": "json_object"} and body["max_completion_tokens"] == 5200
+
+
+def test_a_string_where_a_list_of_strings_belongs_is_mended_and_nothing_else():
+    from midan_ai.providers import _lists_as_lists
+    from midan_ai.schemas import GeneratedAssessment
+    raw = {"tasks": [{"task_type": "written_case_study", "title_ar": "أ", "title_en": "a", "instructions_ar": "ب", "instructions_en": "b",
+                      "requirement_ids": "r1"}],
+           "assessor_guide": {"verification_steps": "1. Check the totals\n2. Check the units", "boundaries": "Fictional data only"}}
+    out = _lists_as_lists(GeneratedAssessment, raw)
+    assert out["tasks"][0]["requirement_ids"] == ["r1"]
+    assert out["assessor_guide"]["verification_steps"] == ["1. Check the totals", "2. Check the units"]
+    assert out["assessor_guide"]["boundaries"] == ["Fictional data only"]
+    assert out["tasks"][0]["title_en"] == "a"  # strings stay strings

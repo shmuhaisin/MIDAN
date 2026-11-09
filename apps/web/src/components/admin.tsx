@@ -9,25 +9,29 @@ import {
 } from '@/lib/admin-actions';
 import type { ListingPreview } from '@/lib/admin-actions';
 import { ErrorText, INPUT, openFileLink, PRIMARY, useAction } from './forms';
+import { Icon } from './icons';
 
 const SECTIONS = [
-  ['', 'overview'], ['/review', 'review'], ['/imports', 'imports'], ['/employers', 'employers'], ['/listings', 'listings'], ['/claims', 'claims'],
-  ['/reference', 'reference'], ['/learning', 'learning'], ['/accounts', 'accounts'], ['/queue', 'queue'], ['/audit', 'audit'],
+  ['', 'overview', 'layers'], ['/review', 'review', 'inbox'], ['/imports', 'imports', 'file'], ['/employers', 'employers', 'building'], ['/listings', 'listings', 'list'], ['/claims', 'claims', 'shield'],
+  ['/reference', 'reference', 'search'], ['/learning', 'learning', 'growth'], ['/accounts', 'accounts', 'users'], ['/queue', 'queue', 'clock'], ['/audit', 'audit', 'list'],
 ] as const;
 
+/** The console's sections: a column in the sidebar on wide screens, a scrolling strip on phones. */
 export function AdminNav() {
   const t = useTranslations('admin.nav');
   const pathname = usePathname();
   return (
-    <nav aria-label={t('label')} className="border-b border-border">
-      <ul className="flex gap-1 overflow-x-auto">
-        {SECTIONS.map(([path, key]) => {
+    <nav aria-label={t('label')}>
+      <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:gap-0.5 lg:overflow-visible">
+        {SECTIONS.map(([path, key, icon]) => {
           const href = `/admin${path}`;
           const current = path === '' ? pathname === '/admin' : pathname.startsWith(href);
           return (
             <li key={key} className="shrink-0">
               <Link href={href} aria-current={current ? 'page' : undefined}
-                className={clsx('inline-block border-b-2 px-3 py-2.5 text-sm transition-colors hover:text-foreground', current ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted')}>
+                className={clsx('relative flex items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-sm transition-colors', current ? 'bg-mint/12 font-semibold text-ivory' : 'text-deep-muted hover:bg-mint/8 hover:text-ivory')}>
+                {current && <span aria-hidden className="absolute inset-y-2 start-0 w-0.5 bg-brand-gold" />}
+                <Icon name={icon} className="size-4" />
                 {t(key)}
               </Link>
             </li>
@@ -38,7 +42,7 @@ export function AdminNav() {
   );
 }
 
-const LINK_BUTTON = 'text-sm font-semibold underline underline-offset-4 disabled:opacity-60';
+const LINK_BUTTON = 'link text-sm disabled:opacity-60';
 
 export function RecordActions({ id }: { id: number }) {
   const t = useTranslations('admin.review');
@@ -83,7 +87,7 @@ export function ListingActions({ id, matchStatus, reviewStatus, published, dupli
         {reviewStatus !== 'rejected' && <button type="button" disabled={pending} onClick={() => act('reject')} className={clsx(LINK_BUTTON, 'text-muted')}>{t('reject')}</button>}
         {duplicate && <button type="button" disabled={pending} onClick={() => act('not_duplicate')} className={LINK_BUTTON}>{t('notDuplicate')}</button>}
         {reviewStatus === 'approved' && confirmed && !duplicate && !published && (
-          <button type="button" disabled={pending} onClick={() => act('publish')} className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{t('publish')}</button>
+          <button type="button" disabled={pending} onClick={() => act('publish')} className="btn btn-primary btn-sm">{t('publish')}</button>
         )}
         {published && <button type="button" disabled={pending} onClick={() => act('unpublish')} className={LINK_BUTTON}>{t('unpublish')}</button>}
         {reviewStatus === 'approved' && confirmed && !duplicate && !jobId && (
@@ -108,17 +112,17 @@ export function AliasForm({ registryId }: { registryId: string }) {
   return (
     <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); fire(); }}>
       <label className="block min-w-48 flex-1">
-        <span className="text-sm font-medium">{t('aliasName')}</span>
+        <span className="field-label">{t('aliasName')}</span>
         <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={300} className={INPUT} />
       </label>
       <label className="block">
-        <span className="text-sm font-medium">{t('aliasLanguage')}</span>
+        <span className="field-label">{t('aliasLanguage')}</span>
         <select value={language} onChange={(e) => setLanguage(e.target.value as 'ar' | 'en')} className={INPUT}>
           <option value="ar">العربية</option>
           <option value="en">English</option>
         </select>
       </label>
-      <button type="submit" disabled={pending} className="min-h-11 rounded-full border border-foreground/30 px-4 text-sm font-semibold disabled:opacity-60">{t('addAlias')}</button>
+      <button type="submit" disabled={pending} className="btn btn-secondary btn-sm">{t('addAlias')}</button>
       <div className="w-full"><ErrorText code={error} /></div>
     </form>
   );
@@ -136,11 +140,11 @@ export function AdminGrantForm() {
   return (
     <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); fire(); }}>
       <label className="block min-w-60 flex-1">
-        <span className="text-sm font-medium">{t('email')}</span>
+        <span className="field-label">{t('email')}</span>
         <input type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} required className={INPUT} />
       </label>
       <label className="block">
-        <span className="text-sm font-medium">{t('change')}</span>
+        <span className="field-label">{t('change')}</span>
         <select value={grant ? 'grant' : 'revoke'} onChange={(e) => setGrant(e.target.value === 'grant')} className={INPUT}>
           <option value="grant">{t('grant')}</option>
           <option value="revoke">{t('revoke')}</option>
@@ -194,17 +198,17 @@ export function ResourceForm() {
       <h2 className="section-title">{t('add')}</h2>
       <p className="text-sm text-muted">{t('rule')}</p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block"><span className="text-sm font-medium">{t('kind')}</span>
+        <label className="block"><span className="field-label">{t('kind')}</span>
           <select name="kind" className={INPUT}><option value="course">{t('course')}</option><option value="certification">{t('certification')}</option></select>
         </label>
-        <label className="block"><span className="text-sm font-medium">{t('provider')}</span><input name="provider" required maxLength={120} className={INPUT} /></label>
-        <label className="block"><span className="text-sm font-medium">{t('titleAr')}</span><input name="title_ar" maxLength={300} className={INPUT} /></label>
-        <label className="block"><span className="text-sm font-medium">{t('titleEn')}</span><input name="title_en" dir="ltr" maxLength={300} className={INPUT} /></label>
-        <label className="block"><span className="text-sm font-medium">{t('url')}</span><input name="url" type="url" dir="ltr" required pattern="https://.+" className={INPUT} /></label>
-        <label className="block"><span className="text-sm font-medium">{t('verifiedOn')}</span><input name="verified_on" type="date" required className={INPUT} /></label>
+        <label className="block"><span className="field-label">{t('provider')}</span><input name="provider" required maxLength={120} className={INPUT} /></label>
+        <label className="block"><span className="field-label">{t('titleAr')}</span><input name="title_ar" maxLength={300} className={INPUT} /></label>
+        <label className="block"><span className="field-label">{t('titleEn')}</span><input name="title_en" dir="ltr" maxLength={300} className={INPUT} /></label>
+        <label className="block"><span className="field-label">{t('url')}</span><input name="url" type="url" dir="ltr" required pattern="https://.+" className={INPUT} /></label>
+        <label className="block"><span className="field-label">{t('verifiedOn')}</span><input name="verified_on" type="date" required className={INPUT} /></label>
       </div>
       <div>
-        <label className="block"><span className="text-sm font-medium">{t('skill')}</span>
+        <label className="block"><span className="field-label">{t('skill')}</span>
           <input value={query} onChange={(e) => {
             setQuery(e.target.value);
             const q = e.target.value;
@@ -244,7 +248,7 @@ export function EmployerLinkForm({ orgId, current, employers }: { orgId: string;
           {employers.map((e) => <option key={e.id} value={e.id}>{e.source_company_id} · {e.name_ar}</option>)}
         </select>
       </label>
-      <button type="submit" disabled={pending || value === (current ?? '')} className="text-sm font-semibold text-primary underline underline-offset-4 disabled:opacity-50">{t('link')}</button>
+      <button type="submit" disabled={pending || value === (current ?? '')} className="text-sm link disabled:opacity-50">{t('link')}</button>
       <ErrorText code={error} />
     </form>
   );
@@ -317,7 +321,7 @@ export function ListingUpload() {
           </ul>
           {preview.missing_columns.length > 0 && <p role="alert" className="text-sm text-error">{t('missingColumns', { columns: preview.missing_columns.join('، ') })}</p>}
           {preview.unknown_columns.length > 0 && <p className="text-sm text-muted">{t('unknownColumns', { columns: preview.unknown_columns.join('، ') })}</p>}
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[40rem] text-start text-sm">
               <caption className="sr-only">{t('summary', { file: preview.file, total: preview.total })}</caption>
               <thead className="bg-surface-2 text-xs text-muted">
@@ -365,7 +369,7 @@ export function ClaimReview({ claim }: { claim: AdminClaim }) {
   return (
     <div className="space-y-2">
       {claim.has_evidence && (
-        <button type="button" onClick={() => start(() => openFileLink(() => adminClaimEvidenceLink(claim.id), setError))} className="text-sm font-semibold text-primary underline underline-offset-4">{t('openEvidence')}</button>
+        <button type="button" onClick={() => start(() => openFileLink(() => adminClaimEvidenceLink(claim.id), setError))} className="text-sm link">{t('openEvidence')}</button>
       )}
       {claim.status === 'pending' && (
         <>
@@ -375,7 +379,7 @@ export function ClaimReview({ claim }: { claim: AdminClaim }) {
           </label>
           <div className="flex flex-wrap gap-3">
             <button type="button" disabled={pending} onClick={() => decide('approved')} className={PRIMARY}>{t('approve')}</button>
-            <button type="button" disabled={pending} onClick={() => decide('rejected')} className="rounded-full border border-border px-4 py-2 text-sm font-semibold">{t('reject')}</button>
+            <button type="button" disabled={pending} onClick={() => decide('rejected')} className="btn btn-secondary btn-sm">{t('reject')}</button>
           </div>
         </>
       )}

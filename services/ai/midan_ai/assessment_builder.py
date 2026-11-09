@@ -193,16 +193,57 @@ def make_generator(provider) -> Callable[[State], State]:
         except LLMError:
             result = generate_tasks(state)
             return {**result, "warnings": state["warnings"] + ["ai_generation_unavailable"]}
+        draft, repair_warning = _repair_round(provider, job, context, draft, check_generated(state))
         stored = to_stored(draft)
         return {
             "tasks": stored["tasks"], "stored_version": stored["version"], "stored_guide": stored["guide"],
             # The templates' limit on responsibilities didn't apply to the model.
-            "warnings": [w for w in state["warnings"] if w != "responsibilities_truncated"] + ([] if draft.standardized else ["not_standardized"]),
+            "warnings": [w for w in state["warnings"] if w != "responsibilities_truncated"] + ([] if draft.standardized else ["not_standardized"])
+                        + ([repair_warning] if repair_warning else []),
             "provenance": Provenance(mode="live", provider=provider.provenance.provider, model_version=provider.provenance.model_version,
                                      prompt_version=GENERATION_PROMPT_VERSION).model_dump(),
         }
 
     return generate
+
+
+# Findings that live entirely in the assessor guide: a targeted fix of the guide can clear them.
+GUIDE_CODES = {"reference_check_failed", "calculation_input_missing", "calculations_missing", "verification_steps_missing",
+               "task_without_solution", "guide_section_missing", "decision_points_missing", "alternatives_missing",
+               "not_scored_boundary_missing", "pass_mark_set"}
+
+
+def _errors(job: JobInput, draft: GeneratedAssessment):
+    return evaluate(job, draft).errors
+
+
+def _described(errors) -> list[str]:
+    return [f"{f.message}: {f.where}" if f.where else f.message for f in errors]
+
+
+def _repair_round(provider, job: JobInput, context: dict[str, Any], draft: GeneratedAssessment, check) -> tuple[GeneratedAssessment, str | None]:
+    """MIDAN's quality check runs on the model's draft; if it blocks approval, the model gets one chance to fix what it lists.
+    When every blocking finding is in the assessor guide, only the guide (with the materials) goes back: that fits the
+    provider's per-minute token limit where the whole draft doesn't. The revision is kept only when it has fewer blocking
+    findings, so a failed or worse repair never costs the live draft. Employers can't edit materials or the assessor guide in
+    the app, so this is what makes a live draft approvable."""
+    if not draft.standardized:
+        return draft, None
+    errors = _errors(job, draft)
+    if not errors:
+        return draft, None
+    problems = _described(errors)
+    try:
+        if {f.code for f in errors} <= GUIDE_CODES and hasattr(provider, "fix_guide"):
+            guide = provider.fix_guide([m.model_dump(exclude_none=True) for m in draft.materials], draft.assessor_guide.model_dump(exclude_none=True), problems)
+            revised = draft.model_copy(update={"assessor_guide": guide})
+        elif hasattr(provider, "revise_assessment"):
+            revised = normalize(provider.revise_assessment(context, draft.model_dump(exclude_none=True), problems, check))
+        else:
+            return draft, None
+    except Exception:  # noqa: BLE001 - provider down, rate-limited, or a reply that doesn't validate: keep the first draft
+        return draft, "ai_repair_unavailable"
+    return (revised, "ai_repaired") if len(_errors(job, revised)) < len(errors) else (draft, "ai_repair_not_better")
 
 
 def standard_summary(level: str | None) -> dict[str, Any]:

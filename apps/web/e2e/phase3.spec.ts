@@ -60,10 +60,10 @@ test('search reads the description and requirements, tolerates Arabic spelling, 
   const box = page.getByRole('searchbox');
   await box.fill(`payroll${RUN}`);
   await expect(page).toHaveURL(/q=payroll/);
-  await expect(page.getByRole('link', { name: `تفاصيل${RUN}`, exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: new RegExp(`تفاصيل${RUN}$`) })).toBeVisible();
   await expect(page.getByText('1 result', { exact: true })).toBeVisible();
   await box.fill(`ادارة الموارد ${RUN}`);
-  await expect(page.getByRole('link', { name: `تفاصيل${RUN}`, exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: new RegExp(`تفاصيل${RUN}$`) })).toBeVisible();
 
   await box.fill(`كثير${RUN}`);
   await expect(page.getByText('14 results')).toBeVisible();
@@ -134,7 +134,7 @@ test('an administrator previews and saves a file, an organization proves it repr
 
     // Without an organization managing the employer, it can't become a job yet.
     await record.getByRole('button', { name: 'Create a draft job' }).click();
-    await expect(record.getByRole('alert').or(record.getByText("This change isn't allowed."))).toBeVisible();
+    await expect(record.getByRole('alert').or(record.getByText("This change isn't allowed.")).first()).toBeVisible();
 
     // The organization claims the employer, and gets nothing until a person approves.
     await setTest(false);
@@ -162,8 +162,8 @@ test('an administrator previews and saves a file, an organization proves it repr
     await expect(owner.getByText(/This organization manages/)).toBeVisible();
     await expect(owner.getByText("It doesn't make the employer a partner of Midan.")).toBeVisible();
 
-    // The organization turns the record into a draft, reviews it, and publishes it.
-    await owner.goto(`/en/organization/${org}`);
+    // The organization turns the record into a draft, reviews it, and publishes it. Approved listings sit on the Jobs page.
+    await owner.goto(`/en/organization/${org}/jobs`);
     const row = owner.getByRole('listitem').filter({ hasText: title });
     await row.getByRole('button', { name: 'Create a draft job' }).click();
     await row.getByRole('link', { name: 'Open the job' }).click();
@@ -175,7 +175,7 @@ test('an administrator previews and saves a file, an organization proves it repr
     // Anyone looking for what it says finds it, and can apply.
     const candidate = await pageFor(browser, 'CANDIDATE_ONE');
     await candidate.goto(`/ar/opportunities?q=${encodeURIComponent(`عقود التوريد ${RUN}`)}`);
-    await candidate.getByRole('link', { name: title, exact: true }).click();
+    await candidate.getByRole('link', { name: new RegExp(`${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).click();
     await expect(candidate.getByRole('heading', { level: 1 })).toContainText(title);
     await expect(candidate.getByRole('link', { name: 'التقديم على هذه الوظيفة' }).or(candidate.getByRole('link', { name: /قدّم|التقديم/ })).first()).toBeVisible();
   } finally {

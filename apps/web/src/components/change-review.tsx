@@ -37,7 +37,7 @@ export function ValidationList({ findings }: { findings: Finding[] }) {
         </div>
       )}
       {warnings.length > 0 && (
-        <div role="status" className="border-s-2 border-gold ps-4 text-sm">
+        <div role="status" className="callout text-sm">
           <p className="font-semibold">{t('validationWarnings')}</p>
           <ul className="mt-1 list-disc space-y-1 ps-4">{warnings.map((f, i) => <li key={`w${i}`}>{line(f)}</li>)}</ul>
         </div>
@@ -58,7 +58,7 @@ function ChangeItem({ change, titles }: { change: Change; titles: Map<string, st
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="font-semibold">{t(`reviewAction.${change.action}`)} · {t(`reviewEntity.${change.entity}`)}</span>
         {title && <span className="text-muted">{title}</span>}
-        {weakens && <span className="rounded-full border border-error px-2 py-0.5 text-xs font-semibold text-error">{t('reviewWeakens')}</span>}
+        {weakens && <span className="inline-flex rounded-[3px] bg-error-surface px-2 py-0.5 text-xs font-semibold text-error">{t('reviewWeakens')}</span>}
         {!change.needs_review && <span className="text-xs text-muted">{t('reviewSettingsOnly')}</span>}
       </p>
       <p className="mt-1 text-xs text-muted">
@@ -99,7 +99,7 @@ export function ChangeReview({ orgId, state, canReview }: { orgId: string; state
   const rows = compareTasks(state.original?.content, state.current);
   const draft = state.version.status === 'draft' || state.version.status === 'in_review';
   return (
-    <section aria-labelledby="change-review" className="space-y-5 rounded-xl border border-border p-4">
+    <section aria-labelledby="change-review" className="space-y-5 rounded-lg border border-border p-4">
       <div>
         <h3 id="change-review" className="text-lg font-semibold">{t('reviewTitle')}</h3>
         <p className="mt-1 text-sm text-muted">
@@ -162,11 +162,11 @@ export function ChangeReview({ orgId, state, canReview }: { orgId: string; state
       {draft && canReview && state.unreviewed && (
         <div className="space-y-2">
           <label className="block">
-            <span className="text-sm font-medium">{t('reviewNote')}</span>
+            <span className="field-label">{t('reviewNote')}</span>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} className="mt-1 block w-full rounded-lg border border-border bg-surface p-3" />
           </label>
           <button type="button" onClick={record.fire} disabled={record.pending} aria-busy={record.pending}
-            className="rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-surface-2 disabled:opacity-60">
+            className="btn btn-secondary btn-sm">
             {t('reviewMark')}
           </button>
           <ErrorText code={record.error} />
@@ -183,7 +183,7 @@ export function ReviseButton({ orgId, versionId }: { orgId: string; versionId: s
   return (
     <div className="space-y-1">
       <button type="button" onClick={fire} disabled={pending} aria-busy={pending}
-        className="rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-surface-2 disabled:opacity-60">
+        className="btn btn-secondary btn-sm">
         {t('revise')}
       </button>
       <p className="text-sm text-muted">{t('reviseNote')}</p>

@@ -9,7 +9,7 @@ import { homeFor } from './home';
 import { safeNext } from './next-path';
 import { clearSessionCookies, decodeToken, getAccessToken, setSessionCookies } from './session';
 
-export type FormState = { error?: string; ok?: boolean };
+export type FormState = { error?: string; ok?: boolean; id?: string };
 
 const KNOWN = new Set([
   'invalid_credentials', 'email_not_confirmed', 'weak_password', 'user_already_exists', 'email_exists',
@@ -154,7 +154,8 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   let result;
   try {
     const locale = await getLocale();
-    const back = encodeURIComponent(`${process.env.APP_URL}/${locale}/auth/confirmed`);
+    // The confirmation page then offers the sign-in for the audience the person chose.
+    const back = encodeURIComponent(`${process.env.APP_URL}/${locale}/auth/confirmed${accountType === 'organization' ? '?as=organization' : ''}`);
     result = await gotrue(`signup?redirect_to=${back}`, {
       email,
       password,

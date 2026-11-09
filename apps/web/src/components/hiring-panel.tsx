@@ -26,9 +26,9 @@ function InterviewRow({ orgId, interview, canManage }: { orgId: string; intervie
     <li className="space-y-2 border-b border-border py-4">
       <p className="font-semibold">{formatWhen(locale, interview.scheduled_at, interview.time_zone)} · {ta(`interviewStatus.${interview.status}`)}</p>
       <p className="text-sm text-muted">{ti(`calendarStatus.${interview.calendar_status}`)}</p>
-      {interview.reschedule_note && <p className="border-s-2 border-gold ps-3 text-sm">{t('candidateNote', { note: interview.reschedule_note })}</p>}
+      {interview.reschedule_note && <p className="callout text-sm">{t('candidateNote', { note: interview.reschedule_note })}</p>}
       <div className="flex flex-wrap items-center gap-4 text-sm">
-        <Link href={`/interviews/${interview.id}`} className="font-semibold text-primary underline underline-offset-4">{t('open')}</Link>
+        <Link href={`/interviews/${interview.id}`} className="link">{t('open')}</Link>
         {canManage && interview.calendar_status === 'failed' && <button type="button" onClick={retry.fire} disabled={retry.pending} className="font-semibold underline underline-offset-4">{t('retryCalendar')}</button>}
         {canManage && live && (
           <>
@@ -41,10 +41,10 @@ function InterviewRow({ orgId, interview, canManage }: { orgId: string; intervie
       {canManage && live && (
         <form className="flex flex-wrap items-end gap-3" onSubmit={(e) => { e.preventDefault(); move.fire(); }}>
           <label className="block">
-            <span className="text-sm font-medium">{t('newTime')}</span>
+            <span className="field-label">{t('newTime')}</span>
             <input type="datetime-local" required value={when} onChange={(e) => setWhen(e.target.value)} className={INPUT} />
           </label>
-          <button type="submit" disabled={move.pending} className="rounded-full border border-foreground/30 px-4 py-2.5 text-sm font-semibold">{t('reschedule')}</button>
+          <button type="submit" disabled={move.pending} className="btn btn-secondary btn-sm">{t('reschedule')}</button>
         </form>
       )}
       <ErrorText code={move.error ?? cancel.error ?? complete.error ?? absent.error ?? retry.error} />
@@ -108,7 +108,7 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
         {interviews.length > 0 && <ul className="mt-2 border-t border-border">{interviews.map((i) => <InterviewRow key={i.id} orgId={orgId} interview={i} canManage={canManage} />)}</ul>}
         {canManage && (
           <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={schedule}>
-            <label className="block"><span className="text-sm font-medium">{t('when')}</span><input type="datetime-local" name="when" required className={INPUT} /></label>
+            <label className="block"><span className="field-label">{t('when')}</span><input type="datetime-local" name="when" required className={INPUT} /></label>
             <Field name="duration" type="number" min={5} max={480} required label={t('duration')} defaultValue="30" />
             <Field name="instructions_ar" dir="rtl" maxLength={2000} label={t('instructionsAr')} />
             <Field name="instructions_en" dir="ltr" maxLength={2000} label={t('instructionsEn')} />
@@ -141,7 +141,7 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
         {canManage && status !== 'hired' && (
           <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={issue}>
             <label className="block sm:col-span-2">
-              <span className="text-sm font-medium">{t('decision')}</span>
+              <span className="field-label">{t('decision')}</span>
               <select name="outcome" required defaultValue="" className={INPUT}>
                 <option value="">{t('choose')}</option>
                 {(status === 'shortlisted' ? ['hired', 'not_selected', 'on_hold', 'additional_interview'] : ['not_selected', 'on_hold', 'additional_interview']).map((k) => <option key={k} value={k}>{ta(`outcome.${k}`)}</option>)}

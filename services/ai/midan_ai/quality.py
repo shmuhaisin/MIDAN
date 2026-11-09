@@ -390,7 +390,9 @@ def evaluate(job: JobInput, pkg: GeneratedAssessment, rows: dict[str, list[dict[
             actual = recompute(calc.check, rows[mid])
             tolerance = float(calc.check.get("tolerance", 0))
         except (ValueError, TypeError, AttributeError, KeyError) as error:
-            c.add("reference_check_failed", f"calculation {calc.id}", f"the check can't be run: {type(error).__name__}")
+            why = {"AttributeError": "its filter isn't a column-to-value mapping", "TypeError": "its filter isn't a column-to-value mapping",
+                   "KeyError": "it names a column the table doesn't have", "ValueError": "a value in it isn't a number"}.get(type(error).__name__, type(error).__name__)
+            c.add("reference_check_failed", f"calculation {calc.id}", f"the check can't be run: {why}")
             continue
         expected = calc.check.get("expect", calc.result)
         if not _equal(actual, expected, tolerance):

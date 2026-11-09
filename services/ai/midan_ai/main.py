@@ -17,6 +17,9 @@ from .assessment_builder import TEMPLATE_PROVENANCE, build_assessment_graph, mak
 from .package import from_stored
 from .quality import evaluate
 from .cv import analyze as analyze_cv
+from .matching import MatchRequest, match as match_requirements, similarity_backend
+from .assistant import AssistantRequest, answer as assistant_answer
+from .regenerate import RegenerateRequest, Unavailable, regenerate as regenerate_task
 from .evaluation import build_evaluation_graph
 from .providers import PROMPT_VERSION, get_provider, provider_status
 from .schemas import EvaluationInput, JobInput
@@ -105,7 +108,8 @@ def _result(graph, thread_id: str, state: dict[str, Any]) -> dict[str, Any]:
 def health() -> dict[str, Any]:
     # Names of missing settings only, never values. "demo" with a requested provider means its settings are incomplete.
     return {"status": "ok", "service": "midan-ai", "mode": _provider.provenance.mode, "provider": _provider.provenance.provider,
-            "model": _provider.provenance.model_version, **provider_status(), "checkpointer": CHECKPOINTER}
+            "model": _provider.provenance.model_version, **provider_status(), "checkpointer": CHECKPOINTER,
+            "matching": similarity_backend().name}
 
 
 @app.post("/cv/analyze", dependencies=[Depends(require_token)])
@@ -145,6 +149,28 @@ def run_quality(run: QualityRun) -> dict[str, Any]:
     except (ValidationError, KeyError, TypeError, ValueError):
         raise HTTPException(status_code=422, detail="The stored version doesn't have the shape of an assessment") from None
     return evaluate(run.job, package).model_dump()
+
+
+@app.post("/assessment/regenerate-task", dependencies=[Depends(require_token)])
+def run_regenerate(request: RegenerateRequest) -> dict[str, Any]:
+    """One task of a draft written again by the live model, for the employer to review. 503 without the model: no templates."""
+    try:
+        return regenerate_task(request, _provider)
+    except Unavailable:
+        raise HTTPException(status_code=503, detail="ai_unavailable") from None
+
+
+@app.post("/match/requirements", dependencies=[Depends(require_token)])
+def run_match(request: MatchRequest) -> dict[str, Any]:
+    """Which of a job's requirements an applicant's submitted profile shows, with the evidence used. A proposal for people
+    to review: deterministic similarity, no model call, so nothing inside a CV can instruct it."""
+    return match_requirements(request, similarity_backend()).model_dump()
+
+
+@app.post("/assistant/answer", dependencies=[Depends(require_token)])
+def run_assistant(request: AssistantRequest) -> dict[str, Any]:
+    """Answers from the facts the Core API retrieved under the asker's permissions. Never retrieves or acts by itself."""
+    return assistant_answer(request, _provider).model_dump()
 
 
 @app.post("/graphs/evaluation/runs", dependencies=[Depends(require_token)])

@@ -33,7 +33,7 @@ export function ApplicationNotes({ orgId, applicationId, notes }: { orgId: strin
       <p className="mt-1 text-sm text-muted">{t('notesNote')}</p>
       <form className="mt-3 max-w-3xl space-y-2" onSubmit={add}>
         <label className="block">
-          <span className="text-sm font-medium">{t('noteLabel')}</span>
+          <span className="field-label">{t('noteLabel')}</span>
           <textarea name="body" required maxLength={4000} rows={3} className={`${INPUT} h-auto py-2`} />
         </label>
         <ErrorText code={error} />
@@ -132,18 +132,18 @@ export function InterviewFeedback({ orgId, applicationId, interviewId, canWrite,
             ))}
             {rows.length < 20 && <button type="button" onClick={() => setRows((r) => [...r, { label: '', rating: null, evidence: '' }])} className="text-sm font-semibold underline underline-offset-4">{t('addCompetency')}</button>}
           </fieldset>
-          <label className="block max-w-sm"><span className="text-sm font-medium">{t('recommendationLabel')}</span>
+          <label className="block max-w-sm"><span className="field-label">{t('recommendationLabel')}</span>
             <select name="recommendation" defaultValue={mine?.recommendation ?? ''} className={INPUT}>
               <option value="">{t('choose')}</option>
               {RECOMMENDATIONS.map((r) => <option key={r} value={r}>{t(`recommendation.${r}`)}</option>)}
             </select></label>
           <p className="text-sm text-muted">{t('recommendationNote')}</p>
-          <label className="block"><span className="text-sm font-medium">{t('feedbackNotes')}</span>
+          <label className="block"><span className="field-label">{t('feedbackNotes')}</span>
             <textarea name="notes" maxLength={8000} rows={4} defaultValue={mine?.notes ?? ''} className={`${INPUT} h-auto py-2`} /></label>
           <ErrorText code={error} />
           {saved === 'draft' && <p role="status" className="text-sm font-semibold text-primary">{t('draftSaved')}</p>}
           <div className="flex flex-wrap gap-3">
-            <button type="button" disabled={pending} onClick={(e) => save('draft', e.currentTarget.form!)} className="rounded-full border border-foreground/30 px-5 py-2 font-semibold">{t('saveDraft')}</button>
+            <button type="button" disabled={pending} onClick={(e) => save('draft', e.currentTarget.form!)} className="btn btn-secondary">{t('saveDraft')}</button>
             <button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY}>{t('submitFeedback')}</button>
           </div>
         </form>

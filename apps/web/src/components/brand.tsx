@@ -99,15 +99,18 @@ export function Arrow({ className }: { className?: string }) {
   );
 }
 
-/** A person's or a job's path through Midan, computed from real state. */
+/** A person's or a job's path through Midan, computed from real state: diamonds on a road, the current one in gold. */
 export function JourneyRail({ label, steps, done }: { label: string; steps: string[]; done: boolean[] }) {
   const current = done.indexOf(false);
   return (
-    <ol aria-label={label} className="flex gap-1 overflow-x-auto pb-1">
+    <ol aria-label={label} className="flex overflow-x-auto pb-1">
       {steps.map((step, i) => (
-        <li key={step} aria-current={i === current ? 'step' : undefined} className="min-w-24 flex-1">
-          <span className={clsx('block h-1.5 rounded-full', done[i] ? 'bg-primary' : i === current ? 'bg-gold' : 'bg-surface-2')} />
-          <span className={clsx('mt-1.5 block text-xs leading-snug', i === current ? 'font-semibold' : 'text-muted')}>{step}</span>
+        <li key={step} aria-current={i === current ? 'step' : undefined} className="relative min-w-24 flex-1 pe-2">
+          <span aria-hidden className="relative flex items-center">
+            <span className={clsx('relative z-10 size-2.5 shrink-0 rotate-45', done[i] ? 'bg-primary' : i === current ? 'bg-gold ring-4 ring-gold/20' : 'border border-border-strong bg-background')} />
+            {i < steps.length - 1 && <span className={clsx('ms-1 h-px flex-1', done[i] ? 'bg-primary' : 'bg-border-strong')} />}
+          </span>
+          <span className={clsx('mt-2 block text-xs leading-snug', i === current ? 'font-semibold' : done[i] ? 'text-foreground/80' : 'text-muted')}>{step}</span>
         </li>
       ))}
     </ol>

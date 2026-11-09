@@ -11,11 +11,17 @@ export default async function AdminLayout({ children, params }: { children: Reac
   if (!allowed) notFound();
   const t = await getTranslations({ locale, namespace: 'admin' });
   return (
-    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-      <p className="text-sm font-semibold text-muted">{t('eyebrow')}</p>
-      <h1 className="page-title">{t('title')}</h1>
-      <div className="mt-4"><AdminNav /></div>
-      <div className="mt-6">{children}</div>
-    </section>
+    <div className="flex-1 bg-surface-2/40">
+      <div className="container-page grid gap-6 py-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10 lg:py-8">
+        <aside className="on-deep deep-grain overflow-hidden rounded-[var(--radius-panel)] bg-deep text-deep-foreground lg:sticky lg:top-24 lg:self-start">
+          <div className="border-b border-mint/15 px-5 py-5">
+            <p className="label-caps text-brand-gold!">{t('eyebrow')}</p>
+            <p className="mt-1 font-display text-xl font-bold">{t('title')}</p>
+          </div>
+          <div className="p-2"><AdminNav /></div>
+        </aside>
+        <div className="min-w-0">{children}</div>
+      </div>
+    </div>
   );
 }

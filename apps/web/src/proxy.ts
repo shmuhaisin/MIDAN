@@ -17,7 +17,7 @@ function expiresSoon(token: string) {
   }
 }
 
-const PRIVATE = /^\/(ar|en)\/(dashboard|onboarding|profile|applications|interviews|development|notifications|settings|reports|experience|organization|invitations)(\/|$)/;
+const PRIVATE = /^\/(ar|en)\/(dashboard|assistant|assessments|onboarding|profile|applications|interviews|development|notifications|settings|reports|experience|organization|invitations)(\/|$)/;
 
 /**
  * Renews an expiring session on page loads, then reloads so the page sees the new cookies.
@@ -60,15 +60,20 @@ export default async function proxy(request: NextRequest) {
       // Supabase unreachable: carry on, and the API will treat the session as ended if it must.
     }
   }
+  // An expired access token with nothing to renew it is a session that has ended.
+  const ended = Boolean(access && !refresh && expiresSoon(access));
   // Signed out, a private page goes to sign-in and remembers where it was headed.
-  if (request.method === 'GET' && !access && !refresh && PRIVATE.test(request.nextUrl.pathname)) {
+  if (request.method === 'GET' && (ended || (!access && !refresh)) && PRIVATE.test(request.nextUrl.pathname)) {
     const login = request.nextUrl.clone();
     const locale = request.nextUrl.pathname.split('/')[1];
     login.pathname = `/${locale}/login`;
     login.search = '';
     const next = request.nextUrl.pathname.slice(locale.length + 1) + request.nextUrl.search;
     if (next !== '/dashboard') login.searchParams.set('next', next);
-    return secured(NextResponse.redirect(login));
+    const response = NextResponse.redirect(login);
+    // Sign-in would otherwise see the stale cookie and send the person back.
+    if (ended) response.cookies.delete(ACCESS);
+    return secured(response);
   }
   const headers = new Headers(request.headers);
   headers.set('x-nonce', nonce);

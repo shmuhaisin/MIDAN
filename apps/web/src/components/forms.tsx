@@ -4,15 +4,15 @@ import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
 import { useTranslations } from 'next-intl';
 import { createContext, useActionState, useContext, useEffect, useId, useState, useTransition } from 'react';
-import { Link } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { applyToJob, createJob, createOrganization, saveBranding, setApplicationStatus, setJobStatus, uploadLogo, withdrawApplication } from '@/lib/actions';
 import { statusOptions } from '@/lib/application-status';
 import { changePassword, requestPasswordReset, resetPassword, signIn, signUp, startGoogleSignIn, type FormState } from '@/lib/auth-actions';
 import { PROFESSIONAL_FIELDS, resolveHumaidan } from '@/lib/humaidan';
 import { Arrow, Humaidan } from './brand';
 
-export const INPUT = 'mt-1 block h-11 w-full rounded-lg border border-border bg-surface px-3.5 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/25';
-export const PRIMARY = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:translate-y-0 disabled:opacity-60';
+export const INPUT = 'input';
+export const PRIMARY = 'btn btn-primary';
 
 const FormPending = createContext(false);
 
@@ -58,22 +58,42 @@ export function ErrorText({ code }: { code?: string }) {
           initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
-          className="rounded-lg border-s-2 border-error bg-surface-2 px-3.5 py-2.5 text-sm"
+          className="flex items-start gap-2.5 rounded-[var(--radius-control)] border border-error/30 bg-error-surface px-3.5 py-2.5 text-sm text-foreground"
         >
-          {t(code)}
+          <svg aria-hidden viewBox="0 0 20 20" className="mt-0.5 size-4 shrink-0 text-error"><path fill="currentColor" d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm-.9 4h1.8v5.2H9.1zm0 6.6h1.8v1.8H9.1z" /></svg>
+          <span>{t(code)}</span>
         </motion.p>
       )}
     </AnimatePresence>
   );
 }
 
-export function Field({ label, hint, name, className, ...props }: { label: string; hint?: string; name: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+export function Field({ label, hint, name, className, type, ...props }: { label: string; hint?: string; name: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   const hintId = useId();
+  const inputId = useId();
+  const t = useTranslations('auth');
+  const [shown, setShown] = useState(false);
+  // A password can be shown while it's typed. The toggle sits outside the label, so the field's name stays its label.
+  if (type === 'password') {
+    return (
+      <div>
+        <label htmlFor={inputId} className="field-label">{label}</label>
+        <div className="relative">
+          <input id={inputId} name={name} type={shown ? 'text' : 'password'} aria-describedby={hint ? hintId : undefined} className={clsx(className ?? INPUT, 'pe-20')} {...props} />
+          <button type="button" onClick={() => setShown((v) => !v)} aria-pressed={shown} aria-controls={inputId}
+            className="absolute inset-y-0 end-0 my-1 me-1 rounded-[calc(var(--radius-control)-2px)] px-3 text-sm font-semibold text-muted hover:bg-surface-2 hover:text-foreground">
+            {shown ? t('hidePassword') : t('showPassword')}
+          </button>
+        </div>
+        {hint && <span id={hintId} className="field-hint">{hint}</span>}
+      </div>
+    );
+  }
   return (
     <label className="block">
-      <span className="text-sm font-medium">{label}</span>
-      <input name={name} aria-describedby={hint ? hintId : undefined} className={className ?? INPUT} {...props} />
-      {hint && <span id={hintId} className="mt-1 block text-xs text-muted">{hint}</span>}
+      <span className="field-label">{label}</span>
+      <input name={name} type={type} aria-describedby={hint ? hintId : undefined} className={className ?? INPUT} {...props} />
+      {hint && <span id={hintId} className="field-hint">{hint}</span>}
     </label>
   );
 }
@@ -87,7 +107,7 @@ export function GoogleButton({ next }: { next?: string }) {
   return (
     <form action={startGoogleSignIn}>
       {next && <input type="hidden" name="next" value={next} />}
-      <button type="submit" className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-border bg-surface px-5 py-2 font-semibold transition-colors hover:bg-surface-2">
+      <button type="submit" className="btn btn-secondary w-full">
         {t('google')}
       </button>
     </form>
@@ -116,7 +136,7 @@ export function ForgotPasswordForm() {
       <ErrorText code={state.error} />
       <Field name="email" type="email" autoComplete="email" required label={t('email')} dir="ltr" />
       <Submit className="w-full">{t('resetRequest')}</Submit>
-      <p className="text-center text-sm"><Link href="/login" className="font-semibold text-primary underline underline-offset-4">{t('backToLogin')}</Link></p>
+      <p className="text-center text-sm"><Link href="/login" className="link">{t('backToLogin')}</Link></p>
     </ActionForm>
   );
 }
@@ -149,7 +169,7 @@ export function ResetPasswordForm() {
     return (
       <div className="space-y-4">
         <p role="alert" className="rounded-lg border-s-2 border-error bg-surface-2 px-3.5 py-2.5">{t('resetLinkBad')}</p>
-        <Link href="/forgot-password" className="font-semibold text-primary underline underline-offset-4">{t('resetAgain')}</Link>
+        <Link href="/forgot-password" className="link">{t('resetAgain')}</Link>
       </div>
     );
   }
@@ -187,9 +207,9 @@ export function LoginForm({ audience, next, google, errorCode }: { audience: 'ca
       <Field name="email" type="email" autoComplete="email" required label={t('email')} dir="ltr" />
       <Field name="password" type="password" autoComplete="current-password" required label={t('password')} dir="ltr" />
       <Submit className="w-full">{t('loginSubmit')}</Submit>
-      <p className="text-center text-sm"><Link href="/forgot-password" className="font-semibold text-primary underline underline-offset-4">{t('forgot')}</Link></p>
+      <p className="text-center text-sm"><Link href="/forgot-password" className="link">{t('forgot')}</Link></p>
       <p className="text-center text-sm text-muted">
-        {t('noAccount')} <Link href={org ? '/register?as=organization' : '/register'} className="font-semibold text-primary underline underline-offset-4">{t('registerSubmit')}</Link>
+        {t('noAccount')} <Link href={org ? '/register?as=organization' : '/register'} className="link">{t('registerSubmit')}</Link>
       </p>
       <AudienceSwitch href={org ? '/login' : '/login?as=organization'} label={t(org ? 'toCandidateLogin' : 'toOrgLogin')} />
     </ActionForm>
@@ -216,7 +236,7 @@ export function RegisterForm({ audience }: { audience: 'candidate' | 'organizati
       <Field name="password" type="password" autoComplete="new-password" required minLength={8} label={t('password')} hint={t('passwordHint')} dir="ltr" />
       <Submit className="w-full">{t('registerSubmit')}</Submit>
       <p className="text-center text-sm text-muted">
-        {t('haveAccount')} <Link href={org ? '/login?as=organization' : '/login'} className="font-semibold text-primary underline underline-offset-4">{t('loginSubmit')}</Link>
+        {t('haveAccount')} <Link href={org ? '/login?as=organization' : '/login'} className="link">{t('loginSubmit')}</Link>
       </p>
       <AudienceSwitch href={org ? '/register' : '/register?as=organization'} label={t(org ? 'toCandidateRegister' : 'toOrgRegister')} />
     </ActionForm>
@@ -238,14 +258,14 @@ export function BrandingForm({ orgId, branding, logoUrl, canEdit }: {
   return (
     <div className="grid gap-10 lg:grid-cols-[1fr_16rem]">
       <div className="space-y-8">
-        {!canEdit && <p className="border-s-2 border-gold ps-4 text-sm font-medium">{t('readOnly')}</p>}
+        {!canEdit && <p className="callout text-sm font-medium">{t('readOnly')}</p>}
         <div>
           <p className="text-sm font-medium">{t('logo')}</p>
           <div className="mt-2 flex items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {logoUrl && <img src={logoUrl} alt={t('logo')} className="h-14 w-auto max-w-40 rounded object-contain" />}
             {canEdit && (
-              <label className={clsx('inline-flex cursor-pointer items-center rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold has-focus-visible:outline-2 has-focus-visible:outline-primary', uploading && 'opacity-60')}>
+              <label className={clsx('btn btn-secondary btn-sm cursor-pointer has-focus-visible:outline-2 has-focus-visible:outline-primary', uploading && 'opacity-60')}>
                 <input
                   type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={uploading}
                   onChange={(e) => {
@@ -268,7 +288,7 @@ export function BrandingForm({ orgId, branding, logoUrl, canEdit }: {
           <fieldset disabled={!canEdit} className="space-y-4">
             <ErrorText code={state.error} />
             <label className="block">
-              <span className="text-sm font-medium">{t('industry')}</span>
+              <span className="field-label">{t('industry')}</span>
               <select name="industry" value={industry} onChange={(e) => setIndustry(e.target.value)} className={INPUT}>
                 <option value="" disabled>{t('notSet')}</option>
                 {PROFESSIONAL_FIELDS.map((f) => <option key={f} value={f}>{tf(f)}</option>)}
@@ -280,11 +300,11 @@ export function BrandingForm({ orgId, branding, logoUrl, canEdit }: {
               <Field name="accent_color" type="color" label={t('accentColor')} defaultValue={branding?.accent_color ?? '#1F7A5C'} className={clsx(INPUT, 'p-1')} />
             </div>
             <label className="block">
-              <span className="text-sm font-medium">{t('welcomeAr')}</span>
+              <span className="field-label">{t('welcomeAr')}</span>
               <textarea name="welcome_ar" dir="rtl" rows={2} maxLength={600} defaultValue={branding?.welcome_ar ?? ''} className={clsx(INPUT, 'h-auto py-2.5')} />
             </label>
             <label className="block">
-              <span className="text-sm font-medium">{t('welcomeEn')}</span>
+              <span className="field-label">{t('welcomeEn')}</span>
               <textarea name="welcome_en" dir="ltr" rows={2} maxLength={600} defaultValue={branding?.welcome_en ?? ''} className={clsx(INPUT, 'h-auto py-2.5')} />
             </label>
             {canEdit && (
@@ -325,30 +345,57 @@ export function OrganizationForm() {
   );
 }
 
-export function JobForm({ orgId }: { orgId: string }) {
+/**
+ * Step one of the job wizard: what the job is called. It saves a draft at once, then continues on the job's own page,
+ * where the remaining steps (details, requirements, skills, assessment, review) follow in order.
+ */
+export function JobForm({ orgId, defaultOpen = false }: { orgId: string; defaultOpen?: boolean }) {
   const t = useTranslations('org');
+  const tw = useTranslations('jobWizard');
+  const router = useRouter();
   const [state, action, pending] = useActionState<FormState, FormData>(createJob.bind(null, orgId), {});
-  const [slug, setSlug] = useState('');
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [wasPending, setWasPending] = useState(false);
   if (pending !== wasPending) {
     setWasPending(pending);
-    if (!pending && state.ok) { setOpen(false); setSlug(''); }
+    if (!pending && state.ok) {
+      setOpen(false);
+      if (state.id) router.push(`/organization/${orgId}/jobs/${state.id}?step=1`);
+    }
   }
   return (
     <div>
-      <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="inline-flex items-center gap-2 rounded-full border border-foreground/30 px-4 py-2 text-sm font-semibold transition-colors hover:bg-surface-2">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="btn btn-primary btn-sm">
         <span aria-hidden className={clsx('transition-transform', open && 'rotate-45')}>+</span>{t('addJob')}
       </button>
       <AnimatePresence initial={false}>
         {open && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <ActionForm action={action} className="mt-4 grid gap-4 rounded-lg bg-surface p-5 sm:grid-cols-2">
-              <div className="sm:col-span-2"><ErrorText code={state.error} /></div>
-              <Field name="title_ar" required maxLength={200} label={t('titleAr')} dir="rtl" />
-              <Field name="title_en" required maxLength={200} label={t('titleEn')} dir="ltr" onChange={(e) => setSlug(toSlug(e.target.value))} />
-              <Field name="slug" required maxLength={80} label={t('jobSlug')} hint={t('slugHint')} dir="ltr" value={slug} onChange={(e) => setSlug(e.target.value)} />
-              <div className="flex items-start pt-6"><Submit>{t('createJob')}</Submit></div>
+            <ActionForm action={action} className="card mt-4 space-y-5">
+              <div>
+                <p className="text-sm font-semibold text-gold-text">{tw('stepOf', { step: 1, total: 6 })}</p>
+                <p className="section-title mt-1">{tw('step1Title')}</p>
+                <p className="mt-1 text-sm text-muted">{tw('step1Lead')}</p>
+              </div>
+              <ErrorText code={state.error} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field name="title_ar" required maxLength={200} label={t('titleAr')} dir="rtl" />
+                <Field name="title_en" required maxLength={200} label={t('titleEn')} dir="ltr" />
+              </div>
+              <fieldset className="grid gap-4 sm:grid-cols-2">
+                <legend className="field-label mb-2">{tw('descriptionTitle')}</legend>
+                {(['ar', 'en'] as const).map((lang) => (
+                  <label key={lang} className="block">
+                    <span className="field-label">{tw(lang === 'ar' ? 'descriptionAr' : 'descriptionEn')}</span>
+                    <textarea name={`description_${lang}`} rows={7} maxLength={8000} dir={lang === 'ar' ? 'rtl' : 'ltr'} className={clsx(INPUT, 'h-auto py-2.5 leading-relaxed')} />
+                  </label>
+                ))}
+                <p className="text-xs text-muted sm:col-span-2">{tw('descriptionHint')}</p>
+              </fieldset>
+              <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+                <Submit>{tw('createAndContinue')}<Arrow /></Submit>
+                <span className="text-sm text-muted">{tw('savedAsDraft')}</span>
+              </div>
             </ActionForm>
           </motion.div>
         )}
@@ -387,7 +434,7 @@ export function JobStatusButtons({ orgId, jobId, status }: { orgId: string; jobI
     <div className="flex flex-wrap items-center gap-2">
       {actions.map(([value, label]) => (
         <button key={value} type="button" disabled={pending} onClick={() => setTarget(value)}
-          className={clsx('rounded-full px-3 py-1.5 text-sm font-semibold transition-colors disabled:opacity-60', value === 'published' ? 'bg-primary text-primary-foreground' : 'border border-border hover:bg-surface-2')}>
+          className={clsx('btn btn-sm', value === 'published' ? 'btn-primary' : value === 'closed' ? 'btn-ghost text-muted' : 'btn-secondary')}>
           {t(label)}
         </button>
       ))}

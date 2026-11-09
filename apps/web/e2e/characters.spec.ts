@@ -88,6 +88,7 @@ async function shown(page: Page) {
   await page.waitForLoadState('load');
   return page.evaluate(async () => {
     const images = [...document.images].filter((i) => /Humaidan/.test(decodeURIComponent(i.src)));
+    images.forEach((i) => { i.loading = 'eager'; });
     await Promise.all(images.map((i) => (i.complete ? null : new Promise((r) => { i.onload = r; i.onerror = r; }))));
     return images.map((i) => {
       if (!i.naturalWidth) return 'BROKEN';

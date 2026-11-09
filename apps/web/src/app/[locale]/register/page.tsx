@@ -15,7 +15,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     <AuthShell audience={audience} title={t(org ? 'orgRegisterTitle' : 'registerTitle')} lead={t(org ? 'orgRegisterLead' : 'registerLead')}>
       {process.env.DEV_TEST_SIGNUP === 'true' ? (
         <>
-          <aside className="mb-6 rounded-lg border border-gold bg-surface p-4 text-sm">
+          <aside className="callout mb-6 text-sm">
             <p className="font-semibold">{t('devTitle')}</p>
             <p className="mt-1 leading-relaxed">{t('devBody')}</p>
           </aside>
@@ -25,7 +25,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <div>
           <h2 className="subsection-title">{t('closedTitle')}</h2>
           <p className="mt-2 mb-6 text-muted">{t('closedBody')}</p>
-          <Link href={audience === 'organization' ? '/login?as=organization' : '/login'} className="inline-flex rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground">{t('loginSubmit')}</Link>
+          <Link href={audience === 'organization' ? '/login?as=organization' : '/login'} className="btn btn-primary btn-lg">{t('loginSubmit')}</Link>
         </div>
       )}
     </AuthShell>

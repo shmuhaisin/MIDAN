@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Eyebrow } from '@/components/brand';
+import { Icon } from '@/components/icons';
+import { Badge, statusTone, Timeline } from '@/components/ui';
 import { InterviewActions, InterviewJoin } from '@/components/candidate';
 import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
@@ -25,49 +26,62 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const zone = interview.time_zone;
   const live = ['invited', 'accepted', 'reschedule_requested'].includes(interview.status);
   const instructions = pick(locale, interview.instructions_ar ?? '', interview.instructions_en ?? '');
+  const when = new Date(interview.scheduled_at);
+  const part = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en', { timeZone: zone, ...o }).format(when);
   return (
-    <article className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6">
-      <header>
-        {interview.is_candidate && <Link href={`/applications/${interview.application_id}`} className="text-sm font-medium text-muted hover:text-foreground">{t('back')}</Link>}
-        <Eyebrow className="mt-3 text-muted">{pick(locale, job.organizations.name_ar, job.organizations.name_en)}</Eyebrow>
-        <h1 className="mt-3 page-title">{t('title', { job: pick(locale, job.title_ar, job.title_en) })}</h1>
-        <p className="mt-3 text-sm text-muted">{t('humanNote')}</p>
+    <article className="container-page py-8 lg:py-10">
+      {interview.is_candidate && <Link href={`/applications/${interview.application_id}`} className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground"><Icon name="chevron" className="size-4 rotate-180" />{t('back')}</Link>}
+      <header className="mt-6 max-w-3xl">
+        <p className="flex items-center gap-3 text-sm font-semibold text-gold-text"><span aria-hidden className="h-px w-8 bg-gold" />{pick(locale, job.organizations.name_ar, job.organizations.name_en)}</p>
+        <h1 className="display-lg mt-3 text-balance">{t('title', { job: pick(locale, job.title_ar, job.title_en) })}</h1>
       </header>
-      <dl className="grid gap-x-6 gap-y-2 rounded-lg bg-surface p-5 sm:grid-cols-[auto_1fr]">
-        <dt className="text-sm text-muted">{t('when')}</dt><dd className="font-semibold">{formatWhen(locale, interview.scheduled_at, zone)}</dd>
-        <dt className="text-sm text-muted">{t('timeZone')}</dt><dd className="font-medium" dir="ltr">{zone}</dd>
-        <dt className="text-sm text-muted">{t('duration')}</dt><dd className="font-medium">{t('minutes', { minutes: number(locale, interview.duration_minutes) })}</dd>
-        <dt className="text-sm text-muted">{t('status')}</dt><dd className="font-semibold">{ta(`interviewStatus.${interview.status}`)}</dd>
-        <dt className="text-sm text-muted">{t('calendar')}</dt><dd className="font-medium">{t(`calendarStatus.${interview.calendar_status}`)}</dd>
-        <dt className="text-sm text-muted">{t('updated')}</dt><dd className="text-sm">{formatWhen(locale, interview.updated_at, zone)}</dd>
-      </dl>
-      {instructions && (
-        <section aria-labelledby="instructions">
-          <h2 id="instructions" className="subsection-title">{t('instructions')}</h2>
-          <p className="mt-1 leading-relaxed whitespace-pre-line">{instructions}</p>
-        </section>
-      )}
-      {interview.status === 'reschedule_requested' && <p role="status" className="border-s-2 border-gold ps-4 font-medium">{t('rescheduleRequested')}</p>}
-      {interview.is_candidate && <InterviewActions id={id} status={interview.status} />}
-      {live && (
-        <section aria-labelledby="call">
-          <h2 id="call" className="mb-3 subsection-title">{t('call')}</h2>
-          <InterviewJoin
-            id={id} opensAt={interview.join_opens_at} closesAt={interview.join_closes_at} timeZone={zone} videoAvailable={interview.video_available}
-            canJoin={interview.is_candidate ? interview.status === 'accepted' : true}
-          />
-        </section>
-      )}
-      <section aria-labelledby="updates">
-        <h2 id="updates" className="subsection-title">{t('updates')}</h2>
-        <ol className="mt-2 space-y-1.5">
-          {interview.interview_events.map((e) => (
-            <li key={e.created_at + e.kind} className="flex flex-wrap justify-between gap-3 text-sm">
-              <span className="font-medium">{t(`event.${e.kind}`)}</span><span className="text-muted">{formatWhen(locale, e.created_at, zone)}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
+
+      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12">
+        <div className="min-w-0 space-y-10">
+          <section aria-label={t('when')} className="overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface sm:grid sm:grid-cols-[11rem_minmax(0,1fr)]">
+            <div className="on-deep deep-grain flex flex-col items-center justify-center bg-deep px-6 py-8 text-center text-deep-foreground">
+              <span className="text-sm font-semibold text-brand-gold">{part({ weekday: 'long' })}</span>
+              <span className="num mt-1 font-display text-6xl leading-none font-bold">{part({ day: 'numeric' })}</span>
+              <span className="mt-2 text-sm text-deep-muted">{part({ month: 'long', year: 'numeric' })}</span>
+            </div>
+            <dl className="grid gap-x-6 gap-y-4 p-6 sm:grid-cols-2">
+              <div><dt className="text-xs text-muted">{t('when')}</dt><dd className="mt-0.5 font-semibold">{formatWhen(locale, interview.scheduled_at, zone)}</dd></div>
+              <div><dt className="text-xs text-muted">{t('duration')}</dt><dd className="mt-0.5 font-semibold">{t('minutes', { minutes: number(locale, interview.duration_minutes) })}</dd></div>
+              <div><dt className="text-xs text-muted">{t('status')}</dt><dd className="mt-1"><Badge tone={statusTone(interview.status)}>{ta(`interviewStatus.${interview.status}`)}</Badge></dd></div>
+              <div><dt className="text-xs text-muted">{t('timeZone')}</dt><dd className="mt-0.5 font-medium" dir="ltr">{zone}</dd></div>
+              <div><dt className="text-xs text-muted">{t('calendar')}</dt><dd className="mt-0.5 font-medium">{t(`calendarStatus.${interview.calendar_status}`)}</dd></div>
+              <div><dt className="text-xs text-muted">{t('updated')}</dt><dd className="mt-0.5 text-sm">{formatWhen(locale, interview.updated_at, zone)}</dd></div>
+            </dl>
+          </section>
+
+          {interview.status === 'reschedule_requested' && <p role="status" className="callout font-medium">{t('rescheduleRequested')}</p>}
+          {interview.is_candidate && <div className="panel panel-body"><InterviewActions id={id} status={interview.status} /></div>}
+
+          {instructions && (
+            <section aria-labelledby="instructions">
+              <h2 id="instructions" className="section-title">{t('instructions')}</h2>
+              <p className="mt-3 leading-relaxed whitespace-pre-line">{instructions}</p>
+            </section>
+          )}
+          {live && (
+            <section aria-labelledby="call">
+              <h2 id="call" className="section-title mb-4 flex items-center gap-2"><Icon name="users" className="size-5 text-primary" />{t('call')}</h2>
+              <InterviewJoin
+                id={id} opensAt={interview.join_opens_at} closesAt={interview.join_closes_at} startsAt={interview.scheduled_at} minutes={interview.duration_minutes} timeZone={zone} videoAvailable={interview.video_available}
+                canJoin={interview.is_candidate ? interview.status === 'accepted' : true}
+              />
+            </section>
+          )}
+          <p className="text-sm text-muted">{t('humanNote')}</p>
+        </div>
+
+        <aside className="lg:sticky lg:top-28 lg:self-start">
+          <section aria-labelledby="updates" className="panel panel-body">
+            <h2 id="updates" className="subsection-title mb-4">{t('updates')}</h2>
+            <Timeline label={t('updates')} items={interview.interview_events.map((e) => ({ key: e.created_at + e.kind, title: t(`event.${e.kind}`), when: formatWhen(locale, e.created_at, zone) }))} />
+          </section>
+        </aside>
+      </div>
     </article>
   );
 }

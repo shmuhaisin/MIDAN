@@ -1337,6 +1337,24 @@ model interview_participants {
 }
 
 /// Staff notes on an application (20261108090300). Append-only; organization staff only.
+/// Staff reviews of MIDAN's proposed requirement matches (20261109090000). Append-only; the latest per requirement counts.
+model application_match_reviews {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  application_id  String   @db.Uuid
+  org_id          String   @db.Uuid
+  requirement_key String
+  decision        String
+  status          String
+  proposed_status String
+  note            String?
+  reviewer_id     String   @db.Uuid
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([application_id, org_id, requirement_key, created_at(sort: Desc)])
+  @@index([org_id])
+  @@index([reviewer_id])
+}
+
 model application_notes {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   application_id String   @db.Uuid

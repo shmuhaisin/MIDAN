@@ -41,7 +41,8 @@ async function clearSkills(who: string) {
   const { access_token } = await res.json();
   const headers = { authorization: `Bearer ${access_token}`, 'content-type': 'application/json' };
   expect((await fetch(`${env.API_URL}/v1/me/reference-skills`, { method: 'PUT', headers, body: JSON.stringify({ ids: [] }) })).ok).toBe(true);
-  expect((await fetch(`${env.API_URL}/v1/me/own-skills`, { method: 'PUT', headers, body: JSON.stringify({ names: [] }) })).ok).toBe(true);
+  // Own skills live on the profile: with no profile yet (after test cleanup) there's nothing to reset, and the API says 404.
+  expect([200, 404]).toContain((await fetch(`${env.API_URL}/v1/me/own-skills`, { method: 'PUT', headers, body: JSON.stringify({ names: [] }) })).status);
 }
 
 /** Applying goes through a review page, and needs a profile with a name. */
@@ -66,14 +67,58 @@ async function noOverflow(page: Page) {
   expect(scroll).toBeLessThanOrEqual(inner);
 }
 
+/** A new organization's guided start opens the Jobs page with the new-job form ready (the redesigned workspace). */
+async function openNewJob(page: Page) {
+  await page.getByRole('link', { name: 'Create a job' }).click();
+  await expect(page).toHaveURL(/\/jobs\?new=1$/);
+}
+
+/** Creating a job saves a draft and opens its guided setup; returns the job's own address (its full workspace). */
+async function createDraftJob(page: Page) {
+  // Step one asks for the job description (in at least one language) with the titles.
+  await page.getByLabel('Job description in English').fill('Analyses monthly sales figures and prepares short reports for management.');
+  await page.getByRole('button', { name: 'Create and continue' }).click();
+  await expect(page).toHaveURL(/\/jobs\/[0-9a-f-]{36}\?step=1$/);
+  return new URL(page.url()).pathname;
+}
+
+/**
+ * A brand-new account with nothing yet: signed up through Auth with the development access code and verified through the
+ * real emailed link (local mail sink), with no account type chosen, so it has no profile and no organization. The fixture
+ * accounts can't stand in: the demo data makes the recruiter a staff member, and other specs give organizations to others.
+ */
+async function freshAccount(browser: Browser): Promise<BrowserContext> {
+  const email = `midan.e2e.fresh.${RUN}@example.com`;
+  const password = `Fresh-${RUN}-pass`;
+  const base = env.NEXT_PUBLIC_SUPABASE_URL as string;
+  const headers = { apikey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY as string, 'content-type': 'application/json' };
+  const signup = await fetch(`${base}/auth/v1/signup`, { method: 'POST', headers, body: JSON.stringify({ email, password, data: { display_name: 'Fresh test account', midan_test_access: env.DEV_TEST_ACCESS_CODE } }) });
+  expect(signup.ok).toBe(true);
+  let link: string | undefined;
+  for (let i = 0; i < 40 && !link; i++) {
+    const mails = (await (await fetch(`${base}/__mail?to=${encodeURIComponent(email)}`)).json()) as { links: string[] }[];
+    link = mails.flatMap((m) => m.links).find((l) => l.includes('type=signup'));
+    if (!link) await new Promise((r) => setTimeout(r, 250));
+  }
+  expect(link).toBeTruthy();
+  await fetch(link!, { redirect: 'manual' });
+  const res = await fetch(`${base}/auth/v1/token?grant_type=password`, { method: 'POST', headers, body: JSON.stringify({ email, password }) });
+  expect(res.ok).toBe(true);
+  const { access_token, refresh_token } = await res.json();
+  const context = await browser.newContext();
+  const cookie = { domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Lax' as const };
+  await context.addCookies([{ ...cookie, name: 'midan_at', value: access_token }, { ...cookie, name: 'midan_rt', value: refresh_token }]);
+  return context;
+}
+
 test('the dashboard works for an account with no profile, no applications and no organization', async ({ browser }) => {
-  const page = await (await signedIn(browser, 'ORG_A_RECRUITER')).newPage();
+  const page = await (await freshAccount(browser)).newPage();
   const problems: string[] = [];
   page.on('pageerror', (e) => problems.push(e.message));
   const response = await page.goto('/en/dashboard');
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole('heading', { name: 'My applications' })).toBeVisible();
-  await expect(page.getByText("You haven't applied to anything yet.")).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your applications, step by step' })).toBeVisible();
+  await expect(page.getByText(/Start with an opportunity that fits your skills/)).toBeVisible();
   await expect(page.getByText('Something broke on our side')).toHaveCount(0);
   await page.getByRole('link', { name: /Complete your profile/ }).first().click();
   await expect(page).toHaveURL(/\/en\/profile$/);
@@ -134,10 +179,12 @@ test('organization and candidate complete a full hiring journey, isolated from a
   await expect(owner.getByText('Your role: Owner')).toBeVisible();
   const orgUrl = new URL(owner.url()).pathname;
 
-  await owner.getByRole('button', { name: 'New job' }).click();
+  // A new organization gets a guided start; its "Create a job" step opens the Jobs page with the form ready.
+  await owner.getByRole('link', { name: 'Create a job' }).click();
+  await expect(owner).toHaveURL(/\/jobs\?new=1$/);
   await owner.getByLabel('Title in Arabic').fill('محلل ميداني');
   await owner.getByLabel('Title in English').fill(jobTitle);
-  await owner.getByRole('button', { name: 'Save as draft' }).click();
+  await owner.goto((await createDraftJob(owner)).replace(/\/[^/]+$/, ''));
   const row = owner.getByRole('listitem').filter({ hasText: jobTitle });
   await expect(row.getByText('Draft')).toBeVisible();
 
@@ -155,11 +202,12 @@ test('organization and candidate complete a full hiring journey, isolated from a
 
   await candidate.goto('/en/opportunities');
   await candidate.getByRole('searchbox').fill(jobTitle);
-  await candidate.getByRole('link', { name: jobTitle, exact: true }).click();
+  await candidate.getByRole('link', { name: new RegExp(`${jobTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).click();
   await applyFromJobPage(candidate);
   await expect(candidate.getByRole('status').filter({ hasText: 'Your application was sent' })).toBeVisible();
 
-  await owner.reload();
+  // Applicants and their status control live on the Candidates page in the redesigned workspace.
+  await owner.goto(`${orgUrl}/candidates`);
   const applicant = owner.getByRole('listitem').filter({ hasText: 'Test Candidate One' });
   await expect(applicant).toBeVisible();
   await applicant.getByRole('combobox').selectOption('under_review');
@@ -175,7 +223,10 @@ test('organization and candidate complete a full hiring journey, isolated from a
 
   await mine.getByRole('button', { name: 'Withdraw' }).click();
   await mine.getByRole('alertdialog').getByRole('button', { name: 'Withdraw' }).click();
-  await expect(mine.getByText('Withdrawn')).toBeVisible();
+  // The dashboard shows active applications; a withdrawn one moves to My applications, under Closed.
+  await expect(mine.getByRole('button', { name: 'Withdraw' })).toHaveCount(0);
+  await candidate.goto('/en/applications?view=closed');
+  await expect(candidate.getByRole('listitem').filter({ hasText: jobTitle }).getByText('Withdrawn')).toBeVisible();
 
   await owner.reload();
   await expect(owner.getByText('Test Candidate One')).toHaveCount(0);
@@ -241,11 +292,10 @@ test('the full MVP journey: details, draft, publish, work, evaluate, review, rel
   await expect(owner.getByText('Your role: Owner')).toBeVisible();
   const orgPath = new URL(owner.url()).pathname;
 
-  await owner.getByRole('button', { name: 'New job' }).click();
+  await openNewJob(owner);
   await owner.getByLabel('Title in Arabic').fill('محلل مسار');
   await owner.getByLabel('Title in English').fill(name);
-  await owner.getByRole('button', { name: 'Save as draft' }).click();
-  await owner.getByRole('link', { name }).click();
+  await owner.goto(await createDraftJob(owner));
   await expect(owner.getByRole('heading', { level: 1 })).toHaveText(name);
   const jobPath = new URL(owner.url()).pathname;
 
@@ -256,7 +306,7 @@ test('the full MVP journey: details, draft, publish, work, evaluate, review, rel
   await owner.getByRole('button', { name: 'Save details' }).click();
   await expect(owner.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
 
-  await owner.getByRole('button', { name: 'Create assessment draft' }).click();
+  await owner.getByRole('button', { name: 'Generate assessment with AI' }).click();
   await expect(owner.getByText('Demo mode: this draft was built from templates')).toBeVisible({ timeout: 60_000 });
   await expect(owner.getByText('Version 1 · Draft')).toBeVisible();
 
@@ -295,7 +345,7 @@ test('the full MVP journey: details, draft, publish, work, evaluate, review, rel
   await expect(owner.getByText('Invited', { exact: true })).toBeVisible();
 
   await candidate.goto('/en/dashboard');
-  await candidate.getByRole('listitem').filter({ hasText: name }).getByRole('link', { name: 'Start assessment' }).click();
+  await candidate.getByRole('listitem').filter({ hasText: name }).getByRole('link', { name: /Start assessment/ }).first().click();
   await expect(candidate.getByRole('heading', { level: 1 })).toContainText('practical assessment');
   await candidate.getByRole('button', { name: 'Start the assessment' }).click();
 
@@ -343,7 +393,7 @@ test('the full MVP journey: details, draft, publish, work, evaluate, review, rel
   await outsider.goto(reviewPath);
   await expect(outsider.getByRole('heading', { level: 1 })).toHaveText('This field is empty');
 
-  await owner.getByRole('button', { name: 'Run AI-assisted evaluation' }).click();
+  await owner.getByRole('button', { name: 'Prepare proposed scores' }).click();
   await expect(owner.getByText('Demo mode: these proposed scores')).toBeVisible({ timeout: 60_000 });
   await expect(owner.getByText('The system is running in demo mode')).toBeVisible();
   const evidenceResponse = owner.context().waitForEvent('response', (r) => r.url().includes('/storage/v1/object/sign/assessment-evidence/'));
@@ -367,8 +417,11 @@ test('the full MVP journey: details, draft, publish, work, evaluate, review, rel
   await expect(candidate.getByText('Data analysis').first()).toBeVisible();
   await expect(candidate.getByText('INTERNAL-NOTE-UI')).toHaveCount(0);
   if (SHOTS) await candidate.screenshot({ path: `${SHOTS}/report-en.png`, fullPage: true });
+  // Another account can't read it. As an organization account (once another spec has given it one) it is sent to its
+  // own workspace; with no organization yet it sees the not-found page. Either way, never the report.
   await outsider.goto(new URL(candidate.url()).pathname);
-  await expect(outsider.getByRole('heading', { level: 1 })).toHaveText('This field is empty');
+  await expect(outsider.getByRole('heading', { level: 1 })).toHaveText(/This field is empty|Recruitment command center/);
+  await expect(outsider.getByText('What your work showed')).toHaveCount(0);
 
   await owner.goto(jobPath);
   await expect(owner.getByText('Compare candidates on the same criteria')).toBeVisible();
@@ -508,10 +561,10 @@ test('a candidate builds a full profile and CV, and only the organization applie
   await owner.getByLabel('Name in English').fill(`Midan Test Profile ${RUN}`);
   await owner.getByRole('button', { name: 'Create organization' }).click();
   await expect(owner.getByText('Your role: Owner')).toBeVisible();
-  await owner.getByRole('button', { name: 'New job' }).click();
+  await openNewJob(owner);
   await owner.getByLabel('Title in Arabic').fill('وظيفة ملف');
   await owner.getByLabel('Title in English').fill(`Profile Role ${RUN}`);
-  await owner.getByRole('button', { name: 'Save as draft' }).click();
+  await owner.goto((await createDraftJob(owner)).replace(/\/[^/]+$/, ''));
   const row = owner.getByRole('listitem').filter({ hasText: `Profile Role ${RUN}` });
   await row.getByRole('button', { name: 'Publish' }).click();
   await expect(row.getByText('Published')).toBeVisible();
@@ -543,7 +596,9 @@ test('a candidate builds a full profile and CV, and only the organization applie
   const mine = candidate.getByRole('listitem').filter({ hasText: `Profile Role ${RUN}` });
   await mine.getByRole('button', { name: 'Withdraw' }).click();
   await mine.getByRole('alertdialog').getByRole('button', { name: 'Withdraw' }).click();
-  await expect(mine.getByText('Withdrawn')).toBeVisible();
+  await expect(mine.getByRole('button', { name: 'Withdraw' })).toHaveCount(0);
+  await candidate.goto('/en/applications?view=closed');
+  await expect(candidate.getByRole('listitem').filter({ hasText: `Profile Role ${RUN}` }).getByText('Withdrawn')).toBeVisible();
   await owner.goto(applicantPath);
   await expect(owner.getByRole('heading', { level: 1 })).toHaveText('This field is empty');
   expect(problems).toEqual([]);
@@ -582,11 +637,10 @@ test('requirements: a job gets structured requirements, tasks measure them, and 
   await owner.getByLabel('Name in English').fill(`Midan Test Req ${RUN}`);
   await owner.getByRole('button', { name: 'Create organization' }).click();
   await expect(owner.getByText('Your role: Owner')).toBeVisible();
-  await owner.getByRole('button', { name: 'New job' }).click();
+  await openNewJob(owner);
   await owner.getByLabel('Title in Arabic').fill('دور متطلبات');
   await owner.getByLabel('Title in English').fill(name);
-  await owner.getByRole('button', { name: 'Save as draft' }).click();
-  await owner.getByRole('link', { name }).click();
+  await owner.goto(await createDraftJob(owner));
   await expect(owner.getByRole('heading', { level: 1 })).toHaveText(name);
   const jobId = new URL(owner.url()).pathname.split('/').pop();
   await expect(owner.getByText('No requirements yet.')).toBeVisible();
@@ -608,7 +662,7 @@ test('requirements: a job gets structured requirements, tasks measure them, and 
   await owner.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(owner.getByText('At least 3 years')).toBeVisible();
 
-  await owner.getByRole('button', { name: 'Create assessment draft' }).click();
+  await owner.getByRole('button', { name: 'Generate assessment with AI' }).click();
   await expect(owner.getByText('Version 1 · Draft')).toBeVisible({ timeout: 60_000 });
   // The draft is built from the stated responsibility, so its case study already measures it. Experience is screened
   // from the profile, not by a task, so it stays unmeasured.
@@ -650,17 +704,16 @@ test('several assessments: each has its own draft, invitation and address, and t
   await owner.getByLabel('Name in English').fill(`Midan Test Two ${RUN}`);
   await owner.getByRole('button', { name: 'Create organization' }).click();
   await expect(owner.getByText('Your role: Owner')).toBeVisible();
-  await owner.getByRole('button', { name: 'New job' }).click();
+  await openNewJob(owner);
   await owner.getByLabel('Title in Arabic').fill('دور بتقييمين');
   await owner.getByLabel('Title in English').fill(name);
-  await owner.getByRole('button', { name: 'Save as draft' }).click();
-  await owner.getByRole('link', { name }).click();
+  await owner.goto(await createDraftJob(owner));
   await expect(owner.getByRole('heading', { level: 1 })).toHaveText(name);
   await owner.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(owner.getByRole('button', { name: 'Back to draft' })).toBeVisible();
   const jobId = new URL(owner.url()).pathname.split('/').pop();
 
-  await owner.getByRole('button', { name: 'Create assessment draft' }).click();
+  await owner.getByRole('button', { name: 'Generate assessment with AI' }).click();
   await expect(owner.getByText('Version 1 · Draft')).toBeVisible({ timeout: 60_000 });
   const switcher = owner.getByRole('navigation', { name: 'Assessments for this job' });
   await expect(switcher.getByRole('link')).toHaveCount(1);
@@ -710,13 +763,14 @@ test('several assessments: each has its own draft, invitation and address, and t
   await expect(owner.getByText('Invited', { exact: true })).toHaveCount(2);
 
   await candidate.goto('/en/dashboard');
-  await expect(candidate.getByRole('link', { name: 'Start assessment: Data work' })).toBeVisible();
-  const start = candidate.getByRole('link', { name: `Start assessment: ${name}` });
+  await expect(candidate.getByRole('link', { name: /Start assessment:?\s*Data work/ }).first()).toBeVisible();
+  const start = candidate.getByRole('link', { name: new RegExp(`Start assessment:?\\s*${name}`) }).first();
   await expect(start).toBeVisible();
   await expect(start).toHaveAttribute('href', /\/experience\/.+\/[0-9a-f-]{36}$/);
-  await candidate.getByRole('link', { name: 'Start assessment: Data work' }).click();
+  await candidate.getByRole('link', { name: /Start assessment:?\s*Data work/ }).first().click();
   await expect(candidate).toHaveURL(/\/experience\//);
-  await expect(candidate.getByText('Data work')).toBeVisible();
+  // The assessment page names it in its title and its context.
+  await expect(candidate.getByText('Data work').first()).toBeVisible();
   await noOverflow(candidate);
 
   // The address from before a job could have several assessments still arrives somewhere real.
@@ -765,7 +819,7 @@ test('workbook skills: analyze a job, accept the skills, build the assessment fr
   await page.getByRole('button', { name: /^Accept \d+ skills$/ }).click();
   await expect(page.getByText('Linked to this job: 2')).toBeVisible({ timeout: 30_000 });
 
-  await page.getByRole('button', { name: 'Create assessment draft' }).click();
+  await page.getByRole('button', { name: 'Generate assessment with AI' }).click();
   await expect(page.getByText('Version 1 · Draft')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole('button', { name: new RegExp(`Apply a skill: ${skills[0].name_ar}`) })).toBeVisible();
 
@@ -784,7 +838,7 @@ test('workbook skills: analyze a job, accept the skills, build the assessment fr
   await expect(added).toHaveCount(0, { timeout: 30_000 });
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/workbook-skills-en.png`, fullPage: true });
   await page.goto(`/ar/organization/${org.id}/jobs/${job.id}`);
-  await expect(page.getByText('المهارات من مصنفات القطاعات')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'المهارات من مصنفات القطاعات' })).toBeVisible();
   await expect(page.getByText('المرتبطة بهذه الوظيفة: 2')).toBeVisible();
 
   // Published, the job shows candidates the workbook skills it requires.

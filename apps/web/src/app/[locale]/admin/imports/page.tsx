@@ -19,7 +19,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         <DataTable caption={t('title')} head={[t('kind'), t('status'), t('sources'), t('counts'), t('startedBy'), t('when')]}>
           {runs.map((r) => (
             <tr key={r.id}>
-              <Cell><Link href={`/admin/imports/${r.id}`} className="font-semibold text-primary underline underline-offset-4">{t(`kinds.${r.kind}`)}</Link></Cell>
+              <Cell><Link href={`/admin/imports/${r.id}`} className="link">{t(`kinds.${r.kind}`)}</Link></Cell>
               <Cell><Badge tone={r.status === 'completed' ? 'active' : r.status === 'failed' ? 'danger' : 'neutral'}>{t(`statuses.${r.status}`)}</Badge>{r.failure && <p className="mt-1 text-xs text-error">{r.failure}</p>}</Cell>
               <Cell>{r.sources.length ? number(locale, r.sources.length) : '—'}</Cell>
               <Cell>

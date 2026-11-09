@@ -36,7 +36,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const improve = report.skill_scores.filter((s) => s.level < 3);
 
   return (
-    <article className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+    <article className="container-page max-w-5xl py-8 lg:py-10">
       <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground"><Arrow className="rotate-180" />{t('back')}</Link>
       <div className="mt-6 grid items-end gap-6 sm:grid-cols-[1fr_auto]">
         <div>
@@ -44,13 +44,13 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             {t('eyebrow')} · {pick(locale, job.title_ar, job.title_en)}
             {pick(locale, assessment.title_ar, assessment.title_en) !== pick(locale, job.title_ar, job.title_en) && ` · ${pick(locale, assessment.title_ar, assessment.title_en)}`}
           </Eyebrow>
-          <h1 className="mt-3 page-title">{t('title')}</h1>
+          <h1 className="display-lg mt-3">{t('title')}</h1>
           <p className="mt-3 text-muted">{t('reviewedNote', { org: pick(locale, job.organizations.name_ar, job.organizations.name_en) })}</p>
-          {report.ai_mode === 'demo' && <p className="mt-2 border-s-2 border-gold ps-3 text-sm font-medium">{t('demoNote')}</p>}
+          {report.ai_mode === 'demo' && <p className="mt-2 callout text-sm font-medium">{t('demoNote')}</p>}
         </div>
-        <div className="on-deep rounded-lg bg-deep p-5 text-deep-foreground">
+        <div className="on-deep deep-grain rounded-[var(--radius-panel)] bg-deep p-6 text-deep-foreground">
           <p className="text-sm text-deep-muted">{t('overall')}</p>
-          <p className="page-title text-mint">{number(locale, Number(report.overall_score))}</p>
+          <p className="kpi-value mt-1 text-5xl text-brand-gold">{number(locale, Number(report.overall_score))}</p>
           <p className="mt-1 max-w-44 text-xs text-deep-muted">{t('overallHint')}</p>
         </div>
       </div>
@@ -65,7 +65,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                 <p className="mt-1 text-muted">{describe(s, s.level)}</p>
               </div>
               <span aria-hidden className="flex items-end gap-1">
-                {[0, 1, 2, 3, 4].map((l) => <span key={l} style={{ height: `${10 + l * 7}px` }} className={l <= s.level ? 'w-4 rounded-t-sm bg-primary' : 'w-4 rounded-t-sm bg-surface-2'} />)}
+                {[0, 1, 2, 3, 4].map((l) => <span key={l} style={{ height: `${10 + l * 7}px` }} className={l <= s.level ? (l === s.level ? 'w-4 rounded-t-[2px] bg-gold' : 'w-4 rounded-t-[2px] bg-primary') : 'w-4 rounded-t-[2px] bg-surface-2'} />)}
               </span>
             </li>
           ))}

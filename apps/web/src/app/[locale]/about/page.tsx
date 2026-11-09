@@ -1,23 +1,26 @@
 import { use } from 'react';
 import { useTranslations } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
-import { PageHero, PointList } from '@/components/page-kit';
+import { ClosingBand, PageHero, PointList } from '@/components/page-kit';
+import { Link } from '@/i18n/navigation';
 
 export default function Page({ params }: { params: Promise<{ locale: string }> }) {
   setRequestLocale(use(params).locale);
-  const t = useTranslations('about');
+  const t = useTranslations();
   return (
     <>
-      <PageHero ns="about" outfit="original" />
-      <section className="mx-auto max-w-7xl px-4 sm:px-6">
-        <PointList points={t.raw('sections') as { title: string; body: string }[]} />
-      </section>
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <div className="border-s-2 border-gold ps-5">
-          <h2 className="font-display text-2xl font-semibold">{t('statusTitle')}</h2>
-          <p className="mt-2 max-w-2xl text-lg leading-relaxed text-muted">{t('statusBody')}</p>
+      <PageHero ns="about" art={{ kind: 'humaidan', outfit: 'original' }} />
+      <section className="container-page py-16 lg:py-24">
+        <PointList points={t.raw('about.sections') as { title: string; body: string }[]} />
+        <div className="callout mt-14 max-w-3xl">
+          <h2 className="section-title">{t('about.statusTitle')}</h2>
+          <p className="mt-2 leading-relaxed text-muted">{t('about.statusBody')}</p>
         </div>
       </section>
+      <ClosingBand title={t('journey.finalTitle')}>
+        <Link href="/register?as=candidate" className="btn btn-primary btn-lg">{t('journey.ctaCandidate')}</Link>
+        <Link href="/register?as=organization" className="btn btn-secondary btn-lg">{t('journey.ctaEmployer')}</Link>
+      </ClosingBand>
     </>
   );
 }

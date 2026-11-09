@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getLocale } from 'next-intl/server';
 import { redirect } from '@/i18n/navigation';
-import { api, errorCode } from './api';
+import { api, ApiError, errorCode } from './api';
 import type { FormState } from './auth-actions';
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -103,16 +103,23 @@ export async function createOrganization(_: FormState, form: FormData): Promise<
 }
 
 export async function createJob(orgId: string, _: FormState, form: FormData): Promise<FormState> {
-  const [slug, title_ar, title_en] = [text(form, 'slug'), text(form, 'title_ar'), text(form, 'title_en')];
-  if (!slug || !title_ar || !title_en) return { error: 'required' };
-  if (!SLUG.test(slug)) return { error: 'invalid_slug' };
+  const [title_ar, title_en] = [text(form, 'title_ar'), text(form, 'title_en')];
+  const [description_ar, description_en] = [text(form, 'description_ar'), text(form, 'description_en')];
+  // The description in at least one language: the requirements, AI assessment drafts and matching are built from it.
+  if (!title_ar || !title_en || (!description_ar && !description_en)) return { error: 'required' };
+  let created: { id?: string } | null;
   try {
-    await api(`/organizations/${orgId}/jobs`, { method: 'POST', body: { slug, title_ar, title_en, status: 'draft' } });
+    // The API makes the job's address from the English title.
+    created = await api<{ id?: string } | null>(`/organizations/${orgId}/jobs`, {
+      method: 'POST',
+      body: { title_ar, title_en, ...(description_ar && { description_ar }), ...(description_en && { description_en }), status: 'draft' },
+    });
   } catch (error) {
     return { error: errorCode(error) };
   }
   revalidatePath('/', 'layout');
-  return { ok: true };
+  // The new draft's id, so the job wizard can carry on with it.
+  return { ok: true, id: created?.id };
 }
 
 export async function setJobStatus(orgId: string, jobId: string, status: string): Promise<FormState> {
@@ -368,6 +375,17 @@ export async function addTask(orgId: string, versionId: string, _: FormState, fo
   };
   if (!body.title_ar || !body.title_en || !body.instructions_ar || !body.instructions_en || !body.criteria[0].description_ar || !body.criteria[0].description_en) return { error: 'required' };
   return result(() => api(`/organizations/${orgId}/assessment-versions/${versionId}/tasks`, { method: 'POST', body }));
+}
+
+/** One draft task written again by the AI model. Without the model the API answers 503, and the person is told so: no templates. */
+export async function regenerateTask(orgId: string, taskId: string, note: string): Promise<FormState> {
+  try {
+    await api(`/organizations/${orgId}/assessment-tasks/${taskId}/regenerate`, { method: 'POST', body: note.trim() ? { note: note.trim().slice(0, 500) } : {} });
+  } catch (error) {
+    return { error: error instanceof ApiError && error.status === 503 ? 'ai_unavailable' : errorCode(error) };
+  }
+  revalidatePath('/', 'layout');
+  return { ok: true };
 }
 
 export async function removeTask(orgId: string, taskId: string) {

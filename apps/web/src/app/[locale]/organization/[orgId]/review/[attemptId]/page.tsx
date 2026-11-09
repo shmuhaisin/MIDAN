@@ -17,7 +17,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const t = await getTranslations({ locale, namespace: 'review' });
   const name = data.applications.users?.candidate_profiles?.full_name ?? '—';
   return (
-    <div className="mx-auto max-w-4xl space-y-8 px-4 py-10 sm:px-6">
+    <div className="max-w-4xl space-y-8">
       <Link href={`/organization/${orgId}/jobs/${data.applications.job_id}`} className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground">
         <Arrow className="rotate-180" />{t('back')}
       </Link>

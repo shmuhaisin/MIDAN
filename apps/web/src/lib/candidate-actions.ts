@@ -53,6 +53,16 @@ export async function saveBasics(body: { full_name: string; phone: string | null
   return done(() => api('/me/candidate-profile', { method: 'PUT', body }));
 }
 
+export type HistoryItem = Record<string, string | number | null | undefined>;
+
+/** Saves one list of the profile (education or experience) on its own: the API updates only what it's sent. */
+export async function saveProfileList(fullName: string, kind: 'education' | 'experience', items: HistoryItem[]) {
+  if (!fullName.trim()) return { error: 'required' } as FormState;
+  const backwards = items.some((i) => typeof i.end_year === 'number' && typeof i.start_year === 'number' && i.end_year < i.start_year);
+  if (backwards) return { error: 'invalid_years' } as FormState;
+  return done(() => api('/me/candidate-profile', { method: 'PUT', body: { full_name: fullName, [kind]: items } }));
+}
+
 export async function setReferenceSkills(ids: string[]) {
   return done(() => api('/me/reference-skills', { method: 'PUT', body: { ids } }));
 }
@@ -188,6 +198,11 @@ export async function issueOutcome(orgId: string, applicationId: string, body: R
 
 export async function saveVersionSettings(orgId: string, versionId: string, body: Record<string, unknown>) {
   return done(() => api(`/organizations/${orgId}/assessment-versions/${versionId}`, { method: 'PATCH', body }));
+}
+
+/** A staff member confirms or corrects one of MIDAN's proposed requirement matches. Never changes the application. */
+export async function reviewRequirementMatch(orgId: string, applicationId: string, body: { requirement_key: string; status: string; proposed_status: string; note?: string }) {
+  return done(() => api(`/organizations/${orgId}/applications/${applicationId}/match/reviews`, { method: 'POST', body }));
 }
 
 export async function addApplicationNote(orgId: string, applicationId: string, body: string) {

@@ -28,8 +28,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <h2 className="section-title">{t('users')}</h2>
         <form className="flex gap-2" role="search">
           <label className="sr-only" htmlFor="q">{t('search')}</label>
-          <input id="q" name="q" defaultValue={q} placeholder={t('search')} className="h-10 w-full max-w-sm rounded-lg border border-border bg-surface px-3" />
-          <button type="submit" className="rounded-full border border-border px-4 text-sm font-semibold">{t('searchButton')}</button>
+          <input id="q" name="q" defaultValue={q} placeholder={t('search')} className="h-10 w-full max-w-sm px-3" />
+          <button type="submit" className="btn btn-secondary btn-sm">{t('searchButton')}</button>
         </form>
         <DataTable caption={t('users')} head={[t('email'), t('name'), t('roles'), t('joined')]}>
           {users.map((u) => (

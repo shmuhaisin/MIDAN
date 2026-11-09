@@ -4,6 +4,8 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminController, PlatformAdminGuard } from './admin/admin.controller';
 import { ApplicationsController } from './applications/applications.controller';
 import { ApplicationReviewController } from './applications/review.controller';
+import { ApplicationMatchController } from './applications/match.controller';
+import { AssistantController } from './assistant/assistant.controller';
 import { BackgroundWorker } from './jobs-queue/worker';
 import { TokenThrottlerGuard } from './common/token-throttler.guard';
 import { AiClient } from './ai/ai.client';
@@ -32,7 +34,7 @@ import { MyInvitationsController, TeamController } from './organizations/team.co
   imports: [DbModule, ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }])],
   providers: [AiClient, DailyClient, CalendarClient, CvController, BackgroundWorker, PlatformAdminGuard, { provide: APP_GUARD, useClass: TokenThrottlerGuard }],
   controllers: [
-    HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, ApplicationReviewController, MeController,
+    HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, ApplicationReviewController, ApplicationMatchController, AssistantController, MeController,
     AssessmentsController, AttemptsController, EvaluationsController, RequirementsController,
     CandidateController, CvController, CareerController, ReferenceController, InterviewsController, AdminController, JobAnalysisController,
     TeamController, MyInvitationsController, EmployerClaimsController, OrganizationListingsController,

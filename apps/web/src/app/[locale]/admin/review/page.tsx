@@ -22,7 +22,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <section className="space-y-2">
         <h2 className="section-title">{t('listings', { count: listings.length })}</h2>
         {listings.length ? (
-          <p className="text-sm"><Link href="/admin/listings?review=pending" className="font-semibold text-primary underline underline-offset-4">{t('openListings')}</Link></p>
+          <p className="text-sm"><Link href="/admin/listings?review=pending" className="link">{t('openListings')}</Link></p>
         ) : <p className="text-sm text-muted">{t('noListings')}</p>}
       </section>
       {groups.length === 0 ? <EmptyState title={t('empty')} /> : groups.map(([kind, items]) => (

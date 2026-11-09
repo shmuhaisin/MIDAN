@@ -6,13 +6,15 @@ export type GraphResult<T> = { status: string; payload: T; provenance: Provenanc
 /** The only route to the private AI service. Its token never leaves the backend. */
 @Injectable()
 export class AiClient {
-  private async post<T>(path: string, body: unknown): Promise<T> {
+  private async post<T>(path: string, body: unknown, timeoutMs?: number): Promise<T> {
     let response: Response;
     try {
       response = await fetch(`${process.env.AI_SERVICE_URL}${path}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-service-token': process.env.AI_SERVICE_TOKEN ?? '' },
         body: JSON.stringify(body),
+        // A bounded wait where a person is waiting on the page; generation and evaluation keep the service's own limits.
+        ...(timeoutMs && { signal: AbortSignal.timeout(timeoutMs) }),
       });
     } catch {
       throw new ServiceUnavailableException('The AI service is unavailable');
@@ -29,6 +31,21 @@ export class AiClient {
   /** The MIDAN Assessment Standard's check of a version as stored. Deterministic: no model is called. */
   evaluateQuality<T>(body: { job: unknown; stored: unknown }) {
     return this.post<T>('/quality/evaluate', body);
+  }
+
+  /** Requirement-to-evidence matching. Deterministic similarity, no model call: a proposal for people to review. */
+  matchRequirements<T>(body: { requirements: unknown[]; evidence: unknown[] }) {
+    return this.post<T>('/match/requirements', body, 20_000);
+  }
+
+  /** The assistant: answers only from the facts and links supplied here, which the API retrieved with the asker's permissions. */
+  answerQuestion(body: { role: 'candidate' | 'employer'; locale: 'ar' | 'en'; question: string; facts: unknown[]; links: unknown[]; history: unknown[] }) {
+    return this.post<{ answer: string; facts: { id: string; text: string }[]; links: { key: string; href: string; label: string }[]; mode: string; grounded: boolean; provenance: Record<string, unknown> }>('/assistant/answer', body, 45_000);
+  }
+
+  /** One draft task written again by the live model. The service answers 503 without the model: it never falls back to templates. */
+  regenerateTask<T>(body: { job: unknown; task: unknown; other_titles: string[]; note?: string }) {
+    return this.post<T>('/assessment/regenerate-task', body, 90_000);
   }
 
   run<T>(graph: 'assessment-builder' | 'evaluation', body: unknown) {

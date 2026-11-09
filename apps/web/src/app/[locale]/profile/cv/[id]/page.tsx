@@ -15,7 +15,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   if (!analysis) notFound();
   const t = await getTranslations({ locale, namespace: 'cvAnalysis' });
   return (
-    <section className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <section className="container-page max-w-4xl py-8 lg:py-10">
       <Link href="/profile" className="text-sm font-medium text-muted hover:text-foreground">{t('back')}</Link>
       <h1 className="mt-5 page-title">{t('title')}</h1>
       <p className="mt-2 mb-8 text-muted">{t('lead')}</p>

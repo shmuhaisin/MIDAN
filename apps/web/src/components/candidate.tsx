@@ -14,7 +14,7 @@ import { Arrow } from './brand';
 import { DailyRoom } from './daily-room';
 import { ErrorText, Field, INPUT, openFileLink, PRIMARY, useAction } from './forms';
 
-const SECONDARY = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-foreground/30 px-5 py-2 font-semibold transition-colors hover:bg-surface-2 disabled:opacity-60';
+const SECONDARY = 'btn btn-secondary';
 
 // --- Applying
 
@@ -25,10 +25,10 @@ export function ApplyPanel({ jobId, hasCv }: { jobId: string; hasCv: boolean }) 
   return (
     <div className="space-y-4">
       <label className="block">
-        <span className="text-sm font-medium">{t('note')}</span>
+        <span className="field-label">{t('note')}</span>
         <textarea rows={3} maxLength={4000} value={note} onChange={(e) => setNote(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} />
       </label>
-      {!hasCv && <p className="border-s-2 border-gold ps-3 text-sm">{t('noCv')}</p>}
+      {!hasCv && <p className="callout text-sm">{t('noCv')}</p>}
       <ErrorText code={error} />
       <button type="button" disabled={pending} aria-busy={pending} onClick={fire} className={PRIMARY}>
         {pending && <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-current border-e-transparent" />}
@@ -43,7 +43,7 @@ export function SubmittedCvButton({ id }: { id: string }) {
   const [error, setError] = useState<string>();
   return (
     <>
-      <button type="button" className="font-semibold text-primary underline underline-offset-4" onClick={() => openFileLink(() => applicationCvLink(id), setError)}>{t('openCv')}</button>
+      <button type="button" className="link" onClick={() => openFileLink(() => applicationCvLink(id), setError)}>{t('openCv')}</button>
       <ErrorText code={error} />
     </>
   );
@@ -57,7 +57,7 @@ export function ShareCvButton({ id }: { id: string }) {
   return (
     <div className="mt-2">
       <p className="text-sm text-muted">{t('shareCvNote')}</p>
-      <button type="button" disabled={pending} aria-busy={pending} className="mt-2 font-semibold text-primary underline underline-offset-4 disabled:opacity-60"
+      <button type="button" disabled={pending} aria-busy={pending} className="mt-2 link disabled:opacity-60"
         onClick={() => start(async () => setError((await shareCvWithApplication(id)).error))}>
         {t('shareCv')}
       </button>
@@ -68,7 +68,8 @@ export function ShareCvButton({ id }: { id: string }) {
 
 // --- Choosing skills from the sector reference
 
-export const SECTOR_KEYS = ['digital', 'culture_entertainment', 'tourism_hospitality', 'manufacturing', 'construction_real_estate', 'financial_services', 'wholesale_retail'] as const;
+export { SECTOR_KEYS } from '@/lib/career';
+import { SECTOR_KEYS } from '@/lib/career';
 
 type PickedSkill = { id: string; name_ar: string; sector_code: string };
 export type SkillSuggestion = {
@@ -200,7 +201,7 @@ export function SkillsEditor({ selected, own, suggestions }: { selected: PickedS
               </ul>
             )}
             {!searching && !failed && searched === text && !typedAlready && (
-              <button type="button" onClick={() => { saveMine([...mine, text]); setQuery(''); }} className="mt-2 text-sm font-semibold text-primary underline underline-offset-4">
+              <button type="button" onClick={() => { saveMine([...mine, text]); setQuery(''); }} className="mt-2 text-sm link">
                 {t('addOwn', { skill: text })}
               </button>
             )}
@@ -219,7 +220,7 @@ export function SkillsEditor({ selected, own, suggestions }: { selected: PickedS
               </li>
             ))}
             {mine.map((name) => (
-              <li key={name} className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-sm font-medium">
+              <li key={name} className="btn btn-secondary btn-sm">
                 <bdi>{name}</bdi>
                 <button type="button" aria-label={t('removeSkill', { skill: name })} onClick={() => saveMine(mine.filter((n) => n !== name))} className="font-bold">×</button>
               </li>
@@ -344,7 +345,7 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
       <div key={key} className="flex items-start gap-3">
         <input type="checkbox" aria-label={t('use', { field: t(`fields.${key}`) })} checked={field.checked} onChange={(e) => set({ checked: e.target.checked })} className="mt-9 size-4 accent-[var(--primary)]" />
         <label className="block flex-1">
-          <span className="text-sm font-medium">{t(`fields.${key}`)}</span>
+          <span className="field-label">{t(`fields.${key}`)}</span>
           {current?.[key] && <span className="ms-2 text-xs text-muted">{t('currentValue', { value: String(current[key]).slice(0, 60) })}</span>}
           {multiline
             ? <textarea rows={4} dir="auto" value={field.value} onChange={(e) => set({ value: e.target.value })} className={clsx(INPUT, 'h-auto py-2.5')} />
@@ -426,7 +427,7 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
         </fieldset>
       )}
       {(pro?.feedback ?? []).length > 0 && (
-        <section aria-labelledby="cv-feedback" className="border-s-2 border-gold ps-4">
+        <section aria-labelledby="cv-feedback" className="callout">
           <h2 id="cv-feedback" className="subsection-title">{t('feedbackTitle')}</h2>
           <p className="mt-1 text-sm text-muted">{t('feedbackNote')}</p>
           {(['strength', 'gap'] as const).map((type) => {
@@ -473,13 +474,32 @@ export function OnboardingBasics({ profile, fallbackName }: { profile: { full_na
   });
   const set = (key: keyof typeof values) => (e: React.ChangeEvent<HTMLInputElement>) => setValues({ ...values, [key]: e.target.value });
   return (
-    <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); fire(); }}>
+    <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); fire(); }}>
       <ErrorText code={error} />
-      <Field name="full_name" required maxLength={200} autoComplete="name" label={tp('fullName')} value={values.full_name} onChange={set('full_name')} />
-      <Field name="phone" type="tel" dir="ltr" maxLength={30} autoComplete="tel" label={t('phone')} value={values.phone} onChange={set('phone')} />
-      <Field name="city" maxLength={100} label={tp('city')} value={values.city} onChange={set('city')} />
-      <Field name="headline" maxLength={200} label={tp('headline')} value={values.headline} onChange={set('headline')} />
-      <button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY}>{t('next')}<Arrow /></button>
+      <fieldset className="rounded-[var(--radius-panel)] border border-border bg-surface p-5 sm:p-6">
+        <legend className="float-start mb-5 w-full">
+          <span className="block font-display text-lg font-bold">{t('groupWho')}</span>
+          <span className="block text-sm text-muted">{t('groupWhoHint')}</span>
+        </legend>
+        <div className="clear-both space-y-5">
+          <Field name="full_name" required maxLength={200} autoComplete="name" label={tp('fullName')} value={values.full_name} onChange={set('full_name')} />
+          <Field name="headline" maxLength={200} label={tp('headline')} hint={t('headlineHint')} value={values.headline} onChange={set('headline')} />
+        </div>
+      </fieldset>
+      <fieldset className="rounded-[var(--radius-panel)] border border-border bg-surface p-5 sm:p-6">
+        <legend className="float-start mb-5 w-full">
+          <span className="block font-display text-lg font-bold">{t('groupReach')}</span>
+          <span className="block text-sm text-muted">{t('groupReachHint')}</span>
+        </legend>
+        <div className="clear-both grid gap-5 sm:grid-cols-2">
+          <Field name="phone" type="tel" dir="ltr" maxLength={30} autoComplete="tel" label={t('phone')} value={values.phone} onChange={set('phone')} />
+          <Field name="city" maxLength={100} autoComplete="address-level2" label={tp('city')} value={values.city} onChange={set('city')} />
+        </div>
+      </fieldset>
+      <div className="ob-actions">
+        <span className="flex-1" />
+        <button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY}>{t('next')}<Arrow /></button>
+      </div>
     </form>
   );
 }
@@ -521,7 +541,7 @@ export function InterviewActions({ id, status }: { id: string; status: string })
       {asking && (
         <form className="space-y-3 rounded-lg bg-surface p-4" onSubmit={(e) => { e.preventDefault(); ask.fire(); }}>
           <label className="block">
-            <span className="text-sm font-medium">{t('rescheduleNote')}</span>
+            <span className="field-label">{t('rescheduleNote')}</span>
             <textarea rows={3} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} />
           </label>
           <p className="text-sm text-muted">{t('rescheduleHint')}</p>
@@ -536,21 +556,55 @@ export function InterviewActions({ id, status }: { id: string; status: string })
   );
 }
 
-export function InterviewJoin({ id, opensAt, closesAt, canJoin, videoAvailable, timeZone }: { id: string; opensAt: string; closesAt: string; canJoin: boolean; videoAvailable: boolean; timeZone: string }) {
+type DeviceState = 'unknown' | 'checking' | 'ready' | 'blocked' | 'missing';
+
+/**
+ * Asks the browser for the camera and microphone once, then stops them straight away. It reports only what the browser
+ * said: allowed, blocked, or no device found. Nothing is recorded or sent.
+ */
+function useDeviceCheck() {
+  const [state, setState] = useState<DeviceState>('unknown');
+  const check = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return setState('missing');
+    setState('checking');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      stream.getTracks().forEach((track) => track.stop());
+      setState('ready');
+    } catch (error) {
+      const name = error instanceof DOMException ? error.name : '';
+      setState(name === 'NotFoundError' || name === 'OverconstrainedError' ? 'missing' : 'blocked');
+    }
+  };
+  return { state, check };
+}
+
+function minutesBetween(a: number, b: number) {
+  return Math.round(Math.abs(a - b) / 60_000);
+}
+
+/**
+ * Joining an interview: a waiting room before the call (when it starts, a device check, what to expect), the Daily call
+ * itself with a running timer, and a clear end screen. Leaving never completes the interview: the organization records that.
+ */
+export function InterviewJoin({ id, opensAt, closesAt, startsAt, minutes, canJoin, videoAvailable, timeZone }: {
+  id: string; opensAt: string; closesAt: string; startsAt?: string; minutes?: number; canJoin: boolean; videoAvailable: boolean; timeZone: string;
+}) {
   const t = useTranslations('interview');
   const locale = useLocale();
-  const [call, setCall] = useState<{ room_url: string; token: string } | null>(null);
+  const [call, setCall] = useState<{ room_url: string; token: string; since: number } | null>(null);
   const [left, setLeft] = useState(false);
   const [now, setNow] = useState<number | null>(null);
+  const devices = useDeviceCheck();
   useEffect(() => {
     setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    const timer = setInterval(() => setNow(Date.now()), call ? 1_000 : 30_000);
     return () => clearInterval(timer);
-  }, []);
+  }, [call]);
   const join = useAction(async () => {
     const result = await joinInterview(id);
     if (result.room_url && result.token) {
-      setCall({ room_url: result.room_url, token: result.token });
+      setCall({ room_url: result.room_url, token: result.token, since: Date.now() });
       setLeft(false);
       return { ok: true };
     }
@@ -559,46 +613,150 @@ export function InterviewJoin({ id, opensAt, closesAt, canJoin, videoAvailable, 
 
   if (!videoAvailable) return <p className="rounded-lg bg-surface-2 p-3 text-sm">{t('videoNotConfigured')}</p>;
   if (!canJoin) return <p className="text-sm text-muted">{t('acceptFirst')}</p>;
-  if (call) return <DailyRoom url={call.room_url} token={call.token} onLeft={() => { setCall(null); setLeft(true); }} />;
+  if (call) {
+    const elapsed = Math.max(0, Math.floor(((now ?? call.since) - call.since) / 1000));
+    const clock = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-border bg-surface px-4 py-2.5 text-sm">
+          <span className="flex items-center gap-2 font-semibold"><span aria-hidden className="size-2 animate-pulse rounded-full bg-success" />{t('room.live')}</span>
+          <span className="num font-mono" aria-label={t('room.elapsedLabel', { time: clock })}>{clock}</span>
+          <span className="text-muted">{t('room.leaveHint')}</span>
+        </div>
+        <DailyRoom url={call.room_url} token={call.token} onLeft={() => { setCall(null); setLeft(true); }} />
+      </div>
+    );
+  }
   if (now === null) return null;
-  if (now < new Date(opensAt).getTime()) return <p className="text-sm text-muted">{t('opensAt', { time: formatWhen(locale, opensAt, timeZone) })}</p>;
-  if (now > new Date(closesAt).getTime()) return <p className="text-sm text-muted">{t('closed')}</p>;
+  const open = new Date(opensAt).getTime();
+  const close = new Date(closesAt).getTime();
+  if (now > close) return <p className="text-sm text-muted">{t('closed')}</p>;
+  const start = startsAt ? new Date(startsAt).getTime() : null;
+  const deviceLine = {
+    unknown: t('room.devices.unknown'), checking: t('room.devices.checking'), ready: t('room.devices.ready'),
+    blocked: t('room.devices.blocked'), missing: t('room.devices.missing'),
+  }[devices.state];
+
+  if (left) {
+    return (
+      <div role="status" className="rounded-[var(--radius-panel)] border border-border bg-surface p-6">
+        <p className="font-display text-xl font-bold">{t('room.leftTitle')}</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted">{t('leftNote')}</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {now >= open && <button type="button" disabled={join.pending} aria-busy={join.pending} onClick={join.fire} className="btn btn-secondary btn-sm">{t('rejoin')}</button>}
+        </div>
+        <ErrorText code={join.error} />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-2">
-      {left && <p role="status" className="text-sm">{t('leftNote')}</p>}
-      <button type="button" disabled={join.pending} aria-busy={join.pending} onClick={join.fire} className={PRIMARY}>{t(left ? 'rejoin' : 'join')}<Arrow /></button>
-      <ErrorText code={join.error} />
+    <div className="grid gap-5 rounded-[var(--radius-panel)] border border-border bg-surface p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div>
+        <p className="label-caps">{t('room.waiting')}</p>
+        <p className="mt-2 font-display text-2xl font-bold">
+          {start === null ? t('room.soon')
+            : now < start ? t('room.startsIn', { minutes: minutesBetween(start, now) })
+            : t('room.startedAgo', { minutes: minutesBetween(now, start) })}
+        </p>
+        {start !== null && <p className="mt-1 text-sm text-muted">{formatWhen(locale, new Date(start).toISOString(), timeZone)}{minutes ? ` · ${t('minutes', { minutes })}` : ''}</p>}
+        <div className="mt-5">
+          {now < open ? (
+            <p className="text-sm text-muted">{t('opensAt', { time: formatWhen(locale, opensAt, timeZone) })}</p>
+          ) : (
+            <button type="button" disabled={join.pending} aria-busy={join.pending} onClick={join.fire} className={PRIMARY}>{join.pending ? t('connecting') : t('join')}<Arrow /></button>
+          )}
+          <ErrorText code={join.error} />
+        </div>
+      </div>
+      <div className="space-y-4 border-border lg:border-s lg:ps-5">
+        <div>
+          <p className="text-sm font-semibold">{t('room.devices.title')}</p>
+          <p role="status" className={clsx('mt-1 text-sm', devices.state === 'blocked' || devices.state === 'missing' ? 'text-error' : devices.state === 'ready' ? 'text-primary' : 'text-muted')}>{deviceLine}</p>
+          {devices.state !== 'ready' && devices.state !== 'checking' && (
+            <button type="button" onClick={devices.check} className="mt-2 text-sm font-semibold underline underline-offset-4">{t('room.devices.check')}</button>
+          )}
+        </div>
+        <div>
+          <p className="text-sm font-semibold">{t('room.expectTitle')}</p>
+          <ul className="mt-1 space-y-1 text-sm leading-relaxed text-muted">
+            {(t.raw('room.expect') as string[]).map((line) => <li key={line} className="flex gap-2"><span aria-hidden className="mt-2 size-1.5 shrink-0 rotate-45 bg-gold" />{line}</li>)}
+          </ul>
+        </div>
+      </div>
     </div>
   );
 }
 
 // --- Notifications
 
+/** Kinds of notification by what they're about, for the filter. Anything new falls under "all" until it's placed. */
+const NOTICE_TOPICS: Record<string, string[]> = {
+  applications: ['application_received', 'application_shortlisted'],
+  assessments: ['assessment_assigned', 'deadline_soon', 'submission_received', 'results_released'],
+  interviews: ['interview_invited', 'interview_changed', 'interview_response', 'interview_cancelled'],
+  decisions: ['hiring_decision', 'application_rejected'],
+  account: ['organization_invitation', 'employer_claim_approved', 'employer_claim_rejected'],
+};
+
 export function NotificationsList({ items, timeZone }: { items: { id: string; kind: string; params: { job_ar?: string; job_en?: string }; link: string; read_at: string | null; created_at: string }[]; timeZone: string }) {
   const t = useTranslations('notifications');
   const locale = useLocale();
   const router = useRouter();
   const readAll = useAction(readAllNotifications);
-  if (items.length === 0) return <p className="text-muted">{t('empty')}</p>;
+  const [filter, setFilter] = useState<'all' | 'unread' | keyof typeof NOTICE_TOPICS>('all');
+  if (items.length === 0) return <p className="rounded-[var(--radius-panel)] border border-dashed border-border-strong px-6 py-12 text-center text-muted">{t('empty')}</p>;
+  const unread = items.filter((n) => !n.read_at).length;
+  const matches = (n: (typeof items)[number], f: typeof filter) => f === 'all' || (f === 'unread' ? !n.read_at : NOTICE_TOPICS[f].includes(n.kind));
+  const shown = items.filter((n) => matches(n, filter));
+  const filters = (['all', 'unread', ...Object.keys(NOTICE_TOPICS)] as (typeof filter)[]).filter((f) => f === 'all' || f === 'unread' || items.some((n) => matches(n, f)));
+  // Grouped by the day they arrived, in the reader's time zone.
+  const day = (value: string) => new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en-GB', { dateStyle: 'full', timeZone }).format(new Date(value));
+  const groups: { day: string; items: typeof items }[] = [];
+  for (const n of shown) {
+    const d = day(n.created_at);
+    if (groups.at(-1)?.day === d) groups.at(-1)!.items.push(n);
+    else groups.push({ day: d, items: [n] });
+  }
   return (
-    <div>
-      {items.some((n) => !n.read_at) && <button type="button" disabled={readAll.pending} onClick={readAll.fire} className="mb-4 font-semibold text-primary underline underline-offset-4">{t('readAll')}</button>}
-      <ErrorText code={readAll.error} />
-      <ul className="border-t border-border">
-        {items.map((n) => (
-          <li key={n.id} className="border-b border-border">
-            <button
-              type="button"
-              onClick={async () => { if (!n.read_at) await readNotification(n.id); router.push(n.link); }}
-              className={clsx('block w-full py-4 text-start transition-colors hover:text-primary', !n.read_at && 'font-semibold')}
-            >
-              {!n.read_at && <span className="me-2 inline-block size-2 rounded-full bg-primary" aria-label={t('unread')} />}
-              {t(`kind.${n.kind}`, { job: pick(locale, n.params.job_ar ?? '', n.params.job_en ?? '') })}
-              <span className="mt-1 block text-sm font-normal text-muted">{formatWhen(locale, n.created_at, timeZone)}</span>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div role="group" aria-label={t('filter')} className="-mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
+          {filters.map((f) => (
+            <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}
+              className={clsx('chip shrink-0', filter === f ? 'border-deep bg-deep text-deep-foreground' : 'hover:border-foreground')}>
+              {t(`filters.${f}`)}
+              {f === 'unread' && <span className="num text-xs">{number(locale, unread)}</span>}
             </button>
-          </li>
-        ))}
-      </ul>
+          ))}
+        </div>
+        {unread > 0 && <button type="button" disabled={readAll.pending} aria-busy={readAll.pending} onClick={readAll.fire} className="btn btn-secondary btn-sm">{t('readAll')}</button>}
+      </div>
+      <ErrorText code={readAll.error} />
+      {shown.length === 0 ? <p className="rounded-[var(--radius-panel)] border border-dashed border-border-strong px-6 py-10 text-center text-muted">{t('noneHere')}</p> : groups.map((g) => (
+        <section key={g.day} aria-label={g.day}>
+          <h2 className="label-caps mb-2">{g.day}</h2>
+          <ul className="divide-y divide-border overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface">
+            {g.items.map((n) => (
+              <li key={n.id}>
+                <button
+                  type="button"
+                  onClick={async () => { if (!n.read_at) await readNotification(n.id); router.push(n.link); }}
+                  className={clsx('flex w-full items-start gap-3 px-5 py-4 text-start transition-colors hover:bg-surface-2/60', !n.read_at && 'bg-accent/25')}
+                >
+                  <span aria-hidden className={clsx('mt-2 size-2 shrink-0 rotate-45', n.read_at ? 'bg-transparent' : 'bg-gold')} />
+                  <span className="min-w-0 flex-1">
+                    {!n.read_at && <span className="sr-only">{t('unread')}: </span>}
+                    <span className={clsx('block', !n.read_at && 'font-semibold')}>{t(`kind.${n.kind}`, { job: pick(locale, n.params.job_ar ?? '', n.params.job_en ?? '') })}</span>
+                    <span className="mt-1 block text-sm text-muted">{formatWhen(locale, n.created_at, timeZone)}</span>
+                  </span>
+                  <Arrow className="mt-1 text-muted" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }
@@ -622,20 +780,20 @@ export function CareerTargetPicker({ families, target }: { families: Family[]; t
       {/* The hint stays out of the label, so the field's accessible name is only its label. */}
       <div className="sm:col-span-3">
         <label className="block">
-          <span className="text-sm font-medium">{t('jobTitle')}</span>
+          <span className="field-label">{t('jobTitle')}</span>
           <input name="job_title" dir="auto" maxLength={120} aria-describedby="job-title-hint" value={title} onChange={(e) => setTitle(e.target.value)} className={INPUT} />
         </label>
         <p id="job-title-hint" className="mt-1 text-sm text-muted">{t('jobTitleHint')}</p>
       </div>
       <label className="block">
-        <span className="text-sm font-medium">{t('sector')}</span>
+        <span className="field-label">{t('sector')}</span>
         <select value={sector} onChange={(e) => { setSector(e.target.value); setFamily(''); }} className={INPUT}>
           <option value="">{t('choose')}</option>
           {SECTOR_KEYS.map((k) => <option key={k} value={k}>{ts(k)}</option>)}
         </select>
       </label>
       <label className="block">
-        <span className="text-sm font-medium">{t('family')}</span>
+        <span className="field-label">{t('family')}</span>
         <select value={family} disabled={!sector} onChange={(e) => setFamily(e.target.value)} className={INPUT}>
           <option value="">{t('choose')}</option>
           {options.map((f) => <option key={f.job_family_ar} value={f.job_family_ar}>{f.job_family_ar}</option>)}
@@ -698,7 +856,7 @@ export function SettingsForm({ fullName, timeZone, reminders }: { fullName: stri
   return (
     <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); fire(); }}>
       <label className="block max-w-sm">
-        <span className="text-sm font-medium">{t('timeZone')}</span>
+        <span className="field-label">{t('timeZone')}</span>
         <select value={zone} onChange={(e) => setZone(e.target.value)} className={INPUT} dir="ltr">
           {[...new Set([timeZone, ...TIME_ZONES])].map((z) => <option key={z} value={z}>{z}</option>)}
         </select>
@@ -762,27 +920,27 @@ export function PracticeTaskCard({ task }: { task: Practice }) {
         <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); submit.fire(); }}>
           <div>
             <label className="block">
-              <span className="text-sm font-medium">{t('practiceSubmission')}</span>
+              <span className="field-label">{t('practiceSubmission')}</span>
               <textarea dir="auto" rows={8} maxLength={20000} aria-describedby={`practice-hint-${task.id}`} value={text} onChange={(e) => setText(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} />
             </label>
             <p id={`practice-hint-${task.id}`} className="mt-1 text-sm text-muted">{t('practiceSubmissionHint')}</p>
           </div>
           {task.kind === 'portfolio_project' && (
             <label className="block max-w-xl">
-              <span className="text-sm font-medium">{t('practiceLink')}</span>
+              <span className="field-label">{t('practiceLink')}</span>
               <input type="url" dir="ltr" placeholder="https://" value={url} onChange={(e) => setUrl(e.target.value)} className={INPUT} />
             </label>
           )}
           <ErrorText code={save.error ?? submit.error ?? complete.error} />
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" disabled={save.pending} onClick={save.fire} className="rounded-full border border-foreground/30 px-5 py-2 font-semibold">{t('practiceSave')}</button>
+            <button type="button" disabled={save.pending} onClick={save.fire} className="btn btn-secondary">{t('practiceSave')}</button>
             <button type="submit" disabled={submit.pending || !text.trim()} aria-busy={submit.pending} className={PRIMARY}>{t('practiceSubmit')}</button>
             {task.status === 'submitted' && <button type="button" disabled={complete.pending} onClick={complete.fire} className="font-semibold underline underline-offset-4">{t('practiceComplete')}</button>}
           </div>
         </form>
       )}
       {task.feedback && (
-        <div className="mt-4 border-s-2 border-gold ps-4 text-sm">
+        <div className="mt-4 callout text-sm">
           <p className="font-semibold">{t('checklistTitle')}</p>
           <p className="text-muted">{t('checklistNote')}</p>
           <ul className="mt-2 space-y-1">

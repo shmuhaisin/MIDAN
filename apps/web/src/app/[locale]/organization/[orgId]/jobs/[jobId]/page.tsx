@@ -1,11 +1,15 @@
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Arrow, Eyebrow, JourneyRail } from '@/components/brand';
+import clsx from 'clsx';
+import { Arrow, Eyebrow } from '@/components/brand';
+import { Icon } from '@/components/icons';
+import { StageMeter } from '@/components/workspace-kit';
 import { ApplicantStatus, JobStatusButtons } from '@/components/forms';
 import { canReopenApplications } from '@/lib/application-status';
 import { RequirementsEditor, type Requirement } from '@/components/requirements';
 import { JobAnalysisPanel, type Analysis } from '@/components/job-analysis';
 import { AssessmentSwitcher, AssessmentTitle, VersionSettings, EmptyAssessment, FieldSelect, GenerateButton, InviteButton, JobDetailsForm, PublishPanel, TaskList } from '@/components/workspace';
+
 import { Link, redirect } from '@/i18n/navigation';
 import { api, apiForPage } from '@/lib/api';
 import { uncoveredItems, type ReviewState } from '@/lib/assessment-review';
@@ -49,9 +53,14 @@ type Compared = {
   evaluation_results: null | { status: string; overall_score: string | null; skill_scores: { skill_id: string; level: number; skills: { name_ar: string; name_en: string } }[] };
 };
 
-export default async function Page({ params, searchParams }: { params: Promise<{ locale: string; orgId: string; jobId: string }>; searchParams: Promise<{ assessment?: string }> }) {
+export default async function Page({ params, searchParams }: { params: Promise<{ locale: string; orgId: string; jobId: string }>; searchParams: Promise<{ assessment?: string; step?: string }> }) {
   const { locale, orgId, jobId } = await params;
-  const { assessment: chosen } = await searchParams;
+  const { assessment: chosen, step: stepParam } = await searchParams;
+  // The job wizard: one section at a time after the job is named. Without ?step the full workspace shows.
+  const WIZARD = ['details', 'requirements', 'reference-skills', 'assessment', 'review'] as const;
+  const stepNo = Number(stepParam);
+  const wizard = stepNo >= 1 && stepNo <= WIZARD.length ? WIZARD[stepNo - 1] : null;
+  const show = (id: (typeof WIZARD)[number]) => !wizard || wizard === id;
   setRequestLocale(locale);
   if (!(await getSession())) return redirect({ href: '/login', locale });
   if (!/^[0-9a-f-]{36}$/.test(orgId) || !/^[0-9a-f-]{36}$/.test(jobId)) notFound();
@@ -70,6 +79,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const to = await getTranslations({ locale, namespace: 'org' });
   const tr = await getTranslations({ locale, namespace: 'requirements' });
   const tj = await getTranslations({ locale, namespace: 'jobAnalysis' });
+  const tw = await getTranslations({ locale, namespace: 'jobWizard' });
 
   const canBuild = ['owner', 'admin', 'recruiter'].includes(org.my_role);
   const canPublish = ['owner', 'admin'].includes(org.my_role);
@@ -112,38 +122,99 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   ];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-14 px-4 py-10 sm:px-6">
+    <div className="space-y-12">
       <header>
-        <Link href={`/organization/${orgId}`} className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground">
-          <Arrow className="rotate-180" />{t('back')}
+        <Link href={`/organization/${orgId}/jobs`} className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground">
+          <Arrow className="rotate-180" />{tw('allJobs')}
         </Link>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="page-title">{pick(locale, job.title_ar, job.title_en)}</h1>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold">{to(`jobStatus.${job.status}`)}</span>
-            {canBuild && <JobStatusButtons orgId={orgId} jobId={jobId} status={job.status} />}
+        <div className="mt-4 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-border-strong pb-6">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-sm font-semibold text-muted"><span aria-hidden className={clsx('size-2 rounded-full', job.status === 'published' ? 'bg-primary' : job.status === 'draft' ? 'bg-gold' : 'bg-border-strong')} />{to(`jobStatus.${job.status}`)}</p>
+            <h1 className="display-lg mt-2 text-balance max-sm:text-[2.125rem] max-sm:leading-tight">{pick(locale, job.title_ar, job.title_en)}</h1>
           </div>
+          {canBuild && <div className="flex flex-wrap items-center gap-3 sm:ms-auto"><JobStatusButtons orgId={orgId} jobId={jobId} status={job.status} /></div>}
         </div>
-        <div className="mt-6"><JourneyRail label={t('flowLabel')} steps={t.raw('flow') as string[]} done={flowDone} /></div>
+        {!wizard && (
+          // A progress list, not navigation: the steps aren't links. Their names stay readable at every width.
+          <div className="mt-6">
+            <ol aria-label={t('flowLabel')} className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${flowDone.length}, minmax(0, 1fr))` }}>
+              {(t.raw('flow') as string[]).map((label, i) => {
+                const current = i === flowDone.indexOf(false);
+                return (
+                  <li key={label} aria-current={current ? 'step' : undefined}>
+                    <span aria-hidden className={clsx('block h-1.5 rounded-full', flowDone[i] ? 'bg-primary' : current ? 'bg-gold' : 'bg-surface-2')} />
+                    <span className={clsx('mt-2 text-xs leading-snug max-lg:sr-only lg:block', current ? 'font-semibold' : flowDone[i] ? 'text-foreground/80' : 'text-muted')}>{label}</span>
+                    <span className="sr-only">{flowDone[i] ? tw('ready') : ''}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        )}
       </header>
 
+      {wizard ? (
+        <nav aria-label={tw('stepsLabel')}>
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="label-caps">{tw('stepsLabel')}</p>
+            <p className="num text-sm text-muted">{tw('progress', { step: number(locale, stepNo + 1), total: number(locale, WIZARD.length + 1) })}</p>
+          </div>
+          <ol className="mt-3 grid gap-1.5 sm:gap-2" style={{ gridTemplateColumns: `repeat(${WIZARD.length + 1}, minmax(0, 1fr))` }}>
+            {[tw('stepName1'), ...WIZARD.map((w) => tw(`step.${w}`))].map((label, i) => {
+              const state = i === stepNo ? 'current' : i < stepNo ? 'done' : 'next';
+              const body = (
+                <>
+                  <span aria-hidden className={clsx('block h-1.5 rounded-full', state === 'done' ? 'bg-primary' : state === 'current' ? 'bg-gold' : 'bg-surface-2')} />
+                  <span className={clsx('mt-2.5 hidden items-center gap-1.5 text-sm sm:flex', state === 'current' ? 'font-semibold' : state === 'done' ? 'text-foreground/80' : 'text-muted')}>
+                    {state === 'done' ? <Icon name="check" className="size-3.5 shrink-0 text-primary" /> : <span className="num text-xs">{number(locale, i + 1)}</span>}
+                    <span className="truncate">{label}</span>
+                  </span>
+                </>
+              );
+              return (
+                <li key={label} aria-current={state === 'current' ? 'step' : undefined}>
+                  {state === 'current' ? <span className="block">{body}</span>
+                    : <Link href={i === 0 ? `/organization/${orgId}/jobs/${jobId}` : `/organization/${orgId}/jobs/${jobId}?step=${i}`} className="block hover:opacity-80">{body}</Link>}
+                </li>
+              );
+            })}
+          </ol>
+          <p className="mt-5 text-muted">{tw(`stepLead.${wizard}`)}</p>
+        </nav>
+      ) : (
+      <nav aria-label={t('onThisPage')} className="sticky top-[4.5rem] z-20 -mx-4 border-y border-border bg-background/95 px-4 backdrop-blur lg:mx-0 lg:rounded-[var(--radius-panel)] lg:border-x">
+        <ul className="flex gap-1 overflow-x-auto py-1.5">
+          {[['details', t('details')], ['requirements', tr('title')], ['reference-skills', tj('title')], ['assessment', t('assessment')], ['candidates', t('candidates')]].map(([id, label], i) => (
+            <li key={id} className="shrink-0"><a href={`#${id}`} className="flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-sm text-muted transition-colors hover:bg-surface hover:text-foreground"><span className="num text-xs text-gold-text">{String(i + 1).padStart(2, '0')}</span>{label}</a></li>
+          ))}
+        </ul>
+      </nav>
+      )}
+
+      {show('details') && (
       <section aria-labelledby="details">
-        <Eyebrow className="mb-4 text-muted"><span id="details">{t('details')}</span></Eyebrow>
+        <h2 id="details" className="section-title mb-6 flex items-baseline gap-3 border-b border-border-strong pb-3"><span className="num text-sm text-gold-text">01</span>{t('details')}</h2>
         <JobDetailsForm orgId={orgId} job={job} skills={skills} canEdit={canBuild} />
       </section>
+      )}
 
+      {show('requirements') && (
       <section aria-labelledby="requirements">
-        <Eyebrow className="mb-4 text-muted"><span id="requirements">{tr('title')}</span></Eyebrow>
+        <h2 id="requirements" className="section-title mb-6 flex items-baseline gap-3 border-b border-border-strong pb-3"><span className="num text-sm text-gold-text">02</span>{tr('title')}</h2>
         <RequirementsEditor orgId={orgId} jobId={jobId} requirements={requirements ?? []} versionIds={assessments.flatMap((a) => a.assessment_versions[0]?.id ?? [])} canEdit={canBuild} />
       </section>
+      )}
 
+      {show('reference-skills') && (
       <section aria-labelledby="reference-skills">
-        <Eyebrow className="mb-4 text-muted"><span id="reference-skills">{tj('title')}</span></Eyebrow>
+        <h2 id="reference-skills" className="section-title mb-6 flex items-baseline gap-3 border-b border-border-strong pb-3"><span className="num text-sm text-gold-text">03</span>{tj('title')}</h2>
         <JobAnalysisPanel key={analysis?.id ?? 'none'} orgId={orgId} jobId={jobId} analysis={analysis ?? null} linked={job.job_reference_skills ?? []} canEdit={canBuild} />
       </section>
+      )}
 
+      {show('assessment') && (
       <section aria-labelledby="assessment">
-        <Eyebrow className="mb-4 text-muted"><span id="assessment">{t('assessment')}</span></Eyebrow>
+        <h2 id="assessment" className="section-title mb-6 flex items-baseline gap-3 border-b border-border-strong pb-3"><span className="num text-sm text-gold-text">04</span>{t('assessment')}</h2>
         {!version ? (
           canBuild ? <EmptyAssessment orgId={orgId} jobId={jobId} /> : <p className="text-muted">{t('noAssessmentTitle')}</p>
         ) : (
@@ -157,18 +228,18 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               <p className="font-semibold">
                 {t('version', { n: number(locale, version.version_number) })} · {t(`status.${version.status}`)} · {t('tasksCount', { count: version.assessment_tasks.length, shown: number(locale, version.assessment_tasks.length) })}
               </p>
-              <Link href={`/experience/${job.organizations.slug}/${job.slug}/${version.id}`} className="font-semibold text-primary underline underline-offset-4">{t('preview')}</Link>
+              <Link href={`/experience/${job.organizations.slug}/${job.slug}/${version.id}`} className="link">{t('preview')}</Link>
             </div>
-            {latest.run?.mode === 'demo' && !published && <p className="border-s-2 border-gold ps-4 text-sm font-medium">{t('demoLabel')}</p>}
-            {published && <p className="border-s-2 border-gold ps-4 text-sm font-medium">{t('publishedNote')}</p>}
-            {published && <p className="border-s-2 border-gold ps-4 text-sm font-medium">{tr('lockedNote')}</p>}
+            {latest.run?.mode === 'demo' && !published && <p className="callout text-sm font-medium">{t('demoLabel')}</p>}
+            {published && <p className="callout text-sm font-medium">{t('publishedNote')}</p>}
+            {published && <p className="callout text-sm font-medium">{tr('lockedNote')}</p>}
             <FieldSelect orgId={orgId} assessmentId={version.assessments.id} field={version.assessments.professional_field} canEdit={canBuild} />
             {required.length > 0 && (
               <div>
                 <p className="text-sm font-semibold">{t('coverage')}</p>
                 <ul className="mt-2 flex flex-wrap gap-2">
                   {required.map((s) => (
-                    <li key={s.id} className={coveredIds.has(s.id) ? 'rounded-full bg-accent px-3 py-1 text-sm font-medium text-accent-foreground' : 'rounded-full border border-error px-3 py-1 text-sm font-medium'}>
+                    <li key={s.id} className={coveredIds.has(s.id) ? 'rounded-[3px] bg-accent px-2.5 py-1 text-sm font-medium text-accent-foreground' : 'rounded-[3px] border border-error/50 bg-error-surface px-2.5 py-1 text-sm font-medium text-error'}>
                       {pick(locale, s.name_ar, s.name_en)}{!coveredIds.has(s.id) && ` · ${t('uncovered')}`}
                     </li>
                   ))}
@@ -196,9 +267,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </div>
         )}
       </section>
+      )}
 
+      {!wizard && (
       <section aria-labelledby="candidates">
-        <Eyebrow className="mb-4 text-muted"><span id="candidates">{t('candidates')}</span></Eyebrow>
+        <h2 id="candidates" className="section-title mb-6 flex items-baseline gap-3 border-b border-border-strong pb-3"><span className="num text-sm text-gold-text">05</span>{t('candidates')}</h2>
         {job.applications.length === 0 ? (
           <p className="text-muted">{t('noCandidates')}</p>
         ) : (
@@ -210,10 +283,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                 ...liveAssessments.filter((s) => !a.assessment_attempts.some((x) => x.assessment_versions.assessment_id === s.id)).map((s) => ({ id: s.id, of: s, attempt: null })),
               ];
               return (
-                <li key={a.id} className="grid items-center gap-3 border-b border-border py-4 sm:grid-cols-[1fr_12rem]">
+                <li key={a.id} className="grid items-center gap-3 border-b border-border py-4 sm:grid-cols-[1fr_14rem]">
                   <div className="min-w-0">
                     <Link href={`/organization/${orgId}/applicants/${a.id}`} className="block truncate font-semibold underline-offset-4 hover:text-primary hover:underline">{name}</Link>
-                    <p className="text-sm text-muted">{ts(a.status)}</p>
+                    <p className="mt-1 flex items-center gap-3 text-sm text-muted"><StageMeter status={a.status} label={ts(a.status)} />{ts(a.status)}</p>
                   </div>
                   {canBuild ? <ApplicantStatus id={a.id} status={a.status} label={to('changeStatus', { name })} canReopen={canReopenApplications(org.my_role)} /> : <span className="text-sm">{ts(a.status)}</span>}
                   {rows.length === 0 ? (
@@ -223,11 +296,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                       {rows.map(({ id, of, attempt }) => {
                         const title = pick(locale, of.title_ar, of.title_en);
                         return (
-                          <li key={id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-surface px-3.5 py-2.5 text-sm">
+                          <li key={id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[var(--radius-control)] border border-border bg-surface px-3.5 py-2.5 text-sm">
                             <span className="min-w-0 font-medium">{title}{attempt && <span className="ms-2 font-normal text-muted">{t(`attempt.${attempt.status}`)}</span>}</span>
                             {!attempt && canBuild && <InviteButton applicationId={a.id} assessmentId={id} title={title} />}
                             {attempt?.status === 'submitted' && canEvaluate && (
-                              <Link href={`/organization/${orgId}/review/${attempt.id}`} className="font-semibold text-primary underline underline-offset-4">
+                              <Link href={`/organization/${orgId}/review/${attempt.id}`} className="link">
                                 {attempt.evaluation_results?.status === 'reviewed' ? t('viewReview') : t('review')}
                               </Link>
                             )}
@@ -242,7 +315,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </ul>
         )}
       </section>
+      )}
 
+      {!wizard && (
       <section aria-labelledby="compare">
         <Eyebrow className="mb-2 text-muted"><span id="compare">{t('compare')}</span></Eyebrow>
         {evaluated.length === 0 ? (
@@ -280,6 +355,45 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </>
         )}
       </section>
+      )}
+      {wizard === 'review' && (
+        <section aria-labelledby="review-step" className="space-y-6">
+          <h2 id="review-step" className="section-title">{tw('step.review')}</h2>
+          <ul className="divide-y divide-border overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface">
+            {([
+              ['details', Boolean(job.description_ar || job.description_en), 1],
+              ['requirements', (requirements ?? []).length > 0, 2],
+              ['reference-skills', (job.job_reference_skills ?? []).length > 0 || job.job_skills.length > 0, 3],
+              ['assessment', Boolean(version), 4],
+            ] as const).map(([key, ok, n]) => (
+              <li key={key} className="flex flex-wrap items-center gap-4 px-5 py-4">
+                <span aria-hidden className={ok ? 'grid size-8 place-items-center rounded-full bg-primary text-primary-foreground' : 'grid size-8 place-items-center rounded-full border border-warning text-warning'}>{ok ? '✓' : '!'}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">{tw(`step.${key}`)}</span>
+                  <span className="block text-sm text-muted">{ok ? tw('ready') : tw(`missing.${key}`)}</span>
+                </span>
+                <Link href={`/organization/${orgId}/jobs/${jobId}?step=${n}`} className="link text-sm">{tw('edit')}</Link>
+              </li>
+            ))}
+          </ul>
+          <div className="callout space-y-3">
+            <p className="font-semibold">{job.status === 'published' ? tw('alreadyPublished') : tw('publishTitle')}</p>
+            <p className="text-sm text-muted">{tw('publishBody')}</p>
+            {canBuild && <JobStatusButtons orgId={orgId} jobId={jobId} status={job.status} />}
+          </div>
+        </section>
+      )}
+
+      {wizard && (
+        <div className="ob-actions">
+          <Link href={stepNo > 1 ? `/organization/${orgId}/jobs/${jobId}?step=${stepNo - 1}` : `/organization/${orgId}/jobs`} className="btn btn-ghost"><Arrow className="rotate-180" />{tw('back')}</Link>
+          <span className="flex-1" />
+          <span className="flex flex-wrap items-center gap-3">
+            <Link href={`/organization/${orgId}/jobs/${jobId}`} className="btn btn-ghost">{tw('saveExit')}</Link>
+            {stepNo < WIZARD.length && <Link href={`/organization/${orgId}/jobs/${jobId}?step=${stepNo + 1}`} className="btn btn-primary">{tw('continue')}<Arrow /></Link>}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
