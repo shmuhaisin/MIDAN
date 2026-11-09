@@ -86,6 +86,11 @@ class AddCriterionDto extends NewCriterionDto {
 }
 
 /** A task an organization writes by hand. Open-answer types only: objective questions need an answer key built with them. */
+class TaskOrderDto extends ChangeReasonDto {
+  @ApiProperty({ type: [String], description: "Every task of the version, once each, in the new order." })
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(50) @IsUUID('all', { each: true }) task_ids!: string[];
+}
+
 class NewTaskDto extends ChangeReasonDto {
   @ApiPropertyOptional({ enum: ['written_case_study', 'file_submission'] }) @IsIn(['written_case_study', 'file_submission']) task_type!: 'written_case_study' | 'file_submission';
   @ApiPropertyOptional() @IsString() @MinLength(1) @MaxLength(200) title_ar!: string;
@@ -446,6 +451,32 @@ export class AssessmentsController {
       const later = await tx.assessment_tasks.findMany({ where: { version_id: task.version_id, position: { gt: task.position } }, orderBy: { position: 'asc' }, select: { id: true, position: true } });
       for (const t of later) await tx.assessment_tasks.update({ where: { id: t.id }, data: { position: t.position - 1 } });
       return { removed: true };
+    });
+  }
+
+  @Put('assessment-versions/:versionId/task-order')
+  @ApiOperation({
+    summary: 'Reorders the tasks of a draft. The body lists every task once, in the new order; task ids, rubrics and links stay as they are. A published version refuses it.',
+  })
+  reorderTasks(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('versionId', ParseUUIDPipe) versionId: string, @Body() body: TaskOrderDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const version = await tx.assessment_versions.findFirst({ where: { id: versionId, org_id: orgId }, select: { assessment_tasks: { select: { id: true, position: true } } } });
+      if (!version) throw new NotFoundException();
+      const current = new Map(version.assessment_tasks.map((t) => [t.id, t.position]));
+      const order = body.task_ids;
+      if (order.length !== current.size || new Set(order).size !== order.length || order.some((id) => !current.has(id))) {
+        throw new UnprocessableEntityException('The new order must list every task of this version exactly once');
+      }
+      const moves = order.map((id, i) => ({ id, position: i + 1 })).filter((m) => current.get(m.id) !== m.position);
+      if (moves.length > 0) {
+        await recordChangeReason(tx, body.reason?.trim() || 'Tasks reordered');
+        // Positions are unique per version. Checking that at commit lets each task move once, straight to its new place,
+        // so the change history records only real moves (supabase/migrations/20261110120000_assessment_task_order.sql).
+        await tx.$executeRaw`set constraints public.assessment_tasks_version_position_key deferred`;
+        for (const m of moves) await tx.assessment_tasks.update({ where: { id: m.id }, data: { position: m.position } });
+      }
+      return tx.assessment_tasks.findMany({ where: { version_id: versionId }, orderBy: { position: 'asc' }, select: { id: true, position: true } });
     });
   }
 

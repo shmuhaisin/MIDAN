@@ -1046,7 +1046,10 @@
     "regenerateNote": "What should change? (optional)",
     "regenerate": "Regenerate with AI",
     "regenerating": "Writing a new version…",
-    "regenerated": "New version ready to review"
+    "regenerated": "New version ready to review",
+    "taskOrder": "Order of “{title}”",
+    "moveTaskUp": "Move “{title}” up",
+    "moveTaskDown": "Move “{title}” down"
   },
   "experience": {
     "poweredBy": "Powered by Midan",

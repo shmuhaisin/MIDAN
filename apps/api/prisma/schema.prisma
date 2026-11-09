@@ -134,7 +134,7 @@ model assessment_tasks {
   task_skill_mappings       task_skill_mappings[]
 
   @@unique([id, org_id])
-  @@unique([version_id, position])
+  @@unique([version_id, position], map: "assessment_tasks_version_position_key")
   @@index([org_id])
   @@index([version_id, org_id])
 }

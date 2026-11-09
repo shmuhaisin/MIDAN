@@ -1798,4 +1798,82 @@ describe('Midan database foundation', () => {
       await api().post(`/applications/${second}/withdraw`).set(bearer(candidateTwo)).expect(201);
     });
   });
+
+  describe('reordering the tasks of a draft (20261110120000)', () => {
+    const base = () => `/organizations/${orgA}`;
+    type Snapshot = { id: string; position: number; criteria?: unknown[] };
+    let version: string;
+    const tasksOf = async (v = version) => ((await api().get(`${base()}/assessment-versions/${v}/changes`).set(bearer(ownerA)).expect(200)).body.current.tasks as Snapshot[])
+      .sort((a, b) => a.position - b.position);
+    const order = (v = version) => api().put(`${base()}/assessment-versions/${v}/task-order`);
+
+    it('moves tasks to their new positions, keeps their ids and rubrics, and survives a reload', async () => {
+      const job = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: `reorder-${RUN}`, title_ar: 'محلل', title_en: 'Analyst', status: 'published' }).expect(201)).body.id;
+      version = (await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(recruiterA)).send({}).expect(201)).body.version_id;
+      for (const title of ['Second task', 'Third task']) {
+        await api().post(`${base()}/assessment-versions/${version}/tasks`).set(bearer(recruiterA)).send({
+          task_type: 'written_case_study', title_ar: 'مهمة', title_en: title, instructions_ar: 'اكتب', instructions_en: 'Write',
+          criteria: [{ description_ar: 'واضح', description_en: 'Clear', max_score: 5 }],
+        }).expect(201);
+      }
+      const before = await tasksOf();
+      expect(before.length).toBeGreaterThanOrEqual(3);
+      const reversed = [...before].reverse().map((t) => t.id);
+
+      const saved = (await order().set(bearer(recruiterA)).send({ task_ids: reversed, reason: 'Hardest task last' }).expect(200)).body as Snapshot[];
+      expect(saved.map((t) => t.id)).toEqual(reversed);
+      expect(saved.map((t) => t.position)).toEqual(reversed.map((_, i) => i + 1));
+
+      const after = await tasksOf();
+      expect(after.map((t) => t.id)).toEqual(reversed);
+      for (const t of after) {
+        const was = before.find((b) => b.id === t.id)!;
+        expect((t.criteria ?? []).length).toBe((was.criteria ?? []).length);
+      }
+    });
+
+    it('records each move once, with the reason, for review before approval', async () => {
+      const changes = (await api().get(`${base()}/assessment-versions/${version}/changes`).set(bearer(ownerA)).expect(200)).body.changes as
+        { action: string; entity: string; needs_review: boolean; details: { reason?: string; old: { position?: number } | null; new: { position?: number } | null } }[];
+      const moves = changes.filter((c) => c.action === 'update' && c.entity === 'assessment_tasks' && c.details.reason === 'Hardest task last');
+      expect(moves.length).toBeGreaterThan(0);
+      // Only real moves: no temporary positions in the history.
+      for (const m of moves) {
+        expect(m.details.new!.position).toBeGreaterThan(0);
+        expect(m.details.new!.position).toBeLessThan(100);
+        expect(m.details.new!.position).not.toBe(m.details.old!.position);
+        expect(m.needs_review).toBe(true);
+      }
+    });
+
+    it('accepts the same order without recording anything', async () => {
+      const current = (await tasksOf()).map((t) => t.id);
+      const before = (await api().get(`${base()}/assessment-versions/${version}/changes`).set(bearer(ownerA)).expect(200)).body.changes.length;
+      await order().set(bearer(recruiterA)).send({ task_ids: current }).expect(200);
+      expect((await api().get(`${base()}/assessment-versions/${version}/changes`).set(bearer(ownerA)).expect(200)).body.changes.length).toBe(before);
+    });
+
+    it('refuses an order that misses, repeats or adds a task', async () => {
+      const ids = (await tasksOf()).map((t) => t.id);
+      await order().set(bearer(recruiterA)).send({ task_ids: ids.slice(1) }).expect(422);
+      await order().set(bearer(recruiterA)).send({ task_ids: [ids[0], ...ids.slice(0, -1)] }).expect(422);
+      await order().set(bearer(recruiterA)).send({ task_ids: [...ids.slice(1), randomUUID()] }).expect(422);
+      expect((await tasksOf()).map((t) => t.id)).toEqual(ids);
+    });
+
+    it('refuses other organizations and candidates', async () => {
+      const ids = (await tasksOf()).map((t) => t.id);
+      await api().put(`/organizations/${orgB}/assessment-versions/${version}/task-order`).set(bearer(ownerB)).send({ task_ids: ids }).expect(403);
+      await order().set(bearer(ownerB)).send({ task_ids: [...ids].reverse() }).expect(403);
+      await order().set(bearer(candidateOne)).send({ task_ids: [...ids].reverse() }).expect(403);
+      expect((await tasksOf()).map((t) => t.id)).toEqual(ids);
+    });
+
+    it('never reorders an approved version', async () => {
+      expect((await approve(ownerA, orgA, version)).status).toBe(201);
+      const ids = (await tasksOf()).map((t) => t.id);
+      await order().set(bearer(ownerA)).send({ task_ids: [...ids].reverse() }).expect(422);
+      expect((await tasksOf()).map((t) => t.id)).toEqual(ids);
+    });
+  });
 });

@@ -437,6 +437,11 @@ export async function removeTask(orgId: string, taskId: string) {
   return result(() => api(`/organizations/${orgId}/assessment-tasks/${taskId}`, { method: 'DELETE' }));
 }
 
+/** Saves a draft's new task order: every task once, top to bottom. Ids, rubrics and links don't change. */
+export async function reorderTasks(orgId: string, versionId: string, taskIds: string[]) {
+  return result(() => api(`/organizations/${orgId}/assessment-versions/${versionId}/task-order`, { method: 'PUT', body: { task_ids: taskIds } }));
+}
+
 export async function addCriterion(orgId: string, taskId: string, _: FormState, form: FormData): Promise<FormState> {
   const body = { description_ar: text(form, 'description_ar'), description_en: text(form, 'description_en'), max_score: Number(form.get('max_score')), ...reason(form) };
   if (!body.description_ar || !body.description_en || !(body.max_score > 0)) return { error: 'required' };

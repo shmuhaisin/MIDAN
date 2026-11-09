@@ -1046,7 +1046,10 @@
     "regenerateNote": "ما الذي تريدون تغييره؟ (اختياري)",
     "regenerate": "أعيدوا الإنشاء بالذكاء الاصطناعي",
     "regenerating": "تُكتب نسخة جديدة…",
-    "regenerated": "النسخة الجديدة جاهزة للمراجعة"
+    "regenerated": "النسخة الجديدة جاهزة للمراجعة",
+    "taskOrder": "ترتيب «{title}»",
+    "moveTaskUp": "انقل «{title}» إلى الأعلى",
+    "moveTaskDown": "انقل «{title}» إلى الأسفل"
   },
   "experience": {
     "poweredBy": "بتشغيل الميدان",

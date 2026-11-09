@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useActionState, useState, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
-import { addAssessment, addCriterion, addTask, generateAssessment, inviteCandidate, publishVersion, regenerateTask, removeAssessment, removeCriterion, removeTask, renameAssessment, saveQuestions, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
+import { addAssessment, addCriterion, addTask, generateAssessment, inviteCandidate, publishVersion, regenerateTask, removeAssessment, removeCriterion, removeTask, renameAssessment, reorderTasks, saveQuestions, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
 import type { FormState } from '@/lib/auth-actions';
 import { nextId } from '@/lib/assessment-review';
 import { list, pick } from '@/lib/format';
@@ -484,15 +484,35 @@ function RegenerateTask({ orgId, taskId }: { orgId: string; taskId: string }) {
   );
 }
 
-function TaskEditor({ orgId, task, editable, requirements, canRemoveTask }: { orgId: string; task: Task; editable: boolean; requirements: Requirement[]; canRemoveTask: boolean }) {
+function TaskEditor({ orgId, task, editable, requirements, canRemoveTask, onMoveUp, onMoveDown }: {
+  orgId: string; task: Task; editable: boolean; requirements: Requirement[]; canRemoveTask: boolean;
+  onMoveUp?: () => Promise<FormState>; onMoveDown?: () => Promise<FormState>;
+}) {
   const t = useTranslations('workspace');
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [state, action] = useActionState<FormState, FormData>(updateTask.bind(null, orgId, task.id), {});
   const removeIt = useAction(() => removeTask(orgId, task.id));
+  const up = useAction(() => onMoveUp?.() ?? Promise.resolve({}));
+  const down = useAction(() => onMoveDown?.() ?? Promise.resolve({}));
+  const title = pick(locale, task.title_ar, task.title_en);
+  const moving = up.pending || down.pending;
   return (
     <li className="border-b border-border">
-      <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-4 py-4 text-start">
+      <div className="flex items-center gap-2">
+      {(onMoveUp || onMoveDown) && (
+        <span className="flex shrink-0 flex-col" role="group" aria-label={t('taskOrder', { title })}>
+          <button type="button" onClick={up.fire} disabled={!onMoveUp || moving} aria-label={t('moveTaskUp', { title })}
+            className="grid size-7 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-30">
+            <span aria-hidden>▲</span>
+          </button>
+          <button type="button" onClick={down.fire} disabled={!onMoveDown || moving} aria-label={t('moveTaskDown', { title })}
+            className="grid size-7 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-30">
+            <span aria-hidden>▼</span>
+          </button>
+        </span>
+      )}
+      <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex min-w-0 flex-1 items-center gap-4 py-4 text-start">
         <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent font-semibold text-accent-foreground">{task.position}</span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">{pick(locale, task.title_ar, task.title_en)}</span>
@@ -502,6 +522,8 @@ function TaskEditor({ orgId, task, editable, requirements, canRemoveTask }: { or
         </span>
         <motion.span aria-hidden animate={{ rotate: open ? 45 : 0 }} className="text-xl">+</motion.span>
       </button>
+      </div>
+      <ErrorText code={up.error ?? down.error} />
       <AnimatePresence initial={false}>
         {open && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
@@ -567,10 +589,21 @@ function TaskEditor({ orgId, task, editable, requirements, canRemoveTask }: { or
 }
 
 export function TaskList({ orgId, versionId, tasks, editable, requirements }: { orgId: string; versionId: string; tasks: Task[]; editable: boolean; requirements: Requirement[] }) {
+  const ordered = [...tasks].sort((a, b) => a.position - b.position);
+  // Moving swaps a task with its neighbour and saves the whole order; the page then shows the saved positions.
+  const move = (index: number, by: -1 | 1) => {
+    const ids = ordered.map((x) => x.id);
+    [ids[index], ids[index + by]] = [ids[index + by], ids[index]];
+    return reorderTasks(orgId, versionId, ids);
+  };
   return (
     <div className="space-y-4">
       <ul className="border-t border-border">
-        {tasks.map((task) => <TaskEditor key={task.id} orgId={orgId} task={task} editable={editable} requirements={requirements} canRemoveTask={tasks.length > 1} />)}
+        {ordered.map((task, i) => (
+          <TaskEditor key={task.id} orgId={orgId} task={task} editable={editable} requirements={requirements} canRemoveTask={tasks.length > 1}
+            onMoveUp={editable && i > 0 ? () => move(i, -1) : undefined}
+            onMoveDown={editable && i < ordered.length - 1 ? () => move(i, 1) : undefined} />
+        ))}
       </ul>
       {editable && <AddTaskForm orgId={orgId} versionId={versionId} />}
     </div>
