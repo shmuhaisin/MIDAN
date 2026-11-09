@@ -1540,7 +1540,7 @@
     "back": "Back to my profile",
     "closed": "This review is closed.",
     "modeExternal": "Professional sections were analyzed by an external analysis service after personal data was removed.",
-    "modeLocal": "Basic reading only: the full analysis service is off, so check the result carefully.",
+    "modeLocal": "Read by MIDAN's own rules, without the analysis service, which wasn't available. Check each section before you save it.",
     "privacyNote": "{count} personal items were removed from the text before analysis.",
     "uncertain": "Unsure about: {sections}",
     "personalNote": "Read inside Midan, and never sent to external services.",
@@ -1554,7 +1554,8 @@
       "phone": "Mobile",
       "city": "City",
       "headline": "Professional title",
-      "summary": "Summary"
+      "summary": "Summary",
+      "years_experience": "Years of experience"
     },
     "groups": {
       "personal": "Personal details",
@@ -1596,6 +1597,24 @@
       "skills_without_evidence": "Where it's true, describe a task in your experience or projects that used each skill.",
       "no_measurable_results": "Where you can, state a result: a figure, a time saved, a scale handled.",
       "no_languages": "Add a languages section, with your level in each."
+    },
+    "position": {
+      "title": "Job title",
+      "organization": "Organization",
+      "from": "From (year)",
+      "to": "To (year)",
+      "current": "Current position: no end year.",
+      "duties": "Responsibilities and achievements (one per line)",
+      "add": "Add a position",
+      "untitled": "New position"
+    },
+    "degree": {
+      "qualification": "Degree",
+      "field": "Major",
+      "institution": "Institution",
+      "year": "Graduation year",
+      "add": "Add a qualification",
+      "untitled": "New qualification"
     }
   },
   "apply": {

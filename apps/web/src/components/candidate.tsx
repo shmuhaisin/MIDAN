@@ -301,8 +301,15 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
     full_name: start(personal?.full_name, current?.full_name), phone: start(personal?.phone, current?.phone), city: start(personal?.city, current?.city),
     headline: start(pro?.headline, current?.headline), summary: start(pro?.summary, current?.summary),
   });
-  const [experience, setExperience] = useState(withChoice(pro?.experience));
-  const [education, setEducation] = useState(withChoice(pro?.education));
+  // One card per position and per qualification, every field editable. Years are kept as text while typing.
+  const year = (value: number | null | undefined) => (value ? String(value) : '');
+  const [experience, setExperience] = useState(() => (pro?.experience ?? []).map((e) => ({
+    title: e.title, organization: e.organization ?? '', start_year: year(e.start_year), end_year: year(e.end_year), current: Boolean(e.current),
+    description: (e.responsibilities?.length ? e.responsibilities.join('\n') : e.description) ?? '', checked: true,
+  })));
+  const [education, setEducation] = useState(() => (pro?.education ?? []).map((e) => ({
+    qualification: e.qualification, field: e.field ?? '', institution: e.institution ?? '', start_year: year(e.start_year), end_year: year(e.end_year), checked: true,
+  })));
   const [projects, setProjects] = useState(withChoice(pro?.projects));
   const [courses, setCourses] = useState(withChoice(pro?.courses));
   const [certifications, setCertifications] = useState(withChoice(pro?.certifications));
@@ -314,10 +321,20 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
   function body() {
     const clean = <T extends Choice>(items: T[]) => items.filter((i) => i.checked).map(({ checked: _, ...rest }) => Object.fromEntries(Object.entries(rest).filter(([, v]) => v != null && v !== '')));
     const chosen = Object.fromEntries(Object.entries(fields).filter(([, f]) => f.checked && f.value.trim()).map(([k, f]) => [k, f.value.trim()]));
+    const asYear = (value: string) => (/^(19[5-9]\d|20\d\d)$/.test(value.trim()) ? Number(value.trim()) : undefined);
+    const compact = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== ''));
+    // Only what the API accepts; a card without a title or degree isn't sent.
+    const positions = experience.filter((e) => e.checked && e.title.trim()).map((e) => compact({
+      title: e.title.trim(), organization: e.organization.trim(), start_year: asYear(e.start_year),
+      end_year: e.current ? undefined : asYear(e.end_year), description: e.description.trim().slice(0, 2000),
+    }));
+    const degrees = education.filter((e) => e.checked && e.qualification.trim()).map((e) => compact({
+      qualification: e.qualification.trim(), field: e.field.trim(), institution: e.institution.trim(), start_year: asYear(e.start_year), end_year: asYear(e.end_year),
+    }));
     return {
       ...chosen,
-      ...(experience.some((e) => e.checked) && { experience: clean(experience) }),
-      ...(education.some((e) => e.checked) && { education: clean(education) }),
+      ...(positions.length > 0 && { experience: positions }),
+      ...(degrees.length > 0 && { education: degrees }),
       ...(projects.some((e) => e.checked) && { projects: clean(projects) }),
       ...(courses.some((e) => e.checked) && { courses: clean(courses) }),
       ...(certifications.some((e) => e.checked) && { certifications: clean(certifications) }),
@@ -374,7 +391,40 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
       </fieldset>
     );
 
-  const missing = (pro?.uncertain ?? []).filter((u) => u !== 'local_reading');
+  const cards = <T extends Choice>(key: 'experience' | 'education', items: T[], set: (items: T[]) => void, blank: T,
+    fields: { name: keyof T & string; label: string; wide?: boolean; multiline?: boolean; numeric?: boolean }[], heading: (item: T) => string, note?: (item: T) => string | null) => (
+    <fieldset key={key}>
+      <legend className="subsection-title">{t(`groups.${key}`)}</legend>
+      <ul className="mt-2 space-y-3">
+        {items.map((item, i) => {
+          const patch = (p: Partial<T>) => set(items.map((x, j) => (j === i ? { ...x, ...p } : x)));
+          return (
+            <li key={i} className={clsx('rounded-lg border border-border bg-surface p-4', !item.checked && 'opacity-60')}>
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <input type="checkbox" checked={item.checked} onChange={(e) => patch({ checked: e.target.checked } as Partial<T>)} className="size-4 accent-[var(--primary)]" />
+                <bdi>{heading(item) || t(key === 'experience' ? 'position.untitled' : 'degree.untitled')}</bdi>
+              </label>
+              {note?.(item) && <p className="mt-1 text-xs text-muted">{note(item)}</p>}
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {fields.map((f) => (
+                  <label key={f.name} className={clsx('block', (f.wide || f.multiline) && 'sm:col-span-2')}>
+                    <span className="field-label">{f.label}</span>
+                    {f.multiline
+                      ? <textarea rows={Math.min(8, Math.max(3, String(item[f.name] ?? '').split('\n').length + 1))} dir="auto" value={String(item[f.name] ?? '')} onChange={(e) => patch({ [f.name]: e.target.value } as Partial<T>)} className={clsx(INPUT, 'h-auto py-2.5')} />
+                      : <input dir="auto" inputMode={f.numeric ? 'numeric' : undefined} value={String(item[f.name] ?? '')} onChange={(e) => patch({ [f.name]: e.target.value } as Partial<T>)} className={INPUT} />}
+                  </label>
+                ))}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <button type="button" onClick={() => set([...items, blank])} className="mt-3 text-sm font-semibold underline underline-offset-4">{t(key === 'experience' ? 'position.add' : 'degree.add')}</button>
+    </fieldset>
+  );
+
+  const sectionName = (s: string) => (t.has(`groups.${s}`) ? t(`groups.${s}`) : t.has(`fields.${s}`) ? t(`fields.${s}`) : s);
+  const missing = (pro?.uncertain ?? []).filter((u) => u !== 'local_reading').map(sectionName);
   const removed = Object.values(analysis.redaction_counts ?? {}).reduce((a, b) => a + b, 0);
   return (
     <div className="space-y-8">
@@ -392,13 +442,18 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
         <legend className="subsection-title">{t('groups.overview')}</legend>
         {scalar('headline')}{scalar('summary', true)}
       </fieldset>
-      {group('experience', experience, setExperience)}
-      {group('education', education, setEducation)}
-      {group('projects', projects, setProjects)}
-      {group('courses', courses, setCourses)}
-      {group('certifications', certifications, setCertifications)}
-      {group('achievements', achievements, setAchievements)}
-      {group('languages', languages, setLanguages)}
+      {cards('experience', experience, setExperience,
+        { title: '', organization: '', start_year: '', end_year: '', current: false, description: '', checked: true },
+        [{ name: 'title', label: t('position.title') }, { name: 'organization', label: t('position.organization') },
+          { name: 'start_year', label: t('position.from'), numeric: true }, { name: 'end_year', label: t('position.to'), numeric: true },
+          { name: 'description', label: t('position.duties'), multiline: true }],
+        (e) => [e.title, e.organization].filter(Boolean).join(' · '),
+        (e) => (e.current ? t('position.current') : null))}
+      {cards('education', education, setEducation,
+        { qualification: '', field: '', institution: '', start_year: '', end_year: '', checked: true },
+        [{ name: 'qualification', label: t('degree.qualification') }, { name: 'field', label: t('degree.field') },
+          { name: 'institution', label: t('degree.institution') }, { name: 'end_year', label: t('degree.year'), numeric: true }],
+        (e) => [e.qualification, e.field].filter(Boolean).join(' · '))}
       {skills.length > 0 && (
         <fieldset>
           <legend className="subsection-title">{t('groups.skills')}</legend>
@@ -426,6 +481,11 @@ export function CvReview({ analysis, current }: { analysis: CvAnalysis; current:
           )}
         </fieldset>
       )}
+      {group('certifications', certifications, setCertifications)}
+      {group('projects', projects, setProjects)}
+      {group('courses', courses, setCourses)}
+      {group('languages', languages, setLanguages)}
+      {group('achievements', achievements, setAchievements)}
       {(pro?.feedback ?? []).length > 0 && (
         <section aria-labelledby="cv-feedback" className="callout">
           <h2 id="cv-feedback" className="subsection-title">{t('feedbackTitle')}</h2>

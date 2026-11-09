@@ -87,8 +87,9 @@ export type CvAnalysis = {
   personal: { full_name: string | null; email: string | null; phone: string | null; city: string | null; links: string[] } | null;
   professional: {
     headline: string | null; summary: string | null; years_experience: number | null;
-    experience: { title: string; description?: string | null; start_year?: number | null; end_year?: number | null }[];
-    education: { qualification: string; field?: string | null; end_year?: number | null }[];
+    /** One entry per position, with the responsibilities written under it in the CV. */
+    experience: { title: string; organization?: string | null; description?: string | null; start_year?: number | null; end_year?: number | null; current?: boolean; responsibilities?: string[] }[];
+    education: { qualification: string; field?: string | null; institution?: string | null; start_year?: number | null; end_year?: number | null }[];
     skills: string[];
     projects: { title: string; description?: string | null }[];
     courses: { title: string }[];
