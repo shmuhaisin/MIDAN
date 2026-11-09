@@ -152,11 +152,12 @@ interviews need shortlisted applications; e2e helper for approving organizations
   admin queue → refusal without reason refused → approve → approved; translation request path with "not available here".
 
 ## 20. Windows commands
-See `docs/local-development-windows.md` and `docs/handoff/MIDAN_TEAMMATE_HANDOFF.md` §E. After pulling this branch:
-`scripts/local-db.sh migrate` (applies the two new migrations), restart the AI service and the API.
+One command starts everything that isn't running and leaves it running (see §24 and `docs/local-development-windows.md`):
+`powershell -ExecutionPolicy Bypass -File scripts\local-up-windows.ps1`. After pulling new migrations:
+`scripts/local-db.sh migrate`, then restart the API (and the AI service if it changed).
 
 ## 21. Environment variable names (never commit values)
-`.env`: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, DATABASE_URL, DIRECT_URL, API_URL, AI_SERVICE_URL,
+`.env`: LOCAL_PG_PORT, LOCAL_SUPABASE_PORT, LOCAL_SMTP_PORT, LOCAL_AUTH_PORT, LOCAL_REST_PORT, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, DATABASE_URL, DIRECT_URL, API_URL, AI_SERVICE_URL,
 AI_SERVICE_TOKEN, CHECKPOINT_DATABASE_URL, AI_PROVIDER, GROQ_API_KEY, GROQ_MODEL, GEMINI_API_KEY, GEMINI_MODEL,
 OPENAI_API_KEY, OPENAI_MODEL, DEV_TEST_SIGNUP, DEV_TEST_ACCESS_CODE, APP_URL, DAILY_API_KEY, GOOGLE_CALENDAR_CLIENT_ID,
 GOOGLE_CALENDAR_CLIENT_SECRET, GOOGLE_CALENDAR_REFRESH_TOKEN, GOOGLE_CALENDAR_ID, GOOGLE_CALENDAR_SEND_UPDATES.
@@ -175,3 +176,57 @@ CANDIDATE_TWO, UNVERIFIED, PLATFORM_ADMIN, UI_EMPLOYER, UI_CANDIDATE, UI_REVIEW_
 Per-organization Google Calendar OAuth (needs credentials), or — if credentials wait —
 job opening/closing dates with Saudi-time states after merging the candidate branch's deadline guard, then AI interview
 questions.
+
+## 24. Local stack on the owner's Windows machine (verified 2026-11-09, evening)
+
+**Checkout:** `D:\Downloads\MIDAN-feature-midan-employer-experience\MIDAN`, branch `feature/midan-employer-experience` at
+`57339c8`, with the uncommitted changes listed below (not committed: the owner commits). Another checkout on the same
+machine (`...\MIDAN-teammate`) has its own database on port 54322; it was left running and untouched.
+
+**Running now (background processes, logs in `.local\logs` and `.local\supabase*.log`):**
+
+| Service | Address | Process |
+| --- | --- | --- |
+| PostgreSQL 18.3 (cluster `.local\pg`) | 127.0.0.1:54323 | `postgres.exe -p 54323` |
+| Local Supabase gateway | http://localhost:54321 (mail list `/__mail`) | `node scripts/local-supabase.mjs` |
+| Mail sink (Auth's SMTP) | 127.0.0.1:54326 | same process |
+| Supabase Auth / PostgREST | 54329 / 54328 | `.local\bin\auth.exe`, `.local\bin\postgrest.exe` |
+| AI service (demo mode: no AI key) | http://127.0.0.1:8000 | `.local\ai-venv\Scripts\python.exe -m uvicorn` |
+| API | http://localhost:4000/v1 | `node dist/main.js` |
+| Web | http://localhost:3100 | `next dev -p 3100` |
+
+**Database state:** 55/55 migrations; Auth migrations done; seed loaded; 5,074 reference skills and 10 registry
+employers imported (identical, by checksum of names and normalized search text, to a correctly built database); 7 fixture
+accounts plus one browser test employer (credentials only in `.env.test.local`).
+
+**Fixed during start-up:**
+1. Ports configurable (`scripts/local-ports.mjs`): database 54323, gateway 54321, SMTP 54326 used by both the mail sink
+   and `GOTRUE_SMTP_PORT`, Auth 54329, PostgREST 54328; written to `.env` by `local-env.mjs`; `local-db.sh`,
+   `import-data.mjs`, `investor-demo.mjs` follow. Preflight `node scripts/local-supabase.mjs check` names the program
+   holding a taken port and stops nothing; the gateway stops cleanly with a reason if a listener or child process fails.
+2. Arabic text garbled by migrations applied through psql in the WIN1252 code page: only `public.normalize_arabic` was
+   affected (found by comparing every function, constraint, default, view and policy with a correctly built database);
+   recreated from `20261106005417_fix_normalize_arabic.sql` with UTF-8; nothing depending on it held data yet.
+   `local-db.sh` now sets `PGCLIENTENCODING=UTF8` so it can't recur.
+3. `local-env.mjs --force` now keeps AI, calendar and video credentials already in `.env`.
+4. `scripts/local-up-windows.ps1`: one command to start the stack (never stops other programs).
+5. Document sizes under 1 KB show "<1 KB" (was "0 KB").
+
+**Verified in the browser (real local stack):** employer registration -> verification email through SMTP 54326 ->
+signed-in workspace with the review banner -> profile saved -> commercial registration uploaded -> submitted (under
+review, documents locked) -> new job created (Arabic title; automatic translation reported "not available" because no AI
+key is configured; English typed by hand) -> publishing refused while under review ("This change isn't allowed", job
+stays draft) -> platform admin: overview counts (1 waiting), organization detail, approve -> employer: banner gone,
+approval notification received, publishing succeeds -> job returned to draft afterwards so no test job is public.
+No new browser console errors during the walk (the ones in the buffer date from switching servers).
+
+**Checks:** web type check clean, web unit 38/38, API type check clean, `node --test scripts/local-ports.test.mjs` 4/4.
+
+**Uncommitted changes in this checkout:** `scripts/local-ports.mjs` (new), `scripts/local-ports.test.mjs` (new),
+`scripts/local-up-windows.ps1` (new), `scripts/local-supabase.mjs`, `scripts/local-env.mjs`, `scripts/local-db.sh`,
+`scripts/import-data.mjs`, `scripts/investor-demo.mjs`, `apps/web/src/components/verification.tsx`,
+`docs/local-development-windows.md`, `docs/handoff/MIDAN_EMPLOYER_CURRENT_STATE.md`, `docs/handoff/MIDAN_EMPLOYER_PROGRESS.md`.
+Git-ignored local files created: `.env`, `.env.test.local`, `.local\ai-venv`, `.local\logs`, `data/source/*.xlsx|zip`.
+
+**Still blocked:** real AI output (needs `GROQ_API_KEY`/`GROQ_MODEL` or Gemini in `.env`), email delivery (SMTP
+provider), Google Calendar (OAuth client).

@@ -14,13 +14,14 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PORTS } from './local-ports.mjs';
 
 const require = createRequire(new URL('../apps/api/package.json', import.meta.url));
 const { Client } = require('pg');
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((acc, arg, i, all) => (arg.startsWith('--') ? [...acc, [arg.slice(2), all[i + 1]]] : acc), []));
 const root = fileURLToPath(new URL('..', import.meta.url));
-const url = process.env.IMPORT_DATABASE_URL ?? `postgresql://midan_importer:midan-importer-local@127.0.0.1:${process.env.LOCAL_PG_PORT ?? 54322}/midan`;
+const url = process.env.IMPORT_DATABASE_URL ?? `postgresql://midan_importer:midan-importer-local@127.0.0.1:${PORTS.pg}/midan`;
 const startedBy = process.env.IMPORT_STARTED_BY ?? `cli:${process.env.USER ?? 'unknown'}`;
 
 function python(script, ...scriptArgs) {

@@ -161,6 +161,8 @@ function ProfileForm({ orgId, state, canManage }: { orgId: string; state: Verifi
 
 function size(bytes: number, locale: string) {
   const kb = bytes / 1024;
+  // A file under a kilobyte would otherwise read "0 KB".
+  if (kb < 1) return `<${new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en').format(1)} KB`;
   return new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en', { maximumFractionDigits: kb >= 1024 ? 1 : 0 }).format(kb >= 1024 ? kb / 1024 : kb) + (kb >= 1024 ? ' MB' : ' KB');
 }
 
