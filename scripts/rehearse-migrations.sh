@@ -3,6 +3,8 @@
 #
 #   scripts/rehearse-migrations.sh            the full rehearsal, then stops the cluster
 #   scripts/rehearse-migrations.sh --keep     stops after the migrations, without test data, and leaves it running on port 54417
+#   scripts/rehearse-migrations.sh --baseline stops at hosted's starting point and leaves it running on port 54417 (to test
+#                                             scripts/apply-cloud-migrations.mjs against it)
 #   scripts/rehearse-migrations.sh --stop     stops the cluster
 #
 # Postgres runs as a non-superuser with hosted's powers, Auth's real migrations build the auth schema, and the starting point
@@ -10,7 +12,22 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PGBIN="${PG17BIN:-/opt/homebrew/opt/postgresql@17/bin}"
+WINDOWS=0
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) WINDOWS=1 ;; esac
+if [ "$WINDOWS" = 1 ]; then
+  # Git Bash on Windows: the newest PostgreSQL 17+ under Program Files, TCP only, Auth as auth.exe.
+  PGBIN="${PG17BIN:-$(ls -d "/c/Program Files/PostgreSQL"/1[7-9]/bin 2>/dev/null | sort -V | tail -1)}"
+  AUTH_BIN="$ROOT/.local/bin/auth.exe"
+  SOCKET="-c unix_socket_directories="
+  LOCALE_ARGS="--locale=C --locale-provider=builtin --builtin-locale=C.UTF-8"
+else
+  PGBIN="${PG17BIN:-/opt/homebrew/opt/postgresql@17/bin}"
+  AUTH_BIN="$ROOT/.local/bin/auth"
+  SOCKET="-k /tmp"
+  LOCALE_ARGS="--locale=C.UTF-8"
+fi
+# The migrations hold Arabic text: psql must read them as UTF-8 whatever the console's code page.
+export PGCLIENTENCODING=UTF8
 DATA="$ROOT/.local/rehearsal"
 WORK="$ROOT/.local/rehearsal-work"
 PORT=54417
@@ -34,14 +51,15 @@ same() {
 checks() { admin -At -f "$ROOT/supabase/rehearsal/post_checks.sql" > "$WORK/checks"; ! grep -q '^FAIL' "$WORK/checks" || { grep '^FAIL' "$WORK/checks"; fail "post-change checks"; }; echo "post-change checks: $(wc -l < "$WORK/checks" | tr -d ' ') ok"; }
 
 MODE=full
-case "${1:-}" in --keep) MODE=keep ;; --stop) stop; echo "Stopped."; exit 0 ;; "") ;; *) echo "usage: $0 [--keep|--stop]" >&2; exit 2 ;; esac
-[ -x "$PGBIN/postgres" ] || { echo "Needs PostgreSQL 17: brew install postgresql@17"; exit 1; }
-[ -x "$ROOT/.local/bin/auth" ] || { echo "Needs the local Auth binary: see docs/local-development.md"; exit 1; }
-"$PGBIN/postgres" --version | grep -q ' 17\.' || { echo "Not PostgreSQL 17"; exit 1; }
+case "${1:-}" in --keep) MODE=keep ;; --baseline) MODE=baseline ;; --stop) stop; echo "Stopped."; exit 0 ;; "") ;; *) echo "usage: $0 [--keep|--baseline|--stop]" >&2; exit 2 ;; esac
+[ -x "$PGBIN/postgres" ] || [ -x "$PGBIN/postgres.exe" ] || { echo "Needs PostgreSQL 17: brew install postgresql@17 (Windows: the EDB installer)"; exit 1; }
+[ -x "$AUTH_BIN" ] || { echo "Needs the local Auth binary: see docs/local-development.md"; exit 1; }
+# Hosted runs 17. A newer local server is accepted with a warning: the rehearsal compares the same server before and after.
+"$PGBIN/postgres" --version | grep -q ' 17\.' || { "$PGBIN/postgres" --version | grep -qE ' (1[89]|[2-9][0-9])\.' && echo "note: rehearsing on $("$PGBIN/postgres" --version | grep -oE '[0-9]+\.[0-9]+'), hosted runs 17" || { echo "Not PostgreSQL 17 or newer"; exit 1; }; }
 
 stop; rm -rf "$DATA" "$WORK"; mkdir -p "$DATA" "$WORK"
-"$PGBIN/initdb" -D "$DATA" -U supabase_admin --auth=trust --encoding=UTF8 --locale=C.UTF-8 >/dev/null || exit 1
-"$PGBIN/pg_ctl" -D "$DATA" -l "$WORK/server.log" -o "-p $PORT -k /tmp -c listen_addresses=127.0.0.1" -w start >/dev/null || exit 1
+"$PGBIN/initdb" -D "$DATA" -U supabase_admin --auth=trust --encoding=UTF8 $LOCALE_ARGS >/dev/null || exit 1
+"$PGBIN/pg_ctl" -D "$DATA" -l "$WORK/server.log" -o "-p $PORT $SOCKET -c listen_addresses=127.0.0.1" -w start >/dev/null || exit 1
 DB=postgres admin -f "$ROOT/supabase/rehearsal/01_hosted_roles.sql" || fail "roles"
 admin -f "$ROOT/supabase/local/00_supabase_shim.sql" >/dev/null 2>&1 || fail "shim"
 (cd "$ROOT" && LOCAL_PG_PORT=$PORT node scripts/local-supabase.mjs migrate >/dev/null 2>&1) || fail "Auth's migrations"
@@ -57,6 +75,10 @@ admin -At -f "$ROOT/supabase/rehearsal/fingerprint.sql" > "$WORK/baseline"
 diff "$ROOT/supabase/rehearsal/hosted-baseline.txt" "$WORK/baseline" || fail "the starting point doesn't match hosted"
 echo "starting point: matches hosted ($HOSTED_APPLIED migrations; tables, columns, policies and functions)"
 PENDING=("${FILES[@]:$HOSTED_APPLIED}")
+if [ "$MODE" = baseline ]; then
+  echo "Left running on port $PORT at hosted's starting point (${#PENDING[@]} migrations pending)."
+  exit 0
+fi
 
 if [ "$MODE" = keep ]; then
   for f in "${PENDING[@]}"; do owner -1 -f "$f" >/dev/null 2>"$WORK/err" || { grep -oE 'ERROR.*' "$WORK/err" | head -2; fail "$(basename "$f")"; }; done

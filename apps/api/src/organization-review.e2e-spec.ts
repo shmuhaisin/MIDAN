@@ -145,7 +145,10 @@ describe('organization review (20261111090000)', () => {
     expect(state.organization.verification_status).toBe('approved');
     await api().post(`/admin/organizations/${org}/decision`).set(bearer(admin)).send({ decision: 'approve' }).expect(404);
     await api().patch(`${base()}/jobs/${job}/status`).set(bearer(owner)).send({ status: 'published' }).expect(200);
-    await api().get(`/jobs/${job}`).expect(200);
+    // This is a test organization: its published job is open to the test accounts, and "not found" to anyone else,
+    // even with a direct link (common/test-data.ts, viewableJob).
+    await api().get(`/jobs/${job}`).set(bearer(candidate)).expect(200);
+    await api().get(`/jobs/${job}`).expect(404);
     // What was approved is locked; the description can still be improved.
     await api().patch(`${base()}/profile`).set(bearer(owner)).send({ name_en: 'Renamed after approval' }).expect(422);
     await api().patch(`${base()}/profile`).set(bearer(owner)).send({ description_en: 'A fictional company, described better.' }).expect(200);
@@ -157,13 +160,14 @@ describe('organization review (20261111090000)', () => {
     await api().post(`/admin/organizations/${org}/suspension`).set(bearer(owner)).send({ suspend: true, reason: 'x' }).expect(403);
     await api().post(`/admin/organizations/${org}/suspension`).set(bearer(admin)).send({ suspend: true, reason: 'Reported listing under investigation.' }).expect(201);
     expect(await status()).toBe('suspended');
-    await api().get(`/jobs/${job}`).expect(404);
+    // Suspension hides it even from the test accounts that could see it before.
+    await api().get(`/jobs/${job}`).set(bearer(candidate)).expect(404);
     expect((await rest(null, 'GET', `jobs?id=eq.${job}`)).body).toEqual([]);
     await api().post(`/jobs/${job}/applications`).set(bearer(candidate)).send({}).expect((res) => expect([404, 422]).toContain(res.status));
     await api().get(`${base()}/jobs/${job}`).set(bearer(owner)).expect(200);
     await api().post(`/admin/organizations/${org}/suspension`).set(bearer(admin)).send({ suspend: false, reason: 'Investigation closed.' }).expect(201);
     expect(await status()).toBe('approved');
-    await api().get(`/jobs/${job}`).expect(200);
+    await api().get(`/jobs/${job}`).set(bearer(candidate)).expect(200);
   });
 
   it('records every step in the audit log, with who, what and why', async () => {

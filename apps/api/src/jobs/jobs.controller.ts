@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthGuard, CurrentUser, OptionalAuthGuard } from '../auth/auth.guard';
-import { listableJobs } from '../common/test-data';
+import { listableJobs, viewableJob } from '../common/test-data';
 import { storageFetch } from '../common/storage';
 import { AuthUser, DbService } from '../db/db.service';
 
@@ -157,13 +157,16 @@ export class JobsController {
   }
 
   @Get(':id')
-  async get(@Param('id', ParseUUIDPipe) id: string) {
-    const { job, assessments } = await this.db.asAnon(async (tx) => ({
-      job: await tx.jobs.findUnique({ where: { id }, select: PUBLIC_JOB }),
-      assessments: await tx.$queryRaw<unknown[]>`select * from public.job_assessment_overview(${id}::uuid)`,
-    }));
-    if (!job) throw new NotFoundException();
-    return { ...job, assessments };
+  @UseGuards(OptionalAuthGuard)
+  async get(@CurrentUser() user: AuthUser | undefined, @Param('id', ParseUUIDPipe) id: string) {
+    const result = await this.db.asAnon(async (tx) => {
+      // Test organizations' jobs are "not found" except to the test accounts (common/test-data.ts).
+      const job = await tx.jobs.findFirst({ where: viewableJob(id, user?.email), select: PUBLIC_JOB });
+      if (!job) return null;
+      return { job, assessments: await tx.$queryRaw<unknown[]>`select * from public.job_assessment_overview(${id}::uuid)` };
+    });
+    if (!result) throw new NotFoundException();
+    return { ...result.job, assessments: result.assessments };
   }
 
   @Post(':id/applications')
@@ -172,7 +175,7 @@ export class JobsController {
   @ApiOperation({ summary: 'Apply to a published job as the signed-in candidate.' })
   async apply(@CurrentUser() user: AuthUser, @Headers('authorization') token: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: ApplyDto) {
     const { job, existing, cvPath } = await this.db.asUser(user, async (tx) => ({
-      job: await tx.jobs.findFirst({ where: { id, status: 'published' }, select: { org_id: true } }),
+      job: await tx.jobs.findFirst({ where: { ...viewableJob(id, user.email), status: 'published' }, select: { org_id: true } }),
       existing: await tx.applications.findFirst({ where: { job_id: id, candidate_id: user.id } }),
       cvPath: (await tx.candidate_profiles.findUnique({ where: { user_id: user.id }, select: { cv_path: true } }))?.cv_path,
     }));

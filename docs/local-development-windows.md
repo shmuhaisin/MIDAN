@@ -1,5 +1,9 @@
 # Local development on Windows (no WSL, no Docker)
 
+> **MIDAN runs on Supabase Cloud** (docs/supabase-cloud.md): with `.env` pointing at the cloud project, the launcher below
+> starts only the AI service, the API and the web app. The local Supabase stack described in the rest of this page is used
+> only when `.env` points at `http://localhost` — for the automated test suites, which never run against the cloud.
+
 The whole local stack runs natively on Windows 11: PostgreSQL, the real Supabase Auth (GoTrue) and PostgREST, the local
 storage and mail gateway, the AI service, the API and the web app. Verified on 2026-11-09 with Node 22.19, Python 3.14,
 PostgreSQL 18.3, Git Bash and Windows PowerShell 5.1. Everything here is local; nothing touches a hosted project.

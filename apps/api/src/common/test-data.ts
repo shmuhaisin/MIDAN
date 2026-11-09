@@ -12,3 +12,11 @@ export function isFixtureAccount(email?: string) {
 export function listableJobs(email?: string): Prisma.jobsWhereInput {
   return { status: 'published', is_demo: false, organizations: { is_demo: false, ...(isFixtureAccount(email) ? {} : { is_test: false }) } };
 }
+
+/**
+ * One job by its ID, for the public job page and applying: the same rule as listings, so a test organization's job is
+ * "not found" to everyone but the test accounts, even with a direct link. Genuine and demo organizations are unaffected.
+ */
+export function viewableJob(id: string, email?: string): Prisma.jobsWhereInput {
+  return { id, ...(isFixtureAccount(email) ? {} : { organizations: { is_test: false } }) };
+}

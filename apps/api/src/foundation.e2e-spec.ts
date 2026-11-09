@@ -532,7 +532,7 @@ describe('Midan database foundation', () => {
         job_id: job, org_id: orgA, requirement_type: 'competency', description_en: 'AI guess', origin: 'ai_inferred', review_status: 'approved',
       });
       expect(inferred.body[0].review_status).toBe('draft');
-      const seen = await api().get(`/jobs/${job}`).expect(200);
+      const seen = await api().get(`/jobs/${job}`).set(bearer(candidateOne)).expect(200);
       const texts = seen.body.job_requirements.map((r: { description_en: string }) => r.description_en);
       expect(texts).toContain('Analyze campaign performance');
       expect(texts).not.toContain('AI guess');
@@ -873,7 +873,7 @@ describe('Midan database foundation', () => {
       expect(badToken.body.map((j: { id: string }) => j.id)).not.toContain(job);
       expect((await rest(ownerA, 'PATCH', `organizations?id=eq.${orgA}`, { is_test: false })).status).toBeLessThan(500);
       expect((await rest(ownerA, 'GET', `organizations?id=eq.${orgA}&select=is_test`)).body[0].is_test).toBe(true);
-      const details = await api().get(`/jobs/${job}`).expect(200);
+      const details = await api().get(`/jobs/${job}`).set(bearer(candidateOne)).expect(200);
       expect(details.body.assessments[0]).toMatchObject({ is_timed: false, deadline_hours: 72 });
       expect(JSON.stringify(details.body)).not.toMatch(/rubric|fictional team/);
 
@@ -1401,7 +1401,7 @@ describe('Midan database foundation', () => {
       };
       await api().patch(`/organizations/${orgA}/jobs/${job}`).set(bearer(ownerB)).send(details).expect(403);
       await api().patch(`/organizations/${orgA}/jobs/${job}`).set(bearer(ownerA)).send(details).expect(200);
-      const open = await api().get(`/jobs/${job}`).expect(200);
+      const open = await api().get(`/jobs/${job}`).set(bearer(candidateOne)).expect(200);
       expect(open.body.job_skills).toHaveLength(2);
     });
 

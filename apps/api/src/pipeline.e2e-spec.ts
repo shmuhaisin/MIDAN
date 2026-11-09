@@ -514,7 +514,7 @@ describe('Midan administration and data pipeline', () => {
       await api().put('/me/reference-skills').set(bearer(candidateTwo)).send({ ids: [skills[0].id] }).expect(200);
       const listed = (await api().get('/jobs').set(bearer(candidateTwo)).expect(200)).body;
       expect(listed.map((j: { id: string }) => j.id)).toContain(job);
-      const detail = (await api().get(`/jobs/${job}`).expect(200)).body;
+      const detail = (await api().get(`/jobs/${job}`).set(bearer(candidateTwo)).expect(200)).body;
       expect(detail.organizations.name_en).toBe('Full journey');
       expect(detail.job_reference_skills.map((s: { reference_skills: { id: string } }) => s.reference_skills.id).sort()).toEqual(skills.map((k) => k.id).sort());
       const recommended = (await api().get('/me/dashboard').set(bearer(candidateTwo)).expect(200)).body.recommended.find((j: { id: string }) => j.id === job);
