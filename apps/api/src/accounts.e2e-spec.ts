@@ -57,7 +57,7 @@ describe('account types, job creation and task regeneration', () => {
     expect(res.body.slug).toMatch(new RegExp(`^accounts-analyst-${RUN}-[0-9a-f]{6}$`));
     expect(res.body.description_en).toBe('Analyses the monthly accounts and reports to management.');
     // The published page shows it.
-    expect((await api().get(`/jobs/${job}`).expect(200)).body.description_ar).toBe('يحلل الحسابات الشهرية.');
+    expect((await api().get(`/jobs/${job}`).set(bearer(candidate)).expect(200)).body.description_ar).toBe('يحلل الحسابات الشهرية.');
     // An address the employer gives is still checked.
     await api().post(`/organizations/${org}/jobs`).set(bearer(owner)).send({ slug: 'Not A Slug', title_ar: 'س', title_en: 'x' }).expect(400);
   });

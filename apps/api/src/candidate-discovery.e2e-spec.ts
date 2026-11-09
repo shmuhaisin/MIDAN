@@ -5,6 +5,7 @@ import 'reflect-metadata';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { approveOrganization } from './test-support/approve-organization';
 import { AppModule } from './app.module';
 import { configureApp } from './common/configure-app';
 import { loadEnv } from './common/load-env';
@@ -44,6 +45,8 @@ describe('candidate discovery', () => {
     [owner, candidate, other] = await Promise.all(['ORG_A_OWNER', 'CANDIDATE_ONE', 'CANDIDATE_TWO'].map(signIn));
     await api().put('/me/candidate-profile').set(bearer(candidate)).send({ full_name: 'Test Candidate One' }).expect(200);
     org = (await api().post('/organizations').set(bearer(owner)).send({ slug: `midan-test-discovery-${RUN}`, name_ar: 'جهة اكتشاف', name_en: 'Discovery org' }).expect(201)).body.id;
+    // Organizations publish only once approved (20261111090000_organization_verification).
+    await approveOrganization(app.getHttpServer(), owner.token, org);
     const make = async (title: string, status: string, deadline: string | null) => {
       const id = (await api().post(`/organizations/${org}/jobs`).set(bearer(owner)).send({ title_ar: title, title_en: title, description_en: `Discovery ${RUN}`, status }).expect(201)).body.id;
       if (deadline) await api().patch(`/organizations/${org}/jobs/${id}`).set(bearer(owner)).send({ application_deadline: deadline }).expect(200);
