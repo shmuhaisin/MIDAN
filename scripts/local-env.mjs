@@ -6,10 +6,11 @@
 //   node scripts/local-env.mjs --force   replaces it (keep a copy first if it holds hosted credentials)
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { LOCAL } from './local-supabase.mjs';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 const envPath = `${root}.env`;
 const testPath = `${root}.env.test.local`;
 const force = process.argv.includes('--force');

@@ -475,7 +475,9 @@
     "changePassword": "Change password",
     "passwordChanged": "Your password was changed.",
     "showPassword": "Show",
-    "hidePassword": "Hide"
+    "hidePassword": "Hide",
+    "confirmedContinuing": "Your account is ready. We're taking you to it now.",
+    "confirmedContinuingShort": "Opening your account…"
   },
   "errors": {
     "invalid_credentials": "Incorrect email or password.",

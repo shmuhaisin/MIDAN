@@ -15,6 +15,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DATA="$ROOT/.local/pg"
 PORT="${LOCAL_PG_PORT:-54322}"
 DB=midan
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) WINDOWS=1 ;; *) WINDOWS=0 ;; esac
+# On Windows, the newest installed PostgreSQL (17 or later, for the builtin C.UTF-8 locale) unless PGBIN says otherwise.
+if [ "$WINDOWS" = 1 ] && [ -z "${PGBIN:-}" ]; then
+  PGBIN="$(ls -d "/c/Program Files/PostgreSQL"/1[7-9]/bin 2>/dev/null | sort -V | tail -1)"
+fi
 PGBIN="${PGBIN:-$(ls -d /usr/lib/postgresql/16/bin 2>/dev/null || dirname "$(command -v pg_ctl)")}"
 # PostgreSQL on macOS stops at startup ("postmaster became multithreaded") without a valid locale in the environment.
 if [ "$(uname)" = "Darwin" ]; then export LC_ALL="${LC_ALL:-en_US.UTF-8}"; fi
@@ -29,14 +34,21 @@ init() {
   [ -f "$DATA/PG_VERSION" ] && return
   mkdir -p "$DATA"
   [ "$(id -u)" = "0" ] && chown -R postgres "$ROOT/.local"
-  as_pg "$PGBIN/initdb" -D "$DATA" -U postgres --auth=trust --encoding=UTF8 --locale=C.UTF-8 >/dev/null
+  if [ "$WINDOWS" = 1 ]; then
+    # Windows has no POSIX C.UTF-8 locale; PostgreSQL's own builtin provider gives the same Unicode-aware behaviour.
+    "$PGBIN/initdb" -D "$DATA" -U postgres --auth=trust --encoding=UTF8 --locale=C --locale-provider=builtin --builtin-locale=C.UTF-8 >/dev/null
+  else
+    as_pg "$PGBIN/initdb" -D "$DATA" -U postgres --auth=trust --encoding=UTF8 --locale=C.UTF-8 >/dev/null
+  fi
   echo "Created local cluster in $DATA"
 }
 
 server() {
   init
   if ! as_pg "$PGBIN/pg_ctl" -D "$DATA" status >/dev/null 2>&1; then
-    as_pg "$PGBIN/pg_ctl" -D "$DATA" -l "$DATA/server.log" -o "-p $PORT -k /tmp -c listen_addresses=127.0.0.1" -w start >/dev/null
+    local socket="-k /tmp"
+    [ "$WINDOWS" = 1 ] && socket="-c unix_socket_directories="
+    as_pg "$PGBIN/pg_ctl" -D "$DATA" -l "$DATA/server.log" -o "-p $PORT $socket -c listen_addresses=127.0.0.1" -w start >/dev/null
   fi
   if ! sql -d postgres -tAc "select 1 from pg_database where datname = '$DB'" | grep -q 1; then
     sql -d postgres -c "create database $DB"

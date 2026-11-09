@@ -89,12 +89,13 @@ export function Field({ label, hint, name, className, type, ...props }: { label:
       </div>
     );
   }
+  // An explicit label-for, like the password field: every assistive technology names the input from it.
   return (
-    <label className="block">
-      <span className="field-label">{label}</span>
-      <input name={name} type={type} aria-describedby={hint ? hintId : undefined} className={className ?? INPUT} {...props} />
+    <div>
+      <label htmlFor={props.id ?? inputId} className="field-label">{label}</label>
+      <input id={props.id ?? inputId} name={name} type={type} aria-describedby={hint ? hintId : undefined} className={className ?? INPUT} {...props} />
       {hint && <span id={hintId} className="field-hint">{hint}</span>}
-    </label>
+    </div>
   );
 }
 

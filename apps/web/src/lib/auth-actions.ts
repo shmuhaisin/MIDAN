@@ -179,6 +179,36 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   return {};
 }
 
+/**
+ * After the verification link, Supabase Auth has already signed the person in and put that session in the link's
+ * fragment. This carries it into the app's cookies, so nobody has to sign in a second time. Auth itself confirms the
+ * session first (/auth/v1/user), and only a session made by an email link (amr "otp") for a confirmed address is
+ * accepted: a password session pasted into a link isn't. Anything else falls back to the sign-in button.
+ */
+export async function continueFromEmailLink(accessToken: string, refreshToken: string): Promise<{ href?: string; error?: string }> {
+  if (!accessToken || !refreshToken || accessToken.length > 8192 || refreshToken.length > 1024) return { error: 'invalid' };
+  let user: { email_confirmed_at?: string | null };
+  try {
+    const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      cache: 'no-store',
+      headers: { apikey: process.env.SUPABASE_PUBLISHABLE_KEY as string, authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return { error: 'invalid' };
+    user = await response.json();
+  } catch {
+    return { error: 'unavailable' };
+  }
+  let amr: { method?: string }[] = [];
+  try {
+    amr = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString()).amr ?? [];
+  } catch {
+    return { error: 'invalid' };
+  }
+  if (!user.email_confirmed_at || !amr.some((m) => m.method === 'otp')) return { error: 'invalid' };
+  await setSessionCookies(accessToken, refreshToken);
+  return { href: await homeFor(decodeToken(accessToken)?.accountType, accessToken) };
+}
+
 export async function signOut() {
   const token = await getAccessToken();
   if (token) await gotrue('logout?scope=local', {}, token).catch(() => undefined);

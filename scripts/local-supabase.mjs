@@ -13,16 +13,29 @@
 // The keys and secrets below are fixed, public, local-only values. Nothing here is used by a hosted environment.
 import { spawn } from 'node:child_process';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer, request as httpRequest } from 'node:http';
 import { createServer as createTcpServer } from 'node:net';
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { Pool } = require('pg');
 
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+// Windows builds of Auth and PostgREST carry .exe (docs/local-development-windows.md).
+const EXE = process.platform === 'win32' ? '.exe' : '';
+// PostgREST's Windows build loads PostgreSQL's client library (libpq.dll), which lives in PostgreSQL's bin folder: PGBIN,
+// or the newest installed PostgreSQL. Elsewhere nothing changes.
+function postgresBinOnWindows() {
+  if (process.platform !== 'win32') return null;
+  if (process.env.PGBIN) return process.env.PGBIN;
+  const base = 'C:\\Program Files\\PostgreSQL';
+  if (!existsSync(base)) return null;
+  const newest = readdirSync(base).filter((v) => /^\d+$/.test(v)).sort((a, b) => Number(b) - Number(a))[0];
+  return newest ? join(base, newest, 'bin') : null;
+}
 const BIN = join(ROOT, '.local/bin');
 const MAIL = join(ROOT, '.local/mail');
 const PG_PORT = process.env.LOCAL_PG_PORT ?? '54322';
@@ -89,7 +102,7 @@ const authEnv = {
 };
 
 function runAuth(args, options = {}) {
-  return spawn(join(BIN, 'auth'), args, { env: authEnv, cwd: BIN, stdio: options.stdio ?? 'inherit' });
+  return spawn(join(BIN, `auth${EXE}`), args, { env: authEnv, cwd: BIN, stdio: options.stdio ?? 'inherit' });
 }
 
 async function migrateAuth() {
@@ -349,10 +362,11 @@ function startGateway() {
 }
 
 function startRest() {
-  return spawn(join(BIN, 'postgrest'), [], {
+  return spawn(join(BIN, `postgrest${EXE}`), [], {
     stdio: ['ignore', 'ignore', 'inherit'],
     env: {
       ...process.env,
+      ...(postgresBinOnWindows() && { PATH: `${postgresBinOnWindows()};${process.env.PATH ?? process.env.Path ?? ''}` }),
       PGRST_DB_URI: `postgres://authenticator:local-authenticator@127.0.0.1:${PG_PORT}/midan`,
       PGRST_DB_SCHEMAS: 'public',
       PGRST_DB_ANON_ROLE: 'anon',
@@ -364,7 +378,7 @@ function startRest() {
   });
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv[2] === 'migrate') {
     await migrateAuth();
     process.exit(0);

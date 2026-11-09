@@ -13,18 +13,19 @@ import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(new URL('../apps/api/package.json', import.meta.url));
 const { Client } = require('pg');
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((acc, arg, i, all) => (arg.startsWith('--') ? [...acc, [arg.slice(2), all[i + 1]]] : acc), []));
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 const url = process.env.IMPORT_DATABASE_URL ?? `postgresql://midan_importer:midan-importer-local@127.0.0.1:${process.env.LOCAL_PG_PORT ?? 54322}/midan`;
 const startedBy = process.env.IMPORT_STARTED_BY ?? `cli:${process.env.USER ?? 'unknown'}`;
 
 function python(script, ...scriptArgs) {
   // An isolated interpreter with only openpyxl, so the workbooks can't load code from anywhere.
-  return execFileSync('uv', ['run', '--quiet', '--no-project', '--with', 'openpyxl==3.1.5', 'python', '-I', join(root, 'scripts', script), ...scriptArgs], {
+  return execFileSync('uv', ['run', '--quiet', '--no-project', '--with', 'openpyxl==3.1.5', 'python', '-X', 'utf8', '-I', join(root, 'scripts', script), ...scriptArgs], {
     maxBuffer: 512 * 1024 * 1024, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'],
   });
 }
