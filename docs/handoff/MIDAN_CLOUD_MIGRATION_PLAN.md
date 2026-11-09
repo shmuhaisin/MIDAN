@@ -1,6 +1,33 @@
-# MIDAN on Supabase Cloud — migration plan (awaiting the owner's approval)
+# MIDAN on Supabase Cloud — migration plan
 
 Project: **al-midan-ya-hamidan** (`squpszwbrqkflezfltoj`, eu-central-1, PostgreSQL 17). Checked on 2026-11-10.
+
+## Status: applied on 2026-11-10, with the owner's approval
+- `scripts/apply-hosted-migrations.sh --apply` re-checked the starting point, took a backup verified by restoring it
+  (`.local/backups/squpszwbrqkflezfltoj-20261109T210326Z.dump`, identical row counts in 86 tables), applied the 34, and
+  the 29 post-change checks passed. The project now has **57** migrations, the same as the repository.
+- Afterwards: the real candidate's account, profile and CV unchanged; the 2 demo organizations approved; Supabase's
+  security advisor reports no errors (warnings: security-definer functions callable by signed-in users, which check
+  permissions themselves; leaked-password protection off; one function without a fixed search_path).
+- Also approved by the owner: a new sign-up access code for the local server (hash in `private.signup_access`, the code
+  only in `.env.cloud`), and the fictional `midan.test.org-b-owner@example.com` as platform administrator for the demo
+  (`delete from private.platform_admins where user_id = …` reverses it).
+
+## Verified on the cloud after the migrations (2026-11-10, real browser, `scripts/dev-all.sh --cloud`)
+- Cloud Auth: password sign-in (tokens issued by `squpszwbrqkflezfltoj.supabase.co`), session read back, logout revokes
+  the refresh token, an unverified account is refused. Sign-up through the website reaches Cloud Auth; cloud Auth refuses
+  `example.com` addresses, so fictional test accounts can't be created there (use a real mailbox you control).
+- Candidate (test candidate-one): profile saved and still there after reload; CV uploaded to the cloud
+  `candidate-documents` bucket; the CV-reading job ran on the cloud queue and Groq read it (awaiting the candidate's review).
+- Full journey, 16/16: employer (test org-a-owner) creates an organization, completes its profile, uploads the
+  registration document and submits it → platform administrator (test org-b-owner) approves → job with description and a
+  requirement → 9 skills chosen by the live AI model → assessment (MIDAN's labelled templates: Groq's daily token limit was
+  used up) approved and published → job published → candidate (Arabic) uploads a CV, finds the job, applies, gets the
+  assessment, answers and uploads a file, submits → employer opens the applicant with the requirements match → scoring
+  (1 proposed by the model, 16 left for the person) → a person approves and releases → the candidate reads the result,
+  without reviewer notes. Every record was then read back from the cloud database.
+
+The sections below are the plan as it was approved.
 
 ## Where it stands
 - Migration history: **23 applied**, identical to the repository's first 23. **34 pending** (listed by

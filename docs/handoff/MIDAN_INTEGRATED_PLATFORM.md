@@ -6,6 +6,16 @@ Branch `feature/midan-integration` = `feature/midan-candidate-experience` (appro
 branches are unchanged; `main` is untouched.
 
 ## Start everything with one command
+**On Supabase Cloud (al-midan-ya-hamidan), the submission setup:**
+```
+scripts/dev-all.sh --cloud    # website, API and AI service here; database, Auth and Storage on Supabase Cloud
+```
+It reads the git-ignored `.env.cloud` (the database and Supabase lines of the main project's `.env`, plus the AI
+settings) and refuses to start if the database and Auth aren't the same cloud project. Nothing local is started. The cloud
+schema is migrated (57, see `MIDAN_CLOUD_MIGRATION_PLAN.md`); `scripts/apply-hosted-migrations.sh --check` shows where it
+stands. Switching between cloud and local stops the running services and rebuilds.
+
+**On the local development copy:**
 ```
 scripts/dev-all.sh            # build, start, wait for health, stay in the foreground (Ctrl+C stops all)
 SKIP_BUILD=1 scripts/dev-all.sh
