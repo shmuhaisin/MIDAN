@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One command for the whole MIDAN development platform, on ONE local environment:
-#   Postgres (127.0.0.1:54322) → local Supabase gateway (Auth, REST, Storage, mail sink :54321)
+#   Postgres (127.0.0.1, the port in DATABASE_URL) → local Supabase gateway (Auth, REST, Storage, mail sink :54321)
 #   → AI service (:8000) → Core API (:4000) → web app (:3100, the address the verification emails link to).
 #
 #   scripts/dev-all.sh            build, start everything, wait until each service answers, then stay in the foreground
@@ -36,9 +36,12 @@ wait_url() { for _ in $(seq 1 120); do curl -s -o /dev/null "$1" && return 0; sl
 up() { curl -s -o /dev/null "$1"; }
 
 echo "• Database"
+# The database the app uses is the one the scripts start and migrate: its port comes from DATABASE_URL.
+LOCAL_PG_PORT="$(node -e "const {parseEnv}=require('node:util');const e=parseEnv(require('node:fs').readFileSync('.env','utf8'));console.log(new URL(e.DATABASE_URL).port||5432)")"
+export LOCAL_PG_PORT
 PGBIN="${PGBIN:-$(dirname "$(command -v pg_ctl 2>/dev/null || echo /opt/homebrew/opt/postgresql@16/bin/pg_ctl)")}"
 # Already running (for example started by another checkout): use it; otherwise start it.
-if "$PGBIN/pg_isready" -q -h 127.0.0.1 -p 54322 2>/dev/null; then echo "already running" > "$LOGS/db.log"
+if "$PGBIN/pg_isready" -q -h 127.0.0.1 -p "$LOCAL_PG_PORT" 2>/dev/null; then echo "already running on $LOCAL_PG_PORT" > "$LOGS/db.log"
 else scripts/local-db.sh start > "$LOGS/db.log" 2>&1; fi
 scripts/local-db.sh migrate >> "$LOGS/db.log" 2>&1
 tail -1 "$LOGS/db.log"
