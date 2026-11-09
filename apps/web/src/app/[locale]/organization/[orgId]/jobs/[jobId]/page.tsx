@@ -195,7 +195,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       {show('details') && (
       <section aria-labelledby="details">
         <h2 id="details" className="section-title mb-6 flex items-baseline gap-3 border-b border-border-strong pb-3"><span className="num text-sm text-gold-text">01</span>{t('details')}</h2>
-        <JobDetailsForm orgId={orgId} job={job} skills={skills} canEdit={canBuild} />
+        <JobDetailsForm orgId={orgId} job={job} skills={skills} canEdit={canBuild} formId="job-details"
+          wizardNext={wizard === 'details' ? `/organization/${orgId}/jobs/${jobId}?step=2` : undefined} />
       </section>
       )}
 
@@ -391,7 +392,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <span className="flex-1" />
           <span className="flex flex-wrap items-center gap-3">
             <Link href={`/organization/${orgId}/jobs/${jobId}`} className="btn btn-ghost">{tw('saveExit')}</Link>
-            {stepNo < WIZARD.length && <Link href={`/organization/${orgId}/jobs/${jobId}?step=${stepNo + 1}`} className="btn btn-primary">{tw('continue')}<Arrow /></Link>}
+            {/* On the details step, continuing saves the form first; the next step opens once it's saved. */}
+            {wizard === 'details' && canBuild
+              ? <button type="submit" form="job-details" className="btn btn-primary">{tw('saveAndContinue')}<Arrow /></button>
+              : stepNo < WIZARD.length && <Link href={`/organization/${orgId}/jobs/${jobId}?step=${stepNo + 1}`} className="btn btn-primary">{tw('continue')}<Arrow /></Link>}
           </span>
         </div>
       )}

@@ -156,10 +156,11 @@ export async function updateJob(orgId: string, jobId: string, _: FormState, form
   const title_ar = text(form, 'title_ar');
   const title_en = text(form, 'title_en');
   if (!title_ar || !title_en) return { error: 'required' };
-  const skills = form.getAll('skill').map(String).map((skill_id) => ({
-    skill_id,
-    required_level: Number(form.get(`level-${skill_id}`) ?? 2),
-  }));
+  // Only a form that shows the skills checklist changes them; otherwise the job's skills stay as they are (the API leaves
+  // them alone when `skills` is absent).
+  const skills = form.has('skills_present')
+    ? form.getAll('skill').map(String).map((skill_id) => ({ skill_id, required_level: Number(form.get(`level-${skill_id}`) ?? 2) }))
+    : undefined;
   return result(() =>
     api(`/organizations/${orgId}/jobs/${jobId}`, {
       method: 'PATCH',

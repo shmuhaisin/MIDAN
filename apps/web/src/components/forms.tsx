@@ -356,14 +356,13 @@ export function JobForm({ orgId, defaultOpen = false }: { orgId: string; default
   const router = useRouter();
   const [state, action, pending] = useActionState<FormState, FormData>(createJob.bind(null, orgId), {});
   const [open, setOpen] = useState(defaultOpen);
-  const [wasPending, setWasPending] = useState(false);
-  if (pending !== wasPending) {
-    setWasPending(pending);
-    if (!pending && state.ok) {
-      setOpen(false);
-      if (state.id) router.push(`/organization/${orgId}/jobs/${state.id}?step=1`);
-    }
-  }
+  const descriptionId = useId();
+  // Once the draft exists, the guided setup continues on the job's own page. Navigation happens after rendering, never in it.
+  useEffect(() => {
+    if (pending || !state.ok) return;
+    setOpen(false);
+    if (state.id) router.push(`/organization/${orgId}/jobs/${state.id}?step=1`);
+  }, [state, pending, orgId, router]);
   return (
     <div>
       <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="btn btn-primary btn-sm">
@@ -386,10 +385,10 @@ export function JobForm({ orgId, defaultOpen = false }: { orgId: string; default
               <fieldset className="grid gap-4 sm:grid-cols-2">
                 <legend className="field-label mb-2">{tw('descriptionTitle')}</legend>
                 {(['ar', 'en'] as const).map((lang) => (
-                  <label key={lang} className="block">
-                    <span className="field-label">{tw(lang === 'ar' ? 'descriptionAr' : 'descriptionEn')}</span>
-                    <textarea name={`description_${lang}`} rows={7} maxLength={8000} dir={lang === 'ar' ? 'rtl' : 'ltr'} className={clsx(INPUT, 'h-auto py-2.5 leading-relaxed')} />
-                  </label>
+                  <div key={lang}>
+                    <label htmlFor={`${descriptionId}-${lang}`} className="field-label">{tw(lang === 'ar' ? 'descriptionAr' : 'descriptionEn')}</label>
+                    <textarea id={`${descriptionId}-${lang}`} name={`description_${lang}`} rows={7} maxLength={8000} dir={lang === 'ar' ? 'rtl' : 'ltr'} className={clsx(INPUT, 'h-auto py-2.5 leading-relaxed')} />
+                  </div>
                 ))}
                 <p className="text-xs text-muted sm:col-span-2">{tw('descriptionHint')}</p>
               </fieldset>

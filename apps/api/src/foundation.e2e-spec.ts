@@ -1863,7 +1863,8 @@ describe('Midan database foundation', () => {
 
     it('refuses other organizations and candidates', async () => {
       const ids = (await tasksOf()).map((t) => t.id);
-      await api().put(`/organizations/${orgB}/assessment-versions/${version}/task-order`).set(bearer(ownerB)).send({ task_ids: ids }).expect(403);
+      // Through its own organization, another owner can't even see the version (404, nothing revealed); through ours, the role check refuses (403).
+      await api().put(`/organizations/${orgB}/assessment-versions/${version}/task-order`).set(bearer(ownerB)).send({ task_ids: ids }).expect(404);
       await order().set(bearer(ownerB)).send({ task_ids: [...ids].reverse() }).expect(403);
       await order().set(bearer(candidateOne)).send({ task_ids: [...ids].reverse() }).expect(403);
       expect((await tasksOf()).map((t) => t.id)).toEqual(ids);

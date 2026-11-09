@@ -3,7 +3,7 @@
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useActionState, useState, useTransition } from 'react';
+import { useActionState, useEffect, useId, useState, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { addAssessment, addCriterion, addTask, generateAssessment, inviteCandidate, publishVersion, regenerateTask, removeAssessment, removeCriterion, removeTask, renameAssessment, reorderTasks, saveQuestions, setAssessmentField, updateCriterion, updateJob, updateTask } from '@/lib/actions';
 import type { FormState } from '@/lib/auth-actions';
@@ -16,12 +16,15 @@ import { saveVersionSettings } from '@/lib/candidate-actions';
 import { TaskRequirementPicker, type Requirement } from './requirements';
 
 function TextArea({ label, hint, name, ...props }: { label: string; hint?: string; name: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const generated = useId();
+  const id = props.id ?? generated;
+  // An explicit label-for, so every assistive technology names the field.
   return (
-    <label className="block">
-      <span className="field-label">{label}</span>
-      <textarea name={name} rows={4} className={clsx(INPUT, 'h-auto py-2.5 leading-relaxed')} {...props} />
-      {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}
-    </label>
+    <div>
+      <label htmlFor={id} className="field-label">{label}</label>
+      <textarea id={id} name={name} rows={4} aria-describedby={hint ? `${id}-hint` : undefined} className={clsx(INPUT, 'h-auto py-2.5 leading-relaxed')} {...props} />
+      {hint && <span id={`${id}-hint`} className="mt-1 block text-xs text-muted">{hint}</span>}
+    </div>
   );
 }
 
@@ -78,15 +81,27 @@ export function VersionSettings({ orgId, version, canEdit }: { orgId: string; ve
   );
 }
 
-export function JobDetailsForm({ orgId, job, skills, canEdit }: { orgId: string; job: JobDetails; skills: Skill[]; canEdit: boolean }) {
+/**
+ * The job's details. In the guided setup (`wizardNext`), the setup bar's "Save and continue" submits this form through its
+ * id and the next step opens only once the details are saved, so nothing typed is lost. There the draft six-skill
+ * checklist isn't shown: skills are chosen in the Skills step (suggestions from this description, the sector catalog and
+ * the employer's own), and the skills already on the job are left exactly as they are.
+ */
+export function JobDetailsForm({ orgId, job, skills, canEdit, formId, wizardNext }: {
+  orgId: string; job: JobDetails; skills: Skill[]; canEdit: boolean; formId?: string; wizardNext?: string;
+}) {
   const t = useTranslations('workspace');
   const ts = useTranslations('sectors');
   const tj = useTranslations('jobs');
   const locale = useLocale();
+  const router = useRouter();
   const [state, action] = useActionState<FormState, FormData>(updateJob.bind(null, orgId, job.id), {});
   const selected = new Map(job.job_skills.map((s) => [s.skill_id, s.required_level]));
+  useEffect(() => {
+    if (wizardNext && state.ok) router.push(wizardNext);
+  }, [state, wizardNext, router]);
   return (
-    <ActionForm action={action}>
+    <ActionForm action={action} id={formId}>
       <fieldset disabled={!canEdit} className="space-y-4">
         <ErrorText code={state.error} />
         <div className="grid gap-4 sm:grid-cols-2">
@@ -122,7 +137,11 @@ export function JobDetailsForm({ orgId, job, skills, canEdit }: { orgId: string;
           <Field name="salary_max" type="number" min={0} label={t('salaryMax')} defaultValue={job.salary_max == null ? '' : Number(job.salary_max)} />
           <Field name="application_deadline" type="date" label={t('deadline')} defaultValue={job.application_deadline?.slice(0, 10) ?? ''} />
         </div>
+        {wizardNext ? (
+          <p className="callout text-sm">{t('skillsComeNext')}</p>
+        ) : (
         <div>
+          <input type="hidden" name="skills_present" value="1" />
           <p className="text-sm font-medium">{t('skills')}</p>
           <p className="text-xs text-muted">{t('draftSkillsNote')}</p>
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -139,7 +158,8 @@ export function JobDetailsForm({ orgId, job, skills, canEdit }: { orgId: string;
             ))}
           </ul>
         </div>
-        {canEdit && (
+        )}
+        {canEdit && !wizardNext && (
           <div className="flex items-center gap-4">
             <Submit>{t('save')}</Submit>
             <Saved show={state.ok} label={t('saved')} />

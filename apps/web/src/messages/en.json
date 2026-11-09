@@ -1051,7 +1051,8 @@
     "regenerated": "New version ready to review",
     "taskOrder": "Order of “{title}”",
     "moveTaskUp": "Move “{title}” up",
-    "moveTaskDown": "Move “{title}” down"
+    "moveTaskDown": "Move “{title}” down",
+    "skillsComeNext": "Skills come next, in the Skills step: suggestions read from this description, the sector skills catalog, and your own skills, each with a level."
   },
   "experience": {
     "poweredBy": "Powered by Midan",
@@ -2940,7 +2941,8 @@
     "descriptionTitle": "Job description",
     "descriptionAr": "Job description in Arabic",
     "descriptionEn": "Job description in English",
-    "descriptionHint": "What the role does day to day and its main responsibilities, one per line. Fill in at least one language. MIDAN builds the requirements, the AI assessment draft and the requirements match from it."
+    "descriptionHint": "What the role does day to day and its main responsibilities, one per line. Fill in at least one language. MIDAN builds the requirements, the AI assessment draft and the requirements match from it.",
+    "saveAndContinue": "Save and continue"
   },
   "candidatesPage": {
     "search": "Search",
