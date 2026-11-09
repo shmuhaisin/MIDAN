@@ -477,7 +477,8 @@
     "showPassword": "إظهار",
     "hidePassword": "إخفاء",
     "confirmedContinuing": "حسابك جاهز، وسننقلك إليه الآن.",
-    "confirmedContinuingShort": "جارٍ فتح حسابك…"
+    "confirmedContinuingShort": "جارٍ فتح حسابك…",
+    "signupClosedNote": "تُنشأ الحسابات بدعوة خلال مرحلة اختبار الميدان. إن وصلتكم دعوة، سجّلوا الدخول بالبريد الذي استخدمتموه."
   },
   "errors": {
     "invalid_credentials": "البريد أو كلمة المرور غير صحيحة.",

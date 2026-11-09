@@ -19,7 +19,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const org = audience === 'organization';
   return (
     <AuthShell audience={audience} title={t(org ? 'orgLoginTitle' : 'loginTitle')} lead={t(org ? 'orgLoginLead' : 'loginLead')}>
-      <LoginForm audience={audience} next={next} google={await googleSignInEnabled()} errorCode={query.error && SHOWN_ERRORS.has(query.error) ? query.error : undefined} />
+      <LoginForm audience={audience} next={next} google={await googleSignInEnabled()} errorCode={query.error && SHOWN_ERRORS.has(query.error) ? query.error : undefined} signupOpen={process.env.DEV_TEST_SIGNUP === 'true'} />
     </AuthShell>
   );
 }

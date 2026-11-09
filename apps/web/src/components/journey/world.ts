@@ -71,7 +71,8 @@ export type World = {
 
 /* ---------- Palette: the brand colours, lit for day and dusk ---------- */
 
-const BRAND = { deep: '#0b3d2e', green: '#1f7a4d', mint: '#a7e3c2', ivory: '#f7f4e9', gold: '#d4af37' };
+// The 2026-11-10 palette. `gold` is the accent role, now mint (no gold hue).
+const BRAND = { deep: '#0f5b46', green: '#1f7a5c', mint: '#dceee5', ivory: '#f7f4ee', gold: '#dceee5' };
 
 const THEMES = {
   light: {
@@ -114,7 +115,7 @@ const THEMES = {
     lamps: 3.2,
     exposure: 1.1,
     figure: '#c9d4cc',
-    sunSprite: '#d4af37',
+    sunSprite: '#dceee5',
   },
 };
 

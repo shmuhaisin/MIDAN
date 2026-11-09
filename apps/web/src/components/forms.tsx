@@ -194,7 +194,7 @@ export function ResetPasswordForm() {
   );
 }
 
-export function LoginForm({ audience, next, google, errorCode }: { audience: 'candidate' | 'organization'; next?: string; google?: boolean; errorCode?: string }) {
+export function LoginForm({ audience, next, google, errorCode, signupOpen = true }: { audience: 'candidate' | 'organization'; next?: string; google?: boolean; errorCode?: string; signupOpen?: boolean }) {
   const t = useTranslations('auth');
   const [state, action] = useActionState<FormState, FormData>(signIn, {});
   const org = audience === 'organization';
@@ -209,9 +209,12 @@ export function LoginForm({ audience, next, google, errorCode }: { audience: 'ca
       <Field name="password" type="password" autoComplete="current-password" required label={t('password')} dir="ltr" />
       <Submit className="w-full">{t('loginSubmit')}</Submit>
       <p className="text-center text-sm"><Link href="/forgot-password" className="link">{t('forgot')}</Link></p>
-      <p className="text-center text-sm text-muted">
-        {t('noAccount')} <Link href={org ? '/register?as=organization' : '/register'} className="link">{t('registerSubmit')}</Link>
-      </p>
+      {/* Offer an account only when sign-up is open; otherwise say how accounts are made instead of a dead end. */}
+      {signupOpen ? (
+        <p className="text-center text-sm text-muted">
+          {t('noAccount')} <Link href={org ? '/register?as=organization' : '/register'} className="link">{t('registerSubmit')}</Link>
+        </p>
+      ) : <p className="text-center text-sm text-muted">{t('signupClosedNote')}</p>}
       <AudienceSwitch href={org ? '/login' : '/login?as=organization'} label={t(org ? 'toCandidateLogin' : 'toOrgLogin')} />
     </ActionForm>
     </div>

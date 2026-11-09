@@ -3,40 +3,43 @@
 /*
  * MIDAN design system — tokens.
  *
- * The official palette, set by the owner's full-redesign brief (docs/DECISIONS.md, 2026-11-08, redesign entry). Components
- * never reference the five brand colours directly: they use the semantic tokens below, which are defined for each
- * theme. The only exceptions are the `mint`, `ivory`, `forest` and `brand-gold` utilities on surfaces that stay deep in
- * both themes, and the journey illustration, which is drawn in the brand colours by design.
+ * The official palette, set by the owner on 2026-11-10 (docs/DECISIONS.md): #0F5B46, #1F7A5C, #DCEEE5, #F7F4EE, #1F2A26.
+ * No gold. Components never reference the brand colours directly: they use the semantic tokens below, which are defined
+ * for each theme. The only exceptions are the `mint`, `ivory`, `forest` and `brand-gold` utilities on surfaces that stay
+ * deep in both themes, and the journey illustration, which is drawn in the brand colours by design.
  *
- * Supporting shades (ink, surfaces, dark-theme greens) are tints and shades of the palette, never new hues. Gold is an
- * accent: rules, markers and the current step, never body text on a light surface.
+ * The utilities still named "gold" (`gold`, `gold-text`, `brand-gold`) are the accent role, kept by name so components
+ * didn't have to change: green on light surfaces, mint on deep ones. Supporting shades are tints and shades of the
+ * palette, never new hues. Amber appears only as the warning status.
  */
 :root {
-  --brand-deep: #0b3d2e;
-  --brand-green: #1f7a4d;
-  --brand-mint: #a7e3c2;
-  --brand-ivory: #f7f4e9;
-  --brand-gold: #d4af37;
+  --brand-deep: #0f5b46;
+  --brand-green: #1f7a5c;
+  --brand-mint: #dceee5;
+  --brand-ivory: #f7f4ee;
+  --brand-ink: #1f2a26;
+  /* The accent role under its historical name, read inline by some components: green here, mint in the dark theme. */
+  --brand-gold: var(--brand-green);
 
-  --ink: #0f2a20;
+  --ink: var(--brand-ink);
   --background: var(--brand-ivory);
   --foreground: var(--ink);
-  --surface: #fffdf6;
-  --surface-2: #efebdc;
-  --surface-3: #e5dfca;
-  --muted: #4b6157;
+  --surface: #fdfcf9;
+  --surface-2: #efece4;
+  --surface-3: #e4e0d5;
+  --muted: #4d5e57;
   --primary: var(--brand-green);
-  --primary-foreground: #fffdf6;
+  --primary-foreground: #fdfcf9;
   --secondary: var(--brand-deep);
-  --accent: #d9f1e3;
+  --accent: var(--brand-mint);
   --accent-foreground: var(--brand-deep);
-  /* Rules, markers, the current step. Decorative on light surfaces; text only on deep ones. */
-  --gold: var(--brand-gold);
-  --gold-text: #7a5f00;
-  --border: rgb(11 61 46 / 0.13);
-  --border-strong: rgb(11 61 46 / 0.32);
+  /* The accent role (named "gold" for history): rules, markers, the current step. */
+  --gold: var(--brand-green);
+  --gold-text: var(--brand-green);
+  --border: rgb(15 91 70 / 0.14);
+  --border-strong: rgb(15 91 70 / 0.34);
   --success: var(--brand-green);
-  --success-surface: #e2f4ea;
+  --success-surface: #e3f1ea;
   --warning: #8a6500;
   --warning-surface: #f6ecc8;
   --error: #b3362b;
@@ -46,23 +49,23 @@
   --focus: var(--brand-green);
   /* The control that carries the most weight on a light page: deep green with ivory text. */
   --button: var(--brand-deep);
-  --button-hover: #0f4c39;
+  --button-hover: #0b4a39;
   --button-foreground: var(--brand-ivory);
-  --shadow: 0 1px 0 rgb(11 61 46 / 0.04), 0 18px 40px -28px rgb(11 61 46 / 0.4);
+  --shadow: 0 1px 0 rgb(15 91 70 / 0.04), 0 18px 40px -28px rgb(15 91 70 / 0.4);
   /* A section that stays deep in both themes */
   --deep: var(--brand-deep);
-  --deep-2: #08301f;
+  --deep-2: #0b4838;
   --deep-foreground: var(--brand-ivory);
-  --deep-muted: #b5d3c3;
+  --deep-muted: #bcd8ca;
   /* Journey scenery */
-  --sky-top: #f4efdc;
-  --sky-bottom: #e7efe2;
-  --haze: #d7e6d9;
-  --far: #bfd4c4;
-  --mid: #7fae93;
+  --sky-top: #f4f1e8;
+  --sky-bottom: #e6efe9;
+  --haze: #d6e7de;
+  --far: #bdd6c9;
+  --mid: #7db29a;
   --near: var(--brand-green);
-  --ground: #0f4a36;
-  --sun: #f1d77c;
+  --ground: #0f5240;
+  --sun: #f3efe2;
 
   --radius-control: 0.375rem;
   --radius-panel: 0.5rem;
@@ -70,7 +73,7 @@
 
 [data-theme='dark'] {
   --ink: var(--brand-ivory);
-  --background: #071c15;
+  --background: #0a1f19;
   --foreground: var(--brand-ivory);
   --surface: #0c271e;
   --surface-2: #113327;
@@ -81,10 +84,11 @@
   --secondary: var(--brand-ivory);
   --accent: #15402f;
   --accent-foreground: var(--brand-mint);
-  --gold: var(--brand-gold);
-  --gold-text: var(--brand-gold);
-  --border: rgb(167 227 194 / 0.14);
-  --border-strong: rgb(167 227 194 / 0.34);
+  --brand-gold: var(--brand-mint);
+  --gold: var(--brand-mint);
+  --gold-text: var(--brand-mint);
+  --border: rgb(220 238 229 / 0.14);
+  --border-strong: rgb(220 238 229 / 0.34);
   --success: var(--brand-mint);
   --success-surface: #123a2b;
   --warning: #e8c766;
@@ -95,7 +99,7 @@
   --info-surface: #11313a;
   --focus: var(--brand-mint);
   --button: var(--brand-mint);
-  --button-hover: #bdebd1;
+  --button-hover: #c6e2d4;
   --button-foreground: var(--brand-deep);
   --shadow: 0 1px 0 rgb(0 0 0 / 0.2), 0 18px 40px -24px rgb(0 0 0 / 0.75);
   --deep: var(--brand-deep);
@@ -107,7 +111,7 @@
   --mid: #1a5a43;
   --near: #227151;
   --ground: #04140e;
-  --sun: #d4af37;
+  --sun: #dceee5;
 }
 
 @theme inline {
@@ -140,7 +144,7 @@
   --color-mint: var(--brand-mint);
   --color-ivory: var(--brand-ivory);
   --color-forest: var(--brand-deep);
-  --color-brand-gold: var(--brand-gold);
+  --color-brand-gold: var(--brand-mint);
   --color-brand-green: var(--brand-green);
   --shadow-soft: var(--shadow);
   --font-display: var(--font-display-stack);
@@ -331,7 +335,7 @@ body {
     inset-inline: 0;
     bottom: 0;
     height: 2px;
-    background: var(--brand-gold);
+    background: var(--gold);
     transform: scaleX(0);
     transform-origin: left;
     transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
@@ -378,7 +382,7 @@ body {
   }
   /* For deep surfaces, in both themes */
   .btn-gold {
-    background: var(--brand-gold);
+    background: var(--gold);
     color: var(--brand-deep);
   }
   .btn-gold:hover:not(:disabled) {
@@ -686,7 +690,7 @@ body {
 /* The candidate's welcome: a soft wash of mint from Humaidan's side, a trace of gold opposite. */
 .welcome-wash {
   --wash-mint: color-mix(in srgb, var(--brand-mint) 48%, transparent);
-  --wash-gold: color-mix(in srgb, var(--brand-gold) 14%, transparent);
+  --wash-gold: color-mix(in srgb, var(--gold) 14%, transparent);
   background:
     radial-gradient(70% 110% at 92% 100%, var(--wash-mint), transparent 70%),
     radial-gradient(50% 70% at 0% 0%, var(--wash-gold), transparent 70%),
@@ -700,7 +704,7 @@ body {
 }
 [data-theme='dark'] .welcome-wash {
   --wash-mint: color-mix(in srgb, var(--brand-mint) 14%, transparent);
-  --wash-gold: color-mix(in srgb, var(--brand-gold) 8%, transparent);
+  --wash-gold: color-mix(in srgb, var(--gold) 8%, transparent);
 }
 
 /* Application lanes: the line draws to where the candidate is, and the current station breathes once in a while. */

@@ -477,7 +477,8 @@
     "showPassword": "Show",
     "hidePassword": "Hide",
     "confirmedContinuing": "Your account is ready. We're taking you to it now.",
-    "confirmedContinuingShort": "Opening your account…"
+    "confirmedContinuingShort": "Opening your account…",
+    "signupClosedNote": "Accounts are created by invitation while MIDAN is in testing. Already invited? Sign in with the email you used."
   },
   "errors": {
     "invalid_credentials": "Incorrect email or password.",

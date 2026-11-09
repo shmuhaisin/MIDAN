@@ -33,7 +33,7 @@ export default async function OrganizationLayout({ children, params }: { childre
   const accent = org.branding?.accent_color && HEX.test(org.branding.accent_color) ? org.branding.accent_color : null;
   const logo = org.branding?.logo_path ? `${process.env.SUPABASE_URL}/storage/v1/object/public/organization-assets/${org.branding.logo_path}` : null;
   const style = {
-    ...(primary && { '--org-primary': primary, '--org-on-primary': readableOnWhite(primary) ? '#ffffff' : '#0b3d2e' }),
+    ...(primary && { '--org-primary': primary, '--org-on-primary': readableOnWhite(primary) ? '#ffffff' : '#0f5b46' }),
     ...(accent && { '--org-accent': accent }),
   } as React.CSSProperties;
 
