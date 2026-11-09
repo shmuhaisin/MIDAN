@@ -26,6 +26,15 @@ profile. CV analysis (`/me/cv/...`) proposes; the candidate confirms before anyt
   `required_level` L1–L4), `job_custom_skills` (employer's own, per job). `GET /me/jobs/:id/match` returns the candidate's
   own profile against the job, with the semantic proposal per requirement.
 
+### Saved jobs and deadlines (candidate-owned, added 2026-11-10)
+- `saved_jobs (candidate_id, job_id, created_at)`: RLS lets a candidate read, add (published jobs only) and remove their own
+  rows. `GET /me/saved-jobs`, `PUT /me/saved-jobs/:jobId` (404 for an unpublished job), `DELETE /me/saved-jobs/:jobId`.
+- `GET /jobs` hides jobs whose `application_deadline` (a Riyadh date, inclusive) has passed unless `include_closed=1`, and
+  accepts `sort=deadline` (soonest first, no deadline last). Default order is unchanged (newest first).
+- The database refuses an application after the deadline (trigger `guard_applicant_deadline`, 422). **Employer side:** a
+  job with a past deadline stays published but receives no applications; extend the deadline to reopen it.
+- Migration `20261110150000_candidate_saved_jobs_and_deadlines`.
+
 ## 4. Application
 - `POST /jobs/:id/applications` (candidate only, published job only). One application per candidate and job (unique); a
   repeat returns the same application. The DB trigger `assign_published_assessments` assigns the job's **published**

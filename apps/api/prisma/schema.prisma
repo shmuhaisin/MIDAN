@@ -1432,3 +1432,13 @@ model job_custom_skills {
 
   @@index([job_id])
 }
+
+/// A candidate's bookmarked published jobs (supabase/migrations/20261110150000_candidate_saved_jobs_and_deadlines.sql).
+model saved_jobs {
+  candidate_id String   @db.Uuid
+  job_id       String   @db.Uuid
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([candidate_id, job_id])
+  @@index([job_id])
+}

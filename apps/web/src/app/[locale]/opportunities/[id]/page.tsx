@@ -8,6 +8,9 @@ import { apiForPage } from '@/lib/api';
 import { formatDate, number, pick } from '@/lib/format';
 import { REQUIREMENT_TYPES, requirementText } from '@/lib/requirements';
 import { myAccount } from '@/lib/account';
+import { deadlineState } from '@/lib/deadline';
+import { DeadlineNote } from '@/components/jobs-browser';
+import { SaveJobButton } from '@/components/save-job';
 import { getSession } from '@/lib/session';
 
 type Job = {
@@ -40,6 +43,9 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   // An organization account (a membership and no candidate profile, as the database records it) can't apply.
   const account = session ? await myAccount() : null;
   const isOrganization = session?.accountType === 'organization' || Boolean(account && !account.candidate_profiles && account.organization_members.length > 0);
+  const closed = deadlineState(job.application_deadline) === 'closed';
+  const savedJobs = session && !isOrganization ? await apiForPage<{ id: string }[]>('/me/saved-jobs') : null;
+  const isSaved = Boolean(savedJobs?.some((j) => j.id === id));
   const match = session && !isOrganization && job.status === 'published' ? await apiForPage<Match>(`/me/jobs/${id}/match`) : null;
   const t = await getTranslations({ locale, namespace: 'jobs' });
   const tm = await getTranslations({ locale, namespace: 'match' });
@@ -65,6 +71,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <Icon name="check" className="mt-0.5 size-5" />
       <span>{t('applied')}. <Link href={`/applications/${application?.id}`} className="link">{t('viewApplication')}</Link></span>
     </p>
+  ) : closed ? (
+    <p role="status" className="text-sm font-semibold text-muted">{t('closedForApplications')}</p>
   ) : isOrganization ? (
     <p className="text-sm text-muted">{t('orgCannotApply')}</p>
   ) : session ? (
@@ -159,9 +167,10 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             <div className="h-1 bg-gold" />
             <div className="panel-body space-y-4">
               {job.application_deadline && (
-                <p className="flex items-center gap-2 text-sm"><Icon name="clock" className="size-4 text-muted" />{t('deadline', { date: formatDate(locale, job.application_deadline, 'UTC') })}</p>
+                <p className="flex items-center gap-2 text-sm"><Icon name="clock" className="size-4 text-muted" /><DeadlineNote deadline={job.application_deadline} /></p>
               )}
               {action}
+              {savedJobs && !applied && <SaveJobButton jobId={id} title={pick(locale, job.title_ar, job.title_en)} saved={isSaved} />}
             </div>
           </div>
           {match && match.semantic && 'requirements' in match.semantic && match.semantic.requirements.length > 0 && (

@@ -129,6 +129,11 @@ export async function dismissAnalysis(id: string) {
   return done(() => api(`/me/cv/analyses/${id}/dismiss`, { method: 'POST' }));
 }
 
+/** Saves a published job for later, or removes it from the saved list. */
+export async function saveJob(jobId: string, save: boolean) {
+  return done(() => api(`/me/saved-jobs/${jobId}`, { method: save ? 'PUT' : 'DELETE' }));
+}
+
 export async function respondToInterview(id: string, action: 'accept' | 'request_reschedule', note?: string) {
   return done(() => api(`/interviews/${id}/respond`, { method: 'POST', body: { action, ...(note?.trim() && { note: note.trim() }) } }));
 }

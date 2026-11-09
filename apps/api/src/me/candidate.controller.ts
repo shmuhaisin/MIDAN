@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Body, Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, ServiceUnavailableException, UnprocessableEntityException, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, ServiceUnavailableException, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import { AiClient } from '../ai/ai.client';
@@ -357,6 +357,44 @@ export class CandidateController {
     });
     const proposals = new Map(result.matches.map((m) => [m.key, m]));
     return { requirements: items.map((r) => ({ ...r, proposal: proposals.get(r.key) ?? null })), summary: result.summary, provenance: result.provenance };
+  }
+
+  @Get('saved-jobs')
+  @ApiOperation({ summary: "The candidate's saved jobs that are still published, newest saved first." })
+  savedJobs(@CurrentUser() user: AuthUser) {
+    return this.db.asUser(user, async (tx) => {
+      const saved = await tx.saved_jobs.findMany({ where: { candidate_id: user.id }, orderBy: { created_at: 'desc' }, select: { job_id: true, created_at: true } });
+      const jobs = await tx.jobs.findMany({
+        where: { id: { in: saved.map((s) => s.job_id) }, status: 'published' },
+        select: {
+          id: true, title_ar: true, title_en: true, location: true, is_demo: true, sector: true, employment_type: true, experience_level: true,
+          application_deadline: true, organizations: { select: { name_ar: true, name_en: true } },
+          job_skills: { select: { skills: { select: { id: true, name_ar: true, name_en: true } } } },
+          job_reference_skills: { select: { reference_skills: { select: { id: true, name_ar: true } } } },
+        },
+      });
+      const byId = new Map(jobs.map((j) => [j.id, j]));
+      return saved.flatMap((s) => (byId.has(s.job_id) ? [{ ...byId.get(s.job_id)!, saved_at: s.created_at }] : []));
+    });
+  }
+
+  @Put('saved-jobs/:jobId')
+  @ApiOperation({ summary: 'Saves a published job for later. Saving twice changes nothing.' })
+  saveJob(@CurrentUser() user: AuthUser, @Param('jobId', ParseUUIDPipe) jobId: string) {
+    return this.db.asUser(user, async (tx) => {
+      const job = await tx.jobs.findFirst({ where: { id: jobId, status: 'published' }, select: { id: true } });
+      if (!job) throw new NotFoundException();
+      await tx.saved_jobs.upsert({ where: { candidate_id_job_id: { candidate_id: user.id, job_id: jobId } }, create: { candidate_id: user.id, job_id: jobId }, update: {} });
+      return { saved: true };
+    });
+  }
+
+  @Delete('saved-jobs/:jobId')
+  unsaveJob(@CurrentUser() user: AuthUser, @Param('jobId', ParseUUIDPipe) jobId: string) {
+    return this.db.asUser(user, async (tx) => {
+      await tx.saved_jobs.deleteMany({ where: { candidate_id: user.id, job_id: jobId } });
+      return { saved: false };
+    });
   }
 
   @Get('notifications')

@@ -13,6 +13,11 @@ class ApplyDto {
   cover_note?: string;
 }
 
+/** Today's date in Riyadh, as the date the database compares application deadlines with. */
+export function riyadhToday() {
+  return new Date(`${new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10)}T00:00:00Z`);
+}
+
 const PUBLIC_JOB = {
   id: true, slug: true, title_ar: true, title_en: true, description_ar: true, description_en: true,
   location: true, status: true, is_demo: true, published_at: true, requirements_ar: true, requirements_en: true,
@@ -74,6 +79,7 @@ export class JobsController {
     @Query('employment_type') employmentType?: string, @Query('experience_level') experienceLevel?: string,
     @Query('registry', new ParseUUIDPipe({ optional: true })) registry?: string,
     @Query('page') page?: string, @Query('page_size') pageSize?: string,
+    @Query('sort') sort?: string, @Query('include_closed') includeClosed?: string,
   ) {
     const contains = (value: string) => ({ contains: value.slice(0, 100), mode: Prisma.QueryMode.insensitive });
     const base: Prisma.jobsWhereInput = demo === '1' ? { status: 'published', is_demo: true } : listableJobs(user?.email);
@@ -96,13 +102,19 @@ export class JobsController {
       ...(sector && { sector }),
       ...(employmentType && { employment_type: employmentType }),
       ...(experienceLevel && { experience_level: experienceLevel }),
+      // A job past its application deadline (a date, Riyadh time, inclusive) can't be applied to, so it isn't offered.
+      ...(includeClosed !== '1' && { OR: [{ application_deadline: null }, { application_deadline: { gte: riyadhToday() } }] }),
     };
+    // Newest first, or the soonest deadline first (jobs without a deadline last).
+    const orderBy: Prisma.jobsOrderByWithRelationInput[] = sort === 'deadline'
+      ? [{ application_deadline: { sort: 'asc', nulls: 'last' } }, { published_at: 'desc' }, { id: 'asc' }]
+      : [{ published_at: 'desc' }, { id: 'asc' }];
     // Without a page, the plain list that other callers already read.
     if (page === undefined) return this.db.asAnon((tx) => tx.jobs.findMany({ where, select: PUBLIC_JOB, orderBy: { published_at: 'desc' }, take: 100 }));
     const { number, size, skip } = paging(page, pageSize);
     return this.db.asAnon(async (tx) => {
       const [items, total, all] = await Promise.all([
-        tx.jobs.findMany({ where, select: PUBLIC_JOB, orderBy: [{ published_at: 'desc' }, { id: 'asc' }], skip, take: size }),
+        tx.jobs.findMany({ where, select: PUBLIC_JOB, orderBy, skip, take: size }),
         tx.jobs.count({ where }),
         // What the filters can offer: everything listable, not just this page.
         tx.jobs.findMany({ where: base, select: { location: true, employment_type: true, experience_level: true, organizations: { select: { name_ar: true, name_en: true } } }, take: 1000 }),

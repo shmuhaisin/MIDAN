@@ -3,9 +3,11 @@
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
+import { deadlineState } from '@/lib/deadline';
 import { formatDate, number, pick } from '@/lib/format';
 import { Arrow } from './brand';
 import { Icon } from './icons';
+import { SaveJobButton } from './save-job';
 import { Badge, EmptyState } from './ui';
 
 export type PublicJob = {
@@ -36,10 +38,22 @@ function FilterSelect({ label, all, value, onChange, options }: { label: string;
   );
 }
 
+/** The deadline, and whether applications are closing soon or closed (Riyadh date, inclusive). */
+export function DeadlineNote({ deadline }: { deadline: string | null }) {
+  const t = useTranslations('jobs');
+  const locale = useLocale();
+  const state = deadlineState(deadline);
+  if (!deadline || !state) return null;
+  const date = formatDate(locale, deadline, 'UTC');
+  if (state === 'closed') return <Badge tone="neutral">{t('closedOn', { date })}</Badge>;
+  if (state === 'closing_soon') return <Badge tone="warning">{t('closingSoon', { date })}</Badge>;
+  return <span className="text-sm text-muted">{t('deadline', { date })}</span>;
+}
+
 const MONO = ['bg-forest text-ivory', 'bg-accent text-accent-foreground', 'bg-brand-gold text-forest'];
 
 /** One opportunity as a row of the index: who, what, the facts, the skills, and the deadline. */
-function JobRow({ job, index }: { job: PublicJob; index: number }) {
+function JobRow({ job, index, saved }: { job: PublicJob; index: number; saved: boolean | null }) {
   const t = useTranslations('jobs');
   const locale = useLocale();
   const skills = [
@@ -70,7 +84,10 @@ function JobRow({ job, index }: { job: PublicJob; index: number }) {
         )}
       </div>
       <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:justify-between">
-        <span className="text-sm text-muted">{job.application_deadline && t('deadline', { date: formatDate(locale, job.application_deadline, 'UTC') })}</span>
+        <span className="flex flex-col items-end gap-2">
+          <DeadlineNote deadline={job.application_deadline} />
+          {saved !== null && <SaveJobButton jobId={job.id} title={title} saved={saved} compact />}
+        </span>
         <span aria-hidden className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
           {t('viewDetails')}<Arrow className="transition-transform duration-300 group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />
         </span>
@@ -84,7 +101,7 @@ export type JobsResult = {
   facets: { locations: string[]; employment_types: string[]; experience_levels: string[]; employers: { name_ar: string; name_en: string }[] };
 };
 export type ListingsResult = { items: ExternalListing[]; total: number; page: number; page_size: number };
-export type JobFilters = { q: string; employer: string; sector: string; location: string; employment_type: string; experience_level: string };
+export type JobFilters = { q: string; employer: string; sector: string; location: string; employment_type: string; experience_level: string; sort: string };
 
 /** The address for these filters. Changing a filter goes back to the first page. */
 function hrefFor(filters: JobFilters, demo: boolean, pages: { page?: number; xpage?: number } = {}) {
@@ -111,7 +128,11 @@ function Pages({ page, pageSize, total, label, href }: { page: number; pageSize:
   );
 }
 
-export function JobsBrowser({ result, external, filters, demo = false }: { result: JobsResult; external?: ListingsResult; filters: JobFilters; demo?: boolean }) {
+export function JobsBrowser({ result, external, filters, demo = false, savedIds = null, savedView = false }: {
+  result: JobsResult; external?: ListingsResult; filters: JobFilters; demo?: boolean;
+  /** The candidate's saved job ids; null when the visitor isn't a signed-in candidate (no save buttons). */
+  savedIds?: string[] | null; savedView?: boolean;
+}) {
   const t = useTranslations('jobs');
   const ts = useTranslations('sectors');
   const locale = useLocale();
@@ -126,12 +147,31 @@ export function JobsBrowser({ result, external, filters, demo = false }: { resul
   }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => setQuery(filters.q), [filters.q]);
 
-  const filtering = Object.values(filters).some(Boolean);
+  const filtering = Object.entries(filters).some(([key, value]) => key !== 'sort' && Boolean(value));
+  const savedSet = savedIds ? new Set(savedIds) : null;
   const clear = () => {
     setQuery('');
-    router.replace(hrefFor({ q: '', employer: '', sector: '', location: '', employment_type: '', experience_level: '' }, demo), { scroll: false });
+    router.replace(hrefFor({ q: '', employer: '', sector: '', location: '', employment_type: '', experience_level: '', sort: filters.sort }, demo), { scroll: false });
   };
   const { items, total, page, page_size: pageSize, facets } = result;
+
+  if (savedView) {
+    return (
+      <div className="space-y-4">
+        <p className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
+          <span>{t('savedCount', { count: items.length, shown: number(locale, items.length) })}</span>
+          <Link href="/opportunities" className="link">{t('allJobs')}</Link>
+        </p>
+        {items.length === 0 ? (
+          <EmptyState title={t('savedEmptyTitle')} body={t('savedEmptyBody')}><Link href="/opportunities" className="btn btn-primary btn-sm">{t('allJobs')}</Link></EmptyState>
+        ) : (
+          <ul className="divide-y divide-border overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface">
+            {items.map((job, i) => <JobRow key={job.id} job={job} index={i} saved={savedSet ? savedSet.has(job.id) : null} />)}
+          </ul>
+        )}
+      </div>
+    );
+  }
 
   if (!filtering && total === 0) {
     return (
@@ -157,7 +197,9 @@ export function JobsBrowser({ result, external, filters, demo = false }: { resul
           <FilterSelect label={t('location')} all={t('allLocations')} value={filters.location} onChange={(location) => go({ location })} options={facets.locations.map((c) => [c, c])} />
           <FilterSelect label={t('employmentType')} all={t('allTypes')} value={filters.employment_type} onChange={(employment_type) => go({ employment_type })} options={facets.employment_types.map((k) => [k, t(`employment.${k}`)])} />
           <FilterSelect label={t('experienceLevel')} all={t('allLevels')} value={filters.experience_level} onChange={(experience_level) => go({ experience_level })} options={facets.experience_levels.map((k) => [k, t(`level.${k}`)])} />
+          <FilterSelect label={t('sortLabel')} all={t('sortNewest')} value={filters.sort} onChange={(sort) => go({ sort })} options={[['deadline', t('sortDeadline')]]} />
           <button type="button" disabled={!filtering && !query} onClick={clear} className="btn btn-ghost btn-sm sm:col-span-2 lg:col-span-1">{t('clearFilters')}</button>
+          {savedSet && <Link href="/opportunities?saved=1" className="link text-sm sm:col-span-2 lg:col-span-1">{t('savedLink', { count: savedSet.size, shown: number(locale, savedSet.size) })}</Link>}
         </div>
       </form>
 
@@ -169,7 +211,7 @@ export function JobsBrowser({ result, external, filters, demo = false }: { resul
         {items.length === 0 ? (
           <EmptyState title={t('emptyTitle')} body={t('emptyBody')}><button type="button" onClick={clear} className="btn btn-secondary btn-sm">{t('clearFilters')}</button></EmptyState>
         ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface">{items.map((job, i) => <JobRow key={job.id} job={job} index={i} />)}</ul>
+          <ul className="divide-y divide-border overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface">{items.map((job, i) => <JobRow key={job.id} job={job} index={i} saved={savedSet ? savedSet.has(job.id) : null} />)}</ul>
         )}
         <Pages page={page} pageSize={pageSize} total={total} label={t('jobPages')} href={(n) => hrefFor(filters, demo, { page: n, xpage: external?.page })} />
         {demo && <p className="mt-6 text-sm"><Link href="/opportunities" className="link">{t('backToReal')}</Link></p>}
