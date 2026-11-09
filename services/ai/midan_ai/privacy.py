@@ -102,8 +102,11 @@ def _name_regex(names: Iterable[str]) -> re.Pattern[str] | None:
     return re.compile(rf"(?<![\w{_ARABIC_LETTER}])(?:{alternatives})(?![\w{_ARABIC_LETTER}])", re.I)
 
 
-def redact(text: str, known_names: Iterable[str] = (), counts: Counter | None = None) -> str:
-    """Returns the text with personal data replaced. Adds to `counts`, which never holds the values themselves."""
+def redact(text: str, known_names: Iterable[str] = (), counts: Counter | None = None, keep_organizations: bool = False) -> str:
+    """Returns the text with personal data replaced. Adds to `counts`, which never holds the values themselves.
+
+    `keep_organizations` is only for text that stays in this service (the local reading the candidate reviews): employers
+    and universities aren't personal data, but they stay generalized in anything sent out."""
     counts = Counter() if counts is None else counts
     out = normalize_digits(text)
     names = _name_regex(known_names)
@@ -113,7 +116,7 @@ def redact(text: str, known_names: Iterable[str] = (), counts: Counter | None = 
     for label, pattern in _PATTERNS:
         out, found = pattern.subn(PLACEHOLDER, out)
         counts[label] += found
-    for pattern in _ORG_PATTERNS:
+    for pattern in [] if keep_organizations else _ORG_PATTERNS:
         def keep_kind(match: re.Match[str]) -> str:
             # The kind of organization is useful and the identity isn't.
             kind = match.group(1) if match.re.groups else None

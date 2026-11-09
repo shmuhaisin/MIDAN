@@ -186,7 +186,7 @@ def test_second_check_blocks_what_the_first_pass_missed():
 
 def test_a_blocked_check_never_calls_the_provider(monkeypatch):
     provider = Recorder()
-    monkeypatch.setattr(cv, "redact", lambda text, names, counts: text)
+    monkeypatch.setattr(cv, "redact", lambda text, names, counts, **_: text)
     result = cv.analyze(docx(CV_TEXT.replace("&", "and")), [NAME_EN], provider)
     assert result["status"] == "blocked"
     assert result["code"] == "privacy_check_failed"
