@@ -209,3 +209,66 @@ def test_a_string_where_a_list_of_strings_belongs_is_mended_and_nothing_else():
     assert out["assessor_guide"]["verification_steps"] == ["1. Check the totals", "2. Check the units"]
     assert out["assessor_guide"]["boundaries"] == ["Fictional data only"]
     assert out["tasks"][0]["title_en"] == "a"  # strings stay strings
+
+
+# --- Why a call failed, so the reviewer can be told (FAILURE_KINDS). Every payload is fictional.
+
+def _kind(calls_fixture, *replies: Reply) -> str:
+    _, queue = calls_fixture
+    queue.extend(replies)
+    with pytest.raises(LLMError) as error:
+        _groq("m", "k", sleep=lambda _: None)("s", "u")
+    return error.value.kind
+
+
+def test_a_short_rate_limit_that_persists_is_a_rate_limit(calls):
+    assert _kind(calls, Reply(429), Reply(429), Reply(429)) == "rate_limited"
+
+
+def test_groqs_daily_limit_is_a_used_up_quota_not_a_rate_limit(calls):
+    daily = {"error": {"message": "Rate limit reached for model `m` on tokens per day (TPD): Limit 200000, Used 199990. Please try again in 7m12s."}}
+    assert _kind(calls, Reply(429, daily, {"retry-after": "432"})) == "quota_exhausted"
+
+
+def test_a_retry_after_of_hours_is_a_used_up_quota(calls):
+    assert _kind(calls, Reply(429, headers={"retry-after": "7200"})) == "quota_exhausted"
+
+
+@pytest.mark.parametrize("reply, kind", [
+    (Reply(503), "unavailable"),
+    (Reply(401), "unavailable"),
+    (Reply(413), "rate_limited"),
+    (ok('{"cut', finish="length"), "invalid_reply"),
+    (ok(""), "invalid_reply"),
+])
+def test_each_refusal_says_what_kind_it_is(calls, reply, kind):
+    assert _kind(calls, reply) == kind
+
+
+def test_a_timeout_and_a_dropped_connection_are_told_apart(monkeypatch):
+    for failure, kind in ((httpx.ReadTimeout("slow"), "timeout"), (httpx.ConnectError("refused"), "unavailable")):
+        def post(url, _failure=failure, **kwargs):
+            raise _failure
+
+        monkeypatch.setattr(providers.httpx, "post", post)
+        with pytest.raises(LLMError) as error:
+            _groq("m", "k")("s", "u")
+        assert error.value.kind == kind
+
+
+def test_the_kind_survives_the_scorers_retries(calls):
+    from midan_ai.schemas import CriterionInput, TaskInput
+
+    daily = {"error": {"message": "Rate limit reached on requests per day (RPD)."}}
+    _, queue = calls
+    queue.extend([Reply(429, daily, {"retry-after": "900"}), Reply(429, daily, {"retry-after": "900"})])
+    provider = JsonLLMProvider(_groq("openai/gpt-oss-120b", "k", sleep=lambda _: None), "openai/gpt-oss-120b", provider="groq", pause=0)
+    task = TaskInput(id="t", task_type="written_case_study", title_en="x", instructions_en="x", weight=1, criteria=[])
+    with pytest.raises(LLMError) as error:
+        provider.score_open(task, CriterionInput(id="c", code="C1", description_en="x", max_score=10), "A fictional answer.")
+    assert error.value.kind == "quota_exhausted"
+
+
+def test_an_unknown_kind_is_reported_as_unavailable():
+    assert LLMError("x", "something else").kind == "unavailable"
+    assert LLMError("x").kind == "unavailable"

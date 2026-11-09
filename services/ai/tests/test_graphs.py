@@ -242,6 +242,20 @@ def test_model_failure_routes_to_a_person():
     assert "model_failed:c1" in waiting(graph)[0]["review_reasons"]
 
 
+def test_a_used_up_quota_leaves_the_criterion_to_a_person_and_says_why():
+    class OutOfQuota(DemoProvider):
+        def score_open(self, task, criterion, answer):
+            raise LLMError("Groq rate limit (429): retry after 7200s", "quota_exhausted")
+
+    graph = build_evaluation_graph(OutOfQuota(), InMemorySaver())
+    graph.invoke({"input": snapshot()}, cfg())
+    pending = waiting(graph)[0]
+    assert "model_failed:c1" in pending["review_reasons"]
+    assert pending["review_reasons"].count("provider_quota_exhausted") == 1
+    # Nothing is invented for the failed criterion: no proposal at all, not a zero.
+    assert all(p["criterion_id"] != "c1" or p["source"] == "deterministic" for p in pending["proposals"])
+
+
 def test_scoring_never_exceeds_the_maximum():
     data = EvaluationInput.model_validate(snapshot())
     overall, _ = compute_scores(data, {"c1": 1000, "c2": 1000, "c3": 1000})

@@ -79,6 +79,10 @@ def make_open_evaluator(provider: Provider):
         data = EvaluationInput.model_validate(state["input"])
         kept = [p for p in state["proposals"] if p["source"] == "deterministic"]
         failed: list[str] = []
+        # Why each criterion went to a person, once per kind: the reviewer is told whether the provider was rate limited,
+        # out of its daily quota, unavailable, timed out or replied with something invalid, or whether privacy stopped it.
+        # No score is ever made up for these criteria, and none is set to zero.
+        causes: list[str] = []
         for task in data.tasks:
             if task.task_type == "objective_questions":
                 continue
@@ -89,15 +93,18 @@ def make_open_evaluator(provider: Provider):
                     outbound = redact(answer, data.known_names)
                     assert_clean(outbound, data.known_names)
                     scored = provider.score_open(task, c, outbound)
-                except (LLMError, PrivacyBlocked):
+                except (LLMError, PrivacyBlocked) as error:
                     failed.append(c.id)
+                    cause = "privacy_blocked" if isinstance(error, PrivacyBlocked) else f"provider_{error.kind}"
+                    if cause not in causes:
+                        causes.append(cause)
                     continue
                 kept.append(CriterionProposal(
                     criterion_id=c.id, task_id=task.id, source="ai_assisted",
                     score=scored.score, confidence=scored.confidence, explanation=scored.explanation,
                     evidence_ref=scored.evidence_quote or "no-evidence",
                 ).model_dump())
-        reasons = state["review_reasons"] + [f"model_failed:{c}" for c in failed]
+        reasons = state["review_reasons"] + [f"model_failed:{c}" for c in failed] + causes
         return {"proposals": kept, "review_reasons": reasons}
 
     return evaluate_open_responses

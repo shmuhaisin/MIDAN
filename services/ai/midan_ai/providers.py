@@ -47,8 +47,32 @@ class DemoProvider:
         )
 
 
+FAILURE_KINDS = ("rate_limited", "quota_exhausted", "unavailable", "timeout", "invalid_reply")
+
+
 class LLMError(Exception):
-    pass
+    """The model gave no usable answer. `kind` says why, in words a reviewer can be shown (FAILURE_KINDS): a rate limit, the
+    day's quota used up, the provider unavailable, a timeout, or a reply that wasn't valid. The message never holds what was
+    sent or received."""
+
+    def __init__(self, message: str = "", kind: str = "unavailable"):
+        super().__init__(message)
+        self.kind = kind if kind in FAILURE_KINDS else "unavailable"
+
+
+def _status_kind(status: int) -> str:
+    """429 is a rate limit; anything else that isn't a 200 (5xx, a refused key, a bad request) leaves the provider unusable."""
+    return "rate_limited" if status == 429 else "unavailable"
+
+
+def _daily_quota(response, wait: float) -> bool:
+    """Groq names the day's limits (tokens or requests per day) in the 429 it sends once they are used up, with a retry-after
+    of minutes or hours. Either sign means waiting won't help today."""
+    try:
+        message = str(((response.json() or {}).get("error") or {}).get("message") or "")
+    except (ValueError, AttributeError):
+        message = ""
+    return "per day" in message or "(TPD)" in message or "(RPD)" in message or wait >= 3600
 
 
 SYSTEM_PROMPT = """You assess one criterion of a candidate's work for a human reviewer, who makes the decision.
@@ -186,7 +210,7 @@ class JsonLLMProvider:
             except LLMError as error:
                 last = error
                 time.sleep(self._pause)
-        raise LLMError(f"No valid draft from the model: {type(last).__name__}")
+        raise LLMError(f"No valid draft from the model: {type(last).__name__}", last.kind if isinstance(last, LLMError) else "invalid_reply")
 
     def revise_assessment(self, job: dict[str, Any], draft: dict[str, Any], problems: list[str], check=None) -> GeneratedAssessment:
         """One repair round: the model's own draft back, with MIDAN's quality findings, for a corrected complete draft.
@@ -203,7 +227,7 @@ class JsonLLMProvider:
             # long, so the output gets what's left (about 3 characters a token for this mixed Arabic and JSON text).
             budget = GROQ_TPM - (len(GENERATION_PROMPT) + len(user)) // 3 - 200
             if budget < 2500:
-                raise LLMError("The draft is too long to revise within the account's tokens-per-minute limit")
+                raise LLMError("The draft is too long to revise within the account's tokens-per-minute limit", "rate_limited")
             raw = self._complete(GENERATION_PROMPT, user, schema=("GeneratedAssessment", {}), budget=budget)
         else:
             raw = self._call(GENERATION_PROMPT, user, GeneratedAssessment)
@@ -244,7 +268,7 @@ class JsonLLMProvider:
                 last = error
                 # The provider was down or refused: a moment before asking again.
                 time.sleep(self._pause)
-        raise LLMError(f"No valid response from the model: {type(last).__name__}")
+        raise LLMError(f"No valid response from the model: {type(last).__name__}", last.kind if isinstance(last, LLMError) else "invalid_reply")
 
 
 def _post(url: str, **kwargs):
@@ -253,7 +277,7 @@ def _post(url: str, **kwargs):
     try:
         return httpx.post(url, **kwargs)
     except httpx.HTTPError as error:
-        raise LLMError(f"Provider unreachable: {type(error).__name__}") from None
+        raise LLMError(f"Provider unreachable: {type(error).__name__}", "timeout" if isinstance(error, httpx.TimeoutException) else "unavailable") from None
 
 
 def _openai(model: str, key: str, base: str = "https://api.openai.com"):
@@ -269,7 +293,7 @@ def _openai(model: str, key: str, base: str = "https://api.openai.com"):
             timeout=120,
         )
         if response.status_code != 200:
-            raise LLMError(f"OpenAI responded {response.status_code}")
+            raise LLMError(f"OpenAI responded {response.status_code}", _status_kind(response.status_code))
         return response.json()["choices"][0]["message"]["content"]
 
     return complete
@@ -359,7 +383,7 @@ def _groq(model: str, key: str, base: str = GROQ_BASE, reasoning_effort: str | N
                 break
             wait = _retry_after(response.headers.get("retry-after"), attempt)
             if attempt == rate_retries or wait > max_wait:
-                raise LLMError(f"Groq rate limit (429): retry after {wait:.0f}s")
+                raise LLMError(f"Groq rate limit (429): retry after {wait:.0f}s", "quota_exhausted" if _daily_quota(response, wait) else "rate_limited")
             sleep(wait)
         if response.status_code == 400 and schema:
             # Groq checks best-effort replies against the schema itself and refuses mismatches, returning the draft as
@@ -371,15 +395,15 @@ def _groq(model: str, key: str, base: str = GROQ_BASE, reasoning_effort: str | N
             if isinstance(failed, str) and failed.strip():
                 return failed
         if response.status_code == 413:
-            raise LLMError("Groq responded 413: the request is larger than the account's tokens-per-minute limit")
+            raise LLMError("Groq responded 413: the request is larger than the account's tokens-per-minute limit", "rate_limited")
         if response.status_code != 200:
-            raise LLMError(f"Groq responded {response.status_code}")
+            raise LLMError(f"Groq responded {response.status_code}", _status_kind(response.status_code))
         choice = response.json()["choices"][0]
         if choice.get("finish_reason") == "length":
-            raise LLMError("Groq stopped at the output limit")
+            raise LLMError("Groq stopped at the output limit", "invalid_reply")
         content = (choice.get("message") or {}).get("content")
         if not content:
-            raise LLMError("Groq returned no content")
+            raise LLMError("Groq returned no content", "invalid_reply")
         return content
 
     complete.accepts_schema = True  # type: ignore[attr-defined]
@@ -399,7 +423,7 @@ def _gemini(model: str, key: str, base: str = "https://generativelanguage.google
             timeout=120,
         )
         if response.status_code != 200:
-            raise LLMError(f"Gemini responded {response.status_code}")
+            raise LLMError(f"Gemini responded {response.status_code}", _status_kind(response.status_code))
         return response.json()["candidates"][0]["content"]["parts"][0]["text"]
 
     return complete

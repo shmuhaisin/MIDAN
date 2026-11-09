@@ -1123,7 +1123,13 @@
       "possible_prompt_injection": "The answer may contain an attempt to influence the evaluation",
       "missing_response": "A task has no answer",
       "invalid_output": "An invalid proposal was discarded, so score this criterion yourself",
-      "model_failed": "No proposal could be made for a criterion, so score it yourself"
+      "model_failed": "No proposal could be made for a criterion, so score it yourself",
+      "provider_rate_limited": "The scoring service was rate limited, so some criteria have no proposal. Score them yourself, or run the evaluation again later.",
+      "provider_quota_exhausted": "The scoring service has used up today's quota, so some criteria have no proposal. Score them yourself; nothing was estimated for them.",
+      "provider_unavailable": "The scoring service was unavailable, so some criteria have no proposal. Score them yourself.",
+      "provider_timeout": "The scoring service took too long to answer, so some criteria have no proposal. Score them yourself.",
+      "provider_invalid_reply": "The scoring service replied with something that couldn't be used, so some criteria have no proposal. Score them yourself.",
+      "privacy_blocked": "Personal details remained in an answer, so it wasn't sent for a proposal. Score those criteria yourself."
     },
     "response": "Candidate's answer",
     "noResponse": "No answer.",
