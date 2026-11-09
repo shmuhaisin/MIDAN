@@ -253,13 +253,33 @@ def test_invalid_ai_responses_are_retried_then_fail_without_guessing():
     assert cv.analyze(docx(CV_TEXT), [], wrong_shape)["code"] == "ai_invalid_response"
 
 
-def test_provider_failure_stops_without_a_fallback():
+def test_provider_failure_falls_back_to_the_local_reading_labeled_as_such():
+    # Owner decision 2026-11-10: when the provider doesn't answer, MIDAN's local reading of the same redacted sections.
     def down(system, user):
         raise RuntimeError(f"timeout with {user}")
 
-    result = cv.analyze(docx(CV_TEXT), [], down)
-    assert result["status"] == "failed" and result["code"] == "ai_unavailable"
-    assert "personal" not in result
+    result = cv.analyze(docx(CV_TEXT), [NAME_EN], down)
+    assert result["status"] == "ok" and result["mode"] == "local_only"
+    assert result["fallback"] == {"from": "external_ai", "reason": "unavailable"}
+    assert result["professional"]["uncertain"] == ["local_reading"]
+    assert "SQL" in result["professional"]["skills"]
+    assert_no_prohibited(json.dumps(result["professional"], ensure_ascii=False))
+
+
+def test_rate_limit_is_named_in_the_fallback():
+    from midan_ai.providers import LLMError
+
+    def limited(system, user):
+        raise LLMError("Groq rate limit (429): retry after 90s", "rate_limited")
+
+    result = cv.analyze(docx(CV_TEXT), [], limited)
+    assert result["mode"] == "local_only" and result["fallback"]["reason"] == "rate_limited"
+
+
+def test_a_model_answer_still_wins_when_the_provider_answers():
+    provider = Recorder(json.dumps({"headline": None, "skills": ["SQL"], "uncertain": []}))
+    result = cv.analyze(docx(CV_TEXT), [], provider)
+    assert result["mode"] == "external_ai" and "fallback" not in result
 
 
 def test_no_provider_means_a_local_reading_labeled_as_such():

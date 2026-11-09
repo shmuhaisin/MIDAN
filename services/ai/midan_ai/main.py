@@ -125,6 +125,10 @@ def run_cv(run: CvRun) -> dict[str, Any]:
         result = analyze_cv(data, run.known_names, getattr(_provider, "complete", None))
         if result.get("mode") == "external_ai":
             result["provenance"] = _provider.provenance.model_dump()
+        elif result.get("fallback"):
+            # Why the provider wasn't used, as a kind (rate_limited, quota_exhausted, unavailable...), never content.
+            print(f"cv/analyze: {_provider.provenance.provider} unavailable ({result['fallback']['reason']}); used the local reading", flush=True)
+            result["provenance"] = {"mode": "local_only", "provider": "local", "model_version": "midan-cv-local"}
         return result
     except Exception:
         return {"status": "failed", "code": "analysis_failed", "counts": {}}

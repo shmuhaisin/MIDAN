@@ -400,14 +400,28 @@ def analyze(data: bytes, known_names: list[str], complete: Callable[[str, str], 
         if not payload:
             raise CvFailure("no_sections")
         assert_clean(payload, names)
-        proposal = ground(external_proposal(complete, payload) if complete else local_proposal(payload), payload)
+        fallback = None
+        if complete:
+            try:
+                proposal = external_proposal(complete, payload)
+            except CvFailure as failure:
+                # The provider didn't answer (rate limit, the day's quota, an outage): MIDAN's own reading of the same
+                # redacted sections instead, labelled local_only. A reply that isn't valid still fails, never guessed.
+                if failure.code != "ai_unavailable":
+                    raise
+                proposal = local_proposal(payload)
+                fallback = {"from": "external_ai", "reason": getattr(failure.__cause__, "kind", "unavailable")}
+        else:
+            proposal = local_proposal(payload)
+        proposal = ground(proposal, payload)
     except PrivacyBlocked as blocked:
         return {"status": "blocked", "code": "privacy_check_failed", "counts": {**_positive(counts), **{f"residual_{k}": v for k, v in blocked.counts.items()}}}
     except CvFailure as failure:
         return {"status": "failed", "code": failure.code, "counts": _positive(counts)}
     return {
         "status": "ok",
-        "mode": "external_ai" if complete else "local_only",
+        "mode": "external_ai" if complete and not fallback else "local_only",
+        **({"fallback": fallback} if fallback else {}),
         "personal": personal,
         # Facts from the CV, each for the candidate to approve, and MIDAN's rule-based suggestions, kept apart.
         "professional": {**proposal.model_dump(), "feedback": feedback(proposal, payload)},
