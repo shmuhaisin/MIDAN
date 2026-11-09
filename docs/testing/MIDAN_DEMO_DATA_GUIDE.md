@@ -3,6 +3,14 @@
 `scripts/demo-seed.mjs` builds a complete, fictional recruitment dataset through MIDAN's real API. The dataset is in
 `scripts/demo-data/dataset.mjs`.
 
+## Where the demo data is (read first)
+- **The seeded DEMO dataset exists only on the local stack** (`scripts/dev-all.sh`, local Postgres and Auth). It has
+  **not** been written to Supabase Cloud: that needs the owner's approval and the project's secret key (see below).
+- **The cloud demo** (`scripts/dev-all.sh --cloud`) uses the fictional test accounts already in the cloud project
+  (`midan.test.*@example.com`; passwords in the main project's git-ignored `.env.test.local`) and the records they created
+  there today: the approved test organization "Cloud test organization … (synthetic)", its jobs, applications, evaluations.
+- Never present local demo records as cloud data, or the other way round: the two databases are separate.
+
 ## What is real and what isn't
 - The **employer registry** holds ten reference employers (Ministry of Commerce, General Entertainment Authority, Elm,
   Diriyah Gate, stc, SDAIA, Sipchem, Saudi Red Sea Authority, Ministry of Finance, Saudi Industrial Development Fund). They
@@ -72,7 +80,10 @@ password from `.local/demo/demo-accounts-<target>.json`.
 
 ## Verified (local stack, 2026-11-10)
 10 tenants approved, 20 DEMO jobs published, 10 candidates, 14 applications, 13 submitted assessments, 13 evaluations
-reviewed by a person and released, 9 shortlisted, 1 declined. One generated assessment (Elm Software Engineer) didn't meet
-the MIDAN Assessment Standard and stays a draft for a person to revise, so that application has no assessment. Registry:
+reviewed by a person and released, 9 shortlisted, 1 declined. One generated assessment (Elm Software Engineer) is a live
+draft that the MIDAN Assessment Standard (MAS-1.0) blocks: quality 98/100, verdict "blocked", one error,
+`rubric_total_not_100` ("The rubric's points don't sum to 100: 40"). The model returned a single task worth 40 points
+(likely cut short by Groq's per-minute token limit). It stays a draft for the employer to regenerate or edit, so that
+application has no assessment. Registry:
 10 `not_partner`, 0 linked. In the browser: the candidate sees the DEMO listing and a released report; the employer sees the
 applicant's requirements match with e5 similarities.

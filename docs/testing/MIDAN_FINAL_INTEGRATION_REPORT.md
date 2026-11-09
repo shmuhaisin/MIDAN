@@ -23,6 +23,9 @@ local stack's development passwords for 127.0.0.1).
 - **AI:** Groq `openai/gpt-oss-120b` (assessment generation, scoring, structured CV extraction, the assistant).
   `intfloat/multilingual-e5-base` locally, `EMBEDDING_PROVIDER=e5-local` (requirement matching, skill ranking).
 - **Isolated test environment:** the local stack (`scripts/dev-all.sh`): its own Postgres, Auth, Storage and mail inbox.
+- **Where data lives:** the running demo uses **Supabase Cloud**. The seeded DEMO dataset (10 tenants, 20 jobs, 10
+  candidates) is **only on the local stack**; it is not cloud data. The cloud holds the real candidate's records and the
+  fictional `midan.test.*` accounts' records from today's verified runs.
 
 ## Test results
 | Suite | Result | Where |
@@ -35,6 +38,7 @@ local stack's development passwords for 127.0.0.1).
 | Browser, demo data | 17/17: demo listing, applications, released report, employer workspace, requirements match with e5 similarities, 12 language × theme × width combinations (RTL/LTR, no horizontal overflow) | local stack |
 | Browser, cloud (earlier today, same code paths) | full journey 16/16; CV upload → structured review → approval saved; e5 matching panels in English and Arabic | Supabase Cloud |
 | Cloud, final build (read-only) | pages 200; employer match API returns `e5-local` / `intfloat/multilingual-e5-base`, no fallback | Supabase Cloud |
+| **Cloud, final build, full journey in the browser (final checkpoint)** | All product steps passed with the fictional test accounts: employer creates a job, details, requirement, skills (Groq quota out: the labelled similarity shortlist, 3 linked), assessment (templates, labelled "Demo mode"), approves and publishes; candidate (Arabic) uploads a CV, finds the job, applies, gets the assessment, answers with a file, submits; employer opens the applicant with the requirements match, scoring (1 proposed, 7 by the person), approves and releases; candidate reads the report without reviewer notes. Cloud database afterwards: job published with 3 skills, application `evaluated`, attempt `submitted`, evaluation `reviewed` and released. One script check failed by design: it read the job anonymously, and test organizations' jobs are "not found" to anyone but test accounts (the employer branch's privacy rule); the job is published. | Supabase Cloud |
 
 A first full API run had 15 failures; each was traced to running the suite outside its designed setup (live Groq instead
 of demo mode, e5 instead of lexical matching, leftovers from earlier runs). In the designed setup all 204 pass. No code was
@@ -68,8 +72,14 @@ changed to make a test pass.
 - **Auth URL configuration:** the dashboard must allow `http://localhost:3100/**`. It can't be read from here.
 - **Leaked-password protection:** off in Cloud Auth (security advisor warning).
 - **Employer-side gaps reported on 2026-11-09:** a job can be published with a draft assessment; an assessment approved after people applied isn't assigned to them. Not re-verified on this branch.
-- **One generated assessment** in the demo set (Elm Software Engineer) didn't meet the MIDAN Assessment Standard and stays a draft.
+- **One generated assessment** in the local demo set (Elm Software Engineer, version 1) is blocked by the MIDAN Assessment
+  Standard: 98/100, verdict blocked, error `rubric_total_not_100` (rubric totals 40: the model returned one task, likely
+  cut short by Groq's per-minute token limit). Working as designed: it can't be approved; the employer regenerates or edits it.
 - **Interviews:** calendar invitations need a Google Calendar refresh token.
+
+- **Intermittent (seen twice on the cloud, not reproduced on retry):** right after saving a requirement, "Suggest skills with
+  AI" didn't respond to a click for 30 s; the AI service received no request. On the next attempt it worked. Not
+  diagnosed further; a reload of the step clears it.
 
 ## Waiting for the owner's approval
 1. **Demo data on Supabase Cloud.** The seed is verified on the local stack. To run it on the cloud: approval to create the
