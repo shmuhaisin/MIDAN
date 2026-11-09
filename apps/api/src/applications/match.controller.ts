@@ -33,7 +33,7 @@ export function evidenceFrom(profile: ApplicantProfile | null) {
   if (!profile) return [];
   const now = new Date().getUTCFullYear();
   const lines: { id: string; text: string; source: string; skill_id?: string; years?: number }[] = [];
-  const add = (source: string, i: number, line: string, extra: { skill_id?: string; years?: number } = {}) => {
+  const add = (source: string, i: number | string, line: string, extra: { skill_id?: string; years?: number } = {}) => {
     if (line.trim()) lines.push({ id: `${source}:${i}`, text: line.slice(0, 2000), source, ...extra });
   };
   if (profile.headline) add('headline', 0, String(profile.headline));
@@ -41,7 +41,12 @@ export function evidenceFrom(profile: ApplicantProfile | null) {
   list(profile.experience).forEach((e, i) => {
     const start = typeof e.start_year === 'number' ? e.start_year : null;
     const end = typeof e.end_year === 'number' ? e.end_year : start ? now : null;
-    add('experience', i, text(e.title, e.organization, e.description), start && end ? { years: Math.max(0, end - start) } : {});
+    // The position itself (title, organization), with its years, then each responsibility as its own line: one long line
+    // per position dilutes the similarity of the sentence that actually shows a requirement. Only the position carries
+    // years, so the years check counts each position once.
+    const duties = typeof e.description === 'string' ? e.description.split('\n').map((d) => d.trim()).filter((d) => d.split(/\s+/).length >= 2) : [];
+    add('experience', i, duties.length > 0 ? text(e.title, e.organization) : text(e.title, e.organization, e.description), start && end ? { years: Math.max(0, end - start) } : {});
+    duties.forEach((d, j) => add('experience', `${i}:${j + 1}`, d));
   });
   list(profile.education).forEach((e, i) => add('education', i, text(e.qualification, e.field, e.institution)));
   list(profile.projects).forEach((p, i) => add('project', i, text(p.title, p.description)));
