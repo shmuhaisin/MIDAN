@@ -1,117 +1,248 @@
 #!/usr/bin/env node
-// Prepares a local demo with fictional data only: a fictional organization with a recruiter, one published job with an
-// approved assessment, and a fictional CV to upload. Local stack only: it refuses any other address.
-// Usage, from the repository root, with the local stack running:  node scripts/demo-seed.mjs
-// It writes .local/demo/ (git-ignored): the CV file and the test logins, which already live in .env.test.local.
+// MIDAN demo data: ten DEMO tenants (named after the registry's reference employers, never linked to them), twenty sample
+// jobs with requirements, skills and approved assessments, and ten fictional candidates with applications, submitted work,
+// reviewed evaluations and pipeline decisions. Docs: docs/testing/MIDAN_DEMO_DATA_GUIDE.md.
+//
+//   node scripts/demo-seed.mjs                                    local stack (the default; refuses anything else)
+//   node scripts/demo-seed.mjs --target cloud --approved-by-owner <project-ref>
+//                                                                 Supabase Cloud, only with the owner's approval and a
+//                                                                 SUPABASE_SECRET_KEY in .env.cloud (Auth administration)
+//   node scripts/demo-seed.mjs --clean [--target ...]              removes only what this seed created
+//   --fixtures <path>   the test fixture file holding the platform administrator's password (default .env.test.local)
+//   --admin-email <e>   that administrator (default: the fixture platform admin; on the cloud, the approved test admin)
+//
+// Idempotent: everything is found by its slug or email first, so a rerun completes what's missing and duplicates nothing.
+// Accounts are created through Supabase Auth administration (never by writing Auth tables), pass the sign-up gate with
+// the server's access code, and get random passwords kept only in .local/demo/demo-accounts-<target>.json (git-ignored).
+// Every other write goes through MIDAN's API as the account concerned, except two marked database updates: the DEMO
+// flags on this seed's own organizations and jobs (the API has no way to set them), and --clean.
+import { execFileSync } from 'node:child_process';
+import { createHmac, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
-import { deflateRawSync } from 'node:zlib';
+import { ANSWERS, CANDIDATES, DEMO_NOTE_AR, DEMO_NOTE_EN, TENANTS } from './demo-data/dataset.mjs';
 
 const root = resolve(import.meta.dirname, '..');
-const env = {};
-for (const f of ['.env', '.env.test.local']) if (existsSync(resolve(root, f))) Object.assign(env, parseEnv(readFileSync(resolve(root, f), 'utf8')));
-const local = (url) => /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(url ?? '');
-if (!local(env.NEXT_PUBLIC_SUPABASE_URL) || !local(env.API_URL)) throw new Error('The demo seed runs against the local stack only');
+const argv = process.argv.slice(2);
+const arg = (name) => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+const TARGET = arg('--target') ?? 'local';
+const CLEAN = argv.includes('--clean');
+const ORG_PREFIX = 'midan-demo-org-';
+const EMAIL = (kind, key) => `midan.demo.${kind}.${key}@example.com`;
+const EMAIL_PATTERN = 'midan.demo.%@example.com';
 
-const SLUG = 'midan-demo-oasis';
-async function token(who) {
-  const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: { apikey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, 'content-type': 'application/json' },
-    body: JSON.stringify({ email: env[`TEST_${who}_EMAIL`], password: env[`TEST_${who}_PASSWORD`] }),
-  });
-  if (!res.ok) throw new Error(`Sign-in failed for ${who}: run scripts/local-setup.sh first`);
-  return (await res.json()).access_token;
+// --- Target and its safety checks
+const envFile = TARGET === 'cloud' ? '.env.cloud' : '.env';
+const env = parseEnv(readFileSync(resolve(root, envFile), 'utf8'));
+const SUPA = env.NEXT_PUBLIC_SUPABASE_URL;
+const API = (env.API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+const local = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(SUPA ?? '');
+if (TARGET === 'local' && !local) throw new Error('.env does not point at the local stack; use --target cloud for Supabase Cloud');
+if (TARGET === 'cloud') {
+  const ref = new URL(SUPA).hostname.replace(/\.supabase\.co$/, '');
+  if (arg('--approved-by-owner') !== ref) throw new Error(`Cloud writes need the owner's approval: --approved-by-owner ${ref}`);
+  if (!env.SUPABASE_SECRET_KEY) throw new Error('Add SUPABASE_SECRET_KEY (the project secret key) to .env.cloud: accounts are created through Auth administration');
+} else if (TARGET !== 'local') throw new Error('--target is local or cloud');
+const ACCESS_CODE = env.DEV_TEST_ACCESS_CODE;
+if (!CLEAN && !ACCESS_CODE) throw new Error(`DEV_TEST_ACCESS_CODE is empty in ${envFile}: accounts must pass the sign-up gate like anyone else`);
+
+// Auth administration: the local stack's service role, signed with its development secret; the cloud project's secret key.
+function localServiceKey() {
+  const secret = readFileSync(resolve(root, 'scripts/local-supabase.mjs'), 'utf8').match(/jwtSecret: '([^']+)'/)[1];
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ role: 'service_role', iss: 'midan-demo-seed', exp: Math.floor(Date.now() / 1000) + 3600 })}`;
+  return `${body}.${createHmac('sha256', secret).update(body).digest('base64url')}`;
 }
-async function call(who, method, path, body) {
-  const res = await fetch(`${env.API_URL}/v1${path}`, {
-    method, headers: { authorization: `Bearer ${await token(who)}`, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body),
+const ADMIN_KEY = TARGET === 'cloud' ? env.SUPABASE_SECRET_KEY : localServiceKey();
+const adminHeaders = { apikey: TARGET === 'cloud' ? ADMIN_KEY : env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${ADMIN_KEY}`, 'content-type': 'application/json' };
+
+// Database access, only for the DEMO flags and --clean. Connection parts go through the environment, never argv.
+function sql(statement) {
+  const pgbin = process.env.PG17BIN ?? '/opt/homebrew/opt/postgresql@17/bin';
+  const conn = TARGET === 'cloud'
+    ? (() => { const u = new URL(env.DIRECT_URL); return { PGHOST: u.hostname, PGPORT: u.port || '5432', PGUSER: decodeURIComponent(u.username), PGPASSWORD: decodeURIComponent(u.password), PGDATABASE: u.pathname.slice(1) || 'postgres', PGSSLMODE: 'require' }; })()
+    : { PGHOST: '127.0.0.1', PGPORT: new URL(env.DATABASE_URL).port || '5432', PGUSER: 'postgres', PGPASSWORD: 'postgres', PGDATABASE: 'midan', PGSSLMODE: 'disable' };
+  return execFileSync(`${pgbin}/psql`, ['-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-c', statement], { env: { ...process.env, ...conn }, encoding: 'utf8' }).trim();
+}
+
+// --- Accounts and their credentials (git-ignored, created once)
+const credFile = resolve(root, `.local/demo/demo-accounts-${TARGET}.json`);
+mkdirSync(resolve(root, '.local/demo'), { recursive: true });
+const creds = existsSync(credFile) ? JSON.parse(readFileSync(credFile, 'utf8')) : {};
+const saveCreds = () => writeFileSync(credFile, JSON.stringify(creds, null, 1), { mode: 0o600 });
+
+let userIndex;
+async function allUsers() {
+  if (userIndex) return userIndex;
+  userIndex = new Map();
+  for (let page = 1; page < 50; page++) {
+    const res = await fetch(`${SUPA}/auth/v1/admin/users?page=${page}&per_page=200`, { headers: adminHeaders });
+    if (!res.ok) throw new Error(`Auth admin list: ${res.status} ${(await res.text()).slice(0, 200)}`);
+    const { users } = await res.json();
+    for (const u of users) userIndex.set(u.email, u);
+    if (users.length < 200) break;
+  }
+  return userIndex;
+}
+async function ensureAccount(email, displayName) {
+  creds[email] ??= { password: `Demo-${randomBytes(12).toString('base64url')}` };
+  saveCreds();
+  const existing = (await allUsers()).get(email);
+  if (existing) return existing.id;
+  const res = await fetch(`${SUPA}/auth/v1/admin/users`, {
+    method: 'POST', headers: adminHeaders,
+    body: JSON.stringify({ email, password: creds[email].password, email_confirm: true, user_metadata: { display_name: displayName, midan_test_access: ACCESS_CODE } }),
   });
+  if (!res.ok) throw new Error(`Creating ${email}: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  const user = await res.json();
+  userIndex.set(email, user);
+  return user.id;
+}
+
+const tokens = {};
+async function token(email) {
+  if (tokens[email]) return tokens[email];
+  const res = await fetch(`${SUPA}/auth/v1/token?grant_type=password`, { method: 'POST', headers: { apikey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ email, password: creds[email]?.password }) });
+  if (!res.ok) throw new Error(`Sign-in failed for ${email}: ${res.status}`);
+  return (tokens[email] = (await res.json()).access_token);
+}
+async function call(email, method, path, body, { allow = [] } = {}) {
+  const res = await fetch(`${API}/v1${path}`, { method, headers: { authorization: `Bearer ${await token(email)}`, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
   const text = await res.text();
-  if (!res.ok) throw new Error(`${method} ${path}: ${res.status} ${text.slice(0, 200)}`);
-  return text ? JSON.parse(text) : null;
+  if (!res.ok && !allow.includes(res.status)) throw new Error(`${method} ${path}: ${res.status} ${text.slice(0, 240)}`);
+  return { status: res.status, data: text ? JSON.parse(text) : null };
 }
+const log = (line) => console.log(`• ${line}`);
 
-// The organization: fictional, of a stated type, with the recruiter on its team.
-const mine = (await call('ORG_A_OWNER', 'GET', '/me')).organization_members ?? [];
-const existing = await Promise.all(mine.map(async (m) => ({ id: m.org_id, slug: (await call('ORG_A_OWNER', 'GET', `/organizations/${m.org_id}`)).slug })));
-let org = existing.find((o) => o.slug === SLUG)?.id;
-if (!org) org = (await call('ORG_A_OWNER', 'POST', '/organizations', { slug: SLUG, name_ar: 'الواحة الرقمية (جهة خيالية للعرض)', name_en: 'Oasis Digital (fictional demo organization)' })).id;
-await call('ORG_A_OWNER', 'PATCH', `/organizations/${org}/company-type`, { company_type: 'startup' });
-const team = await call('ORG_A_OWNER', 'GET', `/organizations/${org}/team`);
-if (!team.members.some((m) => m.email === env.TEST_ORG_A_RECRUITER_EMAIL)) {
-  if (!team.invitations.some((i) => i.email === env.TEST_ORG_A_RECRUITER_EMAIL)) {
-    await call('ORG_A_OWNER', 'POST', `/organizations/${org}/team/invitations`, { email: env.TEST_ORG_A_RECRUITER_EMAIL, role: 'recruiter' });
+// --- Clean: only this seed's organizations (and what hangs off them) and accounts
+if (CLEAN) {
+  const removed = sql(`begin;
+    delete from public.evaluation_results r using public.assessment_attempts t, public.organizations o where r.attempt_id = t.id and t.org_id = o.id and o.slug like '${ORG_PREFIX}%';
+    delete from public.assessment_attempts t using public.organizations o where t.org_id = o.id and o.slug like '${ORG_PREFIX}%';
+    delete from public.applications a using public.organizations o where a.org_id = o.id and o.slug like '${ORG_PREFIX}%';
+    with gone as (delete from public.organizations where slug like '${ORG_PREFIX}%' returning 1) select count(*) from gone;
+    commit;`);
+  log(`removed ${removed || 0} demo organizations and their jobs, applications and evaluations`);
+  let users = 0;
+  for (const [email, u] of await allUsers()) {
+    if (!/^midan\.demo\.[a-z]+\.[a-z0-9-]+@example\.com$/.test(email)) continue;
+    const res = await fetch(`${SUPA}/auth/v1/admin/users/${u.id}`, { method: 'DELETE', headers: adminHeaders });
+    if (res.ok) users++; else console.warn(`  could not remove ${email}: ${res.status}`);
   }
-  const invitation = (await call('ORG_A_RECRUITER', 'GET', '/me/invitations')).find((i) => i.org_id === org);
-  if (invitation) await call('ORG_A_RECRUITER', 'POST', `/me/invitations/${invitation.id}/accept`);
+  log(`removed ${users} demo accounts`);
+  process.exit(0);
 }
 
-// The job: published, with a stated responsibility and skill, and an assessment generated by MIDAN and approved.
-const jobs = await call('ORG_A_OWNER', 'GET', `/organizations/${org}/jobs`);
-let job = jobs.find((j) => j.slug === 'data-analyst')?.id;
-if (!job) {
-  job = (await call('ORG_A_OWNER', 'POST', `/organizations/${org}/jobs`, { slug: 'data-analyst', title_ar: 'محلل بيانات', title_en: 'Data analyst' })).id;
-  const skill = (await (await fetch(`${env.API_URL}/v1/skills`)).json()).find((s) => s.slug === 'data-analysis');
-  await call('ORG_A_OWNER', 'PATCH', `/organizations/${org}/jobs/${job}`, {
-    description_ar: 'يحلل بيانات المبيعات الشهرية لجهة خيالية ويعدّ تقارير مختصرة للإدارة.',
-    description_en: 'Analyses a fictional company\'s monthly sales data and writes short reports for management.',
-    skills: [{ skill_id: skill.id, required_level: 3 }],
-  });
-  await call('ORG_A_OWNER', 'POST', `/organizations/${org}/jobs/${job}/requirements`, {
-    requirement_type: 'responsibility', description_ar: 'إعداد تقرير شهري يشرح تغيّر المبيعات', description_en: 'Prepare a monthly report explaining changes in sales',
-  });
-  const version = (await call('ORG_A_OWNER', 'POST', `/organizations/${org}/jobs/${job}/assessment/generate`, {})).version_id;
-  await call('ORG_A_OWNER', 'PATCH', `/organizations/${org}/jobs/${job}/status`, { status: 'published' });
-  const state = await call('ORG_A_OWNER', 'GET', `/organizations/${org}/assessment-versions/${version}/changes`);
-  await call('ORG_A_OWNER', 'POST', `/organizations/${org}/assessment-versions/${version}/publish`, { reviewed_through: state.latest_change_id });
-}
+// --- Platform administrator: approves the demo tenants' organization review, as for any organization
+const ADMIN = arg('--admin-email') ?? (TARGET === 'cloud' ? 'midan.test.org-b-owner@example.com' : 'midan.test.platform-admin@example.com');
+// Its password comes from the test fixture file (git-ignored): --fixtures <path>, or .env.test.local in this checkout.
+const fixtures = parseEnv(readFileSync(resolve(arg('--fixtures') ?? resolve(root, '.env.test.local')), 'utf8'));
+const adminKey = Object.keys(fixtures).find((k) => k.endsWith('_EMAIL') && fixtures[k] === ADMIN);
+creds[ADMIN] = { password: adminKey ? fixtures[adminKey.replace(/_EMAIL$/, '_PASSWORD')] : undefined };
+if (!creds[ADMIN].password) throw new Error(`No password for the platform administrator ${ADMIN} in the test fixture file`);
 
-// A fictional CV, as a Word document the pipeline reads.
-function docx(paragraphs) {
-  const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const body = paragraphs.map((p) => `<w:p><w:pPr><w:bidi/></w:pPr><w:r><w:rPr><w:rtl/></w:rPr><w:t xml:space="preserve">${esc(p)}</w:t></w:r></w:p>`).join('');
-  const files = {
-    '[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
-    '_rels/.rels': '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
-    'word/document.xml': `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`,
-  };
-  // A minimal zip, deflated, written by hand so the seed needs no packages.
-  const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
-  const crc = (buf) => { let c = 0xffffffff; for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
-  const parts = []; const central = []; let offset = 0;
-  for (const [name, text] of Object.entries(files)) {
-    const data = Buffer.from(text, 'utf8'); const packed = deflateRawSync(data); const nameBuf = Buffer.from(name);
-    const head = Buffer.alloc(30); head.writeUInt32LE(0x04034b50, 0); head.writeUInt16LE(20, 4); head.writeUInt16LE(0x0800, 6); head.writeUInt16LE(8, 8);
-    head.writeUInt32LE(crc(data), 14); head.writeUInt32LE(packed.length, 18); head.writeUInt32LE(data.length, 22); head.writeUInt16LE(nameBuf.length, 26);
-    parts.push(head, nameBuf, packed);
-    const dir = Buffer.alloc(46); dir.writeUInt32LE(0x02014b50, 0); dir.writeUInt16LE(20, 4); dir.writeUInt16LE(20, 6); dir.writeUInt16LE(0x0800, 8); dir.writeUInt16LE(8, 10);
-    dir.writeUInt32LE(crc(data), 16); dir.writeUInt32LE(packed.length, 20); dir.writeUInt32LE(data.length, 24); dir.writeUInt16LE(nameBuf.length, 28); dir.writeUInt32LE(offset, 42);
-    central.push(dir, nameBuf);
-    offset += head.length + nameBuf.length + packed.length;
+// --- Tenants and jobs
+const jobsByRef = {};
+for (const tenant of TENANTS) {
+  const owner = EMAIL('employer', tenant.key);
+  await ensureAccount(owner, `${tenant.name_en} — demo owner`);
+  const slug = `${ORG_PREFIX}${tenant.key}`;
+  const mine = (await call(owner, 'GET', '/me')).data.organization_members ?? [];
+  let org = mine.length ? mine[0].org_id : null;
+  if (!org) org = (await call(owner, 'POST', '/organizations', { slug, name_ar: tenant.name_ar, name_en: tenant.name_en })).data.id;
+  const review = (await call(owner, 'GET', `/organizations/${org}/verification`)).data.organization;
+  if (review.verification_status !== 'approved') {
+    if (review.verification_status === 'draft' || review.verification_status === 'changes_requested') {
+      await call(owner, 'PATCH', `/organizations/${org}/profile`, {
+        commercial_registration: `7${String(TENANTS.indexOf(tenant)).padStart(2, '0')}0000000`.slice(0, 10), business_email: `demo-${tenant.key}@example.com`,
+        contact_phone: '+966 11 000 0000', city: 'Riyadh', representative_name: 'Demo Representative (fictional)', representative_title: 'Demo account',
+        description_en: DEMO_NOTE_EN, description_ar: DEMO_NOTE_AR,
+      });
+      const form = new FormData();
+      form.set('kind', 'commercial_registration');
+      form.set('file', new Blob(['%PDF-1.4\n% DEMO placeholder document, not a real registration\n%%EOF\n'], { type: 'application/pdf' }), 'demo-registration.pdf');
+      const upload = await fetch(`${API}/v1/organizations/${org}/verification/documents`, { method: 'POST', headers: { authorization: `Bearer ${await token(owner)}` }, body: form });
+      if (!upload.ok) throw new Error(`Document upload for ${slug}: ${upload.status}`);
+      await call(owner, 'POST', `/organizations/${org}/verification/submit`);
+    }
+    await call(ADMIN, 'POST', `/admin/organizations/${org}/decision`, { decision: 'approve', note: 'DEMO tenant approved for demonstration only.' });
   }
-  const size = central.reduce((n, b) => n + b.length, 0);
-  const end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(central.length / 2, 8); end.writeUInt16LE(central.length / 2, 10); end.writeUInt32LE(size, 12); end.writeUInt32LE(offset, 16);
-  return Buffer.concat([...parts, ...central, end]);
+  for (const spec of tenant.jobs) {
+    let job = (await call(owner, 'GET', `/organizations/${org}/jobs`)).data.find((j) => j.slug === spec.slug);
+    if (!job) {
+      job = (await call(owner, 'POST', `/organizations/${org}/jobs`, { slug: spec.slug, title_ar: spec.title_ar, title_en: spec.title_en, description_ar: `${spec.description_ar}\n\n${DEMO_NOTE_AR}`, description_en: `${spec.description_en}\n\n${DEMO_NOTE_EN}` })).data;
+      await call(owner, 'PATCH', `/organizations/${org}/jobs/${job.id}`, { sector: tenant.sector, employment_type: 'full_time', experience_level: spec.level, location: 'Riyadh' });
+    }
+    if (!(await call(owner, 'GET', `/organizations/${org}/jobs/${job.id}/requirements`)).data.length) {
+      for (const [i, r] of spec.requirements.entries()) await call(owner, 'POST', `/organizations/${org}/jobs/${job.id}/requirements`, { ...r, position: i + 1 });
+    }
+    if (!(await call(owner, 'GET', `/organizations/${org}/jobs/${job.id}/custom-skills`)).data.length) {
+      for (const s of spec.skills) await call(owner, 'POST', `/organizations/${org}/jobs/${job.id}/custom-skills`, s);
+    }
+    let assessment = (await call(owner, 'GET', `/organizations/${org}/jobs/${job.id}/assessment`, undefined, { allow: [404] })).data;
+    let note = '';
+    if (!assessment?.version) {
+      await call(owner, 'POST', `/organizations/${org}/jobs/${job.id}/assessment/generate`, {});
+      assessment = (await call(owner, 'GET', `/organizations/${org}/jobs/${job.id}/assessment`)).data;
+    }
+    const version = assessment.version;
+    if (version.status !== 'published') {
+      const state = (await call(owner, 'GET', `/organizations/${org}/assessment-versions/${version.id}/changes`)).data;
+      const approved = await call(owner, 'POST', `/organizations/${org}/assessment-versions/${version.id}/publish`, { reviewed_through: state.latest_change_id }, { allow: [409, 422] });
+      if (approved.status !== 201 && approved.status !== 200) note = ' (assessment left as a draft: it did not meet the MIDAN Assessment Standard; a person revises it)';
+    }
+    await call(owner, 'PATCH', `/organizations/${org}/jobs/${job.id}/status`, { status: 'published' }, { allow: [409, 422] });
+    jobsByRef[`${tenant.key}:${spec.slug}`] = { org, job: job.id, owner, orgSlug: slug, jobSlug: spec.slug, version: version.version_number ?? 1 };
+    log(`${tenant.name_en}: ${spec.title_en}${note}`);
+  }
 }
-const out = resolve(root, '.local/demo');
-mkdirSync(out, { recursive: true });
-writeFileSync(resolve(out, 'fictional-cv.docx'), docx([
-  'الملخص', 'محلل بيانات خيالي يركز على تقارير المبيعات الشهرية. هذه سيرة ذاتية للعرض فقط.',
-  'الخبرات', 'محلل تقارير في شركة خيالية 2021 - 2024، أعددت تقارير Excel شهرية للإدارة', 'خفضت وقت إعداد التقرير الشهري 30%',
-  'التعليم', 'بكالوريوس نظم معلومات 2020',
-  'المهارات', 'Excel، تحليل البيانات، التواصل',
-  'المشاريع', 'لوحة متابعة للمبيعات لجهة خيالية',
-  'الشهادات', 'شهادة خيالية في تحليل البيانات',
-  'اللغات', 'العربية', 'الإنجليزية',
-  'الإنجازات', 'جائزة خيالية لأفضل تقرير ربعي 2023',
-]));
-writeFileSync(resolve(out, 'ACCOUNTS.md'), [
-  '# Local demo logins (fictional accounts, local stack only)', '',
-  `- Candidate: ${env.TEST_CANDIDATE_TWO_EMAIL} / ${env.TEST_CANDIDATE_TWO_PASSWORD}`,
-  `- Employer owner: ${env.TEST_ORG_A_OWNER_EMAIL} / ${env.TEST_ORG_A_OWNER_PASSWORD}`,
-  `- Employer recruiter (interviewer): ${env.TEST_ORG_A_RECRUITER_EMAIL} / ${env.TEST_ORG_A_RECRUITER_PASSWORD}`, '',
-  'Fictional CV to upload: .local/demo/fictional-cv.docx', `Demo organization: ${SLUG}`, '',
-].join('\n'));
-console.log(`Demo ready: organization ${SLUG} (${org}), job ${job}. Logins and the CV are in .local/demo/.`);
+// The DEMO marks: this seed's organizations and their jobs only. Demo jobs then appear in the labelled demo listing.
+sql(`update public.organizations set is_demo = true where slug like '${ORG_PREFIX}%' and not is_demo;
+     update public.jobs j set is_demo = true from public.organizations o where j.org_id = o.id and o.slug like '${ORG_PREFIX}%' and not j.is_demo;`);
+log('organizations and jobs marked DEMO');
+
+// --- Candidates: profile, applications, submitted work
+const submitted = [];
+for (const c of CANDIDATES) {
+  const email = EMAIL('candidate', c.key);
+  await ensureAccount(email, c.full_name);
+  await call(email, 'PUT', '/me/candidate-profile', {
+    full_name: c.full_name, headline: c.headline, city: c.city, summary: c.summary, years_experience: c.years,
+    experience: c.experience, education: c.education, self_reported_skills: c.skills,
+  });
+  for (const ref of c.applies) {
+    const target = jobsByRef[ref];
+    const appId = (await call(email, 'POST', `/jobs/${target.job}/applications`, {})).data.id; // returns the existing one on rerun
+    const application = (await call(email, 'GET', '/me/applications')).data.find((a) => a.id === appId);
+    const attempt = application?.assessment_attempts?.[0];
+    if (attempt && ['invited', 'in_progress'].includes(attempt.status)) {
+      const seen = (await call(email, 'GET', `/experience/${target.orgSlug}/${target.jobSlug}/${target.version}`)).data;
+      if (attempt.status === 'invited') await call(email, 'POST', `/attempts/${attempt.id}/start`);
+      for (const t of seen.version.assessment_tasks) {
+        const answer = t.task_type === 'objective_questions'
+          ? { choices: Object.fromEntries((t.config?.questions ?? []).map((q) => [q.id, q.options?.[c.answer === 'strong' ? 0 : (q.options?.length ?? 1) - 1]?.id ?? 'a'])) }
+          : { text: ANSWERS[c.answer] };
+        await call(email, 'PUT', `/attempts/${attempt.id}/responses/${t.id}`, { answer }, { allow: [409, 422] });
+      }
+      await call(email, 'POST', `/attempts/${attempt.id}/submit`, undefined, { allow: [409] });
+    }
+    submitted.push({ c, ref, appId, attemptId: attempt?.id, ...target });
+  }
+  log(`${c.scenario}: ${c.full_name} applied to ${c.applies.length} job(s)`);
+}
+
+// --- Employers: evaluations reviewed and released by a person; pipeline decisions
+for (const s of submitted) {
+  if (s.attemptId) {
+    let evaluation = (await call(s.owner, 'GET', `/attempts/${s.attemptId}/evaluation`, undefined, { allow: [404] })).data?.evaluation_results;
+    if (!evaluation) evaluation = (await call(s.owner, 'POST', `/attempts/${s.attemptId}/evaluate`, undefined, { allow: [409, 422] })).data;
+    if (evaluation?.status === 'needs_human_review') await call(s.owner, 'POST', `/evaluations/${evaluation.id}/review`, { scores: [], notes: 'Reviewed by a person for the DEMO dataset.' }, { allow: [409, 422] });
+    if (evaluation?.id) await call(s.owner, 'POST', `/evaluations/${evaluation.id}/release`, undefined, { allow: [409, 422] });
+  }
+  await call(s.owner, 'GET', `/organizations/${s.org}/applications/${s.appId}/match`, undefined, { allow: [404, 503] });
+  if (s.c.answer === 'strong') await call(s.owner, 'PATCH', `/applications/${s.appId}/status`, { status: 'shortlisted' }, { allow: [409, 422] });
+  if (s.c.answer === 'weak') await call(s.owner, 'POST', `/organizations/${s.org}/applications/${s.appId}/outcome`, { outcome: 'not_selected', message_en: 'Thank you for applying. We will not continue at this stage (DEMO message).' }, { allow: [409, 422] });
+}
+log(`${submitted.length} applications: evaluations reviewed and released by a person; strong matches shortlisted, the weak one declined`);
+console.log(`\nDemo data ready on ${TARGET}. Accounts and passwords: ${credFile} (git-ignored). Guide: docs/testing/MIDAN_DEMO_DATA_GUIDE.md`);
