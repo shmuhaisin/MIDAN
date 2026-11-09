@@ -840,6 +840,18 @@ model organizations {
   employer_linked_by        String?                     @db.Uuid
   employer_linked_at        DateTime?                   @db.Timestamptz(6)
   company_type              String?
+  /// Organization review (supabase/migrations/20261111090000_organization_verification.sql). Only database functions change it.
+  verification_status       String                      @default("draft")
+  verification_updated_at   DateTime?                   @db.Timestamptz(6)
+  commercial_registration   String?
+  website                   String?
+  business_email            String?
+  contact_phone             String?
+  city                      String?
+  description_ar            String?
+  description_en            String?
+  representative_name       String?
+  representative_title      String?
   ai_workflow_runs          ai_workflow_runs[]
   applications              applications[]
   assessment_attempts       assessment_attempts[]
@@ -1431,4 +1443,37 @@ model job_custom_skills {
   updated_at     DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([job_id])
+}
+
+/// Private documents an organization submits for review (20261111090000_organization_verification.sql).
+model organization_documents {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id      String   @db.Uuid
+  kind        String
+  path        String   @unique
+  file_name   String
+  mime_type   String
+  size_bytes  Int
+  uploaded_by String?  @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([org_id, created_at(sort: Desc)])
+  @@index([uploaded_by])
+}
+
+/// One submission of an organization for review, and the administrator's decision on it.
+model organization_verification_requests {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id        String    @db.Uuid
+  submitted_by  String?   @db.Uuid
+  snapshot      Json
+  status        String    @default("pending_review")
+  decision_note String?
+  reviewed_by   String?   @db.Uuid
+  reviewed_at   DateTime? @db.Timestamptz(6)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([org_id, created_at(sort: Desc)])
+  @@index([submitted_by])
+  @@index([reviewed_by])
 }

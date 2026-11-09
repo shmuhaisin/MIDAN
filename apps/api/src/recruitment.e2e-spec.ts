@@ -4,6 +4,7 @@ import 'reflect-metadata';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { approveOrganization } from './test-support/approve-organization';
 import { AppModule } from './app.module';
 import { configureApp } from './common/configure-app';
 import { loadEnv } from './common/load-env';
@@ -66,6 +67,7 @@ describe('the recruitment journey', () => {
 
   it('sets up a fictional organization, its team, and a published job with a generated, reviewed assessment', async () => {
     org = (await api().post('/organizations').set(bearer(owner)).send({ slug, name_ar: 'جهة توظيف', name_en: 'Hiring org' }).expect(201)).body.id;
+    await approveOrganization(app.getHttpServer(), owner.token, org);
     await api().post(`${base()}/team/invitations`).set(bearer(owner)).send({ email: recruiter.email, role: 'recruiter' }).expect(201);
     const invitation = ((await api().get('/me/invitations').set(bearer(recruiter)).expect(200)).body as { id: string; org_id: string }[]).find((i) => i.org_id === org);
     await api().post(`/me/invitations/${invitation!.id}/accept`).set(bearer(recruiter)).expect(201);

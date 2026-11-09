@@ -6,6 +6,7 @@ import { createServer, type Server } from 'node:http';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { approveOrganization } from './test-support/approve-organization';
 import { AppModule } from './app.module';
 import { configureApp } from './common/configure-app';
 import { loadEnv } from './common/load-env';
@@ -151,6 +152,8 @@ describe('Midan database foundation', () => {
         .send({ slug: `midan-test-b-${RUN}`, name_ar: 'اختبار ب', name_en: 'Test B' }).expect(201);
       orgA = a.body.id;
       orgB = b.body.id;
+      await approveOrganization(app.getHttpServer(), ownerA.token, orgA);
+      await approveOrganization(app.getHttpServer(), ownerB.token, orgB);
 
       const job = { title_ar: 'وظيفة', title_en: 'Job', status: 'published' };
       jobA = (await api().post(`/organizations/${orgA}/jobs`).set(bearer(ownerA)).send({ ...job, slug: 'open' }).expect(201)).body.id;
@@ -1014,6 +1017,14 @@ describe('Midan database foundation', () => {
         await new Promise((resolve) => stub.close(resolve));
       });
 
+      it('refuses an interview until the candidate is shortlisted (20261111100000)', async () => {
+        const current = (await api().get(`${base()}/applications/${application}/review`).set(bearer(ownerA)).expect(200)).body.application?.status;
+        if (current !== 'shortlisted') {
+          await api().post(`${base()}/applications/${application}/interviews`).set(bearer(ownerA)).send({ scheduled_at: inMinutes(5) }).expect(422);
+          await api().patch(`/applications/${application}/status`).set(bearer(ownerA)).send({ status: 'shortlisted' }).expect(200);
+        }
+      });
+
       it('says when calendar and video are not configured, and never claims an invitation was sent', async () => {
         const made = await api().post(`${base()}/applications/${application}/interviews`).set(bearer(ownerA)).send({ scheduled_at: inMinutes(5), duration_minutes: 30, instructions_en: 'Bring examples.' }).expect(201);
         interview = made.body.id;
@@ -1142,7 +1153,9 @@ describe('Midan database foundation', () => {
       await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'promoted' }).expect(400);
       await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'on_hold', message_en: 'We need another week.' }).expect(201);
       expect((await api().get(`/me/applications/${application}`).set(bearer(candidateOne))).body.hiring_outcomes[0]).toMatchObject({ outcome: 'on_hold', message_en: 'We need another week.' });
-      // An outcome can't hire before the shortlist, and doesn't shortlist anyone on the way.
+      // An outcome can't hire before the shortlist, and doesn't shortlist anyone on the way. The interviews above needed the
+      // shortlist (20261111100000), so the organization first changes its mind (shortlisted -> under_review is a manual move).
+      await api().patch(`/applications/${application}/status`).set(bearer(ownerA)).send({ status: 'under_review' }).expect(200);
       const before = (await api().get(`/me/applications/${application}`).set(bearer(candidateOne)).expect(200)).body.status;
       expect(before).not.toBe('shortlisted');
       await api().post(`${base()}/applications/${application}/outcome`).set(bearer(ownerA)).send({ outcome: 'hired', message_en: 'Too soon.' }).expect(422);

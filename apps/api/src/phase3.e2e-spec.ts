@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { approveOrganization } from './test-support/approve-organization';
 import { AppModule } from './app.module';
 import { configureApp } from './common/configure-app';
 import { loadEnv } from './common/load-env';
@@ -43,8 +44,11 @@ describe('Phase 3: jobs and employers', () => {
   let admin: Session, owner: Session, recruiter: Session, outsider: Session, candidate: Session, other: Session;
   const api = () => request(app.getHttpServer());
   const bearer = (s: Session) => ({ Authorization: `Bearer ${s.token}` });
-  const organization = async (who: Session, name: string) =>
-    (await api().post('/organizations').set(bearer(who)).send({ slug: `midan-test-${name}-${RUN}`, name_ar: `جهة ${name}`, name_en: `Org ${name}` }).expect(201)).body.id as string;
+  const organization = async (who: Session, name: string) => {
+    const id = (await api().post('/organizations').set(bearer(who)).send({ slug: `midan-test-${name}-${RUN}`, name_ar: `جهة ${name}`, name_en: `Org ${name}` }).expect(201)).body.id as string;
+    await approveOrganization(app.getHttpServer(), who.token, id);
+    return id;
+  };
 
   beforeAll(async () => {
     if (!/^http:\/\/(localhost|127\.0\.0\.1)/.test(BASE)) throw new Error('This suite is local only');

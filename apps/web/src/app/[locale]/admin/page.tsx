@@ -14,6 +14,7 @@ type Overview = {
 
 /** Queues that wait for a person, in the order they're dealt with. Each count comes from `GET /admin/overview`. */
 const QUEUES: [key: string, count: string, path: string][] = [
+  ['organizationsPending', 'organizations_pending_review', '/organizations?status=pending_review'],
   ['openReview', 'open_review_items', '/review'],
   ['listingsPending', 'listings_pending_review', '/listings'],
   ['uncertainMatches', 'uncertain_matches', '/listings'],
@@ -23,7 +24,7 @@ const QUEUES: [key: string, count: string, path: string][] = [
 
 /** What the platform holds, in three groups, each led by its most telling figure. */
 const GROUPS: { key: string; icon: IconName; lead: [string, string, string?]; rest: [string, string, string?][] }[] = [
-  { key: 'people', icon: 'users', lead: ['users', 'users', '/accounts'], rest: [['organizations', 'organizations', '/accounts'], ['testOrganizations', 'test_organizations', '/accounts']] },
+  { key: 'people', icon: 'users', lead: ['users', 'users', '/accounts'], rest: [['organizations', 'organizations', '/organizations'], ['candidates', 'candidates'], ['applications', 'applications'], ['testOrganizations', 'test_organizations', '/accounts']] },
   { key: 'market', icon: 'briefcase', lead: ['publishedJobs', 'published_jobs'], rest: [['externalListings', 'external_listings', '/listings'], ['employers', 'employers', '/employers']] },
   { key: 'knowledge', icon: 'layers', lead: ['referenceSkills', 'reference_skills', '/reference'], rest: [['learningResources', 'learning_resources', '/learning'], ['importRuns', 'import_runs', '/imports']] },
 ];

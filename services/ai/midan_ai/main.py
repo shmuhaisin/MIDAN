@@ -19,6 +19,7 @@ from .quality import evaluate
 from .cv import analyze as analyze_cv
 from .matching import MatchRequest, match as match_requirements, similarity_backend
 from .assistant import AssistantRequest, answer as assistant_answer
+from .translate import TranslateRequest, Unavailable as TranslateUnavailable, translate
 from .regenerate import RegenerateRequest, Unavailable, regenerate as regenerate_task
 from .skills import SuggestRequest, suggest as suggest_skills
 from .evaluation import build_evaluation_graph
@@ -159,6 +160,16 @@ def run_regenerate(request: RegenerateRequest) -> dict[str, Any]:
         return regenerate_task(request, _provider)
     except Unavailable:
         raise HTTPException(status_code=503, detail="ai_unavailable") from None
+
+
+@app.post("/translate", dependencies=[Depends(require_token)])
+def run_translate(request: TranslateRequest) -> dict[str, Any]:
+    """A job's bilingual fields translated by the live model (the configured provider, then Gemini as the alternate), for
+    the employer to review. 503 with the reason when no model translated it: never a dictionary or placeholder."""
+    try:
+        return translate(request, _provider).model_dump()
+    except TranslateUnavailable as error:
+        raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
 
 
 @app.post("/skills/suggest", dependencies=[Depends(require_token)])

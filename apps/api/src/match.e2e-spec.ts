@@ -5,6 +5,7 @@ import 'reflect-metadata';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { approveOrganization } from './test-support/approve-organization';
 import { AppModule } from './app.module';
 import { configureApp } from './common/configure-app';
 import { loadEnv } from './common/load-env';
@@ -49,6 +50,7 @@ describe('requirement matching', () => {
 
   it('sets up a published job with requirements, and an applicant with a dated profile', async () => {
     org = (await api().post('/organizations').set(bearer(owner)).send({ slug: `midan-test-match-${RUN}`, name_ar: 'جهة مطابقة', name_en: 'Match org' }).expect(201)).body.id;
+    await approveOrganization(app.getHttpServer(), owner.token, org);
     // The second account joins as a reviewer: it may read, but recording reviews is for owners, admins and recruiters.
     await api().post(`/organizations/${org}/team/invitations`).set(bearer(owner)).send({ email: reviewer.email, role: 'reviewer' }).expect(201);
     const invitation = ((await api().get('/me/invitations').set(bearer(reviewer)).expect(200)).body as { id: string; org_id: string }[]).find((i) => i.org_id === org)!;

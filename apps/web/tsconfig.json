@@ -50,6 +50,8 @@
     "src/lib/application-status.test.ts",
     "src/lib/assessment-review.test.ts",
     "src/lib/csp.test.ts",
+    "src/lib/verification.test.ts",
+    "src/lib/translation.test.ts",
     "src/components/journey/journey-model.test.ts",
     "src/lib/humaidan.test.ts",
     "src/messages/messages.test.ts"

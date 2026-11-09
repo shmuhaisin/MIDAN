@@ -5,6 +5,7 @@ import 'reflect-metadata';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { approveOrganization } from './test-support/approve-organization';
 import { AppModule } from './app.module';
 import { configureApp } from './common/configure-app';
 import { loadEnv } from './common/load-env';
@@ -43,6 +44,7 @@ describe('account types, job creation and task regeneration', () => {
     // The test candidate becomes a candidate account the way a person does: with a candidate profile.
     await api().put('/me/candidate-profile').set(bearer(candidate)).send({ full_name: 'Test Candidate One' }).expect(200);
     org = (await api().post('/organizations').set(bearer(owner)).send({ slug: `midan-test-accounts-${RUN}`, name_ar: 'جهة حسابات', name_en: 'Accounts org' }).expect(201)).body.id;
+    await approveOrganization(app.getHttpServer(), owner.token, org);
   });
   afterAll(() => app.close());
 
