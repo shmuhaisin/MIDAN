@@ -3382,6 +3382,7 @@
       "skill": "Listed skill",
       "reference_skill": "Listed skill",
       "own_skill": "Skill in their words",
+      "assessed_skill": "Released assessment result",
       "language": "Language"
     },
     "reason": {
