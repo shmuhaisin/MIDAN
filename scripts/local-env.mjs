@@ -9,6 +9,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { LOCAL } from './local-supabase.mjs';
+import { PORTS } from './local-ports.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const envPath = `${root}.env`;
@@ -26,30 +27,43 @@ if (existsSync(envPath) && !force) {
 const existingTest = existsSync(testPath) ? parseEnv(readFileSync(testPath, 'utf8')) : {};
 const aiToken = existsSync(envPath) ? parseEnv(readFileSync(envPath, 'utf8')).AI_SERVICE_TOKEN : undefined;
 
+// Settings that aren't the local stack's own (API keys, model names, calendar credentials) are kept when .env is rewritten.
+const previous = existsSync(envPath) ? parseEnv(readFileSync(envPath, 'utf8')) : {};
+const keep = (name, fallback = '') => previous[name] ?? fallback;
+const KEPT = ['GROQ_API_KEY', 'GROQ_MODEL', 'GROQ_REASONING_EFFORT', 'GROQ_MAX_COMPLETION_TOKENS', 'GOOGLE_CALENDAR_SEND_UPDATES'];
+const kept = KEPT.filter((name) => previous[name] !== undefined).map((name) => `${name}=${previous[name]}`).join('\n');
+
 writeFileSync(envPath, `# Local stack, written by scripts/local-env.mjs. Every value here is local-only.
+# Ports of the local stack (scripts/local-ports.mjs reads them from here).
+LOCAL_PG_PORT=${PORTS.pg}
+LOCAL_SUPABASE_PORT=${PORTS.supabase}
+LOCAL_SMTP_PORT=${PORTS.smtp}
+LOCAL_AUTH_PORT=${PORTS.auth}
+LOCAL_REST_PORT=${PORTS.rest}
 NEXT_PUBLIC_SUPABASE_URL=${LOCAL.url}
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${LOCAL.publishableKey}
-DATABASE_URL=postgresql://midan_api:midan-api-local@127.0.0.1:${process.env.LOCAL_PG_PORT ?? 54322}/midan?connection_limit=5
-DIRECT_URL=postgresql://midan_api:midan-api-local@127.0.0.1:${process.env.LOCAL_PG_PORT ?? 54322}/midan
+DATABASE_URL=postgresql://midan_api:midan-api-local@127.0.0.1:${PORTS.pg}/midan?connection_limit=5
+DIRECT_URL=postgresql://midan_api:midan-api-local@127.0.0.1:${PORTS.pg}/midan
 API_URL=http://localhost:4000
 AI_SERVICE_URL=http://localhost:8000
 AI_SERVICE_TOKEN=${aiToken ?? randomBytes(32).toString('hex')}
 # Postgres-backed LangGraph checkpoints, so interrupted evaluations survive a restart.
-CHECKPOINT_DATABASE_URL=postgresql://midan_ai:midan-ai-local@127.0.0.1:${process.env.LOCAL_PG_PORT ?? 54322}/midan
-AI_PROVIDER=gemini
-GEMINI_API_KEY=
-GEMINI_MODEL=
-OPENAI_API_KEY=
-OPENAI_MODEL=
+CHECKPOINT_DATABASE_URL=postgresql://midan_ai:midan-ai-local@127.0.0.1:${PORTS.pg}/midan
+AI_PROVIDER=${keep('AI_PROVIDER', 'gemini')}
+GEMINI_API_KEY=${keep('GEMINI_API_KEY')}
+GEMINI_MODEL=${keep('GEMINI_MODEL')}
+OPENAI_API_KEY=${keep('OPENAI_API_KEY')}
+OPENAI_MODEL=${keep('OPENAI_MODEL')}
 DEV_TEST_SIGNUP=true
 DEV_TEST_ACCESS_CODE=local-dev-access
 APP_URL=http://localhost:3100
 # Integrations stay off until real credentials are added. Each screen says so.
-DAILY_API_KEY=
-GOOGLE_CALENDAR_CLIENT_ID=
-GOOGLE_CALENDAR_CLIENT_SECRET=
-GOOGLE_CALENDAR_REFRESH_TOKEN=
-GOOGLE_CALENDAR_ID=primary
+DAILY_API_KEY=${keep('DAILY_API_KEY')}
+GOOGLE_CALENDAR_CLIENT_ID=${keep('GOOGLE_CALENDAR_CLIENT_ID')}
+GOOGLE_CALENDAR_CLIENT_SECRET=${keep('GOOGLE_CALENDAR_CLIENT_SECRET')}
+GOOGLE_CALENDAR_REFRESH_TOKEN=${keep('GOOGLE_CALENDAR_REFRESH_TOKEN')}
+GOOGLE_CALENDAR_ID=${keep('GOOGLE_CALENDAR_ID', 'primary')}
+${kept}
 `, { mode: 0o600 });
 
 const ACCOUNTS = ['org-a-owner', 'org-a-recruiter', 'org-b-owner', 'candidate-one', 'candidate-two', 'unverified', 'platform-admin'];
@@ -89,7 +103,7 @@ writeFileSync(testPath, `${lines.join('\n')}\n`, { mode: 0o600 });
 // The platform administrator test account. On a hosted project, the first administrator is added the same way, by SQL.
 const { createRequire } = await import('node:module');
 const { Client } = createRequire(new URL('../apps/api/package.json', import.meta.url))('pg');
-const db = new Client({ connectionString: `postgresql://postgres@127.0.0.1:${process.env.LOCAL_PG_PORT ?? 54322}/midan` });
+const db = new Client({ connectionString: `postgresql://postgres@127.0.0.1:${PORTS.pg}/midan` });
 await db.connect();
 // Organization test accounts carry account_type, which steers screens (not security), as on the hosted project.
 await db.query(`update auth.users set raw_user_meta_data = raw_user_meta_data || '{"account_type":"organization"}'

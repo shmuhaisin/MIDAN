@@ -19,6 +19,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
+import { PORTS } from './local-ports.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const env = { ...parseEnv(readFileSync(resolve(root, '.env'), 'utf8')), ...parseEnv(readFileSync(resolve(root, '.env.test.local'), 'utf8')) };
@@ -27,7 +28,7 @@ for (const k of ['NEXT_PUBLIC_SUPABASE_URL', 'API_URL']) {
 }
 const args = new Set(process.argv.slice(2));
 const SLUG = 'midan-demo-showcase';
-const DB = 'postgresql://postgres:postgres@127.0.0.1:54322/midan';
+const DB = `postgresql://postgres:postgres@127.0.0.1:${PORTS.pg}/midan`;
 const psql = `${process.env.PGBIN ?? '/opt/homebrew/opt/postgresql@16/bin'}/psql`;
 
 if (args.has('--reset') || args.has('--rebuild')) {

@@ -9,7 +9,7 @@ Feature labels marked *(pre-existing)* were built before this branch; their stat
 | --- | --- | --- | --- | --- |
 | 1 | Inspect repository and branches | VERIFIED | `docs/handoff/MIDAN_EMPLOYER_CURRENT_STATE.md` §1, §4 | — |
 | 2 | Employer registration + email verification *(pre-existing)* | VERIFIED | Browser: register → mail sink link → signed-in workspace (2026-11-09) | SMTP for real email (BLOCKED: credentials) |
-| 3 | **Organization approval workflow** (draft → pending_review → approved / changes_requested / rejected; suspended) | VERIFIED | Migration `20261111090000_organization_verification`; `organizations/organization-verification.controller.ts`; `admin/admin-organizations.controller.ts`; e2e `organization-review.e2e-spec.ts` 11/11; browser walk (register → profile → document → submit → admin approves) | Email notice of decisions (SMTP) |
+| 3 | **Organization approval workflow** (re-verified on the owner's machine 2026-11-09, current state §24) (draft → pending_review → approved / changes_requested / rejected; suspended) | VERIFIED | Migration `20261111090000_organization_verification`; `organizations/organization-verification.controller.ts`; `admin/admin-organizations.controller.ts`; e2e `organization-review.e2e-spec.ts` 11/11; browser walk (register → profile → document → submit → admin approves) | Email notice of decisions (SMTP) |
 | 4 | Approval gates recruitment (publish, applications, invitations, public listing) | VERIFIED | DB triggers `guard_job_publication_org`, `guard_applicant_org`, `guard_invitation_org`, restrictive RLS on `jobs`; e2e | — |
 | 5 | Admin organization review UI (queue, filters, search, detail, documents, decisions, suspension, history, audit) | VERIFIED | `app/[locale]/admin/organizations/**`, `components/verification.tsx`; browser walk | Bulk actions (not required) |
 | 6 | Admin overview counts (pending/approved/rejected/suspended/draft orgs, candidates, applications, upcoming interviews) | IMPLEMENTED | `GET /admin/overview` | Browser-checked for the pending queue only |
@@ -33,3 +33,6 @@ Feature labels marked *(pre-existing)* were built before this branch; their stat
 | 24 | Employer AI assistant *(pre-existing)* | IMPLEMENTED | `assistant` | Real model BLOCKED |
 | 25 | Candidate integration contract | IMPLEMENTED | `docs/handoff/MIDAN_EMPLOYER_INTEGRATION_CONTRACT.md` | Candidate developer to review |
 | 26 | Demo script follows the review | IMPLEMENTED | `scripts/investor-demo.mjs` | Run it on a fresh database |
+| 27 | Configurable local ports + preflight (Windows) | VERIFIED | `scripts/local-ports.mjs` (+ test 4/4), `local-supabase.mjs check`; stack running on 54323/54321/54326 on the owner's machine (current state §24) | — |
+| 28 | One-command Windows start-up | VERIFIED | `scripts/local-up-windows.ps1` started AI, API and web and waited for each | — |
+| 29 | UTF-8 migrations on Windows | VERIFIED | `local-db.sh` sets `PGCLIENTENCODING=UTF8`; garbled `normalize_arabic` repaired; data checksums match a correct database | — |

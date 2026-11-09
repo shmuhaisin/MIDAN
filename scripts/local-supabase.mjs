@@ -1,13 +1,15 @@
-// LOCAL DEVELOPMENT ONLY. Serves the Supabase URL paths Midan uses, on http://localhost:54321, from local processes:
+// LOCAL DEVELOPMENT ONLY. Serves the Supabase URL paths Midan uses, on http://localhost:<LOCAL_SUPABASE_PORT> (54321), from
+// local processes. Every port is set in scripts/local-ports.mjs (environment, then .env, then defaults):
 //
 //   /auth/v1/*     the real Supabase Auth server (GoTrue), downloaded by scripts/local-tools.sh
 //   /rest/v1/*     the real PostgREST server
 //   /storage/v1/*  a local implementation of the Storage endpoints Midan calls. Object rows are written and read as the
 //                  caller's database role, so the storage policies in supabase/migrations decide, as on Supabase.
-//   SMTP :54325    a mail sink. Emails Auth sends (verification, recovery) are saved to .local/mail as .eml files and
-//                  listed at http://localhost:54321/__mail, so the real verification link can be followed locally.
+//   SMTP           a mail sink on LOCAL_SMTP_PORT (54326). Emails Auth sends (verification, recovery) are saved to
+//                  .local/mail as .eml files and listed at <gateway>/__mail, so the real verification link can be followed.
 //
-//   node scripts/local-supabase.mjs            run everything (Postgres must already be running: scripts/local-db.sh start)
+//   node scripts/local-supabase.mjs            check the ports, then run everything (Postgres must already be running)
+//   node scripts/local-supabase.mjs check      only check the ports and the database, then exit (0 = ready to start)
 //   node scripts/local-supabase.mjs migrate    only run Auth's own migrations, then exit
 //
 // The keys and secrets below are fixed, public, local-only values. Nothing here is used by a hosted environment.
@@ -19,6 +21,7 @@ import { createServer as createTcpServer } from 'node:net';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PORTS, SUPABASE_URL, preflight } from './local-ports.mjs';
 
 const require = createRequire(import.meta.url);
 const { Pool } = require('pg');
@@ -38,15 +41,16 @@ function postgresBinOnWindows() {
 }
 const BIN = join(ROOT, '.local/bin');
 const MAIL = join(ROOT, '.local/mail');
-const PG_PORT = process.env.LOCAL_PG_PORT ?? '54322';
+const PG_PORT = PORTS.pg;
 export const LOCAL = {
-  url: 'http://localhost:54321',
+  url: SUPABASE_URL,
   publishableKey: 'sb_publishable_local_development_only',
   jwtSecret: 'local-development-jwt-secret-not-for-any-hosted-use-0001',
 };
-const AUTH_PORT = 54329;
-const REST_PORT = 54328;
-const SMTP_PORT = 54325;
+const AUTH_PORT = PORTS.auth;
+const REST_PORT = PORTS.rest;
+// The mail sink listens here and Supabase Auth sends here (GOTRUE_SMTP_PORT): one value for both.
+const SMTP_PORT = PORTS.smtp;
 
 // ---- JWT (HS256), the same format Supabase Auth issues ----
 const b64url = (input) => Buffer.from(input).toString('base64url');
@@ -143,7 +147,8 @@ function startMailSink() {
       }
     });
     socket.on('error', () => undefined);
-  }).listen(SMTP_PORT, '127.0.0.1');
+  }).on('error', (error) => fatal(`the mail sink couldn't listen on port ${SMTP_PORT} (LOCAL_SMTP_PORT): ${error.code ?? error.message}`))
+    .listen(SMTP_PORT, '127.0.0.1');
 }
 
 /** Decodes quoted-printable mail bodies enough to read links. */
@@ -323,6 +328,14 @@ function sendBlob(res, row) {
 }
 
 // ---- Gateway ----
+let childrenToStop = [];
+/** A startup or runtime failure: say what and where, stop what this run started, exit. Never touches other programs. */
+function fatal(reason) {
+  console.error(`Local Supabase stopped: ${reason}`);
+  for (const child of childrenToStop) child.kill();
+  process.exit(1);
+}
+
 function proxy(req, res, port, path) {
   const headers = { ...req.headers, host: `127.0.0.1:${port}` };
   // As Supabase's gateway does, a request carrying only the publishable key reaches PostgREST as anon.
@@ -355,10 +368,12 @@ function startGateway() {
       if (!res.headersSent) json(res, 500, { message: 'Local gateway error' });
     }
   };
-  createServer(handler).listen(54321, '127.0.0.1', () => console.log(`Local Supabase on ${LOCAL.url} (auth, rest, storage; mail at ${LOCAL.url}/__mail)`));
+  createServer(handler)
+    .on('error', (error) => fatal(`the gateway couldn't listen on port ${PORTS.supabase} (LOCAL_SUPABASE_PORT): ${error.code ?? error.message}`))
+    .listen(PORTS.supabase, '127.0.0.1', () => console.log(`Local Supabase on ${LOCAL.url} (auth, rest, storage; mail at ${LOCAL.url}/__mail; SMTP ${SMTP_PORT}, database ${PG_PORT})`));
   // "localhost" can resolve to ::1 first. With nothing listening there, this port being in the ephemeral range lets a client's
   // socket occasionally connect to itself, read its own request back as the reply, and be reused for every later request.
-  createServer(handler).listen(54321, '::1').on('error', () => undefined);
+  createServer(handler).listen(PORTS.supabase, '::1').on('error', () => undefined);
 }
 
 function startRest() {
@@ -383,9 +398,21 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     await migrateAuth();
     process.exit(0);
   }
+  // Every port free and the database answering, or a clear report and nothing started (nothing is stopped either).
+  const ready = await preflight(PORTS);
+  if (process.argv[2] === 'check') {
+    if (ready) console.log(`Ports free: gateway ${PORTS.supabase}, SMTP ${PORTS.smtp}, Auth ${PORTS.auth}, PostgREST ${PORTS.rest}; database answering on ${PORTS.pg}.`);
+    process.exit(ready ? 0 : 1);
+  }
+  if (!ready) process.exit(1);
   startMailSink();
   const children = [runAuth(['serve']), startRest()];
+  childrenToStop = children;
   startGateway();
+  // If Auth or PostgREST stops, say so and stop the rest, instead of leaving a gateway that answers 502.
+  for (const [name, child] of [['Supabase Auth', children[0]], ['PostgREST', children[1]]]) {
+    child.on('exit', (code) => fatal(`${name} stopped (exit ${code}); see the lines above`));
+  }
   const stop = () => {
     for (const child of children) child.kill();
     process.exit(0);

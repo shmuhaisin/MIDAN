@@ -13,7 +13,12 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DATA="$ROOT/.local/pg"
-PORT="${LOCAL_PG_PORT:-54322}"
+# The port: LOCAL_PG_PORT from the environment, then from .env (scripts/local-env.mjs writes it), then 54323
+# (scripts/local-ports.mjs has the same rule). 54322 is often taken by another PostgreSQL on Windows.
+if [ -z "${LOCAL_PG_PORT:-}" ] && [ -f "$ROOT/.env" ]; then
+  LOCAL_PG_PORT="$(sed -n 's/^LOCAL_PG_PORT=\([0-9]*\).*/\1/p' "$ROOT/.env" | head -1)"
+fi
+PORT="${LOCAL_PG_PORT:-54323}"
 DB=midan
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) WINDOWS=1 ;; *) WINDOWS=0 ;; esac
 # On Windows, the newest installed PostgreSQL (17 or later, for the builtin C.UTF-8 locale) unless PGBIN says otherwise.
@@ -23,6 +28,10 @@ fi
 PGBIN="${PGBIN:-$(ls -d /usr/lib/postgresql/16/bin 2>/dev/null || dirname "$(command -v pg_ctl)")}"
 # PostgreSQL on macOS stops at startup ("postmaster became multithreaded") without a valid locale in the environment.
 if [ "$(uname)" = "Darwin" ]; then export LC_ALL="${LC_ALL:-en_US.UTF-8}"; fi
+# The migrations are UTF-8 (Arabic text in functions and data). psql otherwise reads them in the console's encoding,
+# which on Windows is often WIN1252: Arabic is then stored garbled (normalize_arabic fails with "invalid character
+# range") or a statement fails ("byte sequence 0x81 ... WIN1252").
+export PGCLIENTENCODING=UTF8
 
 # initdb refuses to run as root, so a root shell (as in some containers) runs the server as "postgres".
 as_pg() {
