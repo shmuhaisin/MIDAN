@@ -29,6 +29,17 @@ WSL (the services themselves are listed in `MIDAN_CANDIDATE_CURRENT_STATE.md` fo
   the provider limit) → a person scores, approves and releases.
 - Candidate: reads the released report (overall 40/100, skill levels), with no reviewer notes.
 
+### After merging the employer branch's Windows stack (940a311), final build
+- Auth audit 58/58 again. Full journey 19/19 with fresh accounts while Groq's daily quota (200,000 tokens) was used up:
+  skills fell back to the labelled similarity shortlist, the assessment to MIDAN's templates (labelled "Demo mode"), and
+  scoring left 7 of 8 criteria for the person. Every step stayed usable; nothing was presented as AI work.
+- A run between the two produced a live draft scoring 98 but **Blocked** by one finding of the quality standard: it can't
+  be approved, as intended. The employer removes it and generates again.
+
+## Gaps found (employer side, for the employer developer)
+1. A job can be published while its assessment is still a draft; applicants then receive no assessment.
+2. An assessment approved after people applied isn't assigned to them automatically (the employer must invite them).
+
 ## Hosted Supabase (production)
 Not used by this environment and not changed. Moving the hosted project to this code needs, in one approval: the newer
 migrations, the access-code hash for sign-up, redirect URLs for the site, and an email provider.
