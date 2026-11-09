@@ -99,3 +99,13 @@ export async function adminClaimEvidenceLink(id: string) {
     return { error: errorCode(error) };
   }
 }
+
+export async function decideEmployerAccess(id: string, decision: 'approve' | 'reject', role: string, note: string) {
+  if (decision === 'reject' && !note.trim()) return { error: 'required' };
+  return run(() => api(`/admin/employer-access/${id}/decision`, { method: 'POST', body: { decision, ...(role && { role }), ...(note.trim() && { note: note.trim() }) } }));
+}
+
+export async function revokeEmployerAccess(id: string, note: string) {
+  if (!note.trim()) return { error: 'required' };
+  return run(() => api(`/admin/employer-access/${id}/revoke`, { method: 'POST', body: { note: note.trim() } }));
+}

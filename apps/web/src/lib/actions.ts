@@ -526,3 +526,19 @@ export async function setCompanyType(orgId: string, companyType: string): Promis
   revalidatePath('/', 'layout');
   return { ok: true };
 }
+
+/** Asks for access to one supported employer. The API and database decide; nothing is granted until an administrator approves. */
+export async function requestEmployerAccess(form: FormData): Promise<FormState> {
+  const body = {
+    registry_id: text(form, 'registry_id'), representative_name: text(form, 'representative_name'), job_title: text(form, 'job_title'),
+    ...(text(form, 'phone') && { phone: text(form, 'phone') }), ...(text(form, 'verification_note') && { verification_note: text(form, 'verification_note') }),
+  };
+  if (!body.registry_id || body.representative_name.length < 2 || body.job_title.length < 2) return { error: 'required' };
+  try {
+    await api('/me/employer-access', { method: 'POST', body });
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+  revalidatePath('/[locale]/organization/new', 'page');
+  return { ok: true };
+}

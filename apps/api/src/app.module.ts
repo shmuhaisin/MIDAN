@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminController, PlatformAdminGuard } from './admin/admin.controller';
+import { AdminEmployerAccessController, MyEmployerAccessController } from './admin/employer-access.controller';
 import { AdminOrganizationsController } from './admin/admin-organizations.controller';
 import { ApplicationsController } from './applications/applications.controller';
 import { ApplicationReviewController } from './applications/review.controller';
@@ -40,7 +41,7 @@ import { MyInvitationsController, TeamController } from './organizations/team.co
   controllers: [
     HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, ApplicationReviewController, ApplicationMatchController, AssistantController, MeController,
     AssessmentsController, AttemptsController, EvaluationsController, RequirementsController,
-    CandidateController, CvController, CareerController, ReferenceController, InterviewsController, AdminController, JobAnalysisController, JobSkillsController,
+    CandidateController, CvController, CareerController, ReferenceController, InterviewsController, AdminController, AdminEmployerAccessController, MyEmployerAccessController, JobAnalysisController, JobSkillsController,
     TeamController, MyInvitationsController, EmployerClaimsController, OrganizationListingsController,
     OrganizationVerificationController, AdminOrganizationsController, TranslationController,
   ],

@@ -2,7 +2,7 @@
 
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { createContext, useActionState, useContext, useEffect, useId, useState, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { applyToJob, createJob, createOrganization, saveBranding, setApplicationStatus, setJobStatus, uploadLogo, withdrawApplication } from '@/lib/actions';
@@ -222,22 +222,41 @@ export function LoginForm({ audience, next, google, errorCode, signupOpen = true
   );
 }
 
-export function RegisterForm({ audience }: { audience: 'candidate' | 'organization' }) {
+export type SupportedEmployer = { id: string; name_ar: string | null; name_en: string | null };
+
+export function RegisterForm({ audience, employers = [] }: { audience: 'candidate' | 'organization'; employers?: SupportedEmployer[] }) {
   const t = useTranslations('auth');
+  const locale = useLocale();
   const [state, action] = useActionState<FormState, FormData>(signUp, {});
   const org = audience === 'organization';
   return (
     <ActionForm action={action} className="space-y-4">
       <input type="hidden" name="account_type" value={audience} />
       <ErrorText code={state.error} />
-      <Field name="display_name" autoComplete="name" required maxLength={200} label={t('displayName')} />
+      {org && (
+        // Only the employers MIDAN supports, from the registry. Choosing one asks for access; it grants nothing.
+        <label className="block">
+          <span className="field-label">{t('employer')}</span>
+          <select name="registry_id" required defaultValue="" className={INPUT}>
+            <option value="" disabled>{t('employerChoose')}</option>
+            {employers.map((e) => <option key={e.id} value={e.id}>{(locale === 'ar' ? e.name_ar : e.name_en) ?? e.name_en ?? e.name_ar}</option>)}
+          </select>
+          <span className="mt-1 block text-xs text-muted">{t('employerHint')}</span>
+        </label>
+      )}
+      <Field name="display_name" autoComplete="name" required maxLength={200} label={t(org ? 'representativeName' : 'displayName')} />
+      {org && <Field name="job_title" autoComplete="organization-title" required minLength={2} maxLength={200} label={t('jobTitle')} />}
+      <Field name="email" type="email" autoComplete="email" required label={t(org ? 'workEmail' : 'email')} dir="ltr" />
       {org && (
         <>
-          <Field name="org_name_ar" required maxLength={200} dir="rtl" label={t('orgNameAr')} />
-          <Field name="org_name_en" required maxLength={200} dir="ltr" label={t('orgNameEn')} />
+          <Field name="phone" type="tel" autoComplete="tel" maxLength={20} dir="ltr" label={t('workPhone')} />
+          <label className="block">
+            <span className="field-label">{t('verificationNote')}</span>
+            <textarea name="verification_note" rows={3} maxLength={2000} dir="auto" className={clsx(INPUT, 'h-auto py-2.5')} />
+            <span className="mt-1 block text-xs text-muted">{t('verificationNoteHint')}</span>
+          </label>
         </>
       )}
-      <Field name="email" type="email" autoComplete="email" required label={t('email')} dir="ltr" />
       <Field name="password" type="password" autoComplete="new-password" required minLength={8} label={t('password')} hint={t('passwordHint')} dir="ltr" />
       <Submit className="w-full">{t('registerSubmit')}</Submit>
       <p className="text-center text-sm text-muted">

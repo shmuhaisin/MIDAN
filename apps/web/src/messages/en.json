@@ -436,7 +436,7 @@
     "orgLoginTitle": "Organization sign-in",
     "orgLoginLead": "Sign in to your organization's workspace to manage jobs, assessments and reviews.",
     "orgRegisterTitle": "Register your organization",
-    "orgRegisterLead": "Create the organization administrator's account, then add its profile and branding.",
+    "orgRegisterLead": "For representatives of the organizations MIDAN supports. After you verify your email, a MIDAN administrator reviews your request before you can use an employer workspace.",
     "orgPoints": [
       "Define the job's requirements and skills",
       "Build practical assessments and approve them yourself",
@@ -478,7 +478,16 @@
     "hidePassword": "Hide",
     "confirmedContinuing": "Your account is ready. We're taking you to it now.",
     "confirmedContinuingShort": "Opening your account…",
-    "signupClosedNote": "Accounts are created by invitation while MIDAN is in testing. Already invited? Sign in with the email you used."
+    "signupClosedNote": "Accounts are created by invitation while MIDAN is in testing. Already invited? Sign in with the email you used.",
+    "employer": "Your organization",
+    "employerChoose": "Choose your organization",
+    "employerHint": "MIDAN works only with these organizations. Choosing one asks for access; a MIDAN administrator checks that you represent it before anything is granted.",
+    "representativeName": "Your full name",
+    "jobTitle": "Your job title",
+    "workEmail": "Work email",
+    "workPhone": "Work phone (optional)",
+    "verificationNote": "How we can verify you (optional)",
+    "verificationNoteHint": "For example your department, your manager, or your employee number. A MIDAN administrator reviews it."
   },
   "errors": {
     "invalid_credentials": "Incorrect email or password.",
@@ -515,7 +524,8 @@
     "feedback_incomplete": "Rate every competency and choose a recommendation before submitting.",
     "invalid_year": "Check the year: it should be a four-digit year.",
     "ai_unavailable": "The AI model isn't available right now, so the task wasn't changed. Try again in a minute, or edit it yourself.",
-    "reason_required": "Give a reason. It's recorded and, for decisions, shown to the organization."
+    "reason_required": "Give a reason. It's recorded and, for decisions, shown to the organization.",
+    "invalid_phone": "Enter a phone number with digits only, 7 to 20 of them."
   },
   "applicationStatus": {
     "submitted": "Submitted",
@@ -2027,7 +2037,8 @@
       "queue": "Background jobs",
       "audit": "Audit log",
       "claims": "Employer claims",
-      "organizations": "Organizations"
+      "organizations": "Organizations",
+      "access": "Employer access"
     },
     "overview": {
       "counts": {
@@ -3732,6 +3743,81 @@
       "rate_limited": "The AI is busy. Try again in a minute.",
       "timeout": "The AI took too long. Try again.",
       "other": "Couldn't translate. Try again, or write it yourself."
+    }
+  },
+  "employerAccess": {
+    "pendingTitle": "Awaiting MIDAN administrator approval",
+    "pendingLead": "Your request to represent your organization was received.",
+    "pendingBody": "A MIDAN platform administrator will check your request. You can't open an employer workspace until it's approved.",
+    "employer": "Organization",
+    "representative": "Representative",
+    "submitted": "Submitted",
+    "requestTitle": "Request employer access",
+    "requestLead": "Employer workspaces are only for representatives of the organizations MIDAN supports, approved by a MIDAN administrator.",
+    "rejectedTitle": "Your request for {employer} was not approved.",
+    "revokedTitle": "Your access to {employer} was withdrawn.",
+    "choose": "Choose your organization",
+    "employerHint": "Only the organizations MIDAN supports are listed. Choosing one grants nothing until an administrator approves.",
+    "jobTitle": "Your job title",
+    "phone": "Work phone (optional)",
+    "verification": "How we can verify you (optional)",
+    "verificationHint": "For example your department, your manager, or your employee number.",
+    "submit": "Send request",
+    "admin": {
+      "lead": "Representatives asking for access to one of the organizations MIDAN supports. Check that the person represents the organization before approving: nothing is granted until you do, and approval never makes the organization a partner.",
+      "requests": "Requests ({pending} waiting)",
+      "empty": "No requests yet",
+      "emptyBody": "Requests from employer representatives appear here.",
+      "heading": "{person} for {employer}",
+      "email": "Email",
+      "jobTitle": "Job title",
+      "phone": "Phone",
+      "source": "Asked through",
+      "submitted": "Submitted",
+      "partnership": "Partnership",
+      "notPartner": "Not a MIDAN partner (registry record)",
+      "verification": "Verification details",
+      "none": "None given",
+      "granted": "Access granted",
+      "decisionNote": "Decision note",
+      "decidedBy": "Decided by",
+      "testWorkspace": "test workspace",
+      "role": "Role in the workspace",
+      "roleDefault": "Default (owner if first, otherwise requested)",
+      "note": "Note (required to reject)",
+      "approve": "Approve access",
+      "reject": "Reject",
+      "revoke": "Revoke access",
+      "revokeNote": "Reason (required to revoke)",
+      "workspaces": "Workspaces",
+      "workspacesLead": "One workspace per supported organization, created by the first approval. Members only reach their own organization.",
+      "noMembers": "No members",
+      "noWorkspace": "No workspace yet",
+      "history": "Decision history",
+      "noHistory": "No decisions yet",
+      "status": {
+        "pending_approval": "Awaiting approval",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "revoked": "Revoked"
+      },
+      "sources": {
+        "registration": "Registration",
+        "application": "Access request",
+        "invitation": "Invitation"
+      },
+      "roles": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "recruiter": "Recruiter",
+        "reviewer": "Reviewer"
+      },
+      "actions": {
+        "request": "Requested",
+        "approve": "Approved",
+        "reject": "Rejected",
+        "revoke": "Revoked"
+      }
     }
   }
 }

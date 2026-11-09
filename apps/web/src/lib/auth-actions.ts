@@ -145,10 +145,15 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   const password = String(form.get('password') ?? '');
   const displayName = text(form, 'display_name');
   const accountType = form.get('account_type') === 'organization' ? 'organization' : 'candidate';
-  const orgNameAr = text(form, 'org_name_ar');
-  const orgNameEn = text(form, 'org_name_en');
+  // An employer representative chooses one of the employers MIDAN supports. Nothing here grants access: verifying the
+  // email opens a request, and a MIDAN platform administrator decides (20261112090000_employer_access_requests).
+  const registryId = text(form, 'registry_id');
+  const jobTitle = text(form, 'job_title');
+  const phone = text(form, 'phone');
+  const verificationNote = text(form, 'verification_note');
   if (!email || !password || !displayName) return { error: 'required' };
-  if (accountType === 'organization' && (!orgNameAr || !orgNameEn)) return { error: 'required' };
+  if (accountType === 'organization' && (!/^[0-9a-f-]{36}$/i.test(registryId) || jobTitle.length < 2)) return { error: 'required' };
+  if (accountType === 'organization' && phone && !/^\+?[0-9 ]{7,20}$/.test(phone)) return { error: 'invalid_phone' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'email_address_invalid' };
   if (password.length < 8) return { error: 'weak_password' };
   let result;
@@ -162,7 +167,7 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
       data: {
         display_name: displayName,
         account_type: accountType,
-        ...(accountType === 'organization' && { org_name_ar: orgNameAr, org_name_en: orgNameEn }),
+        ...(accountType === 'organization' && { registry_id: registryId, job_title: jobTitle, phone, verification_note: verificationNote.slice(0, 2000) }),
         midan_test_access: process.env.DEV_TEST_ACCESS_CODE,
       },
     });
