@@ -67,6 +67,23 @@ const mine = (await call('ORG_A_OWNER', 'GET', '/me')).data.organization_members
 let org = (await Promise.all(mine.map(async (m) => ({ id: m.org_id, slug: (await call('ORG_A_OWNER', 'GET', `/organizations/${m.org_id}`)).data.slug })))).find((o) => o.slug === SLUG)?.id;
 if (!org) org = (await call('ORG_A_OWNER', 'POST', '/organizations', { slug: SLUG, name_ar: 'منشأة العرض (بيانات اصطناعية)', name_en: 'Showcase (synthetic data)' })).data.id;
 await call('ORG_A_OWNER', 'PATCH', `/organizations/${org}/company-type`, { company_type: 'startup' });
+// Organizations recruit only once a platform administrator approves them (20261111090000_organization_verification).
+// The showcase goes through the real review: fictional profile, a placeholder PDF, submission, and the fixture
+// administrator's approval.
+if ((await call('ORG_A_OWNER', 'GET', `/organizations/${org}/verification`)).data.organization.verification_status !== 'approved') {
+  await call('ORG_A_OWNER', 'PATCH', `/organizations/${org}/profile`, {
+    commercial_registration: `9${String(Date.now()).slice(-9)}`, business_email: 'showcase@example.test', contact_phone: '+966 11 000 0000',
+    city: 'Riyadh', representative_name: 'Showcase Representative', representative_title: 'HR Lead',
+  });
+  const form = new FormData();
+  form.set('kind', 'commercial_registration');
+  form.set('file', new Blob(['%PDF-1.4\n% Synthetic placeholder for the showcase\n%%EOF\n'], { type: 'application/pdf' }), 'showcase-cr.pdf');
+  const upload = await fetch(`${env.API_URL}/v1/organizations/${org}/verification/documents`, { method: 'POST', headers: { authorization: `Bearer ${await token('ORG_A_OWNER')}` }, body: form });
+  if (!upload.ok) throw new Error(`Document upload: ${upload.status}`);
+  await call('ORG_A_OWNER', 'POST', `/organizations/${org}/verification/submit`);
+  await call('PLATFORM_ADMIN', 'POST', `/admin/organizations/${org}/decision`, { decision: 'approve' });
+  step('Showcase organization reviewed and approved by the fixture platform administrator');
+}
 const team = (await call('ORG_A_OWNER', 'GET', `/organizations/${org}/team`)).data;
 if (!team.members.some((m) => m.email === env.TEST_ORG_A_RECRUITER_EMAIL)) {
   if (!team.invitations.some((i) => i.email === env.TEST_ORG_A_RECRUITER_EMAIL)) await call('ORG_A_OWNER', 'POST', `/organizations/${org}/team/invitations`, { email: env.TEST_ORG_A_RECRUITER_EMAIL, role: 'recruiter' });

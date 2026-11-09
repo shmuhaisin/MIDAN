@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminController, PlatformAdminGuard } from './admin/admin.controller';
+import { AdminOrganizationsController } from './admin/admin-organizations.controller';
 import { ApplicationsController } from './applications/applications.controller';
 import { ApplicationReviewController } from './applications/review.controller';
 import { ApplicationMatchController } from './applications/match.controller';
@@ -16,6 +17,7 @@ import { EvaluationsController } from './evaluations/evaluations.controller';
 import { RequirementsController } from './jobs/requirements.controller';
 import { JobAnalysisController } from './jobs/analysis.controller';
 import { JobSkillsController } from './jobs/job-skills.controller';
+import { TranslationController } from './jobs/translation.controller';
 import { SkillsController } from './jobs/skills.controller';
 import { HealthController } from './health.controller';
 import { JobsController } from './jobs/jobs.controller';
@@ -28,6 +30,7 @@ import { MeController } from './me/me.controller';
 import { OrganizationsController } from './organizations/organizations.controller';
 
 import { EmployerClaimsController } from './organizations/employer-claims.controller';
+import { OrganizationVerificationController } from './organizations/organization-verification.controller';
 import { OrganizationListingsController } from './organizations/organization-listings.controller';
 import { MyInvitationsController, TeamController } from './organizations/team.controller';
 
@@ -39,6 +42,7 @@ import { MyInvitationsController, TeamController } from './organizations/team.co
     AssessmentsController, AttemptsController, EvaluationsController, RequirementsController,
     CandidateController, CvController, CareerController, ReferenceController, InterviewsController, AdminController, JobAnalysisController, JobSkillsController,
     TeamController, MyInvitationsController, EmployerClaimsController, OrganizationListingsController,
+    OrganizationVerificationController, AdminOrganizationsController, TranslationController,
   ],
 })
 export class AppModule {}

@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { INestApplication, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { approveOrganization } from './test-support/approve-organization';
 import { AppModule } from './app.module';
 import { configureApp } from './common/configure-app';
 import { loadEnv } from './common/load-env';
@@ -323,6 +324,7 @@ describe('Midan administration and data pipeline', () => {
       const skills = await rest(null, 'GET', `reference_skills?sector_code=eq.financial_services&skill_kind=eq.technical&name_ar=like.*${encodeURIComponent(' ')}*&select=id,name_ar&order=name_ar&limit=2`);
       const [first, second] = skills.body as { id: string; name_ar: string }[];
       org = (await api().post('/organizations').set(bearer(ownerA)).send({ slug: `midan-test-analysis-${RUN}`, name_ar: 'تحليل', name_en: 'Analysis' }).expect(201)).body.id;
+      await approveOrganization(app.getHttpServer(), ownerA.token, org);
       job = (await api().post(`/organizations/${org}/jobs`).set(bearer(ownerA)).send({ slug: 'analyst', title_ar: 'محلل', title_en: 'Analyst' }).expect(201)).body.id;
       // The same words can appear in several sectors' workbooks, so the employer's own choice of sector decides.
       await api().patch(`/organizations/${org}/jobs/${job}`).set(bearer(ownerA))
@@ -354,6 +356,7 @@ describe('Midan administration and data pipeline', () => {
     it('builds tasks from stated responsibilities and linked workbook skills, and links them back', async () => {
       skill = (await rest(null, 'GET', `reference_skills?sector_code=eq.digital&skill_kind=eq.technical&description_ar=not.is.null&select=id,name_ar&order=name_ar&limit=1`)).body[0];
       org = (await api().post('/organizations').set(bearer(ownerA)).send({ slug: `midan-test-build-${RUN}`, name_ar: 'بناء', name_en: 'Build' }).expect(201)).body.id;
+      await approveOrganization(app.getHttpServer(), ownerA.token, org);
       job = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: 'builder', title_ar: 'مطور', title_en: 'Developer' }).expect(201)).body.id;
       const responsibility = (await api().post(`${base()}/jobs/${job}/requirements`).set(bearer(ownerA))
         .send({ requirement_type: 'responsibility', description_ar: 'بناء واجهات برمجية لخدمة الطلبات', description_en: 'Build APIs that serve orders' }).expect(201)).body;
@@ -474,6 +477,7 @@ describe('Midan administration and data pipeline', () => {
 
       orgSlug = `midan-test-journey-${RUN}`;
       org = (await api().post('/organizations').set(bearer(ownerA)).send({ slug: orgSlug, name_ar: 'رحلة كاملة', name_en: 'Full journey' }).expect(201)).body.id;
+      await approveOrganization(app.getHttpServer(), ownerA.token, org);
       job = (await api().post(`${base()}/jobs`).set(bearer(ownerA)).send({ slug: 'engineer', title_ar: 'مهندس منصات', title_en: 'Platform engineer' }).expect(201)).body.id;
       await api().patch(`${base()}/jobs/${job}`).set(bearer(ownerA)).send({ description_ar: `يعمل على ${skills[0].name_ar} و${skills[1].name_ar}.` }).expect(200);
       await api().post(`${base()}/jobs/${job}/requirements`).set(bearer(ownerA))

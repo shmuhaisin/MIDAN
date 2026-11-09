@@ -12,7 +12,7 @@ import { ErrorText, INPUT, openFileLink, PRIMARY, useAction } from './forms';
 import { Icon } from './icons';
 
 const SECTIONS = [
-  ['', 'overview', 'layers'], ['/review', 'review', 'inbox'], ['/imports', 'imports', 'file'], ['/employers', 'employers', 'building'], ['/listings', 'listings', 'list'], ['/claims', 'claims', 'shield'],
+  ['', 'overview', 'layers'], ['/organizations', 'organizations', 'building'], ['/review', 'review', 'inbox'], ['/imports', 'imports', 'file'], ['/employers', 'employers', 'building'], ['/listings', 'listings', 'list'], ['/claims', 'claims', 'shield'],
   ['/reference', 'reference', 'search'], ['/learning', 'learning', 'growth'], ['/accounts', 'accounts', 'users'], ['/queue', 'queue', 'clock'], ['/audit', 'audit', 'list'],
 ] as const;
 

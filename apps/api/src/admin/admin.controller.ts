@@ -85,6 +85,16 @@ export class AdminController {
         (select count(*)::int from public.users) as users,
         (select count(*)::int from public.organizations where not is_test and not is_demo) as organizations,
         (select count(*)::int from public.organizations where is_test) as test_organizations,
+        (select count(*)::int from public.organizations where verification_status = 'pending_review') as organizations_pending_review,
+        (select count(*)::int from public.organizations where verification_status = 'changes_requested') as organizations_changes_requested,
+        (select count(*)::int from public.organizations where verification_status = 'approved') as organizations_approved,
+        (select count(*)::int from public.organizations where verification_status = 'rejected') as organizations_rejected,
+        (select count(*)::int from public.organizations where verification_status = 'suspended') as organizations_suspended,
+        (select count(*)::int from public.organizations where verification_status = 'draft') as organizations_draft,
+        (select count(*)::int from public.candidate_profiles) as candidates,
+        (select count(*)::int from public.applications a join public.jobs j on j.id = a.job_id where not j.is_demo) as applications,
+        (select count(*)::int from public.applications a join public.jobs j on j.id = a.job_id where not j.is_demo and a.created_at > now() - interval '7 days') as applications_last_7_days,
+        (select count(*)::int from public.interviews where scheduled_at > now()) as upcoming_interviews,
         (select count(*)::int from public.jobs where status = 'published' and not is_demo) as published_jobs,
         (select count(*)::int from public.reference_skills) as reference_skills,
         (select count(*)::int from public.employer_registry) as employers,
@@ -278,14 +288,24 @@ export class AdminController {
   }
 
   @Get('organizations')
-  organizations(@CurrentUser() user: AuthUser) {
+  @ApiOperation({ summary: 'Organizations, waiting reviews first. Filters: status (review status) and q (name, slug or commercial registration).' })
+  organizations(@CurrentUser() user: AuthUser, @Query('status') status?: string, @Query('q') q?: string) {
+    const needle = q?.trim().toLowerCase().slice(0, 100) || null;
+    const wanted = status && ['draft', 'pending_review', 'changes_requested', 'rejected', 'approved', 'suspended'].includes(status) ? status : null;
     return this.db.asUser(user, (tx) => tx.$queryRaw`
       select o.id, o.slug, o.name_ar, o.name_en, o.is_demo, o.is_test, o.created_at, o.employer_registry_id,
+        o.verification_status, o.verification_updated_at, o.commercial_registration, o.city, o.company_type,
+        (select r.created_at from public.organization_verification_requests r where r.org_id = o.id order by r.created_at desc limit 1) as last_submitted_at,
+        (select count(*)::int from public.organization_verification_requests r where r.org_id = o.id) as submissions,
         (select e.source_company_id from public.employer_registry e where e.id = o.employer_registry_id) as employer_company_id,
         (select count(*)::int from public.organization_members m where m.org_id = o.id) as members,
         (select count(*)::int from public.jobs j where j.org_id = o.id) as jobs,
         (select count(*)::int from public.jobs j where j.org_id = o.id and j.status = 'published') as published_jobs
-      from public.organizations o order by o.is_test, o.created_at desc limit 500`);
+      from public.organizations o
+      where (${wanted}::text is null or o.verification_status = ${wanted})
+        and (${needle}::text is null or lower(o.name_en) like '%' || ${needle} || '%' or o.name_ar like '%' || ${needle} || '%'
+          or o.slug like '%' || ${needle} || '%' or coalesce(o.commercial_registration, '') like '%' || ${needle} || '%')
+      order by (o.verification_status = 'pending_review') desc, o.is_test, coalesce(o.verification_updated_at, o.created_at) desc limit 500`);
   }
 
   @Post('organizations/:id/employer')

@@ -54,6 +54,31 @@ export class AiClient {
     return this.post<T>('/skills/suggest', body, 180_000);
   }
 
+  /**
+   * A job's bilingual fields translated by the live model, for the employer to review. Without a model the service answers
+   * 503 with the reason (ai_unavailable:<kind>); that reason is passed on, never replaced by invented text.
+   */
+  async translate(body: { source: 'ar' | 'en'; target: 'ar' | 'en'; fields: { key: string; text: string }[] }) {
+    let response: Response;
+    try {
+      response = await fetch(`${process.env.AI_SERVICE_URL}/translate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-service-token': process.env.AI_SERVICE_TOKEN ?? '' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(45_000),
+      });
+    } catch {
+      return { ok: false as const, reason: 'unavailable' };
+    }
+    if (response.status === 503) {
+      const detail = ((await response.json().catch(() => ({}))) as { detail?: string }).detail ?? '';
+      return { ok: false as const, reason: detail.startsWith('ai_unavailable:') ? detail.slice('ai_unavailable:'.length) : 'unavailable' };
+    }
+    if (response.status === 422) throw new UnprocessableEntityException('The AI service refused this request');
+    if (!response.ok) return { ok: false as const, reason: 'unavailable' };
+    return { ok: true as const, ...((await response.json()) as { translations: { key: string; text: string }[]; provenance: Provenance }) };
+  }
+
   run<T>(graph: 'assessment-builder' | 'evaluation', body: unknown) {
     return this.post<GraphResult<T>>(`/graphs/${graph}/runs`, body);
   }

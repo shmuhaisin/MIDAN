@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { OrgNav } from '@/components/org-shell';
+import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { pick, readableOnWhite } from '@/lib/format';
 import { getSession } from '@/lib/session';
@@ -9,6 +10,7 @@ type Org = {
   name_en: string;
   my_role: string;
   is_demo?: boolean;
+  verification_status?: string;
   branding: { logo_path: string | null; primary_color: string | null; accent_color: string | null } | null;
 };
 
@@ -28,6 +30,7 @@ export default async function OrganizationLayout({ children, params }: { childre
   const t = await getTranslations({ locale, namespace: 'orgShell' });
   const td = await getTranslations({ locale, namespace: 'dashboard' });
   const to = await getTranslations({ locale, namespace: 'org' });
+  const tv = await getTranslations({ locale, namespace: 'verification' });
   const name = pick(locale, org.name_ar, org.name_en);
   const primary = org.branding?.primary_color && HEX.test(org.branding.primary_color) ? org.branding.primary_color : null;
   const accent = org.branding?.accent_color && HEX.test(org.branding.accent_color) ? org.branding.accent_color : null;
@@ -61,7 +64,16 @@ export default async function OrganizationLayout({ children, params }: { childre
             <OrgNav orgId={orgId} />
           </div>
         </aside>
-        <div className="min-w-0">{children}</div>
+        <div className="min-w-0">
+          {org.verification_status && org.verification_status !== 'approved' && (
+            // Until a MIDAN administrator approves the organization, publishing, applications and invitations stay closed.
+            <div role="status" className={`callout mb-6 flex flex-wrap items-center justify-between gap-3 text-sm ${org.verification_status === 'suspended' || org.verification_status === 'rejected' ? 'border-error' : ''}`}>
+              <p className="max-w-3xl">{tv(`banner.${org.verification_status}`)}</p>
+              {['owner', 'admin'].includes(org.my_role) && <Link href={`/organization/${orgId}/verification`} className="btn btn-secondary btn-sm">{tv('banner.action')}</Link>}
+            </div>
+          )}
+          {children}
+        </div>
       </div>
     </div>
   );

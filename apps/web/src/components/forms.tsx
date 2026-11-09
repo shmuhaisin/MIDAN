@@ -10,6 +10,7 @@ import { statusOptions } from '@/lib/application-status';
 import { changePassword, requestPasswordReset, resetPassword, signIn, signUp, startGoogleSignIn, type FormState } from '@/lib/auth-actions';
 import { PROFESSIONAL_FIELDS, resolveHumaidan } from '@/lib/humaidan';
 import { Arrow, Humaidan } from './brand';
+import { BilingualPair } from './bilingual';
 
 export const INPUT = 'input';
 export const PRIMARY = 'btn btn-primary';
@@ -359,7 +360,7 @@ export function JobForm({ orgId, defaultOpen = false }: { orgId: string; default
   const router = useRouter();
   const [state, action, pending] = useActionState<FormState, FormData>(createJob.bind(null, orgId), {});
   const [open, setOpen] = useState(defaultOpen);
-  const descriptionId = useId();
+  const tb = useTranslations('bilingual');
   // Once the draft exists, the guided setup continues on the job's own page. Navigation happens after rendering, never in it.
   useEffect(() => {
     if (pending || !state.ok) return;
@@ -381,19 +382,15 @@ export function JobForm({ orgId, defaultOpen = false }: { orgId: string; default
                 <p className="mt-1 text-sm text-muted">{tw('step1Lead')}</p>
               </div>
               <ErrorText code={state.error} />
+              {/* Each pair translates itself as the employer types; see components/bilingual.tsx. */}
+              <p className="text-sm text-muted">{tb('lead')}</p>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field name="title_ar" required maxLength={200} label={t('titleAr')} dir="rtl" />
-                <Field name="title_en" required maxLength={200} label={t('titleEn')} dir="ltr" />
+                <BilingualPair orgId={orgId} field="title" required maxLength={200} labels={{ ar: t('titleAr'), en: t('titleEn') }} />
               </div>
               <fieldset className="grid gap-4 sm:grid-cols-2">
                 <legend className="field-label mb-2">{tw('descriptionTitle')}</legend>
-                {(['ar', 'en'] as const).map((lang) => (
-                  <div key={lang}>
-                    <label htmlFor={`${descriptionId}-${lang}`} className="field-label">{tw(lang === 'ar' ? 'descriptionAr' : 'descriptionEn')}</label>
-                    <textarea id={`${descriptionId}-${lang}`} name={`description_${lang}`} rows={7} maxLength={8000} dir={lang === 'ar' ? 'rtl' : 'ltr'} className={clsx(INPUT, 'h-auto py-2.5 leading-relaxed')} />
-                  </div>
-                ))}
-                <p className="text-xs text-muted sm:col-span-2">{tw('descriptionHint')}</p>
+                <BilingualPair orgId={orgId} field="description" multiline rows={7} maxLength={8000} hint={tw('descriptionHint')}
+                  labels={{ ar: tw('descriptionAr'), en: tw('descriptionEn') }} />
               </fieldset>
               <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
                 <Submit>{tw('createAndContinue')}<Arrow /></Submit>

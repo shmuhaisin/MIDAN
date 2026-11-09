@@ -29,9 +29,10 @@ from public.skills s cross join (values
   (4, 'يتعامل مع التعقيد ويتوقع الآثار ويرفع جودة الحل.', 'Handles complexity, anticipates consequences and raises the quality of the solution.')
 ) as l(level, ar, en);
 
-insert into public.organizations (slug, name_ar, name_en, description, is_demo) values
-  ('demo-najd-analytics', 'نجد للتحليلات (منشأة تجريبية)', 'Najd Analytics (demo organization)', 'Fictional organization for demonstration.', true),
-  ('demo-sahel-finance', 'الساحل المالية (منشأة تجريبية)', 'Sahel Finance (demo organization)', 'Fictional organization for demonstration.', true);
+-- Fictional demo organizations count as reviewed (20261111090000_organization_verification).
+insert into public.organizations (slug, name_ar, name_en, description, is_demo, verification_status) values
+  ('demo-najd-analytics', 'نجد للتحليلات (منشأة تجريبية)', 'Najd Analytics (demo organization)', 'Fictional organization for demonstration.', true, 'approved'),
+  ('demo-sahel-finance', 'الساحل المالية (منشأة تجريبية)', 'Sahel Finance (demo organization)', 'Fictional organization for demonstration.', true, 'approved');
 
 insert into public.organization_branding (org_id, primary_color, accent_color, industry)
 select id, '#1F7A4D', '#D4AF37', case slug when 'demo-sahel-finance' then 'finance' else 'technology' end

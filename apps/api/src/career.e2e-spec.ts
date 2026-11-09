@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { approveOrganization } from './test-support/approve-organization';
 import { AppModule } from './app.module';
 import { configureApp } from './common/configure-app';
 import { loadEnv } from './common/load-env';
@@ -54,6 +55,7 @@ describe('career intelligence', () => {
     await app.init();
     [owner, candidate, other] = await Promise.all(['ORG_B_OWNER', 'CANDIDATE_TWO', 'CANDIDATE_ONE'].map(signIn));
     org = (await api().post('/organizations').set(bearer(owner)).send({ slug: `midan-test-career-${RUN}`, name_ar: 'جهة', name_en: 'Career org' }).expect(201)).body.id;
+    await approveOrganization(app.getHttpServer(), owner.token, org);
     job = (await api().post(`/organizations/${org}/jobs`).set(bearer(owner)).send({ slug: 'analyst', title_ar: `محلل بيانات ${RUN}`, title_en: `Data analyst ${RUN}`, status: 'published' }).expect(201)).body.id;
     skill = ((await api().get('/skills').expect(200)).body as { id: string; slug: string; name_en: string }[]).find((s) => s.slug === 'data-analysis')!;
     await api().patch(`/organizations/${org}/jobs/${job}`).set(bearer(owner)).send({ skills: [{ skill_id: skill.id, required_level: 3 }] }).expect(200);

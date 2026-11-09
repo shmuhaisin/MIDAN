@@ -17,6 +17,7 @@ const ITEMS: { key: string; path: string; icon: IconName; also?: string[] }[] = 
   { key: 'hiring', path: '/hiring', icon: 'check' },
   { key: 'reports', path: '/reports', icon: 'growth' },
   { key: 'assistant', path: '/assistant', icon: 'inbox' },
+  { key: 'verification', path: '/verification', icon: 'shield' },
   { key: 'settings', path: '/settings', icon: 'settings' },
 ];
 

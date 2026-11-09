@@ -514,7 +514,8 @@
     "file_unterminated_quote": "This CSV has a quotation mark that never closes.",
     "feedback_incomplete": "Rate every competency and choose a recommendation before submitting.",
     "invalid_year": "Check the year: it should be a four-digit year.",
-    "ai_unavailable": "The AI model isn't available right now, so the task wasn't changed. Try again in a minute, or edit it yourself."
+    "ai_unavailable": "The AI model isn't available right now, so the task wasn't changed. Try again in a minute, or edit it yourself.",
+    "reason_required": "Give a reason. It's recorded and, for decisions, shown to the organization."
   },
   "applicationStatus": {
     "submitted": "Submitted",
@@ -1763,7 +1764,13 @@
       "employer_claim_rejected": "Your request to manage an employer profile wasn't approved",
       "application_shortlisted": "You've been shortlisted for {job}",
       "application_rejected": "The organization decided not to continue with your application for {job}",
-      "interview_cancelled": "Your interview for {job} was cancelled"
+      "interview_cancelled": "Your interview for {job} was cancelled",
+      "organization_review_requested": "An organization submitted its application for review",
+      "organization_approved": "Your organization was approved. You can publish jobs and invite your team",
+      "organization_rejected": "Your organization's application was not approved",
+      "organization_changes_requested": "Your organization's application needs changes",
+      "organization_suspended": "Your organization was suspended",
+      "organization_reactivated": "Your organization was reactivated"
     },
     "filter": "Show notifications",
     "noneHere": "Nothing here.",
@@ -2000,7 +2007,8 @@
       "accounts": "Accounts",
       "queue": "Background jobs",
       "audit": "Audit log",
-      "claims": "Employer claims"
+      "claims": "Employer claims",
+      "organizations": "Organizations"
     },
     "overview": {
       "counts": {
@@ -2017,7 +2025,10 @@
         "organizations": "Organizations",
         "publishedJobs": "Published jobs",
         "importRuns": "Import runs",
-        "testOrganizations": "Test organizations"
+        "testOrganizations": "Test organizations",
+        "organizationsPending": "Organizations waiting for review",
+        "candidates": "Candidates",
+        "applications": "Applications"
       },
       "integrations": "Integrations",
       "integrationsLead": "Configured means credentials are present on this server. It doesn't mean a real call has been verified.",
@@ -2048,7 +2059,8 @@
         "listingsPending": "External listings to check before they are shown.",
         "uncertainMatches": "Listings whose employer wasn't matched with confidence: confirm or correct the match.",
         "failedJobs": "Background tasks that stopped: read the reason, then retry or dismiss.",
-        "failedImports": "Files that didn't import: read the reason and upload again."
+        "failedImports": "Files that didn't import: read the reason and upload again.",
+        "organizationsPending": "New organizations that can't recruit until a person checks their registration and decides."
       },
       "glanceTitle": "The platform at a glance",
       "glanceLead": "Counts of what is stored right now. No trends are shown, because these are counts at this moment, not a history.",
@@ -2460,6 +2472,64 @@
         "rejected": "Rejected",
         "withdrawn": "Withdrawn"
       }
+    },
+    "organizations": {
+      "title": "Organizations",
+      "lead": "Every organization recruits only after a person here approves it. Check the commercial registration against the official record before approving. Refusals and suspensions need a reason, which the audit log keeps.",
+      "filters": "Filter by review status",
+      "all": "All",
+      "search": "Name, address or registration number",
+      "searchButton": "Search",
+      "empty": "No organizations here",
+      "emptyBody": "Try another status or search.",
+      "organization": "Organization",
+      "status": "Review",
+      "cr": "Registration",
+      "submitted": "Last submitted",
+      "activity": "Activity",
+      "activityLine": "{members} members · {jobs} jobs · {published} published",
+      "submissions": "{count} submissions",
+      "test": "test",
+      "demo": "demo",
+      "back": "All organizations",
+      "createdAt": "Created {when}",
+      "profile": "Submitted profile",
+      "documentsLead": "Links last five minutes and are made for you only.",
+      "members": "Members",
+      "jobsLine": "Jobs: {draft} draft, {published} published, {closed} closed.",
+      "decision": "Decision",
+      "note": "Note to the organization",
+      "noteHint": "Required to request changes or to refuse. The organization sees it.",
+      "reason": "Reason",
+      "reasonHint": "Required. Kept in the audit log; the organization is notified.",
+      "approve": "Approve",
+      "requestChanges": "Request changes",
+      "reject": "Refuse",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "done": {
+        "approved": "Approved.",
+        "changes": "Changes requested.",
+        "rejected": "Refused.",
+        "suspended": "Suspended.",
+        "reactivated": "Reactivated."
+      },
+      "nothingToDecide": {
+        "draft": "Not submitted yet: nothing to decide.",
+        "changes_requested": "Waiting for the organization to make the requested changes.",
+        "rejected": "Refused. The organization may submit a new application."
+      },
+      "audit": "Audit trail",
+      "noAudit": "No recorded actions.",
+      "action": {
+        "submit": "Submitted for review",
+        "approve": "Approved",
+        "reject": "Refused",
+        "request_changes": "Changes requested",
+        "suspend": "Suspended",
+        "reactivate": "Reactivated",
+        "approved_before_review": "Approved before review existed"
+      }
     }
   },
   "jobAnalysis": {
@@ -2633,7 +2703,8 @@
     "previous": "Previous",
     "next": "Next",
     "position": "{n} of {total}",
-    "assistant": "Ask MIDAN"
+    "assistant": "Ask MIDAN",
+    "verification": "Organization review"
   },
   "journey": {
     "eyebrow": "Welcome to the world of MIDAN",
@@ -3521,5 +3592,126 @@
     "closing": "See it with real work, not promises",
     "ctaExplore": "Explore opportunities",
     "ctaOrganizations": "For organizations"
+  },
+  "verification": {
+    "title": "Organization review",
+    "lead": "MIDAN checks every organization before it recruits. Complete your profile, add your commercial registration, and submit. A MIDAN administrator decides, usually after checking the documents against official records.",
+    "banner": {
+      "draft": "Your organization isn't reviewed yet. You can prepare jobs, but publishing, receiving applications and inviting your team open after approval.",
+      "pending_review": "Your organization is under review. Publishing, applications and invitations open once it's approved.",
+      "changes_requested": "MIDAN asked for changes to your organization's application. Make them and submit again.",
+      "rejected": "Your organization's application was not approved. You can correct it and submit a new application.",
+      "suspended": "Your organization is suspended. Its jobs are hidden and receive no applications.",
+      "action": "Open organization review"
+    },
+    "steps": {
+      "profile": "Profile",
+      "documents": "Documents",
+      "submit": "Submit",
+      "decision": "Decision"
+    },
+    "status": {
+      "draft": "Not submitted",
+      "pending_review": "Under review",
+      "changes_requested": "Changes requested",
+      "rejected": "Not approved",
+      "approved": "Approved",
+      "suspended": "Suspended"
+    },
+    "statusHeading": "Where your application stands",
+    "statusBody": {
+      "draft": "Not submitted yet. Complete the profile and add the commercial registration, then submit.",
+      "pending_review": "Submitted. A MIDAN administrator is reviewing your profile and documents. You'll get a notification when they decide.",
+      "changes_requested": "The reviewer asked for changes. Update the profile or documents below, then submit again.",
+      "rejected": "Not approved. The reason is below. You can correct the application and submit it again.",
+      "approved": "Approved. Your organization can publish jobs, receive applications and invite its team.",
+      "suspended": "Suspended by MIDAN. Your jobs are hidden from candidates and receive no applications. Contact MIDAN to resolve it."
+    },
+    "requestedChanges": "What the reviewer asked for",
+    "rejectionReason": "Why it wasn't approved",
+    "updatedAt": "Last change: {when}",
+    "ownersOnly": "Only the organization's owner or admins can see and change the application.",
+    "profileHeading": "Organization profile",
+    "profileLead": "Use the official names and number exactly as they appear on the commercial registration.",
+    "identityLocked": "The official names and commercial registration were submitted for review and can't be changed here. Contact MIDAN to correct them.",
+    "identity": "Official identity",
+    "contact": "Contact",
+    "representative": "Authorized representative",
+    "about": "About the organization",
+    "choose": "Choose…",
+    "field": {
+      "name_ar": "Official name in Arabic",
+      "name_en": "Official name in English",
+      "commercial_registration": "Commercial registration number",
+      "company_type": "Organization type",
+      "industry": "Field",
+      "city": "City",
+      "business_email": "Business email",
+      "contact_phone": "Contact phone",
+      "website": "Official website",
+      "representative_name": "Representative's full name",
+      "representative_title": "Representative's position",
+      "description_ar": "Description in Arabic",
+      "description_en": "Description in English"
+    },
+    "crHint": "10 digits",
+    "phoneHint": "For example +966 11 234 5678",
+    "websiteHint": "Starts with https://",
+    "saveProfile": "Save profile",
+    "saved": "Saved",
+    "documentsHeading": "Documents",
+    "documentsLead": "Private: only your organization's owner and admins, and MIDAN administrators, can open them. The commercial registration is required.",
+    "documentsLocked": "Documents can't be changed while the application is under review or after approval.",
+    "noDocuments": "No documents yet.",
+    "documentKind": "Document",
+    "kind": {
+      "commercial_registration": "Commercial registration",
+      "authorization_letter": "Authorization letter",
+      "tax_certificate": "Tax certificate",
+      "other": "Other document"
+    },
+    "file": "File",
+    "fileHint": "PDF, PNG or JPEG, up to 10 MB.",
+    "upload": "Upload",
+    "open": "Open",
+    "remove": "Remove",
+    "submitHeading": "Submit for review",
+    "resubmitHeading": "Submit again",
+    "missingLead": "Before you submit, add:",
+    "missing": {
+      "name_ar": "Official name in Arabic",
+      "name_en": "Official name in English",
+      "company_type": "Organization type",
+      "commercial_registration": "Commercial registration number",
+      "business_email": "Business email",
+      "contact_phone": "Contact phone",
+      "city": "City",
+      "representative_name": "Representative's name",
+      "representative_title": "Representative's position",
+      "document_commercial_registration": "Commercial registration document"
+    },
+    "readyLead": "Everything required is here. Once submitted, the official names, registration number and documents are locked while MIDAN reviews them.",
+    "submit": "Submit for review",
+    "resubmit": "Submit again",
+    "submitNote": "Save the profile first if you changed it.",
+    "historyHeading": "Review history",
+    "noHistory": "Nothing submitted yet.",
+    "submittedAt": "Submitted {when}",
+    "decidedAt": "Decided {when}",
+    "documentsAtSubmission": "{count, plural, =0 {No documents} one {# document} other {# documents}} at submission"
+  },
+  "bilingual": {
+    "lead": "Write in either language: the other fills in by itself a moment after you stop typing. Review both before saving; what you write yourself is never replaced.",
+    "fromArabic": "Translate from Arabic",
+    "fromEnglish": "Translate from English",
+    "translating": "Translating…",
+    "translated": "Translated by AI. Review it before saving.",
+    "failed": {
+      "not_configured": "Automatic translation isn't available here. Write this language yourself.",
+      "quota_exhausted": "The AI's daily limit is used up. Write this language yourself, or try tomorrow.",
+      "rate_limited": "The AI is busy. Try again in a minute.",
+      "timeout": "The AI took too long. Try again.",
+      "other": "Couldn't translate. Try again, or write it yourself."
+    }
   }
 }

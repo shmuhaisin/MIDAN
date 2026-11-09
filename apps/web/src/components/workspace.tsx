@@ -11,6 +11,7 @@ import { nextId } from '@/lib/assessment-review';
 import { list, pick } from '@/lib/format';
 import { PROFESSIONAL_FIELDS } from '@/lib/humaidan';
 import { Arrow } from './brand';
+import { BilingualPair } from './bilingual';
 import { ActionForm, ErrorText, Field, INPUT, PRIMARY, Submit, useAction } from './forms';
 import { saveVersionSettings } from '@/lib/candidate-actions';
 import { TaskRequirementPicker, type Requirement } from './requirements';
@@ -105,12 +106,13 @@ export function JobDetailsForm({ orgId, job, skills, canEdit, formId, wizardNext
       <fieldset disabled={!canEdit} className="space-y-4">
         <ErrorText code={state.error} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field name="title_ar" required dir="rtl" label={t('titleAr')} defaultValue={job.title_ar} />
-          <Field name="title_en" required dir="ltr" label={t('titleEn')} defaultValue={job.title_en} />
-          <TextArea name="description_ar" dir="rtl" label={t('descriptionAr')} hint={t('descriptionHint')} defaultValue={job.description_ar ?? ''} />
-          <TextArea name="description_en" dir="ltr" label={t('descriptionEn')} hint={t('descriptionHint')} defaultValue={job.description_en ?? ''} />
-          <TextArea name="requirements_ar" dir="rtl" rows={3} label={t('requirementsAr')} defaultValue={job.requirements_ar ?? ''} />
-          <TextArea name="requirements_en" dir="ltr" rows={3} label={t('requirementsEn')} defaultValue={job.requirements_en ?? ''} />
+          {/* Each pair translates itself as the employer types; saved text is never replaced automatically (components/bilingual.tsx). */}
+          <BilingualPair orgId={orgId} field="title" required maxLength={200} disabled={!canEdit}
+            labels={{ ar: t('titleAr'), en: t('titleEn') }} defaults={{ ar: job.title_ar, en: job.title_en }} />
+          <BilingualPair orgId={orgId} field="description" multiline maxLength={8000} disabled={!canEdit} hint={t('descriptionHint')}
+            labels={{ ar: t('descriptionAr'), en: t('descriptionEn') }} defaults={{ ar: job.description_ar, en: job.description_en }} />
+          <BilingualPair orgId={orgId} field="requirements" multiline rows={3} maxLength={8000} disabled={!canEdit}
+            labels={{ ar: t('requirementsAr'), en: t('requirementsEn') }} defaults={{ ar: job.requirements_ar, en: job.requirements_en }} />
           <Field name="location" label={t('location')} defaultValue={job.location ?? ''} />
           <label className="block">
             <span className="field-label">{t('sector')}</span>

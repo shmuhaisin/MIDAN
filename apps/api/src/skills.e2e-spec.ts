@@ -6,6 +6,7 @@ import 'reflect-metadata';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { approveOrganization } from './test-support/approve-organization';
 import { AppModule } from './app.module';
 import { configureApp } from './common/configure-app';
 import { loadEnv } from './common/load-env';
@@ -44,6 +45,7 @@ describe('job skills', () => {
     await app.init();
     [owner, outsider, candidate] = await Promise.all(['ORG_A_OWNER', 'ORG_B_OWNER', 'CANDIDATE_ONE'].map(signIn));
     org = (await api().post('/organizations').set(bearer(owner)).send({ slug: `midan-test-skills-${RUN}`, name_ar: 'جهة مهارات', name_en: 'Skills org' }).expect(201)).body.id;
+    await approveOrganization(app.getHttpServer(), owner.token, org);
     const make = async (title: string, description: string) => {
       const id = (await api().post(`/organizations/${org}/jobs`).set(bearer(owner)).send({ title_ar: title, title_en: title, description_en: description, status: 'published' }).expect(201)).body.id;
       await api().patch(`/organizations/${org}/jobs/${id}`).set(bearer(owner)).send({ sector: 'digital' }).expect(200);
