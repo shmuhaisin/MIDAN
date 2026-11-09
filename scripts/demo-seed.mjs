@@ -154,6 +154,9 @@ for (const tenant of TENANTS) {
   const review = (await call(owner, 'GET', `/organizations/${org}/verification`)).data.organization;
   if (review.verification_status !== 'approved') {
     if (review.verification_status === 'draft' || review.verification_status === 'changes_requested') {
+      // Review requires the company type, like any organization's application.
+      const companyType = ['elm', 'stc', 'sipchem'].includes(tenant.key) ? 'large_enterprise' : 'government_entity';
+      await call(owner, 'PATCH', `/organizations/${org}/company-type`, { company_type: companyType });
       await call(owner, 'PATCH', `/organizations/${org}/profile`, {
         commercial_registration: `7${String(TENANTS.indexOf(tenant)).padStart(2, '0')}0000000`.slice(0, 10), business_email: `demo-${tenant.key}@example.com`,
         contact_phone: '+966 11 000 0000', city: 'Riyadh', representative_name: 'Demo Representative (fictional)', representative_title: 'Demo account',
@@ -235,10 +238,20 @@ for (const c of CANDIDATES) {
 // --- Employers: evaluations reviewed and released by a person; pipeline decisions
 for (const s of submitted) {
   if (s.attemptId) {
-    let evaluation = (await call(s.owner, 'GET', `/attempts/${s.attemptId}/evaluation`, undefined, { allow: [404] })).data?.evaluation_results;
-    if (!evaluation) evaluation = (await call(s.owner, 'POST', `/attempts/${s.attemptId}/evaluate`, undefined, { allow: [409, 422] })).data;
-    if (evaluation?.status === 'needs_human_review') await call(s.owner, 'POST', `/evaluations/${evaluation.id}/review`, { scores: [], notes: 'Reviewed by a person for the DEMO dataset.' }, { allow: [409, 422] });
-    if (evaluation?.id) await call(s.owner, 'POST', `/evaluations/${evaluation.id}/release`, undefined, { allow: [409, 422] });
+    const read = async () => (await call(s.owner, 'GET', `/attempts/${s.attemptId}/evaluation`, undefined, { allow: [404] })).data;
+    let view = await read();
+    if (!view?.evaluation_results) { await call(s.owner, 'POST', `/attempts/${s.attemptId}/evaluate`, undefined, { allow: [409, 422] }); view = await read(); }
+    const evaluation = view?.evaluation_results;
+    if (evaluation?.status === 'needs_human_review') {
+      // The person's review: every criterion the model didn't score gets a score in line with the scenario.
+      const scored = new Set((evaluation.criterion_scores ?? []).map((c) => c.criterion_id));
+      const share = { strong: 0.85, partial: 0.55, weak: 0.2 }[s.c.answer];
+      const scores = view.assessment_versions.assessment_tasks.flatMap((t) => t.rubric_criteria)
+        .filter((c) => !scored.has(c.id))
+        .map((c) => ({ criterion_id: c.id, score: Math.round(Number(c.max_score) * share), explanation: 'DEMO: scored by a person for the fictional dataset.' }));
+      await call(s.owner, 'POST', `/evaluations/${evaluation.id}/review`, { scores, notes: 'Reviewed by a person for the DEMO dataset.' });
+    }
+    if (evaluation?.id) await call(s.owner, 'POST', `/evaluations/${evaluation.id}/release`, undefined, { allow: [409] });
   }
   await call(s.owner, 'GET', `/organizations/${s.org}/applications/${s.appId}/match`, undefined, { allow: [404, 503] });
   if (s.c.answer === 'strong') await call(s.owner, 'PATCH', `/applications/${s.appId}/status`, { status: 'shortlisted' }, { allow: [409, 422] });
