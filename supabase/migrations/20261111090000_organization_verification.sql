@@ -16,10 +16,12 @@
 -- action 'approved_before_review'). On a hosted database, the owner decides whether that is right before deploying.
 
 -- 1. Profile fields --------------------------------------------------------------------------------------------------
+-- Existing rows get 'approved' through the column default, not an UPDATE, so no row trigger runs (no audit row of its
+-- own, no new updated_at) and the rollback leaves every existing row exactly as it was. New rows then start as 'draft'.
 alter table public.organizations
-  add column verification_status text not null default 'draft'
+  add column verification_status text not null default 'approved'
     check (verification_status in ('draft', 'pending_review', 'changes_requested', 'rejected', 'approved', 'suspended')),
-  add column verification_updated_at timestamptz,
+  add column verification_updated_at timestamptz default now(),
   add column commercial_registration text check (commercial_registration ~ '^[0-9]{10}$'),
   add column website text check (website ~ '^https?://[^\s]+$' and length(website) <= 300),
   add column business_email text check (business_email ~ '^[^\s@]+@[^\s@]+\.[^\s@]+$' and length(business_email) <= 200),
@@ -30,7 +32,8 @@ alter table public.organizations
   add column representative_name text check (length(representative_name) between 2 and 200),
   add column representative_title text check (length(representative_title) between 2 and 200);
 
-update public.organizations set verification_status = 'approved', verification_updated_at = now();
+alter table public.organizations alter column verification_status set default 'draft',
+  alter column verification_updated_at drop default;
 insert into public.audit_logs (org_id, actor_id, action, entity, entity_id, details)
 select id, null, 'approved_before_review', 'organizations', id::text, jsonb_build_object('reason', 'Existed before organization review was required')
 from public.organizations;

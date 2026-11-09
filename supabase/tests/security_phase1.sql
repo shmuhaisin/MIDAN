@@ -21,6 +21,13 @@ insert into auth.users (id, email, raw_user_meta_data, email_confirmed_at) value
 insert into public.organizations (id, slug, name_ar, name_en) values
   ('00000000-0000-4000-8000-0000000000a0', 'phase1-org-a', 'المنظمة أ', 'Organization A'),
   ('00000000-0000-4000-8000-0000000000b0', 'phase1-org-b', 'المنظمة ب', 'Organization B');
+-- Since organization review (20261111090000), only an approved organization recruits: these two are approved, as a
+-- platform administrator would. Skipped on a database without that migration.
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'organizations' and column_name = 'verification_status') then
+    execute $q$update public.organizations set verification_status = 'approved' where slug in ('phase1-org-a', 'phase1-org-b')$q$;
+  end if;
+end $$;
 insert into public.organization_members (org_id, user_id, role) values
   ('00000000-0000-4000-8000-0000000000a0', '00000000-0000-4000-8000-00000000a001', 'owner'),
   ('00000000-0000-4000-8000-0000000000a0', '00000000-0000-4000-8000-00000000a002', 'reviewer'),
