@@ -91,7 +91,15 @@ export class ApplicationMatchController {
         }),
         tx.application_match_reviews.findMany({ where: { application_id: id, org_id: orgId }, orderBy: { created_at: 'desc' } }),
       ]);
-      return { application, requirements, skills, reviews };
+      // The employer's accepted workbook skills and their own skills for this job are requirements too.
+      const [reference, custom] = await Promise.all([
+        tx.job_reference_skills.findMany({
+          where: { job_id: application.job_id, org_id: orgId },
+          select: { reference_skill_id: true, is_required: true, reference_skills: { select: { name_ar: true } } },
+        }),
+        tx.job_custom_skills.findMany({ where: { job_id: application.job_id, org_id: orgId }, select: { id: true, name_ar: true, name_en: true, is_required: true } }),
+      ]);
+      return { application, requirements, skills, reviews, reference, custom };
     });
 
     const items = [
@@ -102,6 +110,14 @@ export class ApplicationMatchController {
       ...data.skills.map((s) => ({
         key: `skill:${s.skill_id}`, kind: 'skill', text_ar: s.skills.name_ar, text_en: s.skills.name_en,
         mandatory: true, min_years: null, skill_id: s.skill_id,
+      })),
+      ...data.reference.map((r) => ({
+        key: `reference:${r.reference_skill_id}`, kind: 'skill', text_ar: r.reference_skills.name_ar, text_en: null as string | null,
+        mandatory: r.is_required, min_years: null, skill_id: null as string | null,
+      })),
+      ...data.custom.map((c) => ({
+        key: `custom:${c.id}`, kind: 'skill', text_ar: c.name_ar, text_en: c.name_en,
+        mandatory: c.is_required, min_years: null, skill_id: null as string | null,
       })),
     ].filter((r) => r.text_ar || r.text_en);
     const evidence = evidenceFrom(applicantProfile(data.application.profile_snapshot));

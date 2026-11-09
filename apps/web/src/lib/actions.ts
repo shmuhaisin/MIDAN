@@ -358,8 +358,53 @@ export async function analyzeJob(orgId: string, jobId: string) {
   return result(() => api(`/organizations/${orgId}/jobs/${jobId}/analyses`, { method: 'POST' }));
 }
 
-export async function acceptJobAnalysis(orgId: string, jobId: string, analysisId: string, skills: string[], required: string[], setSector: boolean) {
-  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/analyses/${analysisId}/accept`, { method: 'POST', body: { skills, required, set_sector: setSector } }));
+export async function acceptJobAnalysis(orgId: string, jobId: string, analysisId: string, skills: string[], required: string[], setSector: boolean, levels: Record<string, number | null> = {}) {
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/analyses/${analysisId}/accept`, { method: 'POST', body: { skills, required, set_sector: setSector, levels } }));
+}
+
+/** Suggestions that read the job's meaning; recorded as a job analysis for the employer to accept or dismiss. */
+export async function suggestJobSkills(orgId: string, jobId: string) {
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/analyses/suggest`, { method: 'POST' }));
+}
+
+export type CatalogSkill = { id: string; name_ar: string; sector_code: string; skill_kind: string; is_priority: boolean | null; description_ar: string | null };
+
+export async function searchReferenceSkills(orgId: string, q: string): Promise<{ items?: CatalogSkill[]; error?: string }> {
+  try {
+    return { items: await api<CatalogSkill[]>(`/organizations/${orgId}/reference-skills?q=${encodeURIComponent(q.slice(0, 100))}`) };
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+}
+
+export async function linkJobSkill(orgId: string, jobId: string, referenceSkillId: string, isRequired: boolean, level: number | null) {
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/reference-skills`, { method: 'POST', body: { reference_skill_id: referenceSkillId, is_required: isRequired, required_level: level } }));
+}
+
+export async function updateJobSkill(orgId: string, jobId: string, referenceSkillId: string, change: { is_required?: boolean; required_level?: number | null }) {
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/reference-skills/${referenceSkillId}`, { method: 'PATCH', body: change }));
+}
+
+export async function removeJobSkill(orgId: string, jobId: string, referenceSkillId: string) {
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/reference-skills/${referenceSkillId}`, { method: 'DELETE' }));
+}
+
+export async function addCustomSkill(orgId: string, jobId: string, _: FormState, form: FormData): Promise<FormState> {
+  const level = String(form.get('required_level') ?? '');
+  const body = {
+    name_ar: text(form, 'name_ar') || undefined, name_en: text(form, 'name_en') || undefined, description: text(form, 'description') || undefined,
+    is_required: form.get('is_required') === 'on', required_level: /^[0-4]$/.test(level) ? Number(level) : null,
+  };
+  if (!body.name_ar && !body.name_en) return { error: 'required' };
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/custom-skills`, { method: 'POST', body }));
+}
+
+export async function updateCustomSkill(orgId: string, jobId: string, id: string, change: { is_required?: boolean; required_level?: number | null }) {
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/custom-skills/${id}`, { method: 'PATCH', body: change }));
+}
+
+export async function removeCustomSkill(orgId: string, jobId: string, id: string) {
+  return result(() => api(`/organizations/${orgId}/jobs/${jobId}/custom-skills/${id}`, { method: 'DELETE' }));
 }
 
 export async function dismissJobAnalysis(orgId: string, jobId: string, analysisId: string) {

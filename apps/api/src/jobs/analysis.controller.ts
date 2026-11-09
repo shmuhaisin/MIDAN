@@ -1,6 +1,6 @@
 import { Body, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsBoolean, IsUUID } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsObject, IsOptional, IsUUID } from 'class-validator';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { BUILDERS, requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
@@ -10,6 +10,13 @@ class AcceptDto {
   @ApiProperty({ type: [String], description: 'Which of the chosen skills are required. The rest are preferred.' })
   @IsArray() @ArrayMaxSize(80) @IsUUID('all', { each: true }) required!: string[];
   @ApiProperty() @IsBoolean() set_sector!: boolean;
+  @ApiProperty({ required: false, description: 'Expected level (0–4, or null) per chosen skill id; the employer\'s choice wins over a suggested level.' })
+  @IsOptional() @IsObject() levels?: Record<string, number | null>;
+}
+
+/** Only whole levels 0–4 (or null, "not set") pass; anything else is dropped. */
+function levelsOf(levels: Record<string, number | null> | undefined) {
+  return Object.fromEntries(Object.entries(levels ?? {}).filter(([id, v]) => /^[0-9a-f-]{36}$/.test(id) && (v === null || (Number.isInteger(v) && v >= 0 && v <= 4))));
 }
 
 @ApiTags('job analysis')
@@ -48,7 +55,7 @@ export class JobAnalysisController {
     return this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
       const [row] = await tx.$queryRaw<unknown[]>`
-        select * from public.accept_job_analysis(${id}::uuid, ${body.skills}::uuid[], ${body.required}::uuid[], ${body.set_sector})`;
+        select * from public.accept_job_analysis(${id}::uuid, ${body.skills}::uuid[], ${body.required}::uuid[], ${body.set_sector}, ${JSON.stringify(levelsOf(body.levels))}::jsonb)`;
       return row;
     });
   }

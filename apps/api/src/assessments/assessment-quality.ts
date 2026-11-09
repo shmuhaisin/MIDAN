@@ -53,6 +53,20 @@ export async function loadJobInput(tx: Tx, orgId: string, jobId: string, company
     },
   });
   if (!job) return null;
+  // The employer's own skills for this job, with the levels they set, reach the draft through the requirements text: tasks
+  // link only to real requirement records, so these can't be given ids of their own.
+  const custom = await tx.job_custom_skills.findMany({ where: { job_id: jobId, org_id: orgId }, orderBy: { created_at: 'asc' } });
+  const level = (l: number | null) => (l === null ? '' : ` L${l}`);
+  const leveled = job.job_reference_skills.filter((r) => r.required_level !== null);
+  const extraEn = [
+    ...custom.map((c) => `Skill set by the employer: ${c.name_en ?? c.name_ar} (${c.is_required ? 'required' : 'preferred'}${level(c.required_level)})${c.description ? `: ${c.description}` : ''}`),
+    ...leveled.map((r) => `Expected level for "${r.reference_skills.name_ar}": L${r.required_level}`),
+  ];
+  const extraAr = [
+    ...custom.map((c) => `مهارة حددتها المنشأة: ${c.name_ar ?? c.name_en} (${c.is_required ? 'مطلوبة' : 'مفضلة'}${level(c.required_level)})${c.description ? `: ${c.description}` : ''}`),
+    ...leveled.map((r) => `المستوى المتوقع في «${r.reference_skills.name_ar}»: L${r.required_level}`),
+  ];
+  const withExtra = (text: string | null, extra: string[]) => (extra.length ? [text, ...extra].filter(Boolean).join('\n') : text);
   const [organization, taxonomy] = await Promise.all([
     tx.organizations.findUniqueOrThrow({ where: { id: orgId }, select: { company_type: true } }),
     tx.skills.findMany(),
@@ -60,7 +74,7 @@ export async function loadJobInput(tx: Tx, orgId: string, jobId: string, company
   return {
     title_ar: job.title_ar, title_en: job.title_en,
     description_ar: job.description_ar, description_en: job.description_en,
-    requirements_ar: job.requirements_ar, requirements_en: job.requirements_en,
+    requirements_ar: withExtra(job.requirements_ar, extraAr), requirements_en: withExtra(job.requirements_en, extraEn),
     required_skills: job.job_skills.map((j) => toRef(j.skills)),
     taxonomy: taxonomy.map(toRef),
     requirements: job.job_requirements.map((r) => ({

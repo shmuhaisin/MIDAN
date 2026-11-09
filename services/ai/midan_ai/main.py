@@ -20,6 +20,7 @@ from .cv import analyze as analyze_cv
 from .matching import MatchRequest, match as match_requirements, similarity_backend
 from .assistant import AssistantRequest, answer as assistant_answer
 from .regenerate import RegenerateRequest, Unavailable, regenerate as regenerate_task
+from .skills import SuggestRequest, suggest as suggest_skills
 from .evaluation import build_evaluation_graph
 from .providers import PROMPT_VERSION, get_provider, provider_status
 from .schemas import EvaluationInput, JobInput
@@ -158,6 +159,13 @@ def run_regenerate(request: RegenerateRequest) -> dict[str, Any]:
         return regenerate_task(request, _provider)
     except Unavailable:
         raise HTTPException(status_code=503, detail="ai_unavailable") from None
+
+
+@app.post("/skills/suggest", dependencies=[Depends(require_token)])
+def run_skill_suggestions(request: SuggestRequest) -> dict[str, Any]:
+    """Workbook skills for one job: ranked by meaning against the job's own text, then chosen by the live model when it is
+    available (only from that shortlist), or returned as the labelled shortlist when it isn't. Proposals only."""
+    return suggest_skills(request, _provider).model_dump()
 
 
 @app.post("/match/requirements", dependencies=[Depends(require_token)])

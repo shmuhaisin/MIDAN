@@ -7,7 +7,7 @@ import { StageMeter } from '@/components/workspace-kit';
 import { ApplicantStatus, JobStatusButtons } from '@/components/forms';
 import { canReopenApplications } from '@/lib/application-status';
 import { RequirementsEditor, type Requirement } from '@/components/requirements';
-import { JobAnalysisPanel, type Analysis } from '@/components/job-analysis';
+import { JobAnalysisPanel, type Analysis, type CustomSkill } from '@/components/job-analysis';
 import { AssessmentSwitcher, AssessmentTitle, VersionSettings, EmptyAssessment, FieldSelect, GenerateButton, InviteButton, JobDetailsForm, PublishPanel, TaskList } from '@/components/workspace';
 
 import { Link, redirect } from '@/i18n/navigation';
@@ -21,7 +21,7 @@ import { getSession } from '@/lib/session';
 type AttemptOf = { id: string; version_number: number; assessment_id: string; assessments: { title_ar: string; title_en: string } };
 type Attempt = { id: string; status: string; assessment_versions: AttemptOf; evaluation_results: { id: string; status: string; released_to_candidate: boolean } | null };
 type Job = {
-  job_reference_skills?: { is_required: boolean; reference_skills: { id: string; name_ar: string; sector_code: string } }[];
+  job_reference_skills?: { is_required: boolean; required_level?: number | null; reference_skills: { id: string; name_ar: string; sector_code: string } }[];
   id: string; slug: string; status: string; title_ar: string; title_en: string; description_ar: string | null; description_en: string | null;
   requirements_ar: string | null; requirements_en: string | null; location: string | null;
   employment_type: string | null; salary_min: string | null; salary_max: string | null; application_deadline: string | null; sector: string | null; experience_level: string | null;
@@ -64,7 +64,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   setRequestLocale(locale);
   if (!(await getSession())) return redirect({ href: '/login', locale });
   if (!/^[0-9a-f-]{36}$/.test(orgId) || !/^[0-9a-f-]{36}$/.test(jobId)) notFound();
-  const [org, job, skills, latest, compared, requirements, analysis] = await Promise.all([
+  const [org, job, skills, latest, compared, requirements, analysis, custom] = await Promise.all([
     apiForPage<{ my_role: string }>(`/organizations/${orgId}`),
     apiForPage<Job>(`/organizations/${orgId}/jobs/${jobId}`),
     api<Skill[]>('/skills'),
@@ -72,6 +72,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     apiForPage<Compared[]>(`/organizations/${orgId}/jobs/${jobId}/report`),
     apiForPage<Requirement[]>(`/organizations/${orgId}/jobs/${jobId}/requirements`),
     apiForPage<Analysis | null>(`/organizations/${orgId}/jobs/${jobId}/analyses/latest`),
+    apiForPage<CustomSkill[]>(`/organizations/${orgId}/jobs/${jobId}/custom-skills`),
   ]);
   if (!org || !job || !latest) notFound();
   const t = await getTranslations({ locale, namespace: 'workspace' });
@@ -208,7 +209,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       {show('reference-skills') && (
       <section aria-labelledby="reference-skills">
         <h2 id="reference-skills" className="section-title mb-6 flex items-baseline gap-3 border-b border-border-strong pb-3"><span className="num text-sm text-gold-text">03</span>{tj('title')}</h2>
-        <JobAnalysisPanel key={analysis?.id ?? 'none'} orgId={orgId} jobId={jobId} analysis={analysis ?? null} linked={job.job_reference_skills ?? []} canEdit={canBuild} />
+        <JobAnalysisPanel key={analysis?.id ?? 'none'} orgId={orgId} jobId={jobId} analysis={analysis ?? null} linked={job.job_reference_skills ?? []} custom={custom ?? []} canEdit={canBuild} />
       </section>
       )}
 

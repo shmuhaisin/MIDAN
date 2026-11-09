@@ -15,6 +15,7 @@ import { DbModule } from './db/db.module';
 import { EvaluationsController } from './evaluations/evaluations.controller';
 import { RequirementsController } from './jobs/requirements.controller';
 import { JobAnalysisController } from './jobs/analysis.controller';
+import { JobSkillsController } from './jobs/job-skills.controller';
 import { SkillsController } from './jobs/skills.controller';
 import { HealthController } from './health.controller';
 import { JobsController } from './jobs/jobs.controller';
@@ -36,7 +37,7 @@ import { MyInvitationsController, TeamController } from './organizations/team.co
   controllers: [
     HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, ApplicationReviewController, ApplicationMatchController, AssistantController, MeController,
     AssessmentsController, AttemptsController, EvaluationsController, RequirementsController,
-    CandidateController, CvController, CareerController, ReferenceController, InterviewsController, AdminController, JobAnalysisController,
+    CandidateController, CvController, CareerController, ReferenceController, InterviewsController, AdminController, JobAnalysisController, JobSkillsController,
     TeamController, MyInvitationsController, EmployerClaimsController, OrganizationListingsController,
   ],
 })

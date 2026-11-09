@@ -171,7 +171,7 @@ export class OrganizationsController {
         include: {
           organizations: { select: { slug: true } },
           job_skills: { select: { skill_id: true, required_level: true } },
-          job_reference_skills: { select: { is_required: true, reference_skills: { select: { id: true, name_ar: true, sector_code: true } } } },
+          job_reference_skills: { select: { is_required: true, required_level: true, reference_skills: { select: { id: true, name_ar: true, sector_code: true } } } },
           applications: {
             where: { status: { not: 'withdrawn' } },
             orderBy: { created_at: 'desc' },

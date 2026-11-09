@@ -48,6 +48,12 @@ export class AiClient {
     return this.post<T>('/assessment/regenerate-task', body, 90_000);
   }
 
+  /** Workbook skills for one job: ranked by meaning, chosen by the live model from that shortlist when it is available. */
+  suggestSkills<T>(body: { job: unknown; catalog: unknown[] }) {
+    // The first call for a sector embeds its catalog (about 25 s for 1,400 skills on a laptop CPU); later calls are fast.
+    return this.post<T>('/skills/suggest', body, 180_000);
+  }
+
   run<T>(graph: 'assessment-builder' | 'evaluation', body: unknown) {
     return this.post<GraphResult<T>>(`/graphs/${graph}/runs`, body);
   }
