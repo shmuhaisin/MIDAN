@@ -48,6 +48,13 @@ FILES=("$ROOT"/supabase/migrations/*.sql)
 APPLIED="$(q -At -c "select version from supabase_migrations.schema_migrations order by version")" || { echo "Can't read the migration history" >&2; exit 1; }
 EXPECTED="$(for f in "${FILES[@]:0:$HOSTED_APPLIED}"; do basename "$f" | cut -d_ -f1; done)"
 PENDING=("${FILES[@]:$HOSTED_APPLIED}")
+if [ "$MODE" = --check ] && [ "$APPLIED" != "$EXPECTED" ]; then
+  # Past the rehearsed starting point (the 2026-11-10 apply): report what the repository has that the project doesn't.
+  missing=0
+  for f in "${FILES[@]}"; do v="$(basename "$f" | cut -d_ -f1)"; grep -qx "$v" <<< "$APPLIED" || { echo "  pending $(basename "$f" .sql)"; missing=$((missing + 1)); }; done
+  echo "Project $REF: $(echo "$APPLIED" | grep -c .) migrations applied; $missing in the repository not applied."
+  exit 0
+fi
 echo "Project $REF: $(echo "$APPLIED" | grep -c .) migrations applied, ${#PENDING[@]} pending in the repository."
 [ "$APPLIED" = "$EXPECTED" ] || { echo "The history isn't the rehearsed starting point; stopping." >&2; exit 1; }
 q -At -f "$ROOT/supabase/rehearsal/fingerprint.sql" > "$ROOT/.local/hosted-fingerprint.txt" || exit 1

@@ -197,3 +197,25 @@ def test_a_headline_or_a_few_words_can_never_make_a_match_on_their_own():
     detailed = match(MatchRequest(requirements=[req("requirement:r", "Prepare a monthly report explaining changes in sales")],
                                   evidence=[ev(0, "Prepared the monthly sales report for management and explained each change")]), High())
     assert detailed.matches[0].status == "matched"
+
+
+def test_brief_evidence_needs_the_brief_floor_for_partial_and_goes_to_a_person_below_it():
+    # Measured (bench/short_evidence.py): unrelated short skills reach 0.815 at the 95th percentile, sentences 0.802. The
+    # live case: "Swift mobile apps" against a two-word skill at 0.804 read as "partial"; it now goes to a person.
+    class Fixed:
+        name, model_version, thresholds, review_floor, brief_floor = "e5-local", "intfloat/multilingual-e5-base", (0.80, 0.83), 0.77, 0.815
+
+        def __init__(self, score):
+            self.score = score
+
+        def scores(self, reqs, evs):
+            return [[self.score for _ in evs] for _ in reqs]
+
+    swift = [req("requirement:s", "برمجة تطبيقات الهاتف المحمول بلغة Swift")]
+    skill = [ev(0, "نظام Excel التوظيف", source="own_skill")]
+    sentence = [ev(0, "Built and released two iOS apps in Swift for a delivery company")]
+    assert match(MatchRequest(requirements=swift, evidence=skill), Fixed(0.804)).matches[0].status == "needs_review"
+    assert match(MatchRequest(requirements=swift, evidence=skill), Fixed(0.820)).matches[0].status == "partial"
+    assert match(MatchRequest(requirements=swift, evidence=skill), Fixed(0.760)).matches[0].status == "missing"
+    # A sentence keeps the sentence thresholds.
+    assert match(MatchRequest(requirements=swift, evidence=sentence), Fixed(0.804)).matches[0].status == "partial"

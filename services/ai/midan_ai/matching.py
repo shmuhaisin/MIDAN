@@ -97,6 +97,11 @@ class E5Local:
     # It ranks well but its scores are compressed (unrelated pairs average 0.767): between that and "partial", MIDAN
     # can't tell, so a person decides instead of a guessed "missing" (docs/ai/ATS_MATCHING.md).
     review_floor = 0.77
+    # Brief evidence (a listed skill, a few words) sits higher for unrelated requirements: on the labelled short-skill set
+    # (bench/short_evidence.py) unrelated pairs reach 0.815 at the 95th percentile against 0.802 for sentences, and at
+    # 0.80 15% of unrelated short items read as "partial" (7% for sentences). So a brief line needs 0.815 for "partial";
+    # below that it goes to a person as "needs review", never to "missing".
+    brief_floor = 0.815
     _model = None
     _lock = threading.Lock()
 
@@ -290,7 +295,7 @@ def match(request: MatchRequest, backend: Similarity | None = None) -> MatchResu
             why, code = "The applicant listed this skill in the submitted profile.", "listed_skill"
         elif pick.score >= high:
             status = "matched"
-        elif pick.score >= low:
+        elif pick.score >= low and not (e is not None and _brief(e) and pick.score < getattr(backend, "brief_floor", low)):
             status = "partial"
         elif getattr(backend, "review_floor", None) is not None and pick.score >= backend.review_floor:
             status = "needs_review"
