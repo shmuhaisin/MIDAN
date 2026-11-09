@@ -31,7 +31,7 @@ state. Nothing here depends on any previous chat.
 - Tests: `apps/api/src/candidate-discovery.e2e-spec.ts` 4/4, web unit 33/33 (`lib/deadline.test.ts` added).
 
 ## Next steps (in order)
-1. Walk saved jobs and closed-job states in the browser (Arabic and English, phone width).
+1. Done 2026-11-10: saved jobs and closed-job pages walked in the browser, Arabic and English.
 2. Interview portal polish: show the reschedule request state clearly on the list; decline only if the backend adds it.
 3. Profile links (portfolio/LinkedIn): needs a shared-schema decision (columns on `candidate_profiles`).
 4. Run the full suites (`run-ui.sh … unit ai e2e browser`) and record results here.
