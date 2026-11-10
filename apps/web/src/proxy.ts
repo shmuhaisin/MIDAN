@@ -78,6 +78,24 @@ export default async function proxy(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.set('x-nonce', nonce);
   headers.set('Content-Security-Policy', policy);
+  // /admin for a signed-in person who isn't a platform administrator: a real 404 status. The pages check too
+  // (requirePlatformAdmin), but [locale]/loading.tsx starts streaming first, so their notFound() can only render the
+  // not-found screen under a 200. The API's PlatformAdminGuard decides; if the API can't be reached, the pages refuse.
+  if (request.method === 'GET' && access && /^\/(ar|en)\/admin(\/|$)/.test(request.nextUrl.pathname)) {
+    let denied = false;
+    try {
+      const probe = await fetch(`${process.env.API_URL}/v1/admin/session`, { headers: { authorization: `Bearer ${access}` }, cache: 'no-store' });
+      denied = probe.status === 403;
+    } catch {
+      // API unreachable: requirePlatformAdmin in the page still renders nothing privileged.
+    }
+    if (denied) {
+      // A route that doesn't exist: Next.js answers it with its not-found page and a 404 status before any streaming.
+      const missing = request.nextUrl.clone();
+      missing.pathname = `/${request.nextUrl.pathname.split('/')[1]}/admin-not-found`;
+      return secured(NextResponse.rewrite(missing, { status: 404, request: { headers } }));
+    }
+  }
   return secured(intl(new NextRequest(request, { headers })));
 }
 
