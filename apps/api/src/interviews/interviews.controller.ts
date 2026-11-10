@@ -1,15 +1,16 @@
-import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, ServiceUnavailableException, UnprocessableEntityException, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, ForbiddenException, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, ServiceUnavailableException, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsTimeZone, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsIn, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { BUILDERS, requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
 import { CalendarClient, DailyClient } from './video-and-calendar';
+import { assertInterviewCandidateShortlisted, futureInterviewTime } from './interview-rules';
 
 class ScheduleDto {
-  @ApiProperty() @IsISO8601({ strict: true }) scheduled_at!: string;
+  @ApiProperty({ description: 'ISO-8601 timestamp with Z or an explicit UTC offset.' }) @IsISO8601({ strict: true }) @Matches(/(?:Z|[+-]\d{2}:\d{2})$/) scheduled_at!: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(5) @Max(480) duration_minutes?: number;
-  @ApiPropertyOptional({ default: 'Asia/Riyadh', description: 'An IANA time zone name.' }) @IsOptional() @IsTimeZone() time_zone?: string;
+  @ApiPropertyOptional({ default: 'Asia/Riyadh', enum: ['Asia/Riyadh'], description: 'MIDAN interviews use Saudi Arabia time consistently.' }) @IsOptional() @IsIn(['Asia/Riyadh']) time_zone?: 'Asia/Riyadh';
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) instructions_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) instructions_en?: string;
   @ApiPropertyOptional({ description: 'Members who interview with the scheduler. Only participants can join the room.' })
@@ -17,7 +18,7 @@ class ScheduleDto {
 }
 
 class UpdateInterviewDto {
-  @ApiPropertyOptional() @IsOptional() @IsISO8601({ strict: true }) scheduled_at?: string;
+  @ApiPropertyOptional({ description: 'ISO-8601 timestamp with Z or an explicit UTC offset.' }) @IsOptional() @IsISO8601({ strict: true }) @Matches(/(?:Z|[+-]\d{2}:\d{2})$/) scheduled_at?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(5) @Max(480) duration_minutes?: number;
   @ApiPropertyOptional() @IsOptional() @IsIn(['cancelled', 'completed', 'no_show']) status?: 'cancelled' | 'completed' | 'no_show';
   @ApiPropertyOptional({ description: 'Replaces the interviewers. Whoever scheduled the interview always stays.' })
@@ -144,20 +145,19 @@ export class InterviewsController {
 
   @Post('organizations/:orgId/applications/:applicationId/interviews')
   async schedule(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('applicationId', ParseUUIDPipe) applicationId: string, @Body() body: ScheduleDto) {
-    const when = new Date(body.scheduled_at);
-    if (when.getTime() < Date.now()) throw new UnprocessableEntityException('Choose a time in the future');
+    const when = futureInterviewTime(body.scheduled_at);
     const created = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
-      const application = await tx.applications.findFirst({ where: { id: applicationId, org_id: orgId }, select: { candidate_id: true } });
+      const application = await tx.applications.findFirst({ where: { id: applicationId, org_id: orgId }, select: { candidate_id: true, status: true } });
       if (!application) throw new NotFoundException();
-      const { interviewer_ids = [], ...fields } = body;
-      // A repeated request (a double click, a retry after a timeout) finds the interview it already made: the same
-      // application at the same time, still live. It never creates a second one, or a second calendar event.
-      const same = await tx.interviews.findFirst({
-        where: { application_id: applicationId, org_id: orgId, scheduled_at: when, status: { in: ['invited', 'accepted', 'reschedule_requested'] } },
+      // Defense in depth: the database trigger enforces this too, including writes outside this controller.
+      assertInterviewCandidateShortlisted(application.status);
+      const duplicate = await tx.interviews.findFirst({
+        where: { application_id: applicationId, org_id: orgId, scheduled_at: when, status: { not: 'cancelled' } },
         select: { id: true },
       });
-      if (same) return { ...same, existing: true };
+      if (duplicate) throw new ConflictException('An active interview already exists for this application at this time');
+      const { interviewer_ids = [], ...fields } = body;
       const interview = await tx.interviews.create({
         data: { ...fields, scheduled_at: when, application_id: applicationId, org_id: orgId, candidate_id: application.candidate_id, calendar_status: 'pending' },
       });
@@ -175,6 +175,7 @@ export class InterviewsController {
   @ApiOperation({ summary: 'A new time asks the candidate to accept again. Completion is set here, never by leaving a call.' })
   async update(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateInterviewDto) {
     const needsCalendar = Boolean(body.scheduled_at || body.duration_minutes || body.status === 'cancelled' || body.interviewer_ids);
+    if (body.scheduled_at) futureInterviewTime(body.scheduled_at);
     const { scheduled_at, interviewer_ids, ...rest } = body;
     const updated = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
