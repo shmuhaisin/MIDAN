@@ -85,9 +85,11 @@ describe('the company journey', () => {
     expect(ranking.overall).toEqual({ available: false, reason: 'no_approved_weights' });
     expect(ranking.applicants.map((a: { application_id: string }) => a.application_id).sort()).toEqual([appOne, appTwo].sort());
     const byId = (id: string) => ranking.applicants.find((a: { application_id: string }) => a.application_id === id);
-    expect(byId(appOne).cv.status).toBe('scored');
-    expect(byId(appOne).cv.score).toBeGreaterThanOrEqual(byId(appTwo).cv.score ?? 0);
-    expect(byId(appOne).rank).toBe(1);
+    // The fixture accounts keep skills from other suites, so their scores aren't fixed here: the ranks must follow them.
+    for (const id of [appOne, appTwo]) expect(byId(id).cv.status).toBe('scored');
+    const [high, low] = [byId(appOne), byId(appTwo)].sort((a, b) => (b.cv.score ?? -1) - (a.cv.score ?? -1));
+    expect(high.rank).toBe(1);
+    expect(low.rank).toBe(high.cv.score === low.cv.score ? 1 : 2);
     expect(byId(appOne).matching.provider).toBeTruthy();
     // The assessment isn't reviewed yet: by that stage, nobody is ranked.
     const byAssessment = (await api().get(`${base()}/jobs/${job}/ranking?sort=assessment`).set(bearer(owner)).expect(200)).body;
