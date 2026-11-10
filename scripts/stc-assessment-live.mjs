@@ -11,7 +11,7 @@
 // The official employer workbook isn't in the repository (data/source/README.md). When it hasn't been imported, an STC
 // registry row is added to the LOCAL database only, from public facts (name, sector, official website), with source_file
 // 'local-fixture'. Its candidates and data are fictional; the assessment's sample data is synthetic and says so.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { request as httpRequest } from 'node:http';
 import { fileURLToPath } from 'node:url';
@@ -61,7 +61,7 @@ async function signIn(email, password) {
   const res = await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: 'POST', headers: { apikey: KEY, 'content-type': 'application/json' }, body: JSON.stringify({ email, password }) });
   const body = await res.json();
   if (!res.ok) throw new Error(`sign-in failed for ${email}`);
-  return { id: body.user.id, email, token: body.access_token };
+  return { id: body.user.id, email, password, token: body.access_token };
 }
 async function signUp(name, meta) {
   const email = `midan.test.${name}-${RUN}@example.com`;
@@ -96,20 +96,33 @@ if (!registryId) {
   console.log('Added a local-only STC registry fixture (the official workbook is not in this checkout).');
 }
 
+// A run that the provider's daily quota stopped mid-way is resumed on the same job, so the parts already written are
+// reused (the AI service keeps them for an identical request). STC_FRESH=1 starts over. The state holds a local test
+// account's password and stays in the git-ignored .local/.
+const STATE = `${out}/state.json`;
+let state = !process.env.STC_FRESH && existsSync(STATE) ? JSON.parse(readFileSync(STATE, 'utf8')) : null;
+if (state && psql(`select count(*) from public.assessments where job_id = '${state.job}'`) !== '0') state = null;
+let rep, org, job;
+if (state) {
+  rep = await signIn(state.email, state.password);
+  ({ org } = state);
+  job = { id: state.job };
+  console.log(`Resuming on job ${state.job}.`);
+} else {
 // 2. Representative → request → platform administrator approves → workspace.
 const admin = await signIn(tests.TEST_PLATFORM_ADMIN_EMAIL, tests.TEST_PLATFORM_ADMIN_PASSWORD);
-const rep = await signUp('stc-rep', { account_type: 'organization' });
+rep = await signUp('stc-rep', { account_type: 'organization' });
 await must(call(rep.token, 'POST', '/me/employer-access', { registry_id: registryId, representative_name: 'Fictional talent lead', job_title: 'Talent acquisition lead', verification_note: 'Fictional test representative' }));
 const queue = await must(call(admin.token, 'GET', '/admin/employer-access'));
 const request = (queue.items ?? queue).find((r) => r.work_email === rep.email && r.status === 'pending_approval');
 if (!request) throw new Error('the access request did not reach the administrator queue');
 await must(call(admin.token, 'POST', `/admin/employer-access/${request.id}/decision`, { decision: 'approve', role: 'owner' }));
 const me = await must(call(rep.token, 'GET', '/me'));
-const org = me.organization_members[0]?.org_id;
+org = me.organization_members[0]?.org_id;
 if (!org) throw new Error('approval did not create the workspace membership');
 
 // 3. The job and its approved requirements.
-const job = await must(call(rep.token, 'POST', `/organizations/${org}/jobs`, { slug: `data-analyst-${RUN}`, title_ar: 'محلل بيانات', title_en: 'Data Analyst' }));
+job = await must(call(rep.token, 'POST', `/organizations/${org}/jobs`, { slug: `data-analyst-${RUN}`, title_ar: 'محلل بيانات', title_en: 'Data Analyst' }));
 await must(call(rep.token, 'PATCH', `/organizations/${org}/jobs/${job.id}`, {
   description_en: 'Join the consumer analytics team. Analyse subscriber, usage, billing and complaint data to explain churn and service experience, size retention opportunities, build SQL reports and dashboards, and present recommendations to commercial and customer-experience managers.',
   description_ar: 'انضم إلى فريق تحليلات قطاع الأفراد. حلّل بيانات المشتركين والاستخدام والفوترة والشكاوى لتفسير فقدان العملاء وتجربة الخدمة، وقدّر فرص الاحتفاظ بالعملاء، وأعدّ تقارير SQL ولوحات متابعة، واعرض التوصيات على مديري القطاع التجاري وتجربة العملاء.',
@@ -125,6 +138,9 @@ const requirements = [
 ];
 for (const [type, en, ar, mandatory, years] of requirements) {
   await must(call(rep.token, 'POST', `/organizations/${org}/jobs/${job.id}/requirements`, { requirement_type: type, description_en: en, description_ar: ar, is_mandatory: mandatory, ...(years && { min_years: years }) }));
+}
+
+writeFileSync(STATE, JSON.stringify({ email: rep.email, password: rep.password, org, job: job.id }), { mode: 0o600 });
 }
 
 // 4. Generation through the API, which calls the AI service's assessment builder.

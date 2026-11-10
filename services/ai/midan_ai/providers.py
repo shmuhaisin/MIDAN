@@ -1,10 +1,12 @@
 """Model providers behind one interface. Without a configured key the service runs in a labeled demo mode."""
 
+import hashlib
 import json
 import logging
 import os
 import re
 import time
+from collections import OrderedDict
 from types import UnionType
 from typing import Any, Protocol, Union, get_args, get_origin
 
@@ -316,6 +318,10 @@ class JsonLLMProvider:
     def __init__(self, complete, name: str, attempts: int = 2, pause: float = 1.0, provider: str = "openai", split_generation: bool = False):
         self._complete = latin_digits(complete)
         self._split = split_generation
+        # Parts of a split generation already written for exactly this request, so a retry after the daily quota ran out
+        # mid-way (part 3 of 4, measured live) doesn't pay for parts 1 and 2 again. In memory, newest 32; a reply that
+        # didn't validate is forgotten.
+        self._parts: OrderedDict[str, str] = OrderedDict()
         self._attempts = attempts
         self._pause = pause
         self.provenance = Provenance(mode="live", provider=provider, model_version=name, prompt_version=PROMPT_VERSION)
@@ -357,13 +363,28 @@ class JsonLLMProvider:
                 time.sleep(self._pause)
         raise LLMError(f"No valid draft from the model: {type(last).__name__}", last.kind if isinstance(last, LLMError) else "invalid_reply")
 
+    @staticmethod
+    def _key(system: str, user: str, name: str) -> str:
+        return hashlib.sha256(f"{name}\0{system}\0{user}".encode()).hexdigest()
+
     def _budgeted(self, system: str, user: str, name: str) -> str:
-        """One call whose output limit is what the tokens-per-minute limit leaves after its input (about 3 characters a
-        token for mixed Arabic, English and JSON). A 429 for the rest of the minute is waited out by the completion."""
+        """One call whose output limit is what the tokens-per-minute limit leaves after its input (estimate_tokens). A 429
+        for the rest of the minute is waited out by the completion. A part already written for this exact request is reused."""
+        key = self._key(system, user, name)
+        if key in self._parts:
+            self._parts.move_to_end(key)
+            return self._parts[key]
         budget = GROQ_TPM - estimate_tokens(system + user) - 250
         if budget < 1500:
             raise LLMError(f"The {name} request is too long for the account's tokens-per-minute limit", "rate_limited")
-        return self._complete(system, user, schema=(name, {}), budget=budget)
+        raw = self._complete(system, user, schema=(name, {}), budget=budget)
+        self._parts[key] = raw
+        while len(self._parts) > 32:
+            self._parts.popitem(last=False)
+        return raw
+
+    def _forget(self, system: str, user: str, name: str) -> None:
+        self._parts.pop(self._key(system, user, name), None)
 
     def _generate_in_parts(self, job: dict[str, Any], check=None) -> GeneratedAssessment:
         """The package in three calls (CASE_PART_NOTE): each part is validated before the next is asked for, and a part that
@@ -382,6 +403,7 @@ class JsonLLMProvider:
                 break
             except (json.JSONDecodeError, ValidationError, ValueError) as error:
                 last, case = error, None
+                self._forget(system, user, "AssessmentCase")
                 reason = str(error) if type(error) is ValueError else _schema_reason(error)
                 log.warning("generation part 1 refused: %s", reason[:400])
                 user = f"<job>\n{details}\n</job>\nYour last reply was refused: {reason[:600]}. Reply again with the complete JSON."
@@ -460,6 +482,7 @@ class JsonLLMProvider:
                 return parse(json.loads(self._budgeted(system, ask, name)))
             except (json.JSONDecodeError, ValidationError, ValueError, KeyError, TypeError) as error:
                 last = error
+                self._forget(system, ask, name)
                 reason = _schema_reason(error) if isinstance(error, (ValidationError, json.JSONDecodeError)) else str(error)
                 log.warning("generation %s refused: %s", name, reason[:400])
                 ask = f"{user}\nYour last reply was refused: {reason[:600]}. Reply again with the complete JSON."

@@ -123,3 +123,25 @@ def test_token_estimate_counts_arabic_as_heavier():
     from midan_ai.providers import estimate_tokens
     assert estimate_tokens("a" * 400) == 101
     assert estimate_tokens("ب" * 250) == 101
+
+
+def test_a_retry_reuses_the_parts_already_written():
+    _, case, guide, levels, filled = _parts()
+    seen: list[dict] = []
+    replies = [json.dumps(case), json.dumps(filled), LLMError("429", "quota_exhausted"), LLMError("429", "quota_exhausted"),
+               json.dumps(guide), json.dumps(levels)]
+
+    def complete(system, user, schema=None, budget=None):
+        seen.append(schema[0])
+        reply = replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+    complete.accepts_schema = True
+    provider = JsonLLMProvider(complete, "fake-model", provider="groq", pause=0, split_generation=True)
+    with pytest.raises(LLMError):
+        provider.generate_assessment({"title_en": "Inventory Analyst"})
+    draft = provider.generate_assessment({"title_en": "Inventory Analyst"})
+    # The second run asked only for the guide and the levels: the case and the materials came from the first.
+    assert seen == ["AssessmentCase", "AssessmentMaterials", "AssessorGuideDraft", "AssessorGuideDraft", "AssessorGuideDraft", "CriterionLevels"]
+    assert draft.standardized
