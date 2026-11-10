@@ -1,4 +1,5 @@
 -- Enforce the interview shortlist rule and prevent duplicate active interview slots.
+-- Completed, cancelled and no-show interviews do not reserve a time slot.
 -- The API performs the same checks for clear user-facing errors; these database guards protect every write path.
 
 create or replace function public.require_shortlisted_interview_candidate()
@@ -38,7 +39,7 @@ begin
   if exists (
     select 1
     from public.interviews
-    where status <> 'cancelled'
+    where status in ('invited', 'accepted', 'reschedule_requested')
     group by application_id, scheduled_at
     having count(*) > 1
   ) then
@@ -48,4 +49,4 @@ end $$;
 
 create unique index if not exists interviews_one_active_slot_per_application
   on public.interviews (application_id, scheduled_at)
-  where status <> 'cancelled';
+  where status in ('invited', 'accepted', 'reschedule_requested');
