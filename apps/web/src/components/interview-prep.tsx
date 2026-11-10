@@ -6,16 +6,9 @@ import { prepareInterview } from '@/lib/candidate-actions';
 import { formatDate } from '@/lib/format';
 import { ErrorText } from './forms';
 
-type Question = { question_ar: string; question_en: string; purpose: string; requirement_key: string | null; fact_ids: string[]; listen_for_ar: string; listen_for_en: string };
-type Competency = { label_ar: string; label_en: string; requirement_key: string | null; fact_ids: string[]; criteria_ar: string; criteria_en: string; levels_ar: Record<string, string>; levels_en: Record<string, string> };
-type Fact = { id: string; kind: string; text: string };
-type Version<T> = { id: string; content: T[]; facts: Fact[]; provenance: { model_version?: string }; created_at: string } | null;
-export type Preparation = { questions: Version<Question>; evaluation_form: Version<Competency>; history: { questions: number; evaluation_form: number } };
+import type { Fact, Preparation, Version } from '@/lib/interview-prep';
 
-/** The form's competencies in the reader's language, as the starting list of the interviewer's feedback form. */
-export function formLabels(prep: Preparation | null, locale: string) {
-  return (prep?.evaluation_form?.content ?? []).map((c) => (locale === 'ar' ? c.label_ar : c.label_en));
-}
+export type { Preparation } from '@/lib/interview-prep';
 
 /**
  * Interview preparation for one candidate, for the organization's staff only: the questions MIDAN proposes and the

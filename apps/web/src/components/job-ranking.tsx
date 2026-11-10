@@ -28,7 +28,8 @@ export async function JobRanking({ locale, orgId, jobId, data }: { locale: strin
   const t = await getTranslations({ locale, namespace: 'ranking' });
   const ts = await getTranslations({ locale, namespace: 'applicationStatus' });
   const text = (l: Line) => pick(locale, l.text_ar ?? l.text_en ?? '', l.text_en ?? l.text_ar ?? '');
-  const providers = [...new Set(data.applicants.map((a) => a.matching && (a.matching.fallback ? 'fallback' : a.matching.model_version)).filter(Boolean))] as string[];
+  // The backend each match used, as the AI service recorded it: word comparison (configured or a fallback) is named as such.
+  const providers = [...new Set(data.applicants.map((a) => a.matching && (a.matching.fallback || a.matching.provider === 'lexical' ? 'fallback' : a.matching.model_version)).filter(Boolean))] as string[];
   return (
     <div>
       <p className="text-sm text-muted">{t('lead')}</p>
@@ -70,7 +71,7 @@ export async function JobRanking({ locale, orgId, jobId, data }: { locale: strin
                     {a.cv.status === 'scored' ? (
                       <>
                         <span className="font-semibold">{a.cv.score === null ? t('needsReview') : `${number(locale, a.cv.score)}%`}</span>
-                        <span className="block text-xs text-muted">{t('cvBreakdown', { matched: a.cv.counts.matched, partial: a.cv.counts.partial, missing: a.cv.counts.missing, review: a.cv.counts.needs_review })}</span>
+                        <span className="block text-xs text-muted">{t('cvBreakdown', { matched: number(locale, a.cv.counts.matched), partial: number(locale, a.cv.counts.partial), missing: number(locale, a.cv.counts.missing), review: number(locale, a.cv.counts.needs_review) })}</span>
                       </>
                     ) : <span className="text-muted">{t(`cvState.${a.cv.status}`)}</span>}
                   </td>
@@ -90,8 +91,8 @@ export async function JobRanking({ locale, orgId, jobId, data }: { locale: strin
                   <td className="max-w-xs px-2 py-2.5 text-xs">
                     {a.cv.status === 'scored' && (
                       <>
-                        {a.cv.strengths.length > 0 && <p><span className="font-semibold text-success">{t('strengths')}:</span> {a.cv.strengths.slice(0, 3).map(text).join('، ')}{a.cv.strengths.length > 3 && ` +${a.cv.strengths.length - 3}`}</p>}
-                        {a.cv.gaps.length > 0 && <p className="mt-1"><span className="font-semibold">{t('gaps')}:</span> {a.cv.gaps.slice(0, 3).map(text).join('، ')}{a.cv.gaps.length > 3 && ` +${a.cv.gaps.length - 3}`}</p>}
+                        {a.cv.strengths.length > 0 && <p><span className="font-semibold text-success">{t('strengths')}:</span> {a.cv.strengths.slice(0, 3).map(text).join(locale === 'ar' ? '، ' : '; ')}{a.cv.strengths.length > 3 && ` +${a.cv.strengths.length - 3}`}</p>}
+                        {a.cv.gaps.length > 0 && <p className="mt-1"><span className="font-semibold">{t('gaps')}:</span> {a.cv.gaps.slice(0, 3).map(text).join(locale === 'ar' ? '، ' : '; ')}{a.cv.gaps.length > 3 && ` +${a.cv.gaps.length - 3}`}</p>}
                       </>
                     )}
                   </td>
