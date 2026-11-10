@@ -78,9 +78,11 @@ describe('the recruitment journey', () => {
     await api().patch(`${base()}/jobs/${job}`).set(bearer(owner))
       .send({ description_en: 'Prepare monthly reports.', description_ar: 'إعداد التقارير الشهرية.', skills: [{ skill_id: skill.id, required_level: 3 }] }).expect(200);
     const version = (await api().post(`${base()}/jobs/${job}/assessment/generate`).set(bearer(owner)).send({}).expect(201)).body.version_id as string;
-    await api().patch(`${base()}/jobs/${job}/status`).set(bearer(owner)).send({ status: 'published' }).expect(200);
+    // A job with an assessment is published only once the assessment is approved (20261113090000).
+    await api().patch(`${base()}/jobs/${job}/status`).set(bearer(owner)).send({ status: 'published' }).expect(422);
     const state = (await api().get(`${base()}/assessment-versions/${version}/changes`).set(bearer(owner)).expect(200)).body;
     await api().post(`${base()}/assessment-versions/${version}/publish`).set(bearer(owner)).send({ reviewed_through: state.latest_change_id }).expect(201);
+    await api().patch(`${base()}/jobs/${job}/status`).set(bearer(owner)).send({ status: 'published' }).expect(200);
   });
 
   it('takes an application, an assessment and a reviewed evaluation', async () => {

@@ -2,10 +2,9 @@
 --
 -- 1. A job is published only after its assessments are reviewed: a job that has an assessment with no approved
 --    (published) version can't be published. A job with no assessment at all can still be published (CV-only hiring).
--- 2. An assessment approved after people applied reaches them: when an assessment's first version is published, every
---    applicant to that job who is still at the start (submitted or under review) and holds no attempt of it is assigned
---    it, exactly as the application trigger would have done (private.assign_published_assessments).
--- 3. A registry employer's workspace carries the registry's verified identity: the official website, and the company
+--    With this, everyone who applies to a job with an assessment gets it on applying (private.assign_published_assessments).
+--    An assessment added later to a job that is already published reaches earlier applicants by invitation, as designed.
+-- 2. A registry employer's workspace carries the registry's verified identity: the official website, and the company
 --    type where the registry's entity type states it unambiguously (a government ministry, authority or fund). Nothing is
 --    guessed: other entity types stay empty for the employer to choose. Branding (logo, colours) stays the employer's.
 
@@ -27,32 +26,6 @@ create trigger guard_job_publication_assessment before insert or update of statu
   for each row execute function private.guard_job_publication_assessment();
 
 -- 2 ---------------------------------------------------------------------------------------------------------------------
-create function private.assign_late_published_assessment() returns trigger
-language plpgsql security definer set search_path = '' as $$
-declare v_job uuid;
-begin
-  if new.status <> 'published' or old.status = 'published' then return null; end if;
-  -- A revision of an assessment that was already published goes to new applicants only (editing policy, section 6).
-  if exists (select 1 from public.assessment_versions x where x.assessment_id = new.assessment_id and x.id <> new.id and x.status = 'published') then
-    return null;
-  end if;
-  select s.job_id into v_job from public.assessments s where s.id = new.assessment_id;
-  insert into public.assessment_attempts (application_id, version_id, org_id, candidate_id)
-  select a.id, new.id, a.org_id, a.candidate_id
-  from public.applications a
-  where a.job_id = v_job and a.status in ('submitted', 'under_review')
-    and not exists (
-      select 1 from public.assessment_attempts t join public.assessment_versions x on x.id = t.version_id
-      where t.application_id = a.id and x.assessment_id = new.assessment_id
-    )
-  on conflict (application_id, version_id) do nothing;
-  return null;
-end $$;
-revoke all on function private.assign_late_published_assessment() from public, anon, authenticated;
-create trigger assign_late_published_assessment after update of status on public.assessment_versions
-  for each row execute function private.assign_late_published_assessment();
-
--- 3 ---------------------------------------------------------------------------------------------------------------------
 create function private.registry_company_type(p_entity_type text) returns text
 language sql immutable set search_path = '' as $$
   select case when p_entity_type ~* '^government (ministry|authority|development fund)$' then 'government_entity' end
