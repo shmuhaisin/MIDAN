@@ -218,3 +218,8 @@ export async function addApplicationNote(orgId: string, applicationId: string, b
 export async function saveInterviewFeedback(orgId: string, applicationId: string, interviewId: string, body: Record<string, unknown>) {
   return done(() => api(`/organizations/${orgId}/applications/${applicationId}/interviews/${interviewId}/feedback`, { method: 'PUT', body }));
 }
+
+/** New interview questions or a new evaluation form from MIDAN, kept as a new version beside the earlier ones. */
+export async function prepareInterview(orgId: string, interviewId: string, kind: 'questions' | 'evaluation_form') {
+  return done(() => api(`/organizations/${orgId}/interviews/${interviewId}/preparation`, { method: 'POST', body: { kind } }));
+}

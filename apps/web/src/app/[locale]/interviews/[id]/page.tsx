@@ -5,10 +5,11 @@ import { Badge, statusTone, Timeline } from '@/components/ui';
 import { InterviewActions, InterviewJoin } from '@/components/candidate';
 import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
+import { InterviewPreparation, type Preparation } from '@/components/interview-prep';
 import { formatWhen, number, pick } from '@/lib/format';
 
 type Interview = {
-  id: string; application_id: string; scheduled_at: string; duration_minutes: number; time_zone: string; instructions_ar: string | null; instructions_en: string | null;
+  id: string; application_id: string; org_id: string; scheduled_at: string; duration_minutes: number; time_zone: string; instructions_ar: string | null; instructions_en: string | null;
   status: string; reschedule_note: string | null; calendar_status: string; updated_at: string; join_opens_at: string; join_closes_at: string; video_available: boolean; is_candidate: boolean;
   applications: { jobs: { title_ar: string; title_en: string; organizations: { name_ar: string; name_en: string } } };
   interview_events: { kind: string; scheduled_at: string | null; created_at: string }[];
@@ -20,6 +21,9 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const interview = await apiForPage<Interview>(`/interviews/${id}`);
   if (!interview) notFound();
+  // The interviewer's preparation: staff of the organization only (the API refuses anyone else, the candidate included).
+  const prep = interview.is_candidate ? null : await apiForPage<Preparation>(`/organizations/${interview.org_id}/interviews/${id}/preparation`).catch(() => null);
+  const tp = await getTranslations({ locale, namespace: 'interviewPrep' });
   const t = await getTranslations({ locale, namespace: 'interview' });
   const ta = await getTranslations({ locale, namespace: 'application' });
   const job = interview.applications.jobs;
@@ -70,6 +74,13 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                 id={id} opensAt={interview.join_opens_at} closesAt={interview.join_closes_at} startsAt={interview.scheduled_at} minutes={interview.duration_minutes} timeZone={zone} videoAvailable={interview.video_available}
                 canJoin={interview.is_candidate ? interview.status === 'accepted' : true}
               />
+            </section>
+          )}
+          {prep && (
+            <section aria-labelledby="prep">
+              <h2 id="prep" className="section-title">{tp('prepTitle')}</h2>
+              <Link href={`/organization/${interview.org_id}/applicants/${interview.application_id}#feedback`} className="link text-sm">{tp('openApplicant')}</Link>
+              <InterviewPreparation orgId={interview.org_id} interviewId={id} prep={prep} canPrepare={interview.status !== 'cancelled'} />
             </section>
           )}
           <p className="text-sm text-muted">{t('humanNote')}</p>

@@ -5,6 +5,7 @@ import { Arrow } from '@/components/brand';
 import { ApplicantStatus } from '@/components/forms';
 import { HiringPanel } from '@/components/hiring-panel';
 import { ApplicationNotes, InterviewFeedback } from '@/components/applicant-review';
+import { formLabels, InterviewPreparation, type Preparation } from '@/components/interview-prep';
 import { ApplicantCvButton } from '@/components/profile';
 import { type MatchData, RequirementMatch } from '@/components/requirement-match';
 import { Badge, statusTone, Timeline } from '@/components/ui';
@@ -70,6 +71,9 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     apiForPage<MatchData>(`/organizations/${orgId}/applications/${applicationId}/match`),
   ]);
   if (!data) notFound();
+  // Each interview's preparation (questions and form), for staff only. A failure leaves the rest of the page usable.
+  const preparations = new Map(await Promise.all(data.interviews.map(async (i) =>
+    [i.id, await apiForPage<Preparation>(`/organizations/${orgId}/interviews/${i.id}/preparation`).catch(() => null)] as const)));
   const t = await getTranslations({ locale, namespace: 'applicant' });
   const tm = await getTranslations({ locale, namespace: 'match' });
   const ts = await getTranslations({ locale, namespace: 'applicationStatus' });
@@ -315,12 +319,13 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                   <li key={i.id} className="border-t border-border pt-4 first:border-t-0 first:pt-0">
                     <p className="font-semibold">{formatWhen(locale, i.scheduled_at, i.time_zone)}</p>
                     <p className="text-sm text-muted">{t('participants')}: {i.participants.map(who).join(sep)}</p>
+                    <InterviewPreparation orgId={orgId} interviewId={i.id} prep={preparations.get(i.id) ?? null} canPrepare={i.status !== 'cancelled'} />
                     <InterviewFeedback
                       orgId={orgId} applicationId={applicationId} interviewId={i.id}
                       canWrite={i.participants.some((p) => p?.user_id === data.my_user_id) && i.status !== 'cancelled'}
                       mine={i.feedback.find((f) => f.author_id === data.my_user_id) ?? null}
                       submitted={i.feedback.filter((f) => f.status === 'submitted').map((f) => ({ ...f, authorName: who(f.author) }))}
-                      suggested={[...data.relevance.matched, ...data.relevance.gaps].map(name)}
+                      suggested={formLabels(preparations.get(i.id) ?? null, locale).length ? formLabels(preparations.get(i.id) ?? null, locale) : [...data.relevance.matched, ...data.relevance.gaps].map(name)}
                     />
                   </li>
                 ))}

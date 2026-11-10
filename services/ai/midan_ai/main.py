@@ -22,6 +22,7 @@ from .assistant import AssistantRequest, answer as assistant_answer
 from .translate import TranslateRequest, Unavailable as TranslateUnavailable, translate
 from .regenerate import RegenerateRequest, Unavailable, regenerate as regenerate_task
 from .skills import SuggestRequest, suggest as suggest_skills
+from .interview import InterviewRequest, Unavailable as InterviewUnavailable, evaluation_form as interview_form, questions as interview_questions
 from .evaluation import build_evaluation_graph
 from .providers import PROMPT_VERSION, get_provider, provider_status
 from .schemas import EvaluationInput, JobInput
@@ -173,6 +174,26 @@ def run_translate(request: TranslateRequest) -> dict[str, Any]:
     try:
         return translate(request, _provider).model_dump()
     except TranslateUnavailable as error:
+        raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
+
+
+@app.post("/interview/questions", dependencies=[Depends(require_token)])
+def run_interview_questions(request: InterviewRequest) -> dict[str, Any]:
+    """Questions for one candidate's interview, grounded in the facts the Core API sent. Live model only: 503 with the
+    reason without one, never template questions."""
+    try:
+        return interview_questions(request, _provider).model_dump()
+    except InterviewUnavailable as error:
+        raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
+
+
+@app.post("/interview/evaluation-form", dependencies=[Depends(require_token)])
+def run_interview_form(request: InterviewRequest) -> dict[str, Any]:
+    """The candidate-specific evaluation form for after the interview: competencies, criteria and what each rating means.
+    Live model only, like the questions."""
+    try:
+        return interview_form(request, _provider).model_dump()
+    except InterviewUnavailable as error:
         raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
 
 

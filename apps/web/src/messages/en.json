@@ -3877,5 +3877,28 @@
     "strengths": "Shows",
     "gaps": "Not shown",
     "manual": "Ranking informs; it decides nothing. Shortlisting, rejecting and hiring are always a person's choice."
+  },
+  "interviewPrep": {
+    "note": "Proposed by MIDAN for this candidate, from the job's approved requirements, the company's context, the CV match and the reviewed assessment. Use, change or ignore them; the candidate never sees this.",
+    "questionsTitle": "Interview questions",
+    "formTitle": "Evaluation form for after the interview",
+    "prepareQuestions": "Prepare questions",
+    "prepareForm": "Prepare the form",
+    "regenerate": "Prepare again",
+    "noQuestions": "No questions prepared yet.",
+    "noForm": "No form prepared yet.",
+    "proposed": "Proposed on {date}",
+    "basis": "What this is based on",
+    "listenFor": "Listen for",
+    "formUsed": "These competencies start each interviewer's feedback below. Each is rated 1 to 4 with evidence; nobody's rating is changed by MIDAN.",
+    "purpose": {
+      "probe_strength": "Strength",
+      "probe_gap": "Not shown in the CV",
+      "verify_evidence": "To verify",
+      "assessment_follow_up": "Assessment follow-up",
+      "company_fit": "Company context"
+    },
+    "prepTitle": "Your preparation for this candidate",
+    "openApplicant": "Open the candidate's file and the feedback form"
   }
 }
