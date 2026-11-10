@@ -1,7 +1,8 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { notFound } from 'next/navigation';
 import { AccessDecision, type AccessRequest } from '@/components/employer-access';
 import { Badge, EmptyState } from '@/components/ui';
-import { api } from '@/lib/api';
+import { api, apiForPage } from '@/lib/api';
 import { formatWhen } from '@/lib/format';
 
 const TONES: Record<string, 'active' | 'danger' | 'neutral' | 'warning'> = { pending_approval: 'warning', approved: 'active', rejected: 'danger', revoked: 'neutral' };
@@ -11,6 +12,8 @@ type Event = { id: number; action: string; request_id: string; created_at: strin
 // The platform administrator's review of employer access: who asked for which supported employer, the decision, the
 // workspaces and their members, and every decision on record. Only platform administrators reach /admin (PlatformAdminGuard).
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+  // Layouts and pages can render concurrently. Stop here before privileged reads for denied sessions.
+  if (process.env.NODE_ENV === 'production' || !(await apiForPage('/admin/overview'))) notFound();
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: 'employerAccess.admin' });
