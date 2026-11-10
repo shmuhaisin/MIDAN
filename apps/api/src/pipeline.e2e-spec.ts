@@ -504,9 +504,11 @@ describe('Midan administration and data pipeline', () => {
         const [criterion] = (await rest(ownerA, 'GET', `rubric_criteria?task_id=eq.${task!.id}&code=eq.C1&select=reference_skill_id,description_ar`)).body;
         expect(criterion.reference_skill_id).toBe(k.id);
       }
-      await api().patch(`${base()}/jobs/${job}/status`).set(bearer(ownerA)).send({ status: 'published' }).expect(200);
+      // A job with an assessment is published only once the assessment is approved (20261113090000).
+      await api().patch(`${base()}/jobs/${job}/status`).set(bearer(ownerA)).send({ status: 'published' }).expect(422);
       // The employer's approval: only a published version is ever assigned to a candidate.
       expect((await approve(ownerA, org, version)).status).toBe(201);
+      await api().patch(`${base()}/jobs/${job}/status`).set(bearer(ownerA)).send({ status: 'published' }).expect(200);
     });
 
     it('lets a candidate browse the job, see their workbook-skill match, and apply', async () => {
