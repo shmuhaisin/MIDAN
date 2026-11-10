@@ -58,8 +58,18 @@ blocked** (code and fake-model tests done; needs Groq quota), **Blocked by confi
 | Company-specific case, requirements as criteria, generic titles refused | Implemented (`9db619e`, earlier) + case prompt `7ff659a` | unit tests |
 | Synthetic data labelled | In the prompts and the standard's check | unit tests |
 | Arabic and English equivalent | Generated together in every part | unit tests |
-| **STC Data Analyst assessment, live, both languages** | **Live run blocked** (Groq daily limit) | `scripts/stc-assessment-live.mjs` retries in the background; output goes to `.local/stc-assessment/assessment.json` |
+| **STC Data Analyst assessment, live, both languages** | **Live run blocked** (Groq daily limit) | Parts 1 (case) and 2 (materials) were written live for one job before the limit stopped part 3. A stopped generation now resumes from the parts already written (`6bb3afb`); `scripts/stc-assessment-live.mjs` retries on the same job; output goes to `.local/stc-assessment/assessment.json` |
 | Employer approval before publishing | Tested | `company-journey.e2e` "publishes a job with an assessment only after the assessment is approved" |
+
+### Employer onboarding, branding and requirements (handoff §4)
+| Requirement | Status | Evidence |
+| --- | --- | --- |
+| Onboarding saves and moves on; inputs kept; real errors | Tested | `company-setup.spec` (Chromium): registration → admin approval → details saved in under 15 s → logo → team |
+| Logo palette extraction, light and dark, approval | Tested | same suite: two companies, each workspace in the palette read from its own logo, light and dark, MIDAN's header unchanged |
+| New logo is a suggestion; approved palette kept until approved | Tested, bug fixed | a logo picked while the page was still loading was silently dropped; fixed in `9f6546a`, reproduced and verified in Chromium |
+| No cross-company branding or access | Tested | same suite (API 403/404, other workspace not rendered) and `employer-access.e2e` |
+| AI requirement suggestions with category, mandatory/preferred, proficiency, reason; add, edit, remove, approve; only approved feed ATS and assessment | Implemented, live run blocked (`bab5141`) | AI tests 4; database guards checked (AI suggestion stored as draft, origin and suggestion unchangeable); job page renders ar/en without errors |
+| Job page copy promised a template fallback | Fixed (`55186aa`) | |
 
 ### Hybrid ATS (handoff §6)
 | Requirement | Status | Evidence |
@@ -111,12 +121,15 @@ blocked** (code and fake-model tests done; needs Groq quota), **Blocked by confi
 - API e2e (AI service in demo mode on port 8100, so no quota was spent): company-journey, recruitment, employer-access
   (11/11 with fixtures), employer-access-concurrency passed; foundation + match + career: 103 of 109, of which 4 need the
   sector workbooks and 1 needs a clean database (`supabase/test-cleanup.sql`); the CV-library test was updated (`8482060`).
-- Forms (Playwright, local Auth stand-in): 14 of 15 (the other needs the employer workbook).
+- Forms (Playwright, local Auth stand-in): 14 of 15 (the other needs the employer workbook); the sign-up test was updated
+  for the pending-address cookie (`65d67c6`).
+- Company setup (Playwright, real local stack): passes, with local registry fixtures for STC and Elm.
 - Theme audit: 160 renders, 0 contrast failures, 0 Arabic-Indic digits.
 
 ## Migrations
-- `20261116090000_career_readiness.sql` (+ rollback): `career_readiness`, catalog columns. Local only; Cloud needs the
-  owner's approval like the earlier ones.
+- `20261116090000_career_readiness.sql` (+ rollback): `career_readiness`, catalog columns.
+- `20261116100000_requirement_suggestions.sql` (+ rollback): `job_requirements.suggestion`, a guard on origin and suggestion.
+Both local only; Cloud needs the owner's approval like the earlier ones.
 
 ## To continue
 1. Resolve the Groq quota (Dev tier, or the owner's decision on the other keys), then run, in this order:
