@@ -16,9 +16,10 @@ demo worktree (`D:\Downloads\MIDAN-integration-email-cloud`) was not touched. Th
 | `2ea496e` | `company-journey.e2e-spec.ts`. The recruitment and pipeline tests now publish the assessment before the job |
 | `5ab7122` | The applicant page called a client helper from the server (found by opening it in a browser); ranking wording and numerals |
 | `051e69d` | `scripts/company-journey-acceptance.mjs`, the 18-step acceptance run |
+| `035b2f0` | `GET /organizations/:orgId/integrations` (booleans only); the scheduling form states when Google Calendar isn't connected |
 
 ## Tests run on this machine
-- AI service: 272 passed, 11 skipped, plus 7 new interview/report tests (run with no provider key, as the suite expects).
+- AI service: 284 passed, 10 skipped, in the worktree's own venv with e5 installed. That includes the e5 matching tests and the 7 new interview and report tests, run with no provider key. The skips are real-provider, OCR, guide-only and checkpoint-database tests.
 - API unit: 90/90 (16 suites, including the new ranking rules).
 - API end to end, on a freshly reset local database with the AI service in demo mode: 12 of 13 suites passed on the
   first pass, including foundation, recruitment and the new company-journey suite. `pipeline` failed at sign-in with
@@ -31,10 +32,10 @@ demo worktree (`D:\Downloads\MIDAN-integration-email-cloud`) was not touched. Th
   against the local stack and rendered without page errors, after the fix in `5ab7122`.
 
 ## Acceptance: the 18 steps on the isolated local stack
-Run `mwaf6a34`, `node scripts/company-journey-acceptance.mjs`, on a freshly reset local database (PostgreSQL 54533,
+Run `mwafth6m` (after the owner approved the Hugging Face download), `node scripts/company-journey-acceptance.mjs`, on a freshly reset local database (PostgreSQL 54533,
 gateway 54521, AI 8500, API 4500, web 3500). Fictional candidates. The workspace is the **test** workspace of one registry
 employer (stc), created through the real employer-access approval: `is_test`, slug `midan-test-employer-*`, hidden from
-public listings. **The AI service ran in demo mode**, because the shared Groq key was exhausted (see "What stays open").
+public listings. **The AI service ran in demo mode**: by the owner's instruction the local stack uses no Groq or Gemini key until after the demo. CV matching ran on `intfloat/multilingual-e5-base` (`EMBEDDING_PROVIDER=e5-local`, offline, in this worktree's own venv `.local/ai-venv` and model cache `.local/hf`).
 Evidence is in `.local/acceptance/` (git-ignored). The new screens were then opened in headless Chromium
 (`.local/acceptance/screens/`); that check found, and led to the fix of, a server/client error on the applicant page.
 
@@ -46,8 +47,8 @@ Evidence is in `.local/acceptance/` (git-ignored). The new screens were then ope
 | 4 | Business-context, branded assessment | **Not passed** | Without the model, generation used MIDAN's templates (labelled demo), not framed in the business domain. The domain context is in the code and the prompt, but no live generation ran after the change |
 | 5 | Publish | **Passed** | Publishing before the assessment was approved was refused (422); after approval the job was published, with branding |
 | 6 | Several candidates apply with CVs | **Passed** | 4 fictional CVs (PDF) uploaded and read by MIDAN's local reading (`local_only`), approved by each candidate, then 4 applications |
-| 7 | HF model analyzes the CVs | **Not passed** | The matching backend reported `token-overlap-v1` (lexical): e5 isn't installed on this machine |
-| 8 | ATS scores CV and assessment | **Passed**, with a caveat | CV scored for all 4 by the existing rule. Assessment proposed (demo heuristic, 1 of 16 criteria), and a fictional reviewer scored and released 3 attempts. The CV scores are lexical (0–5%), not e5 |
+| 7 | HF model analyzes the CVs | **Passed** | Every applicant's match reports `provider: e5-local`, `model_version: intfloat/multilingual-e5-base`, with no fallback |
+| 8 | ATS scores CV and assessment | **Passed**, with a caveat | CV scored for all 4 by the existing rule. Assessment proposed (demo heuristic, 1 of 16 criteria), and a fictional reviewer scored and released 3 attempts. CV scores from e5 with the existing rule: 50–58%. e5's compressed similarities barely separate the unrelated marketing CV (50%) from the analysts, because the conservative thresholds mark most lines "partly shown" for a person to check, as designed (`docs/ai/ATS_MATCHING.md`) |
 | 9 | All candidates ranked | **Passed** | 4 of 4 listed with CV %, assessment %, interview, strengths and gaps, rank and stage; overall % shown as unavailable (no approved weights); pending stages unranked |
 | 10 | Shortlist | **Passed** | 2 shortlisted by a person; an interview for a candidate not shortlisted was refused (422) |
 | 11 | Schedule via Google Calendar | **Not passed** | Interviews created; `calendar_status: not_configured` (no refresh token) |
@@ -59,23 +60,30 @@ Evidence is in `.local/acceptance/` (git-ignored). The new screens were then ope
 | 17 | Manual hire decision | **Passed** | Hired and not selected, both issued by a person; the other applications were untouched |
 | 18 | Per-candidate development reports | **Not passed** | 503 `not_configured`: no live model, so no report was written. The release, notification and visibility rules passed in `company-journey.e2e-spec.ts` with a stored draft |
 
-**10 of 18 passed** (8 and 15 with the caveats above). Not passed: 3, 4, 13, 14 and 18 need the live model, 7 needs the
-HF model installed, and 11 and 12 need Calendar credentials and the owner's approval.
+**11 of 18 passed** (8 and 15 with the caveats above). Not passed: 3, 4, 13, 14 and 18 need a live model (none may be
+used here until after the demo, unless the owner provides a key), and 11 and 12 need Calendar credentials and the owner's
+approval. The earlier run without e5 (`mwaf6a34`) passed 10, with step 7 not passed.
 
 
 ## What stays open
-1. **Hugging Face model.** `intfloat/multilingual-e5-base` isn't installed here: no `sentence-transformers` or torch in the
-   venv, and no model files. Every CV match on this machine, including the demo's, runs the lexical fallback, and its
-   provenance says so. Installing it needs a download of about 2 GB, which needs the owner's approval.
-2. **Overall score.** No approved rule combines the CV, assessment and interview scores. An overall percentage and a
-   cumulative ranking need weights decided by the owner.
-3. **Google Calendar.** `GOOGLE_CALENDAR_REFRESH_TOKEN` is empty. No real event or invitation was created. Testing this
-   needs a token and the owner's approval, because it sends real invitations.
-4. **Live-model features.** The live model wrote nothing in the final acceptance run: Groq answered `quota_exhausted`,
-   and the key was then removed from the local stack, because it's the same key the demo uses. That covers interview
-   questions, the evaluation form, the development report and contextual generation. Their code paths are tested with a
-   fake model (AI unit tests), and their refusal without a model is tested end to end. A live run is still needed.
-5. **Homepage metric.** The home page at `b6d7c72` shows no hiring number. The element the brief meant isn't identified,
-   so nothing was changed there.
+1. **Hugging Face model: installed here, not in the demo.** Approved by the owner and installed only in this worktree
+   (torch 2.15.0+cpu, sentence-transformers 3.4.1, the model about 1.1 GB). The AI suite in that venv passed 284 tests,
+   the e5 matching tests included. The demo's AI service still runs without it (lexical, labelled). To use it there:
+   `EMBEDDING_PROVIDER=e5-local` and an environment with these packages and the model files.
+2. **Overall score (owner's decision: side by side).** The stages are shown side by side with their existing formulas, and
+   no weight was added. There is no overall percentage and no combined ranking.
+3. **Google Calendar (owner's decision: real API only if configured).** `GOOGLE_CALENDAR_REFRESH_TOKEN` is empty, so
+   nothing is sent. Commit `035b2f0` makes the scheduling form say so in English and Arabic: no event or invitation is
+   sent. Interview rows show "Not sent: the calendar isn't switched on". No real event or invitation was created.
+4. **Live-model features.** In the acceptance run the live model wrote nothing: the owner asked that the demo's Groq and
+   Gemini keys not be used until after the demo. That covers interview questions, the evaluation form, the development
+   report, skill reasons and contextual generation. Their code is tested with a fake model (AI unit tests), and their
+   refusal without a model is tested end to end. A live run needs a key the owner provides, or the time after the demo.
+5. **Homepage metric: not found, so a screenshot is needed.** I searched the home page's text in both languages, its
+   messages, the 3D scene (it draws no text, only gradients and a window pattern), every image in `apps/web/public`
+   (the logo and the Humaidan characters, none with figures) and full-page renders of `/en` and `/ar`. The only figures
+   are step numbers, levels L0 to L4, and the labelled illustrative previews ("3 of 4 skills", "Due in 3 days", "Task 2
+   of 3", a sample calendar date). Nothing was changed and nothing was added: I need a screenshot of where the owner saw
+   the number.
 6. Migrations `20261113090000`, `20261113100000` and `20261113110000` exist only locally. They need the owner's approval
    before Cloud, as does `20261112090000`.
