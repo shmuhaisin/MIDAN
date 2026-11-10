@@ -1,5 +1,12 @@
 # Project status
 
+## Interview guardrails (2026-11-10, branch `feature/midan-interview-guardrails`, implementation only)
+
+The API now refuses to schedule an interview unless the application is shortlisted, rejects past/invalid timestamps and timestamps without an explicit UTC offset, uses `Asia/Riyadh` as the supported interview time zone, and returns a conflict for an already-active slot at the same application/time. Moving an interview to a past time is refused too. The same shortlist and active-slot rules are backed by a new Supabase migration (trigger + partial unique index), and focused rule tests have been added.
+
+**Not yet verified:** the new Jest tests have not been run against this branch; the migration has not been applied or rehearsed against the local database; no hosted database has been changed. Calendar and Daily integrations remain unverified with real credentials. Do not treat this implementation as production-ready until the migration and API tests pass.
+
+
 Only what has been run is marked Tested. The milestone table was last updated 2026-11-05; several of its "Not Started"
 rows were since built on `feature/midan-complete-data-jobs-assessment`. The verified state as of 2026-11-07 is in
 [docs/audits/MIDAN_PHASE_0_GAP_ANALYSIS.md](docs/audits/MIDAN_PHASE_0_GAP_ANALYSIS.md).
