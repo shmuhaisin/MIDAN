@@ -1968,7 +1968,9 @@
     "issue": "Issue the decision",
     "interviewers": "Interviewers",
     "interviewersNote": "You take part as the person scheduling. Only participants can join the video room and give feedback.",
-    "calendarUnavailable": "Google Calendar isn't connected on this server, so scheduling here sends no calendar event or invitation. The interview is recorded in MIDAN and the candidate is told in their notifications. Send the meeting invitation yourself until the calendar is connected."
+    "calendarUnavailable": "Google Calendar isn't connected on this server, so scheduling here sends no calendar event or invitation. The interview is recorded in MIDAN and the candidate is told in their notifications. Send the meeting invitation yourself until the calendar is connected.",
+    "scheduleNeedsShortlist": "Interviews are scheduled for shortlisted candidates only. Shortlist this candidate first, then schedule the interview here.",
+    "riyadhTime": "Riyadh time (Asia/Riyadh)"
   },
   "employers": {
     "title": "Employer directory",

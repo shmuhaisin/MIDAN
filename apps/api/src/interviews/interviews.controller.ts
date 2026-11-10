@@ -151,6 +151,13 @@ export class InterviewsController {
       const application = await tx.applications.findFirst({ where: { id: applicationId, org_id: orgId }, select: { candidate_id: true } });
       if (!application) throw new NotFoundException();
       const { interviewer_ids = [], ...fields } = body;
+      // A repeated request (a double click, a retry after a timeout) finds the interview it already made: the same
+      // application at the same time, still live. It never creates a second one, or a second calendar event.
+      const same = await tx.interviews.findFirst({
+        where: { application_id: applicationId, org_id: orgId, scheduled_at: when, status: { in: ['invited', 'accepted', 'reschedule_requested'] } },
+        select: { id: true },
+      });
+      if (same) return { ...same, existing: true };
       const interview = await tx.interviews.create({
         data: { ...fields, scheduled_at: when, application_id: applicationId, org_id: orgId, candidate_id: application.candidate_id, calendar_status: 'pending' },
       });
@@ -160,6 +167,7 @@ export class InterviewsController {
       });
       return interview;
     });
+    if ('existing' in created) return this.db.asUser(user, (tx) => tx.interviews.findUniqueOrThrow({ where: { id: created.id } }));
     return this.syncCalendar(user, created.id);
   }
 

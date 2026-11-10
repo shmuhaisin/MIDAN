@@ -4,6 +4,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
 import { issueOutcome, retryInterviewCalendar, scheduleInterview, updateInterview } from '@/lib/candidate-actions';
+import { INTERVIEW_ZONE, isoToZonedLocal, zonedLocalToIso } from '@/lib/zoned-time';
 import { formatWhen, pick } from '@/lib/format';
 import { ErrorText, Field, INPUT, PRIMARY, useAction } from './forms';
 
@@ -15,8 +16,12 @@ function InterviewRow({ orgId, interview, canManage }: { orgId: string; intervie
   const ta = useTranslations('application');
   const ti = useTranslations('interview');
   const locale = useLocale();
-  const [when, setWhen] = useState('');
-  const move = useAction(() => updateInterview(orgId, interview.id, { scheduled_at: new Date(when).toISOString() }));
+  // The new time is entered, and starts, as Riyadh wall-clock time, whatever zone the browser is in.
+  const [when, setWhen] = useState(() => isoToZonedLocal(interview.scheduled_at, interview.time_zone || INTERVIEW_ZONE));
+  const move = useAction(() => {
+    const at = zonedLocalToIso(when, interview.time_zone || INTERVIEW_ZONE);
+    return at ? updateInterview(orgId, interview.id, { scheduled_at: at }) : Promise.resolve({ error: 'required' });
+  });
   const cancel = useAction(() => updateInterview(orgId, interview.id, { status: 'cancelled' }));
   const complete = useAction(() => updateInterview(orgId, interview.id, { status: 'completed' }));
   const absent = useAction(() => updateInterview(orgId, interview.id, { status: 'no_show' }));
@@ -76,11 +81,12 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
     e.preventDefault();
     const target = e.currentTarget;
     const form = new FormData(target);
-    const when = new Date(trimmed(form, 'when'));
-    if (Number.isNaN(when.getTime())) return setScheduleError('required');
+    // Read as Riyadh wall-clock time: new Date() would use the browser's own zone and save the wrong instant.
+    const when = zonedLocalToIso(trimmed(form, 'when'), INTERVIEW_ZONE);
+    if (!when) return setScheduleError('required');
     startSchedule(async () => {
       const result = await scheduleInterview(orgId, applicationId, {
-        scheduled_at: when.toISOString(), duration_minutes: Number(trimmed(form, 'duration')), time_zone: 'Asia/Riyadh',
+        scheduled_at: when, duration_minutes: Number(trimmed(form, 'duration')), time_zone: INTERVIEW_ZONE,
         interviewer_ids: form.getAll('interviewer').map(String),
         ...(trimmed(form, 'instructions_ar') && { instructions_ar: trimmed(form, 'instructions_ar') }),
         ...(trimmed(form, 'instructions_en') && { instructions_en: trimmed(form, 'instructions_en') }),
@@ -108,10 +114,12 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
       <section aria-labelledby="hiring-interviews">
         <h2 id="hiring-interviews" className="section-title">{t('interviews')}</h2>
         {interviews.length > 0 && <ul className="mt-2 border-t border-border">{interviews.map((i) => <InterviewRow key={i.id} orgId={orgId} interview={i} canManage={canManage} />)}</ul>}
-        {canManage && (
+        {/* Interviews need a shortlisted application (the database refuses any other): say so instead of a form that fails. */}
+        {canManage && status !== 'shortlisted' && <p className="mt-4 text-sm text-muted">{t('scheduleNeedsShortlist')}</p>}
+        {canManage && status === 'shortlisted' && (
           <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={schedule}>
             {calendarConfigured === false && <p role="note" className="callout text-sm sm:col-span-2">{t('calendarUnavailable')}</p>}
-            <label className="block"><span className="field-label">{t('when')}</span><input type="datetime-local" name="when" required className={INPUT} /></label>
+            <label className="block"><span className="field-label">{t('when')}</span><input type="datetime-local" name="when" required className={INPUT} /><span className="mt-1 block text-xs text-muted">{t('riyadhTime')}</span></label>
             <Field name="duration" type="number" min={5} max={480} required label={t('duration')} defaultValue="30" />
             <Field name="instructions_ar" dir="rtl" maxLength={2000} label={t('instructionsAr')} />
             <Field name="instructions_en" dir="ltr" maxLength={2000} label={t('instructionsEn')} />

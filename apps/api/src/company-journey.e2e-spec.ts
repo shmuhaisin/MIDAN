@@ -108,8 +108,12 @@ describe('the company journey', () => {
 
   it('prepares interview questions and the form with the live model only, for staff only', async () => {
     await api().patch(`/applications/${appOne}/status`).set(bearer(owner)).send({ status: 'shortlisted' }).expect(200);
-    interview = (await api().post(`${base()}/applications/${appOne}/interviews`).set(bearer(owner))
-      .send({ scheduled_at: new Date(Date.now() + 3_600_000).toISOString() }).expect(201)).body.id;
+    const at = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 3_600_000).toISOString();
+    interview = (await api().post(`${base()}/applications/${appOne}/interviews`).set(bearer(owner)).send({ scheduled_at: at }).expect(201)).body.id;
+    // A repeated request (double click, retry) returns the same interview: never a second one.
+    expect((await api().post(`${base()}/applications/${appOne}/interviews`).set(bearer(owner)).send({ scheduled_at: at }).expect(201)).body.id).toBe(interview);
+    const all = (await api().get(`${base()}/applications/${appOne}/interviews`).set(bearer(owner)).expect(200)).body.interviews;
+    expect(all.filter((i: { status: string }) => i.status !== 'cancelled')).toHaveLength(1);
     for (const kind of ['questions', 'evaluation_form']) {
       const res = await api().post(`${base()}/interviews/${interview}/preparation`).set(bearer(owner)).send({ kind }).expect(503);
       expect(res.body.reason).toBe('not_configured');
