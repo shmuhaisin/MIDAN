@@ -49,7 +49,7 @@ otherwise stays).
   then reaches the Elm workspace. Screenshots: `docs/testing/screenshots/employer-access/`.
 - **Migration rehearsal (PostgreSQL 17, cloud starting point): passed.** All 35 pending-from-baseline migrations apply,
   roll back to an identical schema and data, apply again; full rollback returns to the cloud's fingerprint.
-- **Full API end-to-end regression:** see the integration report for the final count.
+- **Full API end-to-end regression (designed setup: cleaned test data, AI in demo mode, lexical matching): 215/215** across 11 suites (the 204 existing tests plus the 11 new ones): nothing else changed behaviour.
 
 ## Production (Supabase Cloud): needs the owner's approval — not applied
 - **Migration `20261112090000_employer_access_requests`** (cloud is at 57). Effects on existing data: none of the cloud's
