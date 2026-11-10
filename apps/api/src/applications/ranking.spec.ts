@@ -45,6 +45,20 @@ describe('rankBy', () => {
     expect(out.map((r) => [r.application_id, r.rank])).toEqual([['e', 1], ['b', 2], ['a', 3], ['d', 3], ['c', null]]);
   });
 
+  it('gives the same order for the same data, whatever order it arrives in, even with equal scores and times', () => {
+    const rows = [row('m', 70, 1), row('k', 70, 1), row('z', null, 1), row('a', null, 1), row('q', 70, 1)];
+    const once = rankBy(rows, 'cv').map((r) => r.application_id);
+    const reversed = rankBy([...rows].reverse(), 'cv').map((r) => r.application_id);
+    expect(once).toEqual(['k', 'm', 'q', 'a', 'z']);
+    expect(reversed).toEqual(once);
+    expect(rankBy(rows, 'cv').filter((r) => r.rank !== null).every((r) => r.rank === 1)).toBe(true);
+  });
+
+  it('never treats a missing result as zero', () => {
+    const out = rankBy([row('low', 0, 1), row('none', null, 2)], 'cv');
+    expect(out.map((r) => [r.application_id, r.rank])).toEqual([['low', 1], ['none', null]]);
+  });
+
   it('never drops an applicant', () => {
     const rows = Array.from({ length: 25 }, (_, i) => row(`x${i}`, i % 3 ? i : null, i + 1));
     expect(rankBy(rows, 'cv')).toHaveLength(25);

@@ -68,12 +68,15 @@ export function stageValue(row: Rankable, key: RankKey): number | null {
 
 /**
  * Orders every applicant by the chosen stage, highest first; equal values share a rank (1, 2, 2, 4). Applicants without a
- * value for that stage follow, unranked, in the order they applied. Nobody is dropped: this is the whole list.
+ * value for that stage follow, unranked: a missing result is never treated as zero. Nobody is dropped: this is the whole
+ * list. The order is deterministic: equal values are listed by who applied first, then by application id, so the same
+ * data always gives the same list. The tie-break orders the list only; it never changes a score or a shared rank.
  */
 export function rankBy<T extends Rankable>(rows: T[], key: RankKey): (T & { rank: number | null })[] {
   const applied = (r: T) => new Date(r.applied_at).getTime();
-  const scored = rows.filter((r) => stageValue(r, key) !== null).sort((a, b) => stageValue(b, key)! - stageValue(a, key)! || applied(a) - applied(b));
-  const pending = rows.filter((r) => stageValue(r, key) === null).sort((a, b) => applied(a) - applied(b));
+  const stable = (a: T, b: T) => applied(a) - applied(b) || (a.application_id < b.application_id ? -1 : a.application_id > b.application_id ? 1 : 0);
+  const scored = rows.filter((r) => stageValue(r, key) !== null).sort((a, b) => stageValue(b, key)! - stageValue(a, key)! || stable(a, b));
+  const pending = rows.filter((r) => stageValue(r, key) === null).sort(stable);
   let rank = 0;
   let previous: number | null = null;
   const ranked = scored.map((r, i) => {
