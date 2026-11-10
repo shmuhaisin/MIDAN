@@ -19,16 +19,25 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Semantic requirement matching with intfloat/multilingual-e5-base (EMBEDDING_PROVIDER=e5-local). Optional: it brings
-# PyTorch (about 800 MB) and needs the model files (about 1.1 GB). Without it, matching uses word comparison.
-# See docs/ai/ATS_MATCHING.md.
-matching = ["sentence-transformers==3.4.1"]
+# Semantic requirement matching: intfloat/multilingual-e5-base, and the cross-encoder BAAI/bge-reranker-v2-m3 for
+# EMBEDDING_PROVIDER=e5-rerank. Optional: it brings PyTorch and needs the model files (about 3.2 GB for both). Without it,
+# matching uses word comparison, labelled. torch is listed so that Linux (the Docker image) takes the CPU-only build below:
+# PyPI's Linux wheel pulls in several GB of CUDA libraries this CPU service never uses. See docs/ai/ATS_MATCHING.md.
+matching = ["sentence-transformers==3.4.1", "torch==2.15.0"]
 
 [dependency-groups]
 dev = ["pytest>=8", "httpx>=0.27"]
 
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

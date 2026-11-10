@@ -8,7 +8,7 @@ Nothing has been deployed. Nothing here is verified in production until the last
 | --- | --- | --- |
 | `apps/web` | `npm run build -w @midan/web`, then `npm run start -w @midan/web` | Public HTTPS |
 | `apps/api` | `npm run build -w @midan/api`, then `node dist/main.js` | Reachable only from the web server |
-| `services/ai` | `services/ai/Dockerfile`, which includes tesseract with Arabic | Reachable only from the API. A persistent checkpoint store |
+| `services/ai` | `services/ai/Dockerfile`, which includes tesseract with Arabic, CPU-only PyTorch and the two CV matching models (about 3.2 GB, baked in at build time) | Reachable only from the API. A persistent checkpoint store. About 2 GB of RAM for the matcher |
 
 ## Environment
 
@@ -24,6 +24,7 @@ Secrets go in the host's secret manager, never in the repository or a `NEXT_PUBL
 | `DAILY_API_KEY` | API | Without it, interview pages say video isn't switched on. Secret |
 | `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, `GOOGLE_CALENDAR_REFRESH_TOKEN`, `GOOGLE_CALENDAR_ID` | API | Without them, interviews show the invitation wasn't sent. Secret |
 | `DEV_TEST_SIGNUP`, `DEV_TEST_ACCESS_CODE` | web | Development only. Leave unset in production. The code is read at run time by server actions and never written into a build |
+| `EMBEDDING_PROVIDER` | API, AI | `e5-rerank` (the image's default). Set the API to the same value: it keys stored CV matches on it. See docs/ai/ATS_MATCHING.md |
 | `TRUST_PROXY` | API | Which hops may report a caller's address, for rate limiting. See below |
 
 `DAILY_API_URL`, `GOOGLE_API_URL`, `GOOGLE_TOKEN_URL`, `OPENAI_API_URL` and `GEMINI_API_URL` exist for tests. Leave them unset in production.
