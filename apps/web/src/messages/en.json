@@ -1459,7 +1459,7 @@
     "assessments": "My assessments",
     "interviews": "Interviews",
     "notificationsCount": "Notifications, {count} unread",
-    "assistant": "Ask MIDAN"
+    "assistant": "Ask Humaidan"
   },
   "candidateSkills": {
     "search": "Search for a skill",
@@ -3540,17 +3540,18 @@
   "assistant": {
     "eyebrow": "Ask MIDAN",
     "title": "Ask about your journey",
-    "leadCandidate": "Questions about your profile, career plan, applications, assessments and interviews, answered from what's in your account.",
+    "leadCandidate": "Humaidan answers from what's in your account: your profile and CV, your target job and readiness check, your roadmap and recommended courses, your applications, assessments and interviews.",
     "leadOrganization": "Questions about this organization's jobs, applicants, assessments and interviews, answered from what your role can see here.",
     "log": "Conversation",
     "emptyTitle": "What would you like to know?",
     "emptyCandidate": "It answers from your own account only, shows what each answer is based on, and links to the page where you can act. It never does anything for you.",
     "emptyOrganization": "It answers from this organization's records only, shows what each answer is based on, and links to the page where you can act. Decisions stay with your team.",
     "suggestCandidate": [
-      "What should I work on next?",
+      "How ready am I for my target job?",
+      "Which courses or certifications fit my gaps?",
       "Where do my applications stand?",
-      "When is my next interview?",
-      "Which skills does my target role ask for that I haven't shown?"
+      "How can I prepare for my next interview?",
+      "What should I improve in my CV for my target job?"
     ],
     "suggestOrganization": [
       "What needs our review?",
@@ -3572,7 +3573,9 @@
       "forbidden": "You don't have access to this.",
       "invalid": "That question couldn't be sent. Shorten it and try again.",
       "unavailable": "The assistant isn't available right now. Try again in a moment."
-    }
+    },
+    "eyebrowCandidate": "Humaidan, your career assistant",
+    "titleCandidate": "Ask Humaidan"
   },
   "showcase": {
     "eyebrow": "Product showcase",
