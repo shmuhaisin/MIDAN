@@ -5,6 +5,8 @@ import { apiForPage } from '@/lib/api';
 
 /** The API refuses anyone who isn't a platform administrator; this page then doesn't exist for them. */
 export default async function AdminLayout({ children, params }: { children: React.ReactNode; params: Promise<{ locale: string }> }) {
+  // This dashboard is a local development tool; the API still verifies the database-backed admin role.
+  if (process.env.NODE_ENV === 'production') notFound();
   const { locale } = await params;
   setRequestLocale(locale);
   const allowed = await apiForPage<unknown>('/admin/overview');

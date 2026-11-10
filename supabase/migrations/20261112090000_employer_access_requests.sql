@@ -232,7 +232,7 @@ begin
   -- Someone else's invitation looks the same as a missing one.
   if not found then raise exception 'Invitation not found' using errcode = 'P0002'; end if;
   select * into o from public.organizations where id = i.org_id;
-  if o.is_test or o.is_demo then
+  if (o.is_test or o.is_demo) and o.employer_registry_id is null then
     insert into public.organization_members (org_id, user_id, role) values (i.org_id, auth.uid(), i.role) on conflict do nothing;
     update public.organization_invitations set accepted_at = now() where id = i.id;
     insert into public.audit_logs (org_id, actor_id, action, entity, entity_id, details)
@@ -253,7 +253,8 @@ end $$;
 -- Members: direct inserts only in test and demo organizations; updates change the role and nothing else.
 drop policy "admins insert" on public.organization_members;
 create policy "admins insert in test and demo organizations" on public.organization_members for insert to authenticated with check (
-  exists (select 1 from public.organizations o where o.id = org_id and (o.is_test or o.is_demo))
+  exists (select 1 from public.organizations o where o.id = org_id and (o.is_test or o.is_demo)
+          and o.employer_registry_id is null)
   and (private.is_org_member(org_id, array['owner']::public.org_role[])
        or (role <> 'owner' and private.is_org_member(org_id, array['admin']::public.org_role[])))
 );

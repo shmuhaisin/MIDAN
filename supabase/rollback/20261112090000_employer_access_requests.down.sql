@@ -1,6 +1,7 @@
 -- Reverses 20261112090000_employer_access_requests. Requests are deleted; memberships granted by approvals stay (they are
 -- ordinary memberships). Fails if two workspaces now link the same registry employer (a test and a real one): remove the
 -- test one first.
+revoke update (role) on public.organization_members from authenticated;
 grant update on public.organization_members to authenticated;
 drop policy if exists "admins insert in test and demo organizations" on public.organization_members;
 create policy "admins insert" on public.organization_members for insert to authenticated with check (
