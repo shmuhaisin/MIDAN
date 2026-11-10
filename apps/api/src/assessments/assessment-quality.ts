@@ -12,6 +12,9 @@ export type JobInput = {
   requirements: { id: string; requirement_type: string; description_ar: string | null; description_en: string | null; is_mandatory: boolean }[];
   reference_skills: { id: string; name_ar: string; description_ar: string | null; is_required: boolean }[];
   company_type: string | null; sector: string | null; experience_level: string | null;
+  // The registry employer's own business domain (its official sector, such as "Telecommunications"), when the workspace is
+  // one of the registry's employers. The scenario's company stays fictional; this only sets the business it is in.
+  business_domain?: string | null;
 };
 type SkillRef = { id: string; slug: string; name_ar: string; name_en: string; synonyms: string[] };
 
@@ -67,9 +70,10 @@ export async function loadJobInput(tx: Tx, orgId: string, jobId: string, company
     ...leveled.map((r) => `المستوى المتوقع في «${r.reference_skills.name_ar}»: L${r.required_level}`),
   ];
   const withExtra = (text: string | null, extra: string[]) => (extra.length ? [text, ...extra].filter(Boolean).join('\n') : text);
-  const [organization, taxonomy] = await Promise.all([
+  const [organization, taxonomy, domain] = await Promise.all([
     tx.organizations.findUniqueOrThrow({ where: { id: orgId }, select: { company_type: true } }),
     tx.skills.findMany(),
+    tx.$queryRaw<{ sector: string | null }[]>`select sector from public.organization_business_domain(${orgId}::uuid)`,
   ]);
   return {
     title_ar: job.title_ar, title_en: job.title_en,
@@ -84,6 +88,7 @@ export async function loadJobInput(tx: Tx, orgId: string, jobId: string, company
       id: r.reference_skills.id, name_ar: r.reference_skills.name_ar, description_ar: r.reference_skills.description_ar, is_required: r.is_required,
     })),
     ...contextFor(job, organization.company_type, companyTypeOverride),
+    business_domain: domain[0]?.sector ?? null,
   };
 }
 

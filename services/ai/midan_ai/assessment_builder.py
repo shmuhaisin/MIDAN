@@ -183,6 +183,7 @@ def make_generator(provider) -> Callable[[State], State]:
             "description_ar": job.description_ar, "description_en": job.description_en,
             "requirements_ar": job.requirements_ar, "requirements_en": job.requirements_en,
             "company_type": job.company_type, "sector": job.sector, "experience_level": job.experience_level,
+            "business_domain": job.business_domain,
             "responsibilities": [{"id": r["requirement_id"], "ar": r["ar"], "en": r["en"]} for r in (_stated(state, job) or state["responsibilities"])],
             "skills": [{"id": s["id"], "name_ar": s["name_ar"], "name_en": s["name_en"]} for s in state["skills"]],
             "reference_skills": [r.model_dump() for r in job.reference_skills],

@@ -14,7 +14,7 @@ from .schemas import AssessorGuide, CriterionInput, GeneratedAssessment, OpenSco
 from .standard import FAMILIES
 
 PROMPT_VERSION = "eval-v3-guide"
-GENERATION_PROMPT_VERSION = "gen-v4-mas1"
+GENERATION_PROMPT_VERSION = "gen-v5-mas1-domain"
 _WORDS = re.compile(r"[\w؀-ۿ]+")
 _SENTENCES = re.compile(r"(?<=[.!?؟\n])\s*")
 
@@ -94,7 +94,8 @@ Ask nothing about personal attributes: age, gender, nationality, religion, famil
 
 The package has three layers that must never mix:
 1. candidate_brief and tasks: what the candidate reads. The company is fictional and says so; it is of the stated company_type and sector,
-   and fits the stated experience_level. Never name a real organization. Give effort_minutes within the range for the job family, and deadline_hours 72.
+   and fits the stated experience_level. When business_domain is given, the fictional company works in that business, and every task,
+   technical ones included, is framed around a realistic problem of that business. Never name a real organization. Give effort_minutes within the range for the job family, and deadline_hours 72.
 2. materials: every input the work needs, as small tables (columns with meaning and unit, and rows) or short documents. All fictional
    (provenance "fictional") unless the job provides data. Every figure the reference solution relies on must be derivable from them.
 3. assessor_guide: reference solution and expected outputs per task (task_ref is the task's 1-based position), calculations with the

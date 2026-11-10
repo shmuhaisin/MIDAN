@@ -15,7 +15,7 @@ import { getSession } from '@/lib/session';
 
 type Job = {
   id: string; status: string; title_ar: string; title_en: string; description_ar: string | null; description_en: string | null;
-  location: string | null; is_demo: boolean; organizations: { name_ar: string; name_en: string; employer_registry: { id: string; name_ar: string; name_en: string } | null };
+  location: string | null; is_demo: boolean; organizations: { name_ar: string; name_en: string; organization_branding: { logo_path: string | null; primary_color: string | null } | null; employer_registry: { id: string; name_ar: string; name_en: string } | null };
   requirements_ar: string | null; requirements_en: string | null;
   employment_type: string | null; application_deadline: string | null; sector: string | null; experience_level: string | null; salary_min: string | null; salary_max: string | null;
   job_reference_skills: { is_required: boolean; reference_skills: { id: string; name_ar: string; description_ar: string | null } }[];
@@ -57,6 +57,9 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const skillName = (s: { name_ar: string; name_en: string | null }) => pick(locale, s.name_ar, s.name_en ?? s.name_ar);
   const description = pick(locale, job.description_ar ?? '', job.description_en ?? '');
   const org = pick(locale, job.organizations.name_ar, job.organizations.name_en);
+  const branding = job.organizations.organization_branding;
+  const logoUrl = branding?.logo_path ? `${process.env.SUPABASE_URL}/storage/v1/object/public/organization-assets/${branding.logo_path}` : null;
+  const brandColor = branding?.primary_color && /^#[0-9A-Fa-f]{6}$/.test(branding.primary_color) ? branding.primary_color : null;
   const requirementsText = pick(locale, job.requirements_ar ?? '', job.requirements_en ?? '');
   const facts = [
     job.location && [t('location'), job.location],
@@ -89,7 +92,10 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             <Icon name="chevron" className="size-4 rotate-180" />{t('back')}
           </Link>
           <div className="mt-6 flex flex-wrap items-start gap-5">
-            <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-[var(--radius-panel)] bg-deep font-display text-2xl font-bold text-mint">{org.trim().charAt(0)}</span>
+            {/* The organization's own logo and colour, as its staff set them; its initial when there's none. */}
+            {logoUrl
+              ? <img src={logoUrl} alt="" className="size-16 shrink-0 rounded-[var(--radius-panel)] border border-border bg-background object-contain p-1" />
+              : <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-[var(--radius-panel)] bg-deep font-display text-2xl font-bold text-mint" style={brandColor ? { backgroundColor: brandColor, color: '#fff' } : undefined}>{org.trim().charAt(0)}</span>}
             <div className="min-w-0 flex-1">
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                 <span className="font-semibold">{org}</span>

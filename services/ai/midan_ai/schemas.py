@@ -63,6 +63,9 @@ class JobInput(BaseModel):
     company_type: CompanyType | None = None
     sector: Sector | None = None
     experience_level: ExperienceLevel | None = None
+    # The registry employer's official business domain (for example "Telecommunications"). The company in the scenario stays
+    # fictional; this only says which business it is in, so a technical task is framed around a problem of that business.
+    business_domain: str | None = Field(default=None, max_length=200)
 
 
 class CriterionDraft(BaseModel):

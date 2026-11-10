@@ -32,6 +32,8 @@ const PUBLIC_JOB = {
   organizations: {
     select: {
       id: true, slug: true, name_ar: true, name_en: true, is_demo: true,
+      // The organization's own branding, as its staff set it (public, like the branded assessment experience).
+      organization_branding: { select: { logo_path: true, primary_color: true } },
       // The official registry entity this account was confirmed as, if any. Not a partnership.
       employer_registry: { select: { id: true, source_company_id: true, name_ar: true, name_en: true, verification_status: true, partnership_status: true } },
     },
