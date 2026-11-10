@@ -175,6 +175,7 @@ export function IdentityStep({ orgId, orgName, identity, canEdit, logoNote }: { 
   const [uploading, startUpload] = useTransition();
   const [rereading, startReread] = useTransition();
   const inputId = useId();
+  const input = useRef<HTMLInputElement>(null);
   const logo = local ?? identity.logoUrl;
   useEffect(() => () => { if (local) URL.revokeObjectURL(local); }, [local]);
 
@@ -191,6 +192,13 @@ export function IdentityStep({ orgId, orgName, identity, canEdit, logoNote }: { 
       if (result.ok) router.refresh();
     });
   };
+  // A file chosen before the page finished loading reached the input while it had no change handler yet, and was lost
+  // without a word (seen in the browser suite). It's picked up once the page is ready.
+  useEffect(() => {
+    const early = input.current?.files?.[0];
+    if (early) { onFile(early); input.current!.value = ''; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the file present when the page became interactive
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -207,7 +215,7 @@ export function IdentityStep({ orgId, orgName, identity, canEdit, logoNote }: { 
               <label htmlFor={inputId} className={clsx('btn cursor-pointer has-focus-visible:outline-2 has-focus-visible:outline-primary', logo ? 'btn-secondary' : 'btn-primary', uploading && 'pointer-events-none opacity-70')}>
                 {uploading && <Spinner />}
                 {uploading ? t('identity.reading') : logo ? t('identity.replace') : t('identity.upload')}
-                <input id={inputId} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={uploading} onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
+                <input ref={input} id={inputId} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={uploading} onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
               </label>
               {identity.logoUrl && !identity.palette && !uploading && (
                 <button type="button" disabled={rereading} aria-busy={rereading} onClick={() => startReread(async () => { const r = await rereadLogoColours(orgId); setUploadState(r); if (r.ok) router.refresh(); })} className="btn btn-ghost">
