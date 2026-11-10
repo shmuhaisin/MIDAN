@@ -42,10 +42,27 @@ export async function setSessionCookies(access: string, refresh: string) {
   const store = await cookies();
   store.set(ACCESS_COOKIE, access, { ...COOKIE_OPTIONS, maxAge: 60 * 60 * 24 * 30 });
   store.set(REFRESH_COOKIE, refresh, { ...COOKIE_OPTIONS, maxAge: 60 * 60 * 24 * 30 });
+  // Signed in: the address waiting for confirmation isn't needed any more.
+  store.delete(PENDING_EMAIL_COOKIE);
 }
 
 export async function clearSessionCookies() {
   const store = await cookies();
   store.delete(ACCESS_COOKIE);
   store.delete(REFRESH_COOKIE);
+}
+
+/**
+ * The address a person just registered with, so the confirmation page can show it and resend to it without asking for
+ * it again. Kept in an http-only cookie for a day (never in the address bar), and cleared once they sign in.
+ */
+export const PENDING_EMAIL_COOKIE = 'midan_pending_email';
+
+export async function setPendingEmail(email: string) {
+  (await cookies()).set(PENDING_EMAIL_COOKIE, email, { ...COOKIE_OPTIONS, maxAge: 60 * 60 * 24 });
+}
+
+export async function getPendingEmail(): Promise<string | null> {
+  const value = (await cookies()).get(PENDING_EMAIL_COOKIE)?.value ?? '';
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 320 ? value : null;
 }

@@ -29,6 +29,8 @@ const PATHS = {
   globe: 'M10 17.5a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15zM2.5 10h15M10 2.5c2 2 3 4.6 3 7.5s-1 5.5-3 7.5c-2-2-3-4.6-3-7.5s1-5.5 3-7.5z',
   external: 'M11.5 3.5h5v5M16.5 3.5l-7 7M14.5 11.5v4a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h4',
   chevron: 'M7.5 4.5 13 10l-5.5 5.5',
+  mail: 'M3.5 5.5h13a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM3 6l7 5 7-5',
+  alert: 'M10 3.5 17.5 16.5h-15zM10 8.5v3.5M10 14.4v.1',
 } as const;
 
 const DIRECTIONAL = new Set<keyof typeof PATHS>(['chevron', 'logout']);

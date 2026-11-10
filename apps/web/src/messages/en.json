@@ -437,7 +437,7 @@
     "haveAccount": "Already have an account?",
     "checkTitle": "Check your email",
     "checkBody": "Check your inbox for a confirmation email. Email verification is required before you can sign in.",
-    "checkNote": "If no email arrives, check spam or request a new confirmation below. Use only the newest link. Contact the administrator if sending remains blocked.",
+    "checkNote": "It can take a minute or two. If it isn’t there, check spam, or ask for a new one below; only the newest link works.",
     "orgLoginTitle": "Organization sign-in",
     "orgLoginLead": "Sign in to your organization's workspace to manage jobs, assessments and reviews.",
     "orgRegisterTitle": "Register your organization",
@@ -492,7 +492,10 @@
     "workEmail": "Work email",
     "workPhone": "Work phone (optional)",
     "verificationNote": "How we can verify you (optional)",
-    "verificationNoteHint": "For example your department, your manager, or your employee number. A MIDAN administrator reviews it."
+    "verificationNoteHint": "For example your department, your manager, or your employee number. A MIDAN administrator reviews it.",
+    "checkBodyTo": "We sent a confirmation link to <email></email>. Open it to activate your account.",
+    "resendOtherAddress": "Use a different address",
+    "alreadyConfirmed": "Already confirmed?"
   },
   "errors": {
     "email_delivery_failed": "The email service could not send the confirmation. Contact the administrator; your email is not verified yet.",

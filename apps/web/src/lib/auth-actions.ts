@@ -7,7 +7,7 @@ import { redirect as redirectExternal } from 'next/navigation';
 import { redirect } from '@/i18n/navigation';
 import { homeFor } from './home';
 import { safeNext } from './next-path';
-import { clearSessionCookies, decodeToken, getAccessToken, setSessionCookies } from './session';
+import { clearSessionCookies, decodeToken, getAccessToken, getPendingEmail, setPendingEmail, setSessionCookies } from './session';
 import { authError, confirmationRedirectUrl, confirmationRetryAfter } from './email-confirmation';
 import { ConfirmationResendLimiter } from './email-confirmation-rate-limit';
 
@@ -177,13 +177,16 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
     await setSessionCookies(result.data.access_token, result.data.refresh_token);
     redirect({ href: await homeFor(accountType, result.data.access_token), locale });
   }
+  // The confirmation page shows this address and resends to it, so nobody types it twice.
+  await setPendingEmail(email);
   redirect({ href: accountType === 'organization' ? '/check-email?as=organization' : '/check-email', locale });
   return {};
 }
 
 /** Never creates an account, changes its metadata, or grants employer access. */
 export async function resendConfirmation(_: FormState, form: FormData): Promise<FormState> {
-  const email = text(form, 'email').toLowerCase();
+  // The address just registered (kept server-side), or one typed by someone who arrived here another way.
+  const email = (text(form, 'email') || (await getPendingEmail()) || '').toLowerCase();
   if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'email_address_invalid' };
   const emailHash = createHmac('sha256', RESEND_KEY).update(email).digest('hex');
   const limit = resendLimiter.consume(emailHash);
