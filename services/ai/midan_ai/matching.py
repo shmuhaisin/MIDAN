@@ -179,8 +179,8 @@ class BgeM3Hosted:
 
 
 class E5Reranker:
-    """Hybrid: e5 retrieval, then a cross-encoder on the top `TOP_K` lines per requirement. The status rule in match() and
-    the score formula are unchanged: only the similarity behind them is better. Thresholds from bench/reranker_bench.py
+    """Hybrid: e5 retrieval, then a cross-encoder on the top `TOP_K` sentences and top `TOP_K` brief lines per requirement.
+    The status rule in match() and the score formula are unchanged: only the similarity behind them is better. Thresholds from bench/reranker_bench.py
     (fictional labelled set; see docs/ai/ATS_MATCHING.md). Scores are the reranker's relevance in 0..1 (CrossEncoder applies
     the sigmoid itself for a single-label model). On the set, sentence evidence: related median 0.03, unrelated 99th
     percentile 0.003 and maximum 0.011; skill names are noisier (unrelated maximum 0.91), so brief evidence needs 0.2."""
@@ -228,7 +228,11 @@ class E5Reranker:
     def scores(self, requirements: list[str], evidence: list[str]) -> list[list[float]]:
         retrieved = self.e5.scores(requirements, evidence)
         out = [[0.0] * len(evidence) for _ in requirements]
-        picks = [(i, k) for i, row in enumerate(retrieved) for k in sorted(range(len(row)), key=lambda k: -row[k])[: self.TOP_K]]
+        # The top lines of each kind, sentences and brief lines (skill names, titles) separately: skill names sit closest to a
+        # requirement in e5's space and would otherwise fill every slot, so the sentence describing the work was never read.
+        brief = [len(tokens(e)) < 4 for e in evidence]
+        top = lambda row, kind: sorted((k for k in range(len(row)) if brief[k] == kind), key=lambda k: -row[k])[: self.TOP_K]  # noqa: E731
+        picks = [(i, k) for i, row in enumerate(retrieved) for kind in (False, True) for k in top(row, kind)]
         for (i, k), score in zip(picks, self._rerank([(requirements[i], evidence[k]) for i, k in picks])):
             out[i][k] = score
         return out
@@ -346,6 +350,13 @@ def match(request: MatchRequest, backend: Similarity | None = None) -> MatchResu
         listed = next((k for k, x in enumerate(evs) if r.skill_id and x.skill_id == r.skill_id and x.source != "assessed_skill"), None)
         best = lambda keep: max((_Pick(sc, k) for k, sc in enumerate(scored[i]) if keep(k)), key=lambda p: p.score, default=_Pick(0.0, None))  # noqa: E731
         positive = best(lambda k: not neg[k])  # a negated line is never support
+        # A brief line (a skill name, a title) can never confirm a requirement, so when it is the closest line, the closest
+        # sentence describing the work is used instead, provided it is related itself (at least the "partial" threshold).
+        # Never a worse status: brief evidence is at best "partial". The thresholds and the score formula are unchanged.
+        if positive.index is not None and _brief(evs[positive.index]):
+            sentence = best(lambda k: not neg[k] and not _brief(evs[k]))
+            if sentence.index is not None and sentence.score >= low:
+                positive = sentence
         against = best(lambda k: neg[k])
         pick = _Pick(1.0, assessed) if assessed is not None else _Pick(1.0, listed) if listed is not None else positive
         e = evs[pick.index] if pick.index is not None else None

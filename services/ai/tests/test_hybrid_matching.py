@@ -38,7 +38,33 @@ def request():
 def test_only_the_top_lines_e5_retrieved_are_reranked():
     b = Hybrid({LINES[0]: 0.4})
     match(request(), b)
-    assert len(b.seen) == E5Reranker.TOP_K and all(r == "SQL reporting on churn" for r, _ in b.seen)
+    lines = [e for _, e in b.seen]
+    # The top TOP_K sentences and the top TOP_K brief lines, each kind on its own: 4 sentences and 1 skill name here.
+    assert len(lines) == E5Reranker.TOP_K + 1 and "SQL" in lines and all(r == "SQL reporting on churn" for r, _ in b.seen)
+
+
+def test_sentences_are_reranked_even_when_skill_names_fill_e5s_top_lines():
+    # Measured on the real models: e5 put a headline and skill names above the sentence that describes the work, and the
+    # sentence never reached the reranker.
+    lines = ["presenting", "presenting skills", "presenting reports", "Gave monthly findings to commercial managers"]
+    req = MatchRequest(requirements=[RequirementIn(key="r1", text="presenting to managers")],
+                       evidence=[EvidenceIn(id=f"e{i}", text=t, source="skill" if i < 3 else "experience") for i, t in enumerate(lines)])
+    b = Hybrid({lines[3]: 0.1, lines[0]: 0.9})
+    m = match(req, b).matches[0]
+    assert lines[3] in [e for _, e in b.seen]
+    assert m.status == "matched" and m.evidence_text == lines[3]
+
+
+def test_a_related_sentence_is_used_over_a_higher_scoring_skill_name():
+    # The real case: "churn analysis" in the skills list scored 0.947 and "Built SQL reports on customer churn ..." 0.119.
+    # The skill name alone is capped at "partial"; the sentence above the "matched" threshold confirms it.
+    m = match(request(), Hybrid({LINES[2]: 0.95, LINES[0]: 0.1})).matches[0]
+    assert m.status == "matched" and m.evidence_text == LINES[0]
+
+
+def test_a_sentence_below_the_partial_threshold_never_replaces_a_related_skill_name():
+    m = match(request(), Hybrid({LINES[2]: 0.5, LINES[0]: 0.003})).matches[0]
+    assert m.status == "partial" and m.evidence_text == "SQL" and m.reason_code == "brief_evidence"
 
 
 def test_status_thresholds_follow_the_reranker_and_the_formula_is_unchanged():
