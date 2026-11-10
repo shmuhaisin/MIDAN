@@ -1,6 +1,6 @@
 'use server';
 
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { getLocale } from 'next-intl/server';
 import { cookies } from 'next/headers';
 import { redirect as redirectExternal } from 'next/navigation';
@@ -8,13 +8,16 @@ import { redirect } from '@/i18n/navigation';
 import { homeFor } from './home';
 import { safeNext } from './next-path';
 import { clearSessionCookies, decodeToken, getAccessToken, setSessionCookies } from './session';
+import { authError, confirmationRedirectUrl, confirmationRetryAfter } from './email-confirmation';
+import { ConfirmationResendLimiter } from './email-confirmation-rate-limit';
 
-export type FormState = { error?: string; ok?: boolean; id?: string };
+export type FormState = { error?: string; ok?: boolean; id?: string; retryAfter?: number };
 
-const KNOWN = new Set([
-  'invalid_credentials', 'email_not_confirmed', 'weak_password', 'user_already_exists', 'email_exists',
-  'email_address_invalid', 'email_address_not_authorized', 'over_email_send_rate_limit', 'over_request_rate_limit',
-]);
+// Per-process abuse guard; Supabase independently enforces project and recipient limits across app instances.
+const resendLimiter = new ConfirmationResendLimiter();
+// Limiter keys are HMACs under a key that exists only in this process: neither the address nor a plain, dictionary-
+// reversible hash of it is kept. Supabase's own quotas stay the authoritative, cross-instance limit.
+const RESEND_KEY = randomBytes(32);
 
 async function gotrue(path: string, body: unknown, token?: string, method = 'POST') {
   const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/${path}`, {
@@ -28,14 +31,7 @@ async function gotrue(path: string, body: unknown, token?: string, method = 'POS
     body: JSON.stringify(body),
   });
   const data = await response.json().catch(() => ({}));
-  return { ok: response.ok, data };
-}
-
-function authError(data: { error_code?: string }) {
-  if (data.error_code === 'email_exists') return 'user_already_exists';
-  // The database refuses addresses outside the demo allowlist, and Auth reports that as a failure.
-  if (data.error_code === 'unexpected_failure') return 'registration_closed';
-  return data.error_code && KNOWN.has(data.error_code) ? data.error_code : 'generic';
+  return { ok: response.ok, status: response.status, retryAfter: response.headers.get('retry-after'), data };
 }
 
 function text(form: FormData, name: string) {
@@ -52,7 +48,7 @@ export async function signIn(_: FormState, form: FormData): Promise<FormState> {
   } catch {
     return { error: 'unavailable' };
   }
-  if (!result.ok) return { error: authError(result.data) };
+  if (!result.ok) return { error: authError(result.data, result.status) };
   await setSessionCookies(result.data.access_token, result.data.refresh_token);
   redirect({
     href: safeNext(form.get('next')) ?? (await homeFor(decodeToken(result.data.access_token)?.accountType, result.data.access_token)),
@@ -160,7 +156,7 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   try {
     const locale = await getLocale();
     // The confirmation page then offers the sign-in for the audience the person chose.
-    const back = encodeURIComponent(`${process.env.APP_URL}/${locale}/auth/confirmed${accountType === 'organization' ? '?as=organization' : ''}`);
+    const back = encodeURIComponent(confirmationRedirectUrl(process.env.APP_URL, locale, accountType === 'organization'));
     result = await gotrue(`signup?redirect_to=${back}`, {
       email,
       password,
@@ -174,14 +170,37 @@ export async function signUp(_: FormState, form: FormData): Promise<FormState> {
   } catch {
     return { error: 'unavailable' };
   }
-  if (!result.ok) return { error: authError(result.data) };
+  if (!result.ok) return { error: authError(result.data, result.status) };
   const locale = await getLocale();
   if (result.data.access_token) {
     await setSessionCookies(result.data.access_token, result.data.refresh_token);
     redirect({ href: await homeFor(accountType, result.data.access_token), locale });
   }
-  redirect({ href: '/check-email', locale });
+  redirect({ href: accountType === 'organization' ? '/check-email?as=organization' : '/check-email', locale });
   return {};
+}
+
+/** Never creates an account, changes its metadata, or grants employer access. */
+export async function resendConfirmation(_: FormState, form: FormData): Promise<FormState> {
+  const email = text(form, 'email').toLowerCase();
+  if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'email_address_invalid' };
+  const emailHash = createHmac('sha256', RESEND_KEY).update(email).digest('hex');
+  const limit = resendLimiter.consume(emailHash);
+  if (!limit.allowed) return { error: 'confirmation_resend_wait', retryAfter: limit.retryAfter };
+  try {
+    const back = confirmationRedirectUrl(process.env.APP_URL, await getLocale(), form.get('account_type') === 'organization');
+    const result = await gotrue(`resend?redirect_to=${encodeURIComponent(back)}`, { type: 'signup', email });
+    const retryAfter = confirmationRetryAfter(result.retryAfter);
+    resendLimiter.defer(emailHash, retryAfter);
+    if (!result.ok) {
+      // Match Supabase's anti-enumeration behavior for missing and already-confirmed accounts.
+      if (['user_not_found', 'user_already_exists', 'email_exists'].includes(result.data.error_code)) return { ok: true, retryAfter: 60 };
+      return { error: authError(result.data, result.status), retryAfter };
+    }
+    return { ok: true, retryAfter };
+  } catch {
+    return { error: 'unavailable', retryAfter: 60 };
+  }
 }
 
 /**

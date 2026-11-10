@@ -32,8 +32,17 @@ createServer(async (req, res) => {
 
   if (pathname === '/__calls') return send(200, calls);
   calls.push({ path: pathname, query: req.url, email: body.email, data: body.data, hasPassword: Boolean(body.password) });
-  // Email verification is on, so a real sign-up returns a user and no session.
-  if (pathname === '/auth/v1/signup') return send(200, { id: 'stub-user', email: body.email });
+  // Exercise transport failures without contacting any mail service. No password or bearer is recorded.
+  if (pathname === '/auth/v1/signup' || pathname === '/auth/v1/resend') {
+    if (body.email === 'email-rate-limit@example.test') {
+      res.setHeader('Retry-After', '60');
+      return send(429, { error_code: 'over_email_send_rate_limit', msg: 'Email rate limit exceeded' });
+    }
+    if (body.email === 'recipient-restricted@example.test') return send(403, { error_code: 'email_address_not_authorized' });
+    if (body.email === 'smtp-failed@example.test') return send(500, { error_code: 'unexpected_failure', msg: 'Error sending confirmation email: SMTP connection failed' });
+    // Email verification is on, so a real sign-up returns a user and no session.
+    return send(200, pathname.endsWith('/signup') ? { id: 'stub-user', email: body.email } : {});
+  }
   if (pathname === '/auth/v1/token' && searchParams.get('grant_type') === 'password') {
     if (body.password !== PASSWORD) return send(400, { error_code: 'invalid_credentials' });
     if (body.email === 'form.unverified@example.com') return send(400, { error_code: 'email_not_confirmed' });
@@ -48,6 +57,7 @@ createServer(async (req, res) => {
     const authorized = req.headers.authorization === 'Bearer recovery-token';
     return authorized ? send(200, { id: 'stub-user' }) : send(401, { error_code: 'bad_jwt' });
   }
+  if (pathname === '/auth/v1/user' && req.method === 'GET') return send(401, { error_code: 'bad_jwt' });
   if (pathname === '/auth/v1/authorize') {
     res.writeHead(302, { location: `${searchParams.get('redirect_to')}?code=google-code` });
     return res.end();

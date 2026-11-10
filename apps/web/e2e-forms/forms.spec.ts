@@ -32,19 +32,24 @@ test('candidate sign-up accepts a Gmail address and asks to confirm it', async (
   expect((await context_cookies(page)).filter((c) => c.name.startsWith('midan_'))).toEqual([]);
 });
 
-test('organization sign-up is formal, has no mascot, and sends the organization names', async ({ page }) => {
+test('organization sign-up chooses a supported registry employer and requests approval', async ({ page }) => {
   await page.goto(`${ON}/en/register?as=organization`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Register your organization');
   await expect(page.locator('img[src*="Humaidan"]')).toHaveCount(0);
-  await page.getByLabel('Name', { exact: true }).fill('Fictional Org Admin');
-  await page.getByLabel('Organization name in Arabic').fill('منشأة خيالية');
-  await page.getByLabel('Organization name in English').fill('Fictional Org');
-  await page.getByLabel('Email').fill('admin.fictional@gmail.com');
+  const registry = page.locator('select[name="registry_id"]');
+  await expect(registry.locator('option:not([value=""])')).toHaveCount(10);
+  const registryId = await registry.locator('option').nth(1).getAttribute('value');
+  await registry.selectOption(registryId!);
+  await page.getByLabel('Your full name', { exact: true }).fill('Fictional Org Admin');
+  await page.getByLabel('Your job title', { exact: true }).fill('HR Lead');
+  await page.getByLabel('Work email', { exact: true }).fill('admin.fictional@gmail.com');
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page).toHaveURL(/\/en\/check-email$/);
+  await expect(page).toHaveURL(/\/en\/check-email\?as=organization$/);
   const signup = (await calls()).findLast((c) => c.path === '/auth/v1/signup');
-  expect(signup?.data).toMatchObject({ account_type: 'organization', org_name_ar: 'منشأة خيالية', org_name_en: 'Fictional Org' });
+  expect(signup?.data).toMatchObject({ account_type: 'organization', registry_id: registryId, job_title: 'HR Lead' });
+  expect(signup?.data).not.toHaveProperty('org_name_en');
+  expect(signup?.data).not.toHaveProperty('org_name_ar');
 });
 
 test('the access code never reaches the browser', async ({ page }) => {

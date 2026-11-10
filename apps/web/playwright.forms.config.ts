@@ -15,6 +15,9 @@ export default defineConfig({
   workers: 1,
   timeout: 120_000,
   expect: { timeout: 30_000 },
+  use: {
+    ...(process.env.CHROMIUM_PATH && { launchOptions: { executablePath: process.env.CHROMIUM_PATH } }),
+  },
   webServer: [
     { command: 'node e2e-forms/stub-auth.mjs', url: 'http://localhost:54399/__calls', reuseExistingServer: false },
     {

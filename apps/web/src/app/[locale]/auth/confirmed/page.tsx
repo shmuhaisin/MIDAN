@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StatusScreen } from '@/components/status-screen';
 import { Link, useRouter } from '@/i18n/navigation';
 import { continueFromEmailLink } from '@/lib/auth-actions';
+import { parseEmailConfirmation } from '@/lib/email-confirmation';
 
 /**
  * Where the verification email lands. Supabase has already confirmed the address and signed the person in; the session
@@ -14,7 +15,7 @@ import { continueFromEmailLink } from '@/lib/auth-actions';
 export default function Page() {
   const t = useTranslations('auth');
   const router = useRouter();
-  const [state, setState] = useState<'continuing' | 'confirmed' | 'failed'>('continuing');
+  const [state, setState] = useState<'continuing' | 'failed' | 'unavailable'>('continuing');
   const [org, setOrg] = useState(false);
   const started = useRef(false);
 
@@ -22,22 +23,19 @@ export default function Page() {
     // Effects can run twice in development; the fragment is read and cleared once.
     if (started.current) return;
     started.current = true;
-    const params = new URLSearchParams(window.location.hash.slice(1));
+    const confirmation = parseEmailConfirmation(window.location.hash, window.location.search);
     setOrg(new URLSearchParams(window.location.search).get('as') === 'organization');
     // The tokens leave the address bar at once, whatever happens next.
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    if (params.has('error') || params.has('error_code')) return setState('failed');
-    const access = params.get('access_token');
-    const refresh = params.get('refresh_token');
-    if (!access || !refresh) return setState('confirmed');
-    continueFromEmailLink(access, refresh)
-      .then((result) => (result.href ? router.replace(result.href) : setState('confirmed')))
-      .catch(() => setState('confirmed'));
+    if (confirmation.kind !== 'session') return setState('failed');
+    continueFromEmailLink(confirmation.accessToken, confirmation.refreshToken)
+      .then((result) => (result.href ? router.replace(result.href) : setState(result.error === 'unavailable' ? 'unavailable' : 'failed')))
+      .catch(() => setState('unavailable'));
   }, [router]);
 
   if (state === 'continuing') {
     return (
-      <StatusScreen tone="success" title={t('confirmedTitle')} body={t('confirmedContinuing')}>
+      <StatusScreen title={t('confirmCheckingTitle')} body={t('confirmedContinuing')}>
         <span role="status" aria-live="polite" className="inline-flex items-center gap-3 text-sm text-muted">
           <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-current border-e-transparent" />
           {t('confirmedContinuingShort')}
@@ -45,10 +43,10 @@ export default function Page() {
       </StatusScreen>
     );
   }
-  const failed = state === 'failed';
   return (
-    <StatusScreen tone={failed ? 'problem' : 'success'} title={t(failed ? 'confirmFailedTitle' : 'confirmedTitle')} body={t(failed ? 'confirmFailedBody' : 'confirmedBody')}>
+    <StatusScreen tone="problem" title={t('confirmFailedTitle')} body={t(state === 'unavailable' ? 'confirmUnavailableBody' : 'confirmFailedBody')}>
       <Link href={org ? '/login?as=organization' : '/login'} className="btn btn-primary btn-lg">{t('loginSubmit')}</Link>
+      <Link href={org ? '/check-email?as=organization' : '/check-email'} className="btn btn-secondary btn-lg">{t('resendConfirmation')}</Link>
     </StatusScreen>
   );
 }
