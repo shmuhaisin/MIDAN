@@ -46,6 +46,45 @@ a matching verified account can join an unlinked demo workspace without Platform
 employer signup currently selects a registry organization and requires approval; this repair does not silently turn
 that selection into an automatic demo membership. No new screens, roles, schema or auto-confirmation were introduced.
 
+## Running application connection investigation
+
+Connection verification takes priority over SMTP provisioning. Inspectable services listen on `3100` (Next.js),
+`4000` (API), and `54321` (local Auth). The web processes run from `apps/web`, the API from `apps/api`.
+A live response from `http://localhost:3100/en/register` has a CSP containing `http://localhost:54321` and
+no intended Cloud origin. Compiled server-side Next.js chunks also contain the local Auth origin. This establishes
+the running web app's effective target. The API loads root `.env`, which selects local PostgreSQL on
+`127.0.0.1:54323`; its live database health check reports restricted `midan_api`. The root `.env` was generated
+for isolated tests; launching the default development commands selected that configuration.
+
+Process inspection was limited to executable/cwd, public URL metadata and credential-presence flags.
+No credentials were printed. Initial OS process environments do not show variables subsequently loaded by
+application code, so the effective web target was independently checked in served/compiled output.
+
+This is the Codex managed machine, not access to the owner's personal computer. The reported address has neither
+an Auth row nor captured mail in this local stack. Its absent Cloud row and absent bounded Cloud signup/resend
+logs do not prove the earlier attempt hit this particular local server.
+
+A private, Git-ignored `.env.cloud` is prepared here with the correct Cloud URL and matching current publishable
+key. Missing credentials are blank, never copied from the local database or invented. The owner must securely
+restore existing Cloud `DATABASE_URL` and `DIRECT_URL` for restricted `midan_api`, plus the existing
+`DEV_TEST_ACCESS_CODE`. No production password rotation or role grant is proposed. Use TLS database connections
+(`sslmode=require` or stricter). Do not put these values in chat or Git.
+
+`node scripts/dev-cloud.mjs check` validates the explicit profile without contacting or modifying production.
+After it passes, stop the existing local web/API processes and launch both from the same Cloud profile:
+
+```sh
+node scripts/dev-cloud.mjs api
+node scripts/dev-cloud.mjs web
+```
+
+The runner refuses local databases, another project, privileged database logins, missing credentials, inconsistent
+Auth aliases or enabled signup without its access code. A separate Next.js directory avoids reusing compiled local
+settings. It changes no application flow, schema or production setting. The local `.env` remains available for tests.
+A passing configuration check does not prove an active Cloud connection: verify the new server and database,
+then correlate one controlled signup with Cloud Auth before testing external delivery. No Cloud signup or external
+email success is claimed yet.
+
 ## Application corrections
 
 - Invalid, missing, expired or rejected email sessions render confirmation failure, never confirmed success.
