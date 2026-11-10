@@ -10,7 +10,7 @@ import httpx
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 
-from midan_ai.assessment_builder import build_assessment_graph, make_generator
+from midan_ai.assessment_builder import GenerationUnavailable, build_assessment_graph, copied_requirement, make_generator
 from midan_ai.providers import DemoProvider, GENERATION_PROMPT, GENERATION_PROMPT_VERSION, JsonLLMProvider, LLMError, get_provider
 
 JOB = {
@@ -115,12 +115,37 @@ def test_a_draft_that_invents_or_omits_is_refused_and_the_model_told_why(change,
 
 
 @pytest.mark.parametrize("replies", [("not json", "still not"), (LLMError("OpenAI responded 500"), LLMError("OpenAI responded 500")), ({"tasks": []}, {"tasks": []})])
-def test_without_a_valid_draft_the_templates_run_and_the_draft_is_labeled_so(replies):
+def test_a_configured_model_that_gives_no_valid_draft_is_reported_never_replaced_by_templates(replies):
+    """Changed 2026-11-10 (owner's brief): templates restating the requirements are not the company-specific case asked
+    for, so a failing live model is reported (503 at the endpoint) instead of silently replaced."""
     complete, _ = fake(*replies)
-    result = draft(JsonLLMProvider(complete, "test-model"))
-    assert result["provenance"]["mode"] == "demo"
-    assert "ai_generation_unavailable" in result["warnings"]
-    assert any(t["requirement_ids"] == ["r1"] for t in result["tasks"])
+    with pytest.raises(GenerationUnavailable):
+        draft(JsonLLMProvider(complete, "test-model"))
+
+
+@pytest.mark.parametrize("title", ["A case study from the role", "Case study", "Task 2", "دراسة حالة من صلب الدور", "مهمة"])
+def test_a_generic_task_title_is_refused_and_the_model_told_why(title):
+    bad = json.loads(json.dumps(GOOD))
+    bad["tasks"][0]["title_en"] = title if title.isascii() else bad["tasks"][0]["title_en"]
+    bad["tasks"][0]["title_ar"] = title if not title.isascii() else bad["tasks"][0]["title_ar"]
+    complete, calls = fake(bad, GOOD)
+    draft(JsonLLMProvider(complete, "test-model"))
+    assert len(calls) == 2 and "generic" in calls[1][1]
+
+
+def test_a_task_that_restates_a_requirement_is_refused_and_the_model_told_why():
+    bad = json.loads(json.dumps(GOOD))
+    stated = JOB["requirements"][0]["description_en"]
+    bad["tasks"][0]["instructions_en"] = f"The responsibility: {stated}. Explain how you would do it."
+    complete, calls = fake(bad, GOOD)
+    draft(JsonLLMProvider(complete, "test-model"))
+    assert len(calls) == 2 and "restates the job requirement" in calls[1][1]
+
+
+def test_copied_requirement_needs_the_whole_requirement_not_a_skill_name():
+    assert copied_requirement("Use SQL to size the churn spike", "SQL") is False
+    assert copied_requirement("Your task: build monthly sales reports for the regional managers.", "Build monthly sales reports for the regional managers")
+    assert copied_requirement("صمّم لوحة متابعة", "إعداد تقارير المبيعات الشهرية للمديرين الإقليميين") is False
 
 
 def test_without_a_configured_model_the_demo_labels_itself_and_calls_nothing():

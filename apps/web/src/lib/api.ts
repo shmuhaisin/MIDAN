@@ -82,7 +82,7 @@ export function errorCode(error: unknown) {
   if (error instanceof ApiTimeout) return 'timeout';
   if (error instanceof ApiError) {
     const codes: Record<number, string> = {
-      400: 'required', 401: 'session', 403: 'forbidden', 404: 'not_found', 409: 'duplicate', 413: 'too_large', 422: 'not_allowed', 429: 'over_request_rate_limit',
+      400: 'required', 401: 'session', 403: 'forbidden', 404: 'not_found', 409: 'duplicate', 413: 'too_large', 422: 'not_allowed', 429: 'over_request_rate_limit', 503: 'unavailable',
     };
     return codes[error.status] ?? 'generic';
   }
@@ -91,6 +91,6 @@ export function errorCode(error: unknown) {
 
 /** What the API said, for the person to read beside the translated message. Never a stack trace or an internal address. */
 export function errorDetail(error: unknown): string | undefined {
-  if (error instanceof ApiError && error.detail && error.status < 500) return error.detail.slice(0, 300);
+  if (error instanceof ApiError && error.detail && (error.status < 500 || error.status === 503)) return error.detail.slice(0, 300);
   return undefined;
 }

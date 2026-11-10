@@ -133,6 +133,23 @@ def generate_tasks(state: State) -> State:
     return {"tasks": [task.model_dump() for task in tasks], "provenance": TEMPLATE_PROVENANCE.model_dump()}
 
 
+GENERIC_TITLES = re.compile(r"^\s*(a\s+)?(case study|task|scenario|assessment|exercise|practical task)(\s+\d+)?(\s+(from|for|of)\s+the\s+(role|job))?\s*[.:]?\s*$"
+                            r"|^\s*(دراسة حالة|مهمة|سيناريو|تقييم|تمرين)(\s+\d+)?(\s+من\s+صلب\s+الدور)?\s*$", re.I)
+
+
+def _norm(text: str) -> str:
+    t = re.sub(r"[ً-ْـ]", "", text.lower())
+    t = re.sub("[أإآ]", "ا", t).replace("ة", "ه").replace("ى", "ي")
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", t)).strip()
+
+
+def copied_requirement(text: str, requirement: str) -> bool:
+    """Whether a task's text restates a requirement instead of setting work: the requirement's sentence appears in it
+    (normalized), when the requirement is long enough to tell. Short skill names may appear; whole requirements may not."""
+    req = _norm(requirement)
+    return len(req.split()) >= 3 and req in _norm(text)
+
+
 def check_generated(state: State):
     """What the schema can't see: a draft may use only what this job states, and must cover what it requires."""
     job = JobInput.model_validate(state["job"])
@@ -143,8 +160,18 @@ def check_generated(state: State):
     required = {r.id for r in job.reference_skills if r.is_required}
     skills = {s["id"] for s in state["skills"]}
 
+    stated_texts = [t for r in _stated(state, job) for t in (r.get("ar"), r.get("en")) if t] +         [t for r in job.requirements for t in (r.description_ar, r.description_en) if t]
+
     def check(draft: GeneratedAssessment) -> None:
         for task in draft.tasks:
+            # Approved requirements are what the work is judged against (requirement_ids, criteria), never the task itself.
+            for title in (task.title_ar, task.title_en):
+                if GENERIC_TITLES.match(title):
+                    raise ValueError(f'task title "{title}" is generic: name the actual piece of work in this business case')
+            for text in (task.title_ar, task.title_en, task.instructions_ar, task.instructions_en):
+                hit = next((r for r in stated_texts if copied_requirement(text, r)), None)
+                if hit:
+                    raise ValueError(f'task "{task.title_en}" restates the job requirement "{hit[:80]}": set concrete work on the business case instead, and link the requirement through requirement_ids and the criteria')
             for kind, used, known in (("requirement", task.requirement_ids, known_requirements), ("reference skill", task.reference_skill_ids, references), ("skill", task.skill_ids, skills)):
                 unknown = set(used) - known
                 if unknown:
@@ -171,6 +198,14 @@ def _stated(state: State, job: JobInput) -> list[dict[str, Any]]:
     return stated or [r for r in state["responsibilities"] if r.get("requirement_id")]
 
 
+class GenerationUnavailable(Exception):
+    """The configured model didn't produce a valid draft. `kind` is one of providers.FAILURE_KINDS."""
+
+    def __init__(self, kind: str):
+        super().__init__(kind)
+        self.kind = kind
+
+
 def make_generator(provider) -> Callable[[State], State]:
     """Uses the configured model through the shared contract. Without one, or if it can't produce a valid draft, the templates
     run instead and the draft is labeled as such, so nobody mistakes it for the model's work."""
@@ -191,9 +226,11 @@ def make_generator(provider) -> Callable[[State], State]:
         }
         try:
             draft = normalize(provider.generate_assessment(context, check_generated(state)))
-        except LLMError:
-            result = generate_tasks(state)
-            return {**result, "warnings": state["warnings"] + ["ai_generation_unavailable"]}
+        except LLMError as error:
+            # A configured model that fails (quota, rate limit, outage, no valid draft) is said so, never replaced by the
+            # templates: a template restating the requirements is not the company-specific case the employer asked for.
+            # The templates remain only for demo mode, where no model is configured, and are labelled as such.
+            raise GenerationUnavailable(error.kind) from None
         draft, repair_warning = _repair_round(provider, job, context, draft, check_generated(state))
         stored = to_stored(draft)
         return {

@@ -20,6 +20,12 @@ export class AiClient {
       throw new ServiceUnavailableException('The AI service is unavailable');
     }
     if (response.status === 409 || response.status === 422) throw new UnprocessableEntityException('The AI service refused this request');
+    if (response.status === 503) {
+      // The service says why (ai_unavailable:quota_exhausted, ...): passed on, so the page can say it plainly.
+      const detail = ((await response.json().catch(() => ({}))) as { detail?: string }).detail ?? '';
+      const reason = detail.startsWith('ai_unavailable:') ? detail.slice('ai_unavailable:'.length) : 'unavailable';
+      throw new ServiceUnavailableException({ message: `MIDAN's model is not available (${reason})`, reason, error: 'ai_unavailable' });
+    }
     if (!response.ok) throw new ServiceUnavailableException('The AI service is unavailable');
     return response.json() as Promise<T>;
   }

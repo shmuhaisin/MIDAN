@@ -13,7 +13,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 from pydantic import BaseModel, ValidationError
 
-from .assessment_builder import TEMPLATE_PROVENANCE, build_assessment_graph, make_generator
+from .assessment_builder import TEMPLATE_PROVENANCE, GenerationUnavailable, build_assessment_graph, make_generator
 from .package import from_stored
 from .quality import evaluate
 from .cv import analyze as analyze_cv
@@ -137,7 +137,11 @@ def run_cv(run: CvRun) -> dict[str, Any]:
 
 @app.post("/graphs/assessment-builder/runs", dependencies=[Depends(require_token)])
 def run_builder(run: AssessmentRun) -> dict[str, Any]:
-    state = _builder.invoke({"job": run.job.model_dump()}, _config(run.thread_id))
+    try:
+        state = _builder.invoke({"job": run.job.model_dump()}, _config(run.thread_id))
+    except GenerationUnavailable as error:
+        # The configured model failed: 503 with the reason, never a template draft passed off as the model's work.
+        raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
     result = _result(_builder, run.thread_id, state)
     # What actually made this draft: the model, or the templates if it wasn't available.
     return {**result, "provenance": result["payload"].get("provenance") or TEMPLATE_PROVENANCE.model_dump()}
