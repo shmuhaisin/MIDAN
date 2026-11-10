@@ -6,6 +6,9 @@ import { redirect } from '@/i18n/navigation';
 import { api, ApiError, errorCode, errorDetail } from './api';
 import type { FormState } from './auth-actions';
 
+/** An assessment generation waits on the model for several minutes (written in parts within the provider's limits). */
+const GENERATION_TIMEOUT_MS = 15 * 60_000;
+
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 function text(form: FormData, name: string) {
@@ -195,7 +198,8 @@ export async function updateJob(orgId: string, jobId: string, _: FormState, form
 
 export async function generateAssessment(orgId: string, jobId: string, assessmentId?: string) {
   return result(() =>
-    api(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST', body: assessmentId ? { assessment_id: assessmentId } : {} }),
+    // Generation is written in parts, each waiting for the provider's per-minute limit: minutes, not seconds.
+    api(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST', body: assessmentId ? { assessment_id: assessmentId } : {}, timeoutMs: GENERATION_TIMEOUT_MS }),
   );
 }
 
@@ -204,7 +208,7 @@ export async function addAssessment(orgId: string, jobId: string, form: FormData
   const title_en = text(form, 'title_en');
   if (!title_ar || !title_en) return { error: 'required' };
   try {
-    const made = await api<{ assessment_id: string }>(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST', body: { title_ar, title_en } });
+    const made = await api<{ assessment_id: string }>(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST', body: { title_ar, title_en }, timeoutMs: GENERATION_TIMEOUT_MS });
     revalidatePath('/', 'layout');
     return { ok: true, assessmentId: made.assessment_id };
   } catch (error) {
@@ -340,6 +344,22 @@ export async function saveRequirement(orgId: string, jobId: string, id: string |
       ? api(`/organizations/${orgId}/job-requirements/${id}`, { method: 'PATCH', body: input })
       : api(`/organizations/${orgId}/jobs/${jobId}/requirements`, { method: 'POST', body: input }),
   );
+}
+
+/** Requirements suggested by MIDAN's live model, stored as drafts. Returns the model's reason when it wasn't available. */
+export async function suggestRequirements(orgId: string, jobId: string): Promise<{ ok?: boolean; created?: number; error?: string; reason?: string }> {
+  try {
+    const out = await api<{ created: number }>(`/organizations/${orgId}/jobs/${jobId}/requirements/suggest`, { method: 'POST', timeoutMs: 300_000 });
+    revalidatePath('/', 'layout');
+    return { ok: true, created: out.created };
+  } catch (error) {
+    const reason = error instanceof ApiError && error.status === 503 ? /\(([a-z_]+)\)/.exec(error.detail ?? '')?.[1] : undefined;
+    return { error: errorCode(error), reason };
+  }
+}
+
+export async function approveRequirement(orgId: string, id: string) {
+  return result(() => api(`/organizations/${orgId}/job-requirements/${id}/approve`, { method: 'POST' }));
 }
 
 export async function removeRequirement(orgId: string, id: string) {

@@ -4,13 +4,15 @@ import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useState, useTransition } from 'react';
-import { removeRequirement, saveRequirement, setTaskRequirements } from '@/lib/actions';
+import { approveRequirement, removeRequirement, saveRequirement, setTaskRequirements, suggestRequirements } from '@/lib/actions';
 import { list, number, pick } from '@/lib/format';
 import { REQUIREMENT_TYPES, requirementText } from '@/lib/requirements';
 import { ErrorText, Field, INPUT, PRIMARY } from './forms';
 
 export type Requirement = {
   id: string; requirement_type: string; description_ar: string | null; description_en: string | null; is_mandatory: boolean; min_years: string | null;
+  review_status?: 'draft' | 'reviewed' | 'approved'; origin?: 'employer_stated' | 'ai_explicit' | 'ai_inferred';
+  suggestion?: { category?: string; proficiency?: string | null; explanation_ar?: string; explanation_en?: string; provenance?: { model_version?: string } } | null;
   task_requirement_mappings: { assessment_tasks: { id: string; position: number; title_ar: string; title_en: string; version_id: string; assessment_versions: { assessments: { title_ar: string; title_en: string } } } }[];
 };
 
@@ -82,11 +84,20 @@ function RequirementRow({ orgId, jobId, requirement, versionIds, showAssessment,
   const [error, setError] = useState<string>();
   const tasks = requirement.task_requirement_mappings.map((m) => m.assessment_tasks).filter((task) => versionIds.includes(task.version_id));
 
+  const draft = requirement.review_status !== undefined && requirement.review_status !== 'approved';
+  const why = requirement.suggestion ? pick(locale, requirement.suggestion.explanation_ar ?? '', requirement.suggestion.explanation_en ?? '') : '';
   if (editing) return <li className="py-3"><RequirementForm orgId={orgId} jobId={jobId} initial={requirement} onDone={() => setEditing(false)} /></li>;
   return (
-    <li className="flex flex-wrap items-start justify-between gap-3 py-3">
+    <li className={clsx('flex flex-wrap items-start justify-between gap-3 py-3', draft && 'border-s-2 border-gold ps-3')}>
       <div className="min-w-0 flex-1">
+        {draft && <p className="mb-1 text-xs font-semibold text-gold-text">{t('suggested.badge')}</p>}
         <p className="leading-relaxed"><bdi>{requirementText(locale, requirement)}</bdi></p>
+        {requirement.suggestion && (
+          <p className="mt-1 text-xs text-muted">
+            {[requirement.suggestion.category && t(`suggested.category.${requirement.suggestion.category}`), requirement.suggestion.proficiency && t(`suggested.proficiency.${requirement.suggestion.proficiency}`)].filter(Boolean).join(' · ')}
+            {why && <span className="mt-0.5 block text-sm" dir="auto">{why}</span>}
+          </p>
+        )}
         <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
           <span className="font-medium text-muted">{t(requirement.is_mandatory ? 'mandatory' : 'optional')}</span>
           {requirement.min_years != null && <span className="text-muted">{t('years', { count: number(locale, Number(requirement.min_years)) })}</span>}
@@ -102,6 +113,11 @@ function RequirementRow({ orgId, jobId, requirement, versionIds, showAssessment,
       </div>
       {canEdit && (
         <div className="flex gap-3 text-sm">
+          {draft && (
+            <button type="button" disabled={pending} aria-busy={pending} onClick={() => start(async () => setError((await approveRequirement(orgId, requirement.id)).error))} className="btn btn-primary btn-sm">
+              {t('suggested.approve')}
+            </button>
+          )}
           <button type="button" onClick={() => setEditing(true)} className="font-semibold underline underline-offset-4">{t('edit')}</button>
           <button
             type="button" disabled={pending}
@@ -120,6 +136,9 @@ export function RequirementsEditor({ orgId, jobId, requirements, versionIds, can
   const t = useTranslations('requirements');
   const locale = useLocale();
   const [adding, setAdding] = useState(false);
+  const [suggesting, startSuggest] = useTransition();
+  const [suggested, setSuggested] = useState<{ ok?: boolean; created?: number; error?: string; reason?: string }>({});
+  const drafts = requirements.filter((r) => r.review_status !== undefined && r.review_status !== 'approved');
   const required = requirements.filter((r) => r.is_mandatory);
   const covered = required.filter((r) => r.task_requirement_mappings.some((m) => versionIds.includes(m.assessment_tasks.version_id)));
 
@@ -129,6 +148,7 @@ export function RequirementsEditor({ orgId, jobId, requirements, versionIds, can
       {versionIds.length > 0 && required.length > 0 && (
         <p role="status" className="mt-2 text-sm font-semibold">{t('coverage', { covered: number(locale, covered.length), total: number(locale, required.length) })}</p>
       )}
+      {drafts.length > 0 && <p role="status" className="callout mt-3 text-sm">{t('suggested.pending', { count: number(locale, drafts.length) })}</p>}
       {requirements.length === 0 && !adding && <p className="mt-3 text-muted">{t('empty')}</p>}
       <div className="mt-3 space-y-5">
         {REQUIREMENT_TYPES.filter((k) => requirements.some((r) => r.requirement_type === k)).map((k) => (
@@ -150,11 +170,20 @@ export function RequirementsEditor({ orgId, jobId, requirements, versionIds, can
                 <RequirementForm orgId={orgId} jobId={jobId} onDone={() => setAdding(false)} />
               </motion.div>
             ) : (
-              <button type="button" onClick={() => setAdding(true)} className="btn btn-secondary btn-sm">
-                <span aria-hidden>+</span>{t('add')}
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" onClick={() => setAdding(true)} className="btn btn-secondary btn-sm">
+                  <span aria-hidden>+</span>{t('add')}
+                </button>
+                <button type="button" disabled={suggesting} aria-busy={suggesting} onClick={() => startSuggest(async () => setSuggested(await suggestRequirements(orgId, jobId)))} className="btn btn-ghost btn-sm">
+                  {suggesting ? t('suggested.working') : t('suggested.action')}
+                </button>
+              </div>
             )}
           </AnimatePresence>
+          {suggested.ok && !suggesting && <p role="status" className="mt-2 text-sm font-semibold text-primary">{t('suggested.done', { count: number(locale, suggested.created ?? 0) })}</p>}
+          {suggested.error === 'unavailable' && suggested.reason
+            ? <p role="alert" className="callout mt-2 text-sm">{t(`suggested.unavailable.${['quota_exhausted', 'rate_limited', 'not_configured'].includes(suggested.reason) ? suggested.reason : 'other'}`)}</p>
+            : <ErrorText code={suggested.error} />}
         </div>
       )}
     </div>

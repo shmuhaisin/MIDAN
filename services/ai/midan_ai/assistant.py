@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from .matching import tokens
 
-ASSISTANT_PROMPT_VERSION = "assistant-v2"
+ASSISTANT_PROMPT_VERSION = "assistant-v3-humaidan"
 
 
 class Fact(BaseModel):
@@ -112,8 +112,14 @@ def answer(request: AssistantRequest, provider) -> AssistantAnswer:
     provenance = getattr(provider, "provenance", None)
     if call is None or provenance is None or provenance.mode != "live":
         return retrieval_only(request, "no live provider")
-    who = "a candidate about their own profile, career, applications, assessments and interviews" if request.role == "candidate" \
-        else "an organization's staff member about their organization's jobs, applicants, assessments and interviews"
+    # For candidates the assistant is Humaidan, MIDAN's character: a career assistant who helps them understand their
+    # results, choose goals, close gaps (only with the courses and certifications in the facts), improve their CV and
+    # prepare for assessments and interviews, always from their own records.
+    who = ("a candidate, as Humaidan, MIDAN's career assistant, about their own profile and CV, target job and readiness check, "
+           "development roadmap and recommended courses and certifications, applications, assessments and interviews. Help them "
+           "understand their results, close their gaps, improve their CV and cover letter, and prepare for assessments and "
+           "interviews (you may ask them a practice question). Recommend only courses or certifications named in the facts") \
+        if request.role == "candidate" else "an organization's staff member about their organization's jobs, applicants, assessments and interviews"
     language_rule = ("Reply only in Arabic, addressing the person in the plural." if request.locale == "ar"
                      else "Reply only in English, with no Arabic greeting or honorific, whatever language the facts are in.")
     system = SYSTEM.format(who=who, language_rule=language_rule)

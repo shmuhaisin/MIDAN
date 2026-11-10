@@ -897,7 +897,7 @@
     "saved": "Saved",
     "assessment": "Practical assessment",
     "noAssessmentTitle": "Let's build the assessment from the job's responsibilities",
-    "noAssessmentBody": "MIDAN's AI model writes a draft from this job's title, description, requirements and skills: realistic tasks, deliverables, time limits and a weighted rubric. You review and edit it, and nothing is published without your approval. If the model isn't available, MIDAN builds the draft from its templates and labels it so.",
+    "noAssessmentBody": "MIDAN's AI model writes an original business case for this job at your company, from its title, description and approved requirements: realistic tasks, synthetic data, deliverables, time limits and a weighted rubric, in Arabic and English. You review and edit it, and nothing is published without your approval. If the model isn't available, MIDAN says so and writes nothing in its place.",
     "generate": "Generate assessment with AI",
     "generating": "The AI model is writing the draft…",
     "demoLabel": "Demo mode: this draft was built from templates only. Review it carefully.",
@@ -1407,7 +1407,34 @@
     "noRequirements": "Add the job's requirements first to link them to this task.",
     "saveMapping": "Save links",
     "lockedNote": "These requirements were copied when this version was published, and later edits won't change them.",
-    "publicTitle": "Requirements"
+    "publicTitle": "Requirements",
+    "suggested": {
+      "badge": "Suggested by MIDAN's AI — not approved yet",
+      "approve": "Approve",
+      "action": "Suggest requirements with AI",
+      "working": "Reading the job and the company…",
+      "done": "{count} requirements suggested. Review each one: approve it, edit it or remove it.",
+      "pending": "{count} suggested requirements wait for your review. Only approved requirements are used to screen CVs and build the assessment.",
+      "category": {
+        "technical": "Technical skill",
+        "tool": "Tool",
+        "knowledge": "Knowledge",
+        "soft": "Soft skill",
+        "qualification": "Qualification",
+        "experience": "Experience"
+      },
+      "proficiency": {
+        "foundational": "Foundational level",
+        "working": "Working level",
+        "advanced": "Advanced level"
+      },
+      "unavailable": {
+        "quota_exhausted": "MIDAN's AI has used up its daily limit, so nothing was suggested. Add requirements yourself or try later.",
+        "rate_limited": "MIDAN's AI is busy right now. Try again in a minute.",
+        "not_configured": "MIDAN's AI isn't switched on here, so nothing was suggested.",
+        "other": "MIDAN's AI couldn't suggest requirements right now. Try again in a moment."
+      }
+    }
   },
   "sectors": {
     "digital": "Digital",
@@ -1432,7 +1459,7 @@
     "assessments": "My assessments",
     "interviews": "Interviews",
     "notificationsCount": "Notifications, {count} unread",
-    "assistant": "Ask MIDAN"
+    "assistant": "Ask Humaidan"
   },
   "candidateSkills": {
     "search": "Search for a skill",
@@ -3224,7 +3251,8 @@
       "skills": "Skills and gaps",
       "learning": "Learning",
       "practice": "Practice and evidence",
-      "levels": "Skill levels"
+      "levels": "Skill levels",
+      "readiness": "My readiness"
     },
     "destination": {
       "eyebrow": "Your destination",
@@ -3512,17 +3540,18 @@
   "assistant": {
     "eyebrow": "Ask MIDAN",
     "title": "Ask about your journey",
-    "leadCandidate": "Questions about your profile, career plan, applications, assessments and interviews, answered from what's in your account.",
+    "leadCandidate": "Humaidan answers from what's in your account: your profile and CV, your target job and readiness check, your roadmap and recommended courses, your applications, assessments and interviews.",
     "leadOrganization": "Questions about this organization's jobs, applicants, assessments and interviews, answered from what your role can see here.",
     "log": "Conversation",
     "emptyTitle": "What would you like to know?",
     "emptyCandidate": "It answers from your own account only, shows what each answer is based on, and links to the page where you can act. It never does anything for you.",
     "emptyOrganization": "It answers from this organization's records only, shows what each answer is based on, and links to the page where you can act. Decisions stay with your team.",
     "suggestCandidate": [
-      "What should I work on next?",
+      "How ready am I for my target job?",
+      "Which courses or certifications fit my gaps?",
       "Where do my applications stand?",
-      "When is my next interview?",
-      "Which skills does my target role ask for that I haven't shown?"
+      "How can I prepare for my next interview?",
+      "What should I improve in my CV for my target job?"
     ],
     "suggestOrganization": [
       "What needs our review?",
@@ -3544,7 +3573,9 @@
       "forbidden": "You don't have access to this.",
       "invalid": "That question couldn't be sent. Shorten it and try again.",
       "unavailable": "The assistant isn't available right now. Try again in a moment."
-    }
+    },
+    "eyebrowCandidate": "Humaidan, your career assistant",
+    "titleCandidate": "Ask Humaidan"
   },
   "showcase": {
     "eyebrow": "Product showcase",
@@ -4092,5 +4123,108 @@
     "notSet": "Not set",
     "humaidanTitle": "Humaidan in your assessments",
     "humaidanNote": "Always the same character, in the approved professional outfit for your field."
+  },
+  "readiness": {
+    "eyebrow": "My career path",
+    "title": "How ready am I for the job I want?",
+    "lead": "Type the job you want in your own words. MIDAN's AI writes what that role usually requires and a short practical assessment; MIDAN's matching model compares your own profile with it. Your answers are then evaluated, with a roadmap and verified courses and certifications. Only you see this.",
+    "typed": "You typed: {title}",
+    "another": "Check another job",
+    "history": "Your earlier checks",
+    "loadFailed": "Your readiness checks couldn't be loaded. Refresh in a moment.",
+    "guide": {
+      "title": "Humaidan's tip",
+      "body": "Be specific: \"Customer data analyst in telecom\" gets a sharper check than \"analyst\". Keep your profile up to date first: the comparison uses only what it says."
+    },
+    "start": {
+      "label": "The job you want",
+      "placeholder": "For example: Data analyst",
+      "hint": "Writing the requirements and the assessment takes up to a minute.",
+      "action": "Check my readiness",
+      "working": "Writing the requirements and the assessment…"
+    },
+    "status": {
+      "assessment": "Assessment to answer",
+      "evaluated": "Evaluated"
+    },
+    "requirements": {
+      "title": "What this role requires, and what your profile shows",
+      "lead": "Written by MIDAN's AI for this role. The status beside each one comes from MIDAN's matching model reading your own profile, not from the AI.",
+      "provenance": "Requirements by {model}. Comparison by MIDAN's matching model ({matcher}) on your profile only."
+    },
+    "fromProfile": "From your profile",
+    "match": {
+      "matched": "Your profile shows it",
+      "partial": "Partly shown",
+      "missing": "Not in your profile",
+      "needs_review": "Unclear"
+    },
+    "importance": {
+      "core": "Core",
+      "important": "Important",
+      "helpful": "Helpful"
+    },
+    "category": {
+      "technical": "Technical",
+      "tool": "Tool",
+      "knowledge": "Knowledge",
+      "soft": "Soft skill"
+    },
+    "assessment": {
+      "title": "Readiness assessment",
+      "lead": "Practical questions on realistic situations in this role, about {minutes} minutes in all. Figures in them are invented for the exercise. Answer in Arabic or English.",
+      "answerLabel": "Your answer to question {n}",
+      "submit": "Submit my answers",
+      "working": "Evaluating your answers…"
+    },
+    "kind": {
+      "scenario": "Scenario",
+      "practical": "Practical task",
+      "short_answer": "Short answer"
+    },
+    "minutes": "{n} min",
+    "weeks": "{n} weeks",
+    "result": {
+      "eyebrow": "Your readiness",
+      "points": "Assessment: {earned} of {total} points. Shown beside the profile comparison above; they aren't combined into one score.",
+      "strengths": "Strengths",
+      "gaps": "Gaps to close",
+      "answers": "Your answers",
+      "unanswered": "Not answered.",
+      "good": "What was good",
+      "improve": "To improve",
+      "rubric": "What a strong answer shows",
+      "roadmap": "Your development roadmap",
+      "with": "With",
+      "learning": "Verified courses and certifications",
+      "noCatalog": "No course or certification in MIDAN's verified catalog fits these gaps yet. Nothing was suggested in its place.",
+      "provenance": "Evaluation and roadmap by {model}. Courses and certifications only from MIDAN's catalog, each checked on its official page."
+    },
+    "level": {
+      "ready": "Ready",
+      "nearly_ready": "Nearly ready",
+      "developing": "Developing",
+      "early": "Early in the path"
+    },
+    "resource": {
+      "course": "Course",
+      "certification": "Certification",
+      "level": {
+        "beginner": "Beginner",
+        "intermediate": "Intermediate",
+        "advanced": "Advanced"
+      },
+      "skills": "Skills",
+      "prerequisites": "Prerequisites",
+      "seeOfficial": "Duration and cost: on the official page.",
+      "open": "Official page",
+      "verified": "Checked {date}"
+    },
+    "unavailable": {
+      "quota_exhausted": "MIDAN's AI has used up its daily limit, so nothing was written. Try again later; nothing was guessed in its place.",
+      "rate_limited": "MIDAN's AI is busy right now. Try again in a minute.",
+      "not_configured": "MIDAN's AI isn't switched on here, so this check can't run. Nothing is shown in its place.",
+      "other": "MIDAN's AI couldn't write this right now. Try again in a moment."
+    }
   }
 }

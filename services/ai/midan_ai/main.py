@@ -19,7 +19,13 @@ from .quality import evaluate
 from .cv import analyze as analyze_cv
 from .matching import MatchRequest, match as match_requirements, similarity_backend
 from .assistant import AssistantRequest, answer as assistant_answer
+from .career import CareerUnavailable, EvaluateRequest, PlanRequest
+from .career import evaluate as career_evaluate
+from .career import plan as career_plan
 from .cv_review import CvReviewRequest, ReviewUnavailable, review_cv
+from .requirement_suggest import SuggestRequest as RequirementSuggestRequest
+from .requirement_suggest import SuggestUnavailable
+from .requirement_suggest import suggest as suggest_requirements
 from .translate import TranslateRequest, Unavailable as TranslateUnavailable, translate
 from .regenerate import RegenerateRequest, Unavailable, regenerate as regenerate_task
 from .skills import SuggestRequest, suggest as suggest_skills
@@ -232,6 +238,34 @@ def run_cv_review(request: CvReviewRequest) -> dict[str, Any]:
     try:
         return review_cv(request, _provider).model_dump()
     except ReviewUnavailable as error:
+        raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
+
+
+@app.post("/requirements/suggest", dependencies=[Depends(require_token)])
+def run_requirement_suggestions(request: RequirementSuggestRequest) -> dict[str, Any]:
+    """A job's requirements suggested by the live model, for the employer to approve, edit or remove. 503 without a model."""
+    try:
+        return suggest_requirements(request, _provider).model_dump()
+    except SuggestUnavailable as error:
+        raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
+
+
+@app.post("/career/readiness/plan", dependencies=[Depends(require_token)])
+def run_career_plan(request: PlanRequest) -> dict[str, Any]:
+    """A target role's requirements and a practical readiness assessment, for a job title the candidate typed. Live model only."""
+    try:
+        return career_plan(request, _provider).model_dump()
+    except CareerUnavailable as error:
+        raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
+
+
+@app.post("/career/readiness/evaluate", dependencies=[Depends(require_token)])
+def run_career_evaluate(request: EvaluateRequest) -> dict[str, Any]:
+    """The candidate's answers scored against their rubric, a readiness reading and a roadmap; recommendations only from the
+    verified catalog sent with the request. Live model only."""
+    try:
+        return career_evaluate(request, _provider).model_dump()
+    except CareerUnavailable as error:
         raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
 
 

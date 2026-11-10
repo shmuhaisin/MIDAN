@@ -23,6 +23,12 @@ PORTS=(3100 4000 8000 54321)
 
 stop_ports() {
   for p in "${PORTS[@]}"; do for pid in $(lsof -tnP -iTCP:"$p" -sTCP:LISTEN 2>/dev/null); do kill "$pid" 2>/dev/null || true; done; done
+  # lsof doesn't always see next-server's socket (seen in a Linux container): a web server left running would keep serving
+  # the previous build's pages, whose scripts and styles the new build has replaced (404). This checkout's own Next.js
+  # processes are stopped by their working directory as well (Linux /proc; elsewhere this finds nothing).
+  for pid in $(pgrep -f 'next-server|next start -p 3100' 2>/dev/null); do
+    [ "$(readlink "/proc/$pid/cwd" 2>/dev/null)" = "$ROOT/apps/web" ] && kill "$pid" 2>/dev/null || true
+  done
 }
 MODE=local
 case "${1:-}" in

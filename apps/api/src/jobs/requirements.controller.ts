@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, UnprocessableEntityException, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { AiClient } from '../ai/ai.client';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateIf } from 'class-validator';
 import { requirement_type } from '@prisma/client';
@@ -37,7 +39,67 @@ class TaskRequirementsDto extends ChangeReasonDto {
 @UseGuards(AuthGuard)
 @Controller('organizations/:orgId')
 export class RequirementsController {
-  constructor(private readonly db: DbService) {}
+  constructor(private readonly db: DbService, private readonly ai: AiClient) {}
+
+  @Post('jobs/:jobId/requirements/suggest')
+  // Each call spends the AI provider's tokens.
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  @ApiOperation({
+    summary: "Requirements suggested by MIDAN's live model from the job and the company's context, stored as drafts.",
+    description: 'Each suggestion is a requirement with origin ai_inferred: a draft (the database keeps it so) until a person approves it, and only approved requirements reach the ATS and the assessment. 503 with the reason without a live model.',
+  })
+  async suggest(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('jobId', ParseUUIDPipe) jobId: string) {
+    const context = await this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const job = await tx.jobs.findFirst({
+        where: { id: jobId, org_id: orgId },
+        select: { title_ar: true, title_en: true, description_ar: true, description_en: true, experience_level: true,
+          organizations: { select: { industry: true, company_type: true } },
+          job_requirements: { where: { retired_at: null }, select: { requirement_type: true, description_ar: true, description_en: true } } },
+      });
+      if (!job) throw new NotFoundException();
+      const [domain] = await tx.$queryRaw<{ sector: string | null }[]>`select sector from public.organization_business_domain(${orgId}::uuid)`;
+      return { job, domain: domain?.sector ?? null };
+    });
+    const { job } = context;
+    if (!job.title_ar && !job.title_en) throw new UnprocessableEntityException('Give the job a title first');
+    type Suggested = { requirement_type: string; category: string; description_ar: string; description_en: string; mandatory: boolean; proficiency: string | null;
+      min_years: number | null; explanation_ar: string; explanation_en: string };
+    const result = await this.ai.suggestRequirements<{ suggestions: Suggested[]; provenance: Record<string, unknown> }>({
+      title_ar: job.title_ar ?? '', title_en: job.title_en ?? '', description_ar: job.description_ar ?? '', description_en: job.description_en ?? '',
+      industry: job.organizations.industry ?? null, business_domain: context.domain, company_type: job.organizations.company_type ?? null,
+      experience_level: job.experience_level ?? null,
+      existing: job.job_requirements.map((r) => ({ requirement_type: r.requirement_type, text: [r.description_en, r.description_ar].filter(Boolean).join(' / ') })),
+    });
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const created = [];
+      for (const s of result.suggestions) {
+        const last = await tx.job_requirements.aggregate({ where: { job_id: jobId, requirement_type: s.requirement_type as requirement_type }, _max: { position: true } });
+        created.push(await tx.job_requirements.create({
+          data: {
+            job_id: jobId, org_id: orgId, requirement_type: s.requirement_type as requirement_type, position: (last._max.position ?? 0) + 1,
+            description_ar: s.description_ar, description_en: s.description_en, is_mandatory: s.mandatory, min_years: s.min_years,
+            // The database keeps an AI suggestion as a draft until a person approves it (guard_requirement_review).
+            origin: 'ai_inferred',
+            suggestion: { category: s.category, proficiency: s.proficiency, explanation_ar: s.explanation_ar, explanation_en: s.explanation_en, provenance: result.provenance } as object,
+          },
+        }));
+      }
+      return { created: created.length, requirements: created, provenance: result.provenance };
+    });
+  }
+
+  @Post('job-requirements/:id/approve')
+  @ApiOperation({ summary: 'Approves a suggested requirement as it stands (edit it first if needed): it then feeds the ATS and the assessment.' })
+  approve(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, BUILDERS);
+      const { count } = await tx.job_requirements.updateMany({ where: { id, org_id: orgId, retired_at: null }, data: { review_status: 'approved' } });
+      if (count === 0) throw new NotFoundException();
+      return tx.job_requirements.findUniqueOrThrow({ where: { id } });
+    });
+  }
 
   @Get('jobs/:jobId/requirements')
   @ApiOperation({ summary: "A job's active requirements, with the tasks that measure each one." })

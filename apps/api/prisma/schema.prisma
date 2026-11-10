@@ -663,6 +663,7 @@ model job_requirements {
   source_reference          String?
   origin                    requirement_origin          @default(employer_stated)
   review_status             content_review_status       @default(approved)
+  suggestion                Json?
   retired_at                DateTime?                   @db.Timestamptz(6)
   created_at                DateTime                    @default(now()) @db.Timestamptz(6)
   updated_at                DateTime                    @default(now()) @db.Timestamptz(6)

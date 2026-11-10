@@ -1,4 +1,27 @@
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { Injectable, ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
+
+/**
+ * A POST with no header timeout, for calls that wait on the model for minutes (generation written in parts, each waiting for
+ * the provider's per-minute limit). Node's fetch gives up after 300 s without response headers, which isn't enough. The
+ * service's own limits still apply, and AI_LONG_CALL_MS (default 20 minutes) bounds the wait.
+ */
+function postLong(url: string, headers: Record<string, string>, body: string): Promise<Response> {
+  const target = new URL(url);
+  const send = target.protocol === 'https:' ? httpsRequest : httpRequest;
+  return new Promise((resolve, reject) => {
+    const req = send(target, { method: 'POST', headers: { ...headers, 'content-length': Buffer.byteLength(body).toString() }, timeout: Number(process.env.AI_LONG_CALL_MS) || 20 * 60_000 }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => resolve(new Response(Buffer.concat(chunks), { status: res.statusCode ?? 500, headers: { 'content-type': String(res.headers['content-type'] ?? 'application/json') } })));
+      res.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', reject);
+    req.end(body);
+  });
+}
 
 export type Provenance = { mode: 'demo' | 'live'; provider?: string; model_version: string; prompt_version: string };
 export type GraphResult<T> = { status: string; payload: T; provenance: Provenance };
@@ -8,14 +31,13 @@ export type GraphResult<T> = { status: string; payload: T; provenance: Provenanc
 export class AiClient {
   private async post<T>(path: string, body: unknown, timeoutMs?: number): Promise<T> {
     let response: Response;
+    const headers = { 'content-type': 'application/json', 'x-service-token': process.env.AI_SERVICE_TOKEN ?? '' };
     try {
-      response = await fetch(`${process.env.AI_SERVICE_URL}${path}`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-service-token': process.env.AI_SERVICE_TOKEN ?? '' },
-        body: JSON.stringify(body),
-        // A bounded wait where a person is waiting on the page; generation and evaluation keep the service's own limits.
-        ...(timeoutMs && { signal: AbortSignal.timeout(timeoutMs) }),
-      });
+      response = timeoutMs
+        // A bounded wait where a person is waiting on the page.
+        ? await fetch(`${process.env.AI_SERVICE_URL}${path}`, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) })
+        // Generation and evaluation keep the service's own limits, which can be longer than fetch's 300 s for headers.
+        : await postLong(`${process.env.AI_SERVICE_URL}${path}`, headers, JSON.stringify(body));
     } catch {
       throw new ServiceUnavailableException('The AI service is unavailable');
     }
@@ -50,6 +72,21 @@ export class AiClient {
    */
   reviewCv<T>(body: { title_en?: string; title_ar?: string; requirements: unknown[]; evidence: unknown[] }, timeoutMs = 150_000) {
     return this.post<T>('/match/review', body, timeoutMs);
+  }
+
+  /** A job's requirements suggested by the live model, for the employer to approve. 503 without the model. */
+  suggestRequirements<T>(body: unknown) {
+    return this.post<T>('/requirements/suggest', body, 240_000);
+  }
+
+  /** Career readiness, step 1: a target role's requirements and practical questions. Live model only (503 otherwise). */
+  careerPlan<T>(body: { target_title: string; locale: 'ar' | 'en'; profile: unknown[] }) {
+    return this.post<T>('/career/readiness/plan', body, 240_000);
+  }
+
+  /** Career readiness, step 2: answers scored, readiness and a roadmap, recommending only the catalog entries sent. */
+  careerEvaluate<T>(body: { target_title: string; locale: string; requirements: unknown[]; questions: unknown[]; answers: unknown[]; catalog: unknown[] }) {
+    return this.post<T>('/career/readiness/evaluate', body, 240_000);
   }
 
   /** The assistant: answers only from the facts and links supplied here, which the API retrieved with the asker's permissions. */
