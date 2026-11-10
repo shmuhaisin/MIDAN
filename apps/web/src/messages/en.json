@@ -1407,7 +1407,34 @@
     "noRequirements": "Add the job's requirements first to link them to this task.",
     "saveMapping": "Save links",
     "lockedNote": "These requirements were copied when this version was published, and later edits won't change them.",
-    "publicTitle": "Requirements"
+    "publicTitle": "Requirements",
+    "suggested": {
+      "badge": "Suggested by MIDAN's AI — not approved yet",
+      "approve": "Approve",
+      "action": "Suggest requirements with AI",
+      "working": "Reading the job and the company…",
+      "done": "{count} requirements suggested. Review each one: approve it, edit it or remove it.",
+      "pending": "{count} suggested requirements wait for your review. Only approved requirements are used to screen CVs and build the assessment.",
+      "category": {
+        "technical": "Technical skill",
+        "tool": "Tool",
+        "knowledge": "Knowledge",
+        "soft": "Soft skill",
+        "qualification": "Qualification",
+        "experience": "Experience"
+      },
+      "proficiency": {
+        "foundational": "Foundational level",
+        "working": "Working level",
+        "advanced": "Advanced level"
+      },
+      "unavailable": {
+        "quota_exhausted": "MIDAN's AI has used up its daily limit, so nothing was suggested. Add requirements yourself or try later.",
+        "rate_limited": "MIDAN's AI is busy right now. Try again in a minute.",
+        "not_configured": "MIDAN's AI isn't switched on here, so nothing was suggested.",
+        "other": "MIDAN's AI couldn't suggest requirements right now. Try again in a moment."
+      }
+    }
   },
   "sectors": {
     "digital": "Digital",

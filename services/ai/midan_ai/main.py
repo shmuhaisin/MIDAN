@@ -23,6 +23,9 @@ from .career import CareerUnavailable, EvaluateRequest, PlanRequest
 from .career import evaluate as career_evaluate
 from .career import plan as career_plan
 from .cv_review import CvReviewRequest, ReviewUnavailable, review_cv
+from .requirement_suggest import SuggestRequest as RequirementSuggestRequest
+from .requirement_suggest import SuggestUnavailable
+from .requirement_suggest import suggest as suggest_requirements
 from .translate import TranslateRequest, Unavailable as TranslateUnavailable, translate
 from .regenerate import RegenerateRequest, Unavailable, regenerate as regenerate_task
 from .skills import SuggestRequest, suggest as suggest_skills
@@ -235,6 +238,15 @@ def run_cv_review(request: CvReviewRequest) -> dict[str, Any]:
     try:
         return review_cv(request, _provider).model_dump()
     except ReviewUnavailable as error:
+        raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
+
+
+@app.post("/requirements/suggest", dependencies=[Depends(require_token)])
+def run_requirement_suggestions(request: RequirementSuggestRequest) -> dict[str, Any]:
+    """A job's requirements suggested by the live model, for the employer to approve, edit or remove. 503 without a model."""
+    try:
+        return suggest_requirements(request, _provider).model_dump()
+    except SuggestUnavailable as error:
         raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
 
 

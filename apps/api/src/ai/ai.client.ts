@@ -74,6 +74,11 @@ export class AiClient {
     return this.post<T>('/match/review', body, timeoutMs);
   }
 
+  /** A job's requirements suggested by the live model, for the employer to approve. 503 without the model. */
+  suggestRequirements<T>(body: unknown) {
+    return this.post<T>('/requirements/suggest', body, 240_000);
+  }
+
   /** Career readiness, step 1: a target role's requirements and practical questions. Live model only (503 otherwise). */
   careerPlan<T>(body: { target_title: string; locale: 'ar' | 'en'; profile: unknown[] }) {
     return this.post<T>('/career/readiness/plan', body, 240_000);

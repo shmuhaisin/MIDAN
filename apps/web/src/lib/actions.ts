@@ -346,6 +346,22 @@ export async function saveRequirement(orgId: string, jobId: string, id: string |
   );
 }
 
+/** Requirements suggested by MIDAN's live model, stored as drafts. Returns the model's reason when it wasn't available. */
+export async function suggestRequirements(orgId: string, jobId: string): Promise<{ ok?: boolean; created?: number; error?: string; reason?: string }> {
+  try {
+    const out = await api<{ created: number }>(`/organizations/${orgId}/jobs/${jobId}/requirements/suggest`, { method: 'POST', timeoutMs: 300_000 });
+    revalidatePath('/', 'layout');
+    return { ok: true, created: out.created };
+  } catch (error) {
+    const reason = error instanceof ApiError && error.status === 503 ? /\(([a-z_]+)\)/.exec(error.detail ?? '')?.[1] : undefined;
+    return { error: errorCode(error), reason };
+  }
+}
+
+export async function approveRequirement(orgId: string, id: string) {
+  return result(() => api(`/organizations/${orgId}/job-requirements/${id}/approve`, { method: 'POST' }));
+}
+
 export async function removeRequirement(orgId: string, id: string) {
   return result(() => api(`/organizations/${orgId}/job-requirements/${id}`, { method: 'DELETE' }));
 }
