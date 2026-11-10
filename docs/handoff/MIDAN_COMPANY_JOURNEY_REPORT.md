@@ -87,3 +87,5 @@ approval. The earlier run without e5 (`mwaf6a34`) passed 10, with step 7 not pas
    the number.
 6. Migrations `20261113090000`, `20261113100000` and `20261113110000` exist only locally. They need the owner's approval
    before Cloud, as does `20261112090000`.
+
+To set up and continue: [MIDAN_COMPANY_JOURNEY_SETUP.md](MIDAN_COMPANY_JOURNEY_SETUP.md).
