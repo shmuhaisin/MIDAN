@@ -89,7 +89,9 @@ describe('the company journey', () => {
     for (const id of [appOne, appTwo]) expect(byId(id).cv.status).toBe('scored');
     const [high, low] = [byId(appOne), byId(appTwo)].sort((a, b) => (b.cv.score ?? -1) - (a.cv.score ?? -1));
     expect(high.rank).toBe(1);
-    expect(low.rank).toBe(high.cv.score === low.cv.score ? 1 : 2);
+    // A score is empty when every requirement needs a person's review (e5's conservative bands do that for a one-line
+    // profile): that applicant is listed unranked, never scored as zero.
+    expect(low.rank).toBe(low.cv.score === null ? null : high.cv.score === low.cv.score ? 1 : 2);
     expect(byId(appOne).matching.provider).toBeTruthy();
     // The assessment isn't reviewed yet: by that stage, nobody is ranked.
     const byAssessment = (await api().get(`${base()}/jobs/${job}/ranking?sort=assessment`).set(bearer(owner)).expect(200)).body;

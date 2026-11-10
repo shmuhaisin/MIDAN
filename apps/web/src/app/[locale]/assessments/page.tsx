@@ -54,7 +54,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           <div className="min-w-0 space-y-10">
             {todo.length > 0 && (
               <section aria-labelledby="group-todo">
-                <h2 id="group-todo" className="flex items-center gap-3 font-display text-xl font-bold">{t('group.todo')}<span className="num rounded-full bg-gold px-2.5 py-0.5 text-sm text-forest">{n(todo.length)}</span></h2>
+                <h2 id="group-todo" className="flex items-center gap-3 font-display text-xl font-bold">{t('group.todo')}<span className="num rounded-full bg-gold px-2.5 py-0.5 text-sm text-primary-foreground">{n(todo.length)}</span></h2>
                 <p className="mt-1 text-sm text-muted">{t('groupLead.todo')}</p>
                 <ul className="mt-5 grid gap-4 sm:grid-cols-2">
                   {todo.map(({ a, x }) => {

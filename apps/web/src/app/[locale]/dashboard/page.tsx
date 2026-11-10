@@ -271,7 +271,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             <section aria-labelledby="waiting">
               <h2 id="waiting" className="flex items-center justify-between font-display text-lg font-bold">
                 {t('waitingTitle')}
-                {waiting > 0 && <span className="num rounded-full bg-gold px-2 text-sm text-forest">{n(waiting)}</span>}
+                {waiting > 0 && <span className="num rounded-full bg-gold px-2 text-sm text-primary-foreground">{n(waiting)}</span>}
               </h2>
               {waiting === 0 ? <p className="mt-3 rounded-[var(--radius-control)] bg-surface-2/60 px-4 py-4 text-sm text-muted">{t('waitingEmpty')}</p> : (
                 <ul className="mt-3 space-y-2.5">

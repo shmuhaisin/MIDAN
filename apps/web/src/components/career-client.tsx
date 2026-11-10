@@ -96,7 +96,7 @@ export function LevelLadder({ levels, fields, mine }: { levels: Level[]; fields:
               style={{ marginInlineStart: `${i * 0.9}rem` }}>
               <span className={clsx('num font-display text-2xl font-bold', at === i ? 'text-gold' : 'text-gold-text')}>{l.code}</span>
               <span className="min-w-0 flex-1 font-semibold">{l.name}</span>
-              {count > 0 && <span className={clsx('num rounded-full px-2 py-0.5 text-xs font-semibold', at === i ? 'bg-gold text-deep' : 'bg-accent text-accent-foreground')}>{t('mineCount', { count: number(locale, count) })}</span>}
+              {count > 0 && <span className={clsx('num rounded-full px-2 py-0.5 text-xs font-semibold', at === i ? 'bg-gold text-primary-foreground' : 'bg-accent text-accent-foreground')}>{t('mineCount', { count: number(locale, count) })}</span>}
             </button>
           );
         })}
