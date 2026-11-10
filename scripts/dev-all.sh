@@ -95,7 +95,9 @@ echo "$MODE" > "$MODE_FILE"
 
 echo "• AI service"
 if ! up http://localhost:8000/health; then
-  (cd services/ai && nohup uv run --extra matching --env-file "$ENV_FILE" uvicorn midan_ai.main:app --port 8000 > "$LOGS/ai.log" 2>&1 &)
+  # Through with-env, like the API and web app: uv's --env-file doesn't replace variables already in the shell, so a
+  # shell that exports its own AI_SERVICE_TOKEN (or provider settings) would give the AI service different values from the API.
+  (cd services/ai && nohup node "$ROOT/scripts/with-env.mjs" "$ENV_FILE" -- uv run --extra matching uvicorn midan_ai.main:app --port 8000 > "$LOGS/ai.log" 2>&1 &)
 fi
 wait_url http://localhost:8000/health
 

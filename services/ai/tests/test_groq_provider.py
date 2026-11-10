@@ -162,9 +162,9 @@ def test_a_refused_draft_is_retried_with_the_fields_that_were_wrong(calls):
     provider = get_provider(ENV)
     original = provider._complete
 
-    def spy(system, user, schema=None):
+    def spy(system, user, schema=None, **kwargs):
         seen_users.append(user)
-        return original(system, user, schema=schema)
+        return original(system, user, schema=schema, **kwargs)
 
     spy.accepts_schema = True
     provider._complete = spy

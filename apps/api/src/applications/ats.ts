@@ -44,7 +44,20 @@ export function evidenceFrom(profile: ApplicantProfile | null) {
 
 export type MatchStatus = 'matched' | 'partial' | 'missing' | 'needs_review';
 export type Proposal = { key: string; status: MatchStatus; score: number; evidence_id: string | null; evidence_text: string | null; evidence_source: string | null; reason: string };
-export type AiMatch = { matches: Proposal[]; summary: { counts: Record<MatchStatus, number>; score: number | null; mandatory_missing: number }; provenance: Record<string, unknown> };
+/** ATS stage 3, per requirement: the live model's reading of the evidence. It never changes the status or the score. */
+export type RequirementReview = {
+  key: string; reading: 'confirmed' | 'partial' | 'missing' | 'insufficient_evidence' | 'needs_manual_review';
+  evidence: { id: string; source: string; text: string }[];
+  relevant_experience_en: string; relevant_experience_ar: string; explanation_en: string; explanation_ar: string;
+  missing_en: string; missing_ar: string; confidence: number; matcher_status: MatchStatus; agrees: boolean; manual_review: boolean;
+};
+export type CvReview =
+  | { state: 'ready'; reviews: RequirementReview[]; counts: Record<string, number>; provenance: Record<string, unknown>; at: string }
+  | { state: 'unavailable'; reason: string; at: string };
+export type AiMatch = {
+  matches: Proposal[]; summary: { counts: Record<MatchStatus, number>; score: number | null; mandatory_missing: number }; provenance: Record<string, unknown>;
+  review?: CvReview;
+};
 
 /** One requirement of a job as the CV is matched against it: only what the employer approved. */
 export type MatchItem = { key: string; kind: string; text_ar: string | null; text_en: string | null; mandatory: boolean; min_years: number | null; skill_id: string | null };

@@ -19,6 +19,7 @@ from .quality import evaluate
 from .cv import analyze as analyze_cv
 from .matching import MatchRequest, match as match_requirements, similarity_backend
 from .assistant import AssistantRequest, answer as assistant_answer
+from .cv_review import CvReviewRequest, ReviewUnavailable, review_cv
 from .translate import TranslateRequest, Unavailable as TranslateUnavailable, translate
 from .regenerate import RegenerateRequest, Unavailable, regenerate as regenerate_task
 from .skills import SuggestRequest, suggest as suggest_skills
@@ -222,6 +223,16 @@ def run_match(request: MatchRequest) -> dict[str, Any]:
     """Which of a job's requirements an applicant's submitted profile shows, with the evidence used. A proposal for people
     to review: deterministic similarity, no model call, so nothing inside a CV can instruct it."""
     return match_requirements(request, similarity_backend()).model_dump()
+
+
+@app.post("/match/review", dependencies=[Depends(require_token)])
+def run_cv_review(request: CvReviewRequest) -> dict[str, Any]:
+    """ATS stage 3: the live model's evidence-based reading of each requirement, beside the matcher's status and score, which
+    it never changes. 503 with the reason without a live model: nothing is written in its place."""
+    try:
+        return review_cv(request, _provider).model_dump()
+    except ReviewUnavailable as error:
+        raise HTTPException(status_code=503, detail=f"ai_unavailable:{error.kind}") from None
 
 
 @app.post("/assistant/answer", dependencies=[Depends(require_token)])

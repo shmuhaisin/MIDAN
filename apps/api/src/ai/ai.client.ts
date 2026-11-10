@@ -44,6 +44,14 @@ export class AiClient {
     return this.post<T>('/match/requirements', body, timeoutMs);
   }
 
+  /**
+   * ATS stage 3: the live model's evidence-based reading of each requirement, beside the matcher's status and score, which
+   * it never changes. 503 with the reason without a live model.
+   */
+  reviewCv<T>(body: { title_en?: string; title_ar?: string; requirements: unknown[]; evidence: unknown[] }, timeoutMs = 150_000) {
+    return this.post<T>('/match/review', body, timeoutMs);
+  }
+
   /** The assistant: answers only from the facts and links supplied here, which the API retrieved with the asker's permissions. */
   answerQuestion(body: { role: 'candidate' | 'employer'; locale: 'ar' | 'en'; question: string; facts: unknown[]; links: unknown[]; history: unknown[] }) {
     return this.post<{ answer: string; facts: { id: string; text: string }[]; links: { key: string; href: string; label: string }[]; mode: string; grounded: boolean; provenance: Record<string, unknown> }>('/assistant/answer', body, 45_000);

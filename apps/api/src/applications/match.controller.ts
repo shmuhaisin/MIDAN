@@ -62,12 +62,16 @@ export class ApplicationMatchController {
     const latest = new Map<string, (typeof data.reviews)[number]>();
     for (const review of data.reviews) if (!latest.has(review.requirement_key)) latest.set(review.requirement_key, review);
     const proposals = new Map((result?.matches ?? []).map((m) => [m.key, m]));
+    // ATS stage 3: the model's reading of each requirement, shown beside the matcher's status; it never changes the score.
+    const aiReview = result?.review;
+    const readings = new Map(aiReview?.state === 'ready' ? aiReview.reviews.map((r) => [r.key, r]) : []);
     return {
       requirements: items.map((r) => {
         const review = latest.get(r.key);
         return {
           ...r,
           proposal: proposals.get(r.key) ?? null,
+          ai_review: readings.get(r.key) ?? null,
           review: review ? { status: review.status, decision: review.decision, note: review.note, created_at: review.created_at, reviewer_id: review.reviewer_id } : null,
         };
       }),
@@ -75,6 +79,10 @@ export class ApplicationMatchController {
       evidence_lines: evidence.length,
       reviewed: latest.size,
       provenance: result?.provenance ?? null,
+      // ready (with counts and provenance), unavailable (with the reason) or pending (the match is stored, the review isn't yet).
+      ai_review: !result ? null : !aiReview ? { state: 'pending' } : aiReview.state === 'ready'
+        ? { state: 'ready', counts: aiReview.counts, provenance: aiReview.provenance, at: aiReview.at }
+        : { state: 'unavailable', reason: aiReview.reason, at: aiReview.at },
       // ready, computing (shown as "analysis in progress") or unavailable; none when the job has no approved requirements.
       evaluation: items.length === 0 ? 'none' : stored?.state ?? 'unavailable',
       computed_at: stored?.state === 'ready' ? stored.computed_at : null,
