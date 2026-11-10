@@ -6,6 +6,9 @@ import { redirect } from '@/i18n/navigation';
 import { api, ApiError, errorCode, errorDetail } from './api';
 import type { FormState } from './auth-actions';
 
+/** An assessment generation waits on the model for several minutes (written in parts within the provider's limits). */
+const GENERATION_TIMEOUT_MS = 15 * 60_000;
+
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 function text(form: FormData, name: string) {
@@ -195,7 +198,8 @@ export async function updateJob(orgId: string, jobId: string, _: FormState, form
 
 export async function generateAssessment(orgId: string, jobId: string, assessmentId?: string) {
   return result(() =>
-    api(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST', body: assessmentId ? { assessment_id: assessmentId } : {} }),
+    // Generation is written in parts, each waiting for the provider's per-minute limit: minutes, not seconds.
+    api(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST', body: assessmentId ? { assessment_id: assessmentId } : {}, timeoutMs: GENERATION_TIMEOUT_MS }),
   );
 }
 
@@ -204,7 +208,7 @@ export async function addAssessment(orgId: string, jobId: string, form: FormData
   const title_en = text(form, 'title_en');
   if (!title_ar || !title_en) return { error: 'required' };
   try {
-    const made = await api<{ assessment_id: string }>(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST', body: { title_ar, title_en } });
+    const made = await api<{ assessment_id: string }>(`/organizations/${orgId}/jobs/${jobId}/assessment/generate`, { method: 'POST', body: { title_ar, title_en }, timeoutMs: GENERATION_TIMEOUT_MS });
     revalidatePath('/', 'layout');
     return { ok: true, assessmentId: made.assessment_id };
   } catch (error) {
