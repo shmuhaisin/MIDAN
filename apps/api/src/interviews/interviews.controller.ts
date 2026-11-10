@@ -185,7 +185,9 @@ export class InterviewsController {
     const needsCalendar = Boolean(body.scheduled_at || body.duration_minutes || body.status === 'cancelled' || body.interviewer_ids);
     if (body.scheduled_at) futureInterviewTime(body.scheduled_at);
     const { scheduled_at, interviewer_ids, ...rest } = body;
-    const updated = await this.db.asUser(user, async (tx) => {
+    let updated;
+    try {
+      updated = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
       const { count } = await tx.interviews.updateMany({
         where: { id, org_id: orgId },
@@ -202,7 +204,13 @@ export class InterviewsController {
         });
       }
       return saved;
-    });
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('An active interview already exists for this application at this time');
+      }
+      throw error;
+    }
     return needsCalendar ? this.syncCalendar(user, id) : updated;
   }
 
