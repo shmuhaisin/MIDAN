@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Body, ConflictException, Controller, ForbiddenException, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, ServiceUnavailableException, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { ArrayMaxSize, IsArray, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
@@ -146,7 +147,9 @@ export class InterviewsController {
   @Post('organizations/:orgId/applications/:applicationId/interviews')
   async schedule(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('applicationId', ParseUUIDPipe) applicationId: string, @Body() body: ScheduleDto) {
     const when = futureInterviewTime(body.scheduled_at);
-    const created = await this.db.asUser(user, async (tx) => {
+    let created: Awaited<ReturnType<DbService['asUser']>>;
+    try {
+      created = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
       const application = await tx.applications.findFirst({ where: { id: applicationId, org_id: orgId }, select: { candidate_id: true, status: true } });
       if (!application) throw new NotFoundException();
@@ -166,7 +169,13 @@ export class InterviewsController {
         data: [...new Set(interviewer_ids)].filter((id) => id !== user.id).map((id) => ({ interview_id: interview.id, org_id: orgId, user_id: id })),
       });
       return interview;
-    });
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('An active interview already exists for this application at this time');
+      }
+      throw error;
+    }
     return this.syncCalendar(user, created.id);
   }
 
