@@ -147,35 +147,51 @@ export class InterviewsController {
   @Post('organizations/:orgId/applications/:applicationId/interviews')
   async schedule(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('applicationId', ParseUUIDPipe) applicationId: string, @Body() body: ScheduleDto) {
     const when = futureInterviewTime(body.scheduled_at);
-    let created: { id: string };
-    try {
-      created = await this.db.asUser(user, async (tx) => {
+    const created = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
-      const application = await tx.applications.findFirst({ where: { id: applicationId, org_id: orgId }, select: { candidate_id: true, status: true } });
+      const application = await tx.applications.findFirst({
+        where: { id: applicationId, org_id: orgId },
+        select: { candidate_id: true, status: true },
+      });
       if (!application) throw new NotFoundException();
+
       // Defense in depth: the database trigger enforces this too, including writes outside this controller.
       assertInterviewCandidateShortlisted(application.status);
       const duplicate = await tx.interviews.findFirst({
-        where: { application_id: applicationId, org_id: orgId, scheduled_at: when, status: { in: ['invited', 'accepted', 'reschedule_requested'] } },
+        where: {
+          application_id: applicationId,
+          org_id: orgId,
+          scheduled_at: when,
+          status: { in: ['invited', 'accepted', 'reschedule_requested'] },
+        },
         select: { id: true },
       });
       if (duplicate) throw new ConflictException('An active interview already exists for this application at this time');
+
       const { interviewer_ids = [], ...fields } = body;
       const interview = await tx.interviews.create({
-        data: { ...fields, scheduled_at: when, application_id: applicationId, org_id: orgId, candidate_id: application.candidate_id, calendar_status: 'pending' },
+        data: {
+          ...fields,
+          scheduled_at: when,
+          application_id: applicationId,
+          org_id: orgId,
+          candidate_id: application.candidate_id,
+          calendar_status: 'pending',
+        },
       });
       // The scheduler is added by the database. Anyone else must be a member: the database refuses otherwise.
       await tx.interview_participants.createMany({
-        data: [...new Set(interviewer_ids)].filter((id) => id !== user.id).map((id) => ({ interview_id: interview.id, org_id: orgId, user_id: id })),
+        data: [...new Set(interviewer_ids)]
+          .filter((id) => id !== user.id)
+          .map((id) => ({ interview_id: interview.id, org_id: orgId, user_id: id })),
       });
       return interview;
-      });
-    } catch (error) {
+    }).catch((error: unknown) => {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('An active interview already exists for this application at this time');
       }
       throw error;
-    }
+    });
     return this.syncCalendar(user, created.id);
   }
 
@@ -185,32 +201,35 @@ export class InterviewsController {
     const needsCalendar = Boolean(body.scheduled_at || body.duration_minutes || body.status === 'cancelled' || body.interviewer_ids);
     if (body.scheduled_at) futureInterviewTime(body.scheduled_at);
     const { scheduled_at, interviewer_ids, ...rest } = body;
-    let updated;
-    try {
-      updated = await this.db.asUser(user, async (tx) => {
+    const updated = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
       const { count } = await tx.interviews.updateMany({
         where: { id, org_id: orgId },
-        data: { ...rest, ...(scheduled_at && { scheduled_at: new Date(scheduled_at) }), ...(needsCalendar && { calendar_status: 'pending' }) },
+        data: {
+          ...rest,
+          ...(scheduled_at && { scheduled_at: new Date(scheduled_at) }),
+          ...(needsCalendar && { calendar_status: 'pending' }),
+        },
       });
       if (count === 0) throw new NotFoundException();
       const saved = await tx.interviews.findUniqueOrThrow({ where: { id } });
       if (interviewer_ids) {
         const keep = new Set([...interviewer_ids, ...(saved.created_by ? [saved.created_by] : [])]);
-        await tx.interview_participants.deleteMany({ where: { interview_id: id, user_id: { notIn: [...keep] } } });
+        await tx.interview_participants.deleteMany({
+          where: { interview_id: id, user_id: { notIn: [...keep] } },
+        });
         await tx.interview_participants.createMany({
           data: [...keep].map((userId) => ({ interview_id: id, org_id: orgId, user_id: userId })),
           skipDuplicates: true,
         });
       }
       return saved;
-      });
-    } catch (error) {
+    }).catch((error: unknown) => {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('An active interview already exists for this application at this time');
       }
       throw error;
-    }
+    });
     return needsCalendar ? this.syncCalendar(user, id) : updated;
   }
 
