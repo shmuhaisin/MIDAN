@@ -1247,7 +1247,18 @@ describe('Midan database foundation', () => {
       expect(replaced.body.cv_path).not.toBe(first);
       const link = await api().get('/me/cv/url').set(bearer(candidateOne)).expect(200);
       expect((await fetch(link.body.url)).status).toBe(200);
-      expect((await storage(candidateOne, 'GET', `object/candidate-documents/${first}`)).ok).toBe(false);
+      // The CV library (5f78231): the new file is the profile's CV, and the earlier one is kept for the candidate to choose
+      // again (at most 5), never under the file's own name.
+      const library = (await api().get('/me/cv/documents').set(bearer(candidateOne)).expect(200)).body as { id: string; is_current: boolean }[];
+      expect(library.length).toBeGreaterThanOrEqual(2);
+      expect(library.length).toBeLessThanOrEqual(5);
+      expect(library.filter((d) => d.is_current)).toHaveLength(1);
+      expect(library[0].is_current).toBe(true);
+      const earlier = await api().get(`/me/cv/documents/${library[1].id}/url`).set(bearer(candidateOne)).expect(200);
+      expect((await fetch(earlier.body.url)).status).toBe(200);
+      expect(JSON.stringify(library)).not.toContain('Real');
+      // Nobody else can open the earlier CV.
+      await api().get(`/me/cv/documents/${library[1].id}/url`).set(bearer(candidateTwo)).expect(404);
     });
 
     it('needs a saved profile before a CV', async () => {

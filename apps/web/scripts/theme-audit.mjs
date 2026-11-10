@@ -113,7 +113,8 @@ const orgFromApi = async (tok) => {
   return me.organization_members?.[0]?.org_id;
 };
 
-const browser = await chromium.launch();
+// CHROMIUM_PATH: a browser other than the one this Playwright version downloads (as for the e2e suites).
+const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const results = [];
 const audiences = [
   { who: null, pages: ['/', '/login', '/register', '/register?as=organization', '/opportunities', '/employers', '/how-it-works', '/for-organizations', '/faq'] },
