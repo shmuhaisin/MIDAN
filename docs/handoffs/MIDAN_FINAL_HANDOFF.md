@@ -162,6 +162,63 @@ local ports `LOCAL_PG_PORT`, `LOCAL_SUPABASE_PORT`, `LOCAL_SMTP_PORT`, `LOCAL_AU
    and `docs/deployment.md`).
 8. Responsive layouts not re-verified in this session.
 
+## 8b. Exact fixes needed
+
+**A. Groq limits (unblocks generation, interview questions and form, development reports, readiness, and the live
+acceptance run).**
+1. The owner decides: Groq Dev tier (paid; higher tokens per minute and per day), or another provider already supported by
+   `services/ai/midan_ai/providers.py` (`AI_PROVIDER=gemini` with `GEMINI_API_KEY` + `GEMINI_MODEL`, or `openai`). No code change
+   is needed to switch: set the variables in `.env`, restart the AI service, check `/health` reports `"mode":"live"`.
+2. If staying on the free tier, run one live feature at a time, and only one session per key. Every feature shares
+   200,000 tokens a day; one generation takes about 20,000.
+3. Code, if the free tier stays: `revise_assessment` in `providers.py` sends the whole draft and refuses up front when it
+   can't fit (`"The draft is too long to revise within the account's tokens-per-minute limit"`). Split the repair the way
+   generation is split (case, materials, guide, levels): repair only the part a finding is in, as `fix_guide` already does
+   for guide-only findings (`_repair_round` in `assessment_builder.py`, `GUIDE_CODES`).
+
+**B. The STC assessment quality failure** (version `383cece7…`, local, blocked by MAS-1.0 with 8 errors).
+1. `rubric_total_not_100` (task weights 45 + 25 + 25 = 95). Add `rubric_total_not_100` to a part-level repair that sends
+   only the tasks and their weights (the rubric total is checked in `services/ai/midan_ai/standard.py`). Never rescale the
+   weights in code: the model or a person sets them.
+2. `calculation_input_missing`, `reference_check_failed`, `calculations_missing` (calc3 uses calc1/calc2 results; reference
+   figures that don't recompute; tasks 2 and 3 without calculations). These are guide codes, so `fix_guide` can repair them
+   once item 1 no longer forces the whole-draft path.
+3. Not caught by the gate, found by reading: the materials have **no churn column or churn date**, 5 subscribers and one
+   month for a Q3 question, bills in USD, and a guide "source" at `example.com`. Fix in the generation prompt for part 2
+   (materials, `providers.py`): require every column a task names to exist in a material, enough rows and months for the
+   period the task asks about, and the currency of the company's country (SAR). Add a check in `standard.py` that each
+   task's named measures appear as material columns, and refuse `example.com` sources.
+4. Then: `node scripts/stc-assessment-live.mjs` (resumes from parts already written, `6bb3afb`), read
+   `.local/stc-assessment/assessment.json`, approve only if the gate passes.
+
+**C. Every unverified feature, and the one action that verifies it.**
+
+| Feature | Action |
+| --- | --- |
+| Live assessment generation, approvable | A, then B4 |
+| Acceptance steps 4–18 live (incl. stage 3 stored and shown on the applicant page) | After A: `node scripts/company-journey-acceptance.mjs` |
+| Interview questions and evaluation form, live | Same run, steps 13–14; or open an applicant's interview page as the employer |
+| Development reports, live | Same run, step 18 |
+| Career readiness and roadmap, live | Sign in as a candidate, `/en/development/readiness`, enter "Data Analyst" |
+| Google Calendar | Set `GOOGLE_CALENDAR_CLIENT_ID`, `_SECRET`, run `node scripts/google-calendar-token.mjs` for the refresh token, then schedule an interview with `GOOGLE_CALENDAR_SEND_UPDATES=none` first |
+| Daily video | Set `DAILY_API_KEY`, open an interview page |
+| Email delivery | Configure SMTP in GoTrue per `docs/handoffs/MIDAN_EMAIL_DELIVERY_REPAIR.md`, register with a real inbox |
+| Docker image | `docker build services/ai` on a machine with Docker; the build runs `fetch_models.py check` |
+| Reranker threshold 0.02 | Owner decision; then re-run `bench/reranker_bench.py` and the acceptance CV ranking |
+| Intermittent API unit failure | `for i in 1 2 3 4 5; do npm test -w @midan/api > /tmp/u$i.log 2>&1; done`, then read the `●` block of a failing run |
+| Responsive layouts | Browser pass at 375 px wide on the candidate and employer pages |
+| Company onboarding, palette, theme audit (reported, not re-run here) | `cd apps/web && npx playwright test e2e/company-setup.spec.ts` |
+
+## 8c. Demo data on this machine
+
+`node scripts/demo-seed.mjs` was run at handoff with the API temporarily pointed at a demo-mode AI service, so its 20
+assessments came from MIDAN's labelled templates and no Groq quota was used. All 20 were approved by their owners. CV matching
+used the real e5 + reranker. Everything is fictional and flagged `is_demo` ("DEMO · <employer> (sample tenant)", jobs ending
+"(DEMO)", listed at `/opportunities?demo=1`). Accounts: `midan.demo.employer.<key>@example.com` (elm, sdaia, stc, mof, gea, dgda,
+moc, sipchem, redsea, sidf) and `midan.demo.candidate.<key>@example.com`; passwords in `.local/demo/demo-accounts-local.json`
+(git-ignored). Platform admin: `midan.test.platform-admin@example.com`, password in `.env.test.local`. Guide:
+`docs/testing/MIDAN_DEMO_DATA_GUIDE.md`. Remove with `node scripts/demo-seed.mjs --clean`.
+
 ## 9. Remaining acceptance tests
 
 After the generation blocker: `node scripts/stc-assessment-live.mjs` (writes `.local/stc-assessment/assessment.json`), then
