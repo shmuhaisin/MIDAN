@@ -29,7 +29,10 @@ test('candidate sign-up accepts a Gmail address and asks to confirm it', async (
   expect(signup?.data?.account_type).toBe('candidate');
   expect(signup?.data?.midan_test_access).toBeTruthy();
   expect(decodeURIComponent(signup?.query ?? '')).toContain('/ar/auth/confirmed');
-  expect((await context_cookies(page)).filter((c) => c.name.startsWith('midan_'))).toEqual([]);
+  // Only the registered address, so the confirmation page can show it and resend to it (2d237b8): httpOnly, no session.
+  const midan = (await context_cookies(page)).filter((c) => c.name.startsWith('midan_'));
+  expect(midan.map((c) => c.name)).toEqual(['midan_pending_email']);
+  expect(midan[0]).toMatchObject({ httpOnly: true, sameSite: 'Lax', value: encodeURIComponent('someone.fictional@gmail.com') });
 });
 
 test('organization sign-up chooses a supported registry employer and requests approval', async ({ page }) => {
