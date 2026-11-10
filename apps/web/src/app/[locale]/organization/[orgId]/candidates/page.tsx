@@ -135,7 +135,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                   <p className="truncate text-sm">{pick(locale, a.jobs.title_ar, a.jobs.title_en)}</p>
                   <CvCell entry={cvOf.get(a.id)} orgId={orgId} labels={{
                     label: tc('cvMatch'), rank: (rank: number, total: number) => tc('cvRank', { rank: n(rank), total: n(total) }), needsReview: tc('cvNeedsReview'),
-                    unavailable: tc('cvUnavailable'), none: tc('cvNoRequirements'), notRanked: tc('cvNotRanked'),
+                    unavailable: tc('cvUnavailable'), computing: tc('cvComputing'), none: tc('cvNoRequirements'), notRanked: tc('cvNotRanked'),
                   }} n={n} />
                   <p className="flex flex-wrap items-center gap-3 text-sm">
                     <StageMeter status={a.status} label={ts(a.status)} />
@@ -156,7 +156,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 function CvCell({ entry, orgId, labels, n }: {
   entry?: { row: Ranking['applicants'][number]; total: number; jobId: string };
   orgId: string;
-  labels: { label: string; rank: (rank: number, total: number) => string; needsReview: string; unavailable: string; none: string; notRanked: string };
+  labels: { label: string; rank: (rank: number, total: number) => string; needsReview: string; unavailable: string; computing: string; none: string; notRanked: string };
   n: (v: number) => string;
 }) {
   if (!entry) return <p className="text-sm text-muted"><span className="lg:sr-only">{labels.label}: </span>{labels.notRanked}</p>;
@@ -169,7 +169,7 @@ function CvCell({ entry, orgId, labels, n }: {
         ? cv.score === null
           ? <span className="text-muted">{labels.needsReview}</span>
           : <span className="num font-semibold">{n(cv.score)}%</span>
-        : <span className="text-muted">{cv.status === 'no_requirements' ? labels.none : labels.unavailable}</span>}
+        : <span className="text-muted">{cv.status === 'no_requirements' ? labels.none : cv.status === 'computing' ? labels.computing : labels.unavailable}</span>}
       {row.rank !== null && (
         <Link href={`/organization/${orgId}/jobs/${jobId}?rank=cv#ranking`} className="block text-xs text-muted hover:text-foreground">{labels.rank(row.rank, total)}</Link>
       )}

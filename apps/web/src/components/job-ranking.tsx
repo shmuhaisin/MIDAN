@@ -5,7 +5,7 @@ import { number, pick } from '@/lib/format';
 type Line = { key: string; text_ar: string | null; text_en: string | null; mandatory: boolean };
 type Cv =
   | { status: 'scored'; score: number | null; counts: Record<string, number>; reviewed: number; strengths: Line[]; partial: Line[]; gaps: Line[] }
-  | { status: 'unavailable' | 'no_requirements' };
+  | { status: 'unavailable' | 'no_requirements' | 'computing' };
 export type Ranking = {
   sort: 'cv' | 'assessment' | 'interview';
   overall: { available: boolean; reason: string };
@@ -29,7 +29,8 @@ export async function JobRanking({ locale, orgId, jobId, data }: { locale: strin
   const ts = await getTranslations({ locale, namespace: 'applicationStatus' });
   const text = (l: Line) => pick(locale, l.text_ar ?? l.text_en ?? '', l.text_en ?? l.text_ar ?? '');
   // The backend each match used, as the AI service recorded it: word comparison (configured or a fallback) is named as such.
-  const providers = [...new Set(data.applicants.map((a) => a.matching && (a.matching.fallback || a.matching.provider === 'lexical' ? 'fallback' : a.matching.model_version)).filter(Boolean))] as string[];
+  const providers = [...new Set(data.applicants.map((a) => a.matching && (a.matching.provider === 'lexical' ? 'fallback'
+    : a.matching.fallback ? `${a.matching.model_version} (${t('rerankerFallback')})` : a.matching.model_version)).filter(Boolean))] as string[];
   return (
     <div>
       <p className="text-sm text-muted">{t('lead')}</p>

@@ -19,6 +19,8 @@ export type MatchData = {
   evidence_lines: number;
   reviewed: number;
   provenance: { provider: string; model_version: string; fallback?: string } | null;
+  /** The stored evaluation's state: computing in the background, ready, or unavailable (with a retry later). */
+  evaluation?: 'ready' | 'computing' | 'unavailable' | 'none';
 };
 
 const STATUSES: MatchStatus[] = ['matched', 'partial', 'missing', 'needs_review'];
@@ -40,6 +42,17 @@ export function RequirementMatch({ orgId, applicationId, data, canReview }: { or
   const n = (v: number) => number(locale, v);
   const current = (r: RequirementRow) => r.review?.status ?? r.proposal?.status ?? 'needs_review';
   if (data.requirements.length === 0) return <p className="text-sm text-muted">{t('noRequirements')}</p>;
+  // Not evaluated yet: say so, and show the requirements without any status rather than a "needs review" for each.
+  if (data.evaluation === 'computing' || data.evaluation === 'unavailable') {
+    return (
+      <div className="space-y-3">
+        <p role="status" className="callout text-sm">{t(data.evaluation === 'computing' ? 'evaluating' : 'evaluationUnavailable')}</p>
+        <ul className="list-disc space-y-1 ps-5 text-sm text-muted">
+          {data.requirements.map((r) => <li key={r.key}><bdi>{locale === 'ar' ? r.text_ar ?? r.text_en : r.text_en ?? r.text_ar}</bdi></li>)}
+        </ul>
+      </div>
+    );
+  }
   const counts = Object.fromEntries(STATUSES.map((s) => [s, data.requirements.filter((r) => current(r) === s).length])) as Record<MatchStatus, number>;
   return (
     <div className="space-y-6">

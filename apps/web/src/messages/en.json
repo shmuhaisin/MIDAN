@@ -1666,7 +1666,17 @@
     "dueIn": "{hours} hours to finish",
     "note": "A short note (optional)",
     "noCv": "There's no CV in your profile. You can still apply without one.",
-    "submit": "Confirm application"
+    "submit": "Confirm application",
+    "chooseCv": "Which CV goes with this application",
+    "noSavedCv": "You have no saved CV yet. Upload one for this application below.",
+    "profileCv": "Profile CV",
+    "preview": "Preview",
+    "uploadForThis": "Upload a new CV for this application (PDF or Word)",
+    "uploading": "Uploading and reading the CV…",
+    "noteOptional": "Optional. The organization reads it with your application.",
+    "review": "Review the application",
+    "reviewTitle": "Check before you submit",
+    "noNote": "No cover letter"
   },
   "application": {
     "nextAssessment": "Next: start the practical assessment before its deadline.",
@@ -3101,7 +3111,8 @@
     "cvNeedsReview": "Needs your review",
     "cvUnavailable": "Analysis unavailable",
     "cvNoRequirements": "No approved requirements",
-    "cvNotRanked": "Not analysed yet"
+    "cvNotRanked": "Not analysed yet",
+    "cvComputing": "Analysis in progress"
   },
   "orgAssessments": {
     "lead": "Submissions waiting for your review, and how each job's assessments are progressing.",
@@ -3475,7 +3486,9 @@
       "partial": "Partly shown",
       "missing": "Not found in your profile",
       "needs_review": "Unclear"
-    }
+    },
+    "evaluating": "MIDAN is evaluating this CV against the job's approved requirements in the background. This takes up to a few minutes; refresh the page to see the result.",
+    "evaluationUnavailable": "The CV evaluation isn't available right now. It will be tried again automatically; refresh in a minute."
   },
   "assistant": {
     "eyebrow": "Ask MIDAN",
@@ -3873,7 +3886,8 @@
     "cvBreakdown": "{matched} shown · {partial} partly · {missing} not shown · {review} to check",
     "cvState": {
       "unavailable": "Matching unavailable",
-      "no_requirements": "No approved requirements"
+      "no_requirements": "No approved requirements",
+      "computing": "Analysis in progress"
     },
     "noAssessment": "No assessment",
     "assessmentState": {
@@ -3896,7 +3910,8 @@
     "gaps": "Not shown",
     "manual": "Ranking informs; it decides nothing. Shortlisting, rejecting and hiring are always a person's choice.",
     "cvRule": "CV match is the share of the job’s approved requirements the CV shows, from MIDAN’s matching model: mandatory requirements count twice, a partly shown one counts half, and anything that needs a person’s review is left out rather than guessed. Your reviews of a match replace the model’s proposal.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "rerankerFallback": "the reranker was unavailable for these, so e5 alone was used"
   },
   "interviewPrep": {
     "note": "Proposed by MIDAN for this candidate, from the job's approved requirements, the company's context, the CV match and the reviewed assessment. Use, change or ignore them; the candidate never sees this.",

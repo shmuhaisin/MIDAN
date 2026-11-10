@@ -31,6 +31,8 @@ async function signIn(name: string): Promise<Session> {
 type Proposal = { reference_skill_id: string; basis: string; level: number | null; required: boolean; reason_en: string | null };
 
 describe('job skills', () => {
+  // The first suggestion embeds the sector catalog on the CPU (about 25-90 s cold, by machine), so this file waits longer.
+  jest.setTimeout(300_000);
   let app: INestApplication;
   let owner: Session, outsider: Session, candidate: Session;
   let org: string, job: string, otherJob: string;
@@ -123,7 +125,7 @@ describe('job skills', () => {
   it('feeds the accepted workbook skills and the employer\'s own skills into requirement matching', async () => {
     await api().put('/me/candidate-profile').set(bearer(candidate)).send({ full_name: 'Test Candidate One', headline: 'Data analyst' }).expect(200);
     const application = (await api().post(`/jobs/${job}/applications`).set(bearer(candidate)).send({}).expect(201)).body.id;
-    const match = (await api().get(`/organizations/${org}/applications/${application}/match`).set(bearer(owner)).expect(200)).body;
+    const match = (await api().get(`/organizations/${org}/applications/${application}/match?wait=true`).set(bearer(owner)).expect(200)).body;
     const keys = match.requirements.map((r: { key: string }) => r.key);
     expect(keys.some((k: string) => k.startsWith('reference:'))).toBe(true);
     expect(keys.some((k: string) => k.startsWith('custom:'))).toBe(true);

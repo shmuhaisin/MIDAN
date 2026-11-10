@@ -354,6 +354,8 @@ export class CandidateController {
     const result = await this.ai.matchRequirements<{ matches: Proposal[]; summary: unknown; provenance: unknown }>({
       requirements: items.map((r) => ({ key: r.key, text: [r.text_ar, r.text_en].filter(Boolean).join(' / '), mandatory: r.mandatory, min_years: r.min_years, skill_id: r.skill_id })),
       evidence: [...evidenceFrom(profile as never), ...structured],
+      // The candidate waits on this screen: e5 alone (fast), never the background reranker.
+      mode: 'fast',
     });
     const proposals = new Map(result.matches.map((m) => [m.key, m]));
     return { requirements: items.map((r) => ({ ...r, proposal: proposals.get(r.key) ?? null })), summary: result.summary, provenance: result.provenance };

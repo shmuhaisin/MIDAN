@@ -5,7 +5,8 @@ import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { applicantProfile } from '../common/applicant';
 import { requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
-import { jobMatchItems, matchSnapshot, type MatchStatus } from './ats';
+import { jobMatchItems, type MatchStatus } from './ats';
+import { CvMatchStore } from './cv-match-store';
 import { cvScore, interviewSummary, rankBy, RANK_KEYS, type RankKey } from './ranking';
 
 /** At most this many matching calls at once, so a long list doesn't flood the AI service. */
@@ -37,12 +38,12 @@ async function pool<T, R>(items: T[], size: number, work: (item: T) => Promise<R
 @UseGuards(AuthGuard)
 @Controller('organizations/:orgId/jobs/:jobId/ranking')
 export class JobRankingController {
-  constructor(private readonly db: DbService, private readonly ai: AiClient) {}
+  constructor(private readonly db: DbService, private readonly ai: AiClient, private readonly store: CvMatchStore) {}
 
   @Get()
   @ApiOperation({ summary: 'All active applicants to a job with their stage scores, ordered by one stage the employer chooses.' })
   @ApiQuery({ name: 'sort', required: false, enum: RANK_KEYS })
-  async ranking(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('jobId', ParseUUIDPipe) jobId: string, @Query('sort') sortParam?: string) {
+  async ranking(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('jobId', ParseUUIDPipe) jobId: string, @Query('sort') sortParam?: string, @Query('wait') wait?: string) {
     const sort: RankKey = (RANK_KEYS as readonly string[]).includes(sortParam ?? '') ? (sortParam as RankKey) : 'cv';
     const data = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId);
@@ -86,18 +87,18 @@ export class JobRankingController {
     });
 
     const live = data.job.assessments.filter((a) => a.assessment_versions.length > 0);
+    // Stored matches only: the matcher runs in the background (CvMatchStore), so ranking never waits on it.
+    const stored = data.items.length ? await this.store.read(user, orgId, data.applications, data.items, wait === 'true') : new Map();
     const rows = await pool(data.applications, CONCURRENCY, async (a) => {
-      let cv: ReturnType<typeof cvScore> | { status: 'unavailable' } | { status: 'no_requirements' };
+      let cv: ReturnType<typeof cvScore> | { status: 'unavailable' } | { status: 'no_requirements' } | { status: 'computing' };
       let provenance: Record<string, unknown> | null = null;
       if (data.items.length === 0) cv = { status: 'no_requirements' };
       else {
-        try {
-          const { result } = await matchSnapshot(this.ai, data.items, a.profile_snapshot);
-          provenance = result?.provenance ?? null;
-          cv = cvScore(data.items, result?.matches ?? [], latestReviews(a.application_match_reviews));
-        } catch {
-          cv = { status: 'unavailable' };
-        }
+        const s = stored.get(a.id);
+        if (s?.state === 'ready') {
+          provenance = s.result.provenance ?? null;
+          cv = cvScore(data.items, s.result.matches ?? [], latestReviews(a.application_match_reviews));
+        } else cv = { status: s?.state === 'computing' ? 'computing' : 'unavailable' };
       }
       const assessments = live.map((s) => {
         const attempt = a.assessment_attempts.find((t) => t.assessment_versions.assessment_id === s.id);

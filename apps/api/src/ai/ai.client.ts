@@ -40,8 +40,8 @@ export class AiClient {
   }
 
   /** Requirement-to-evidence matching. Deterministic similarity, no model call: a proposal for people to review. */
-  matchRequirements<T>(body: { requirements: unknown[]; evidence: unknown[] }) {
-    return this.post<T>('/match/requirements', body, 20_000);
+  matchRequirements<T>(body: { requirements: unknown[]; evidence: unknown[]; mode?: 'full' | 'fast' }, timeoutMs = 20_000) {
+    return this.post<T>('/match/requirements', body, timeoutMs);
   }
 
   /** The assistant: answers only from the facts and links supplied here, which the API retrieved with the asker's permissions. */

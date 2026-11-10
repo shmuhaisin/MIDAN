@@ -253,7 +253,7 @@ await step(6, 'Several candidates apply with CVs', async () => {
 let ranking;
 await step(7, "The CVs analyzed with the existing Hugging Face model (intfloat/multilingual-e5-base)", async () => {
   need(ctx.apps, 'ctx.apps');
-  ranking = await must(call(ctx.rep1.token, 'GET', `/organizations/${ctx.org}/jobs/${ctx.job}/ranking`));
+  ranking = await must(call(ctx.rep1.token, 'GET', `/organizations/${ctx.org}/jobs/${ctx.job}/ranking?wait=true`));
   const models = [...new Set(ranking.applicants.map((a) => a.matching?.model_version))];
   const e5 = ranking.applicants.every((a) => a.matching?.provider === 'e5-local' && !a.matching?.fallback);
   return { passed: e5, note: `matching backend reported: ${models.join(', ')}${e5 ? '' : ' (the e5 model is not installed on this machine, so the lexical fallback ran and says so)'}` };
@@ -287,7 +287,7 @@ await step(8, 'ATS scores the CV and the assessment', async () => {
     a.attempt = attempt.id;
     done.push({ name: a.name, proposed: proposed.size, criteria: criteria.length });
   }
-  ranking = await must(call(ctx.rep1.token, 'GET', `/organizations/${ctx.org}/jobs/${ctx.job}/ranking?sort=assessment`));
+  ranking = await must(call(ctx.rep1.token, 'GET', `/organizations/${ctx.org}/jobs/${ctx.job}/ranking?sort=assessment&wait=true`));
   const scored = ranking.applicants.filter((x) => x.assessment_score !== null).length;
   const cvScored = ranking.applicants.filter((x) => x.cv.status === 'scored').length;
   return { passed: scored === done.length && done.length >= 3 && cvScored === ctx.apps.length, note: `CV scored for ${cvScored}; assessment reviewed and scored for ${scored} (${done.map((d) => `${d.name}: model proposed ${d.proposed} of ${d.criteria}`).join(', ')})` };
@@ -295,7 +295,7 @@ await step(8, 'ATS scores the CV and the assessment', async () => {
 
 await step(9, 'All candidates ranked (not a top 10), with stage scores, strengths and gaps', async () => {
   need(ctx.apps, 'ctx.apps');
-  const r = await must(call(ctx.rep1.token, 'GET', `/organizations/${ctx.org}/jobs/${ctx.job}/ranking?sort=cv`));
+  const r = await must(call(ctx.rep1.token, 'GET', `/organizations/${ctx.org}/jobs/${ctx.job}/ranking?sort=cv&wait=true`));
   writeFileSync(`${out}/ranking-cv.json`, JSON.stringify(r, null, 2));
   const all = r.applicants.length === ctx.apps.length;
   return {
@@ -369,7 +369,7 @@ await step(15, 'Form submitted after the interview', async () => {
 
 await step(16, 'Scores and ranking updated', async () => {
   need(ctx.interviews, 'ctx.interviews');
-  const r = await must(call(ctx.rep1.token, 'GET', `/organizations/${ctx.org}/jobs/${ctx.job}/ranking?sort=interview`));
+  const r = await must(call(ctx.rep1.token, 'GET', `/organizations/${ctx.org}/jobs/${ctx.job}/ranking?sort=interview&wait=true`));
   writeFileSync(`${out}/ranking-interview.json`, JSON.stringify(r, null, 2));
   const rated = r.applicants.filter((a) => a.interview.average_rating !== null);
   return { passed: rated.length === ctx.interviews.length && rated.every((a) => a.rank !== null), note: r.applicants.map((a) => `#${a.rank ?? '-'} ${a.name} interview ${a.interview.average_rating ?? '-'} / 4`).join(', ') };

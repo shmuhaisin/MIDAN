@@ -125,7 +125,7 @@ export class InterviewPreparationController {
       return interviewFacts(tx, this.ai, orgId, interviewId);
     });
     // The CV match runs outside the transaction: it is a call to the AI service.
-    const { result: cv } = data.items.length ? await matchSnapshot(this.ai, data.items, data.app.profile_snapshot).catch(() => ({ result: null })) : { result: null };
+    const { result: cv } = data.items.length ? await matchSnapshot(this.ai, data.items, data.app.profile_snapshot, 'fast').catch(() => ({ result: null })) : { result: null };
     const facts = buildFacts(data, cv);
     const job = data.app.jobs;
     const reply = await this.ai.interview<{ questions?: unknown[]; competencies?: unknown[] }>(body.kind === 'questions' ? 'questions' : 'evaluation-form', {

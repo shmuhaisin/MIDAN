@@ -13,6 +13,9 @@ instruct anything. The similarity backend is chosen by EMBEDDING_PROVIDER and re
   lexical        token overlap with Arabic normalization (always available, the fallback);
   e5-local       intfloat/multilingual-e5-base on this machine (needs sentence-transformers and the model files);
   bge-m3-hosted  BAAI/bge-m3 on Hugging Face hosted inference (needs HF_TOKEN; never downloaded here).
+  e5-rerank      hybrid: e5 finds each requirement's closest evidence lines, then the cross-encoder BAAI/bge-reranker-v2-m3
+                 reads each (requirement, line) pair together and scores it (bench/reranker_bench.py chose it). Lines e5
+                 didn't retrieve keep score 0 for that requirement. Without the reranker it falls back to e5 alone, and says so.
 Thresholds per backend come from services/ai/bench (fictional labelled set); see docs/ai/ATS_MATCHING.md.
 """
 
@@ -175,16 +178,74 @@ class BgeM3Hosted:
         return [self._post({"inputs": {"source_sentence": redact(r), "sentences": safe}}) for r in requirements]
 
 
+class E5Reranker:
+    """Hybrid: e5 retrieval, then a cross-encoder on the top `TOP_K` lines per requirement. The status rule in match() and
+    the score formula are unchanged: only the similarity behind them is better. Thresholds from bench/reranker_bench.py
+    (fictional labelled set; see docs/ai/ATS_MATCHING.md). Scores are the reranker's relevance in 0..1 (CrossEncoder applies
+    the sigmoid itself for a single-label model). On the set, sentence evidence: related median 0.03, unrelated 99th
+    percentile 0.003 and maximum 0.011; skill names are noisier (unrelated maximum 0.91), so brief evidence needs 0.2."""
+
+    name = "e5-rerank"
+    TOP_K = 3
+    thresholds = (0.005, 0.02)  # partial, matched: matched had no false positive on sentence evidence in the set
+    review_floor = 0.001         # 0.001-0.005: uncertain, a person decides instead of a guessed "missing"
+    brief_floor = 0.2            # a skill name or headline needs this for "partial" (it never counts as "matched")
+    _model = None
+    _lock = threading.Lock()
+    _cache: dict[tuple[str, str], float] = {}
+    CACHE_SIZE = 50_000
+
+    def __init__(self, model: str = "BAAI/bge-reranker-v2-m3", e5: "E5Local | None" = None):
+        self.reranker_name = model
+        self.e5 = e5 or E5Local()
+        self.model_version = f"{self.e5.model_version} + {model}"
+
+    def _load(self):
+        with self._lock:
+            if E5Reranker._model is None:
+                from sentence_transformers import CrossEncoder  # optional dependency
+                E5Reranker._model = CrossEncoder(self.reranker_name, device="cpu", max_length=256)
+        return E5Reranker._model
+
+    # Seconds the reranker may spend on one request (RERANK_BUDGET_S). Past it, the request fails over to e5 alone, and the
+    # provenance says so: a slow reranker never blocks an evaluation, and its partial work stays in the cache.
+    budget_s = float(os.environ.get("RERANK_BUDGET_S") or 120)
+
+    def _rerank(self, pairs: list[tuple[str, str]]) -> list[float]:
+        import time
+        missing = [p for p in dict.fromkeys(pairs) if p not in self._cache]
+        started = time.monotonic()
+        for i in range(0, len(missing), 16):
+            if time.monotonic() - started > self.budget_s:
+                raise TimeoutError(f"reranking exceeded {self.budget_s:g} s")
+            batch = missing[i:i + 16]
+            relevance = self._load().predict(batch, batch_size=16, show_progress_bar=False)
+            if len(self._cache) + len(batch) > self.CACHE_SIZE:
+                self._cache.clear()  # bounded; the cache saves time only, never changes a result
+            self._cache.update(zip(batch, [float(x) for x in relevance]))
+        return [self._cache[p] for p in pairs]
+
+    def scores(self, requirements: list[str], evidence: list[str]) -> list[list[float]]:
+        retrieved = self.e5.scores(requirements, evidence)
+        out = [[0.0] * len(evidence) for _ in requirements]
+        picks = [(i, k) for i, row in enumerate(retrieved) for k in sorted(range(len(row)), key=lambda k: -row[k])[: self.TOP_K]]
+        for (i, k), score in zip(picks, self._rerank([(requirements[i], evidence[k]) for i, k in picks])):
+            out[i][k] = score
+        return out
+
+
 def similarity_backend(env: dict | None = None) -> Similarity:
     """The configured backend, or the lexical fallback when the configured one isn't available."""
     env = env if env is not None else os.environ
     choice = (env.get("EMBEDDING_PROVIDER") or "lexical").strip()
-    if choice == "e5-local":
+    if choice in ("e5-local", "e5-rerank"):
         try:
             import sentence_transformers  # noqa: F401
-            return E5Local()
         except ImportError:
             return Lexical()
+        if choice == "e5-rerank":
+            return E5Reranker(env.get("RERANKER_MODEL") or "BAAI/bge-reranker-v2-m3")
+        return E5Local()
     if choice == "bge-m3-hosted" and env.get("HF_TOKEN"):
         return BgeM3Hosted(env["HF_TOKEN"])
     return Lexical()
@@ -209,6 +270,9 @@ class EvidenceIn(BaseModel):
 class MatchRequest(BaseModel):
     requirements: list[RequirementIn] = Field(max_length=80)
     evidence: list[EvidenceIn] = Field(max_length=300)
+    # "fast": e5 alone, for screens a person waits on (the candidate's own view). "full" (default): the configured backend,
+    # the hybrid reranker included, for the stored employer evaluation that runs in the background.
+    mode: Literal["full", "fast"] = "full"
 
 
 class RequirementMatch(BaseModel):
@@ -252,6 +316,8 @@ def _explain(status: Status, source: str | None, why: str = "") -> str:
 
 def match(request: MatchRequest, backend: Similarity | None = None) -> MatchResult:
     backend = backend or similarity_backend()
+    if request.mode == "fast" and isinstance(backend, E5Reranker):
+        backend = backend.e5
     fallback = None
     reqs, evs = request.requirements, request.evidence
     scored = [[0.0] * len(evs) for _ in reqs]
@@ -259,9 +325,17 @@ def match(request: MatchRequest, backend: Similarity | None = None) -> MatchResu
         try:
             scored = backend.scores([r.text for r in reqs], [e.text for e in evs])
         except Exception as error:  # noqa: BLE001 - a backend failure falls back, and says so
-            fallback = f"{backend.name} failed ({type(error).__name__}); lexical similarity used instead"
-            backend = Lexical()
-            scored = backend.scores([r.text for r in reqs], [e.text for e in evs])
+            # The hybrid falls back to e5 alone first (its own retrieval stage), then to word comparison.
+            chain = [backend.e5] if isinstance(backend, E5Reranker) else []
+            failed = backend.name
+            for candidate in [*chain, Lexical()]:
+                try:
+                    scored = candidate.scores([r.text for r in reqs], [e.text for e in evs])
+                    fallback = f"{failed} failed ({type(error).__name__}); {candidate.name} used instead"
+                    backend = candidate
+                    break
+                except Exception as next_error:  # noqa: BLE001
+                    failed, error = candidate.name, next_error
     low, high = backend.thresholds
     out: list[RequirementMatch] = []
     neg = [negated(x.text) for x in evs]
@@ -282,6 +356,12 @@ def match(request: MatchRequest, backend: Similarity | None = None) -> MatchResu
         if len(tokens(r.text)) == 0:
             status: Status = "needs_review"
             why, code = "The requirement is too short to compare with the profile.", "too_short"
+        elif (assessed is None and listed is None and e is not None and _brief(e)
+              and low <= pick.score < getattr(backend, "brief_floor", low)):
+            # Brief evidence below the backend's own floor for it: related, but too uncertain to call; a person checks.
+            # (For e5 this is the same outcome as before; for the reranker the brief floor sits above "matched".)
+            status = "needs_review"
+            why, code = "The comparison is uncertain: a person should check the line shown.", "uncertain"
         elif assessed is None and listed is None and e is not None and pick.score >= high and _brief(e):
             # A headline or a few words ("Sales coordinator") is a claim, not a description of the work: similarity to it
             # can show relevance, never a match. Measured on live data: a two-word headline scored 0.85.

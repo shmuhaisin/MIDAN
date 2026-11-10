@@ -65,7 +65,7 @@ export class DevelopmentReportController {
       return { application: { ...application, interview_feedback: feedback }, items };
     });
     const { application, items } = data;
-    const { result: cv } = items.length ? await matchSnapshot(this.ai, items, application.profile_snapshot).catch(() => ({ result: null })) : { result: null };
+    const { result: cv } = items.length ? await matchSnapshot(this.ai, items, application.profile_snapshot, 'fast').catch(() => ({ result: null })) : { result: null };
 
     const facts: Fact[] = [];
     const add = (kind: string, text: string, requirement_key?: string) => {

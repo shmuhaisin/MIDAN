@@ -67,7 +67,7 @@ describe('requirement matching', () => {
   });
 
   it('proposes a status per requirement, with the evidence line it used and why', async () => {
-    const res = await api().get(matchPath()).set(bearer(owner)).expect(200);
+    const res = await api().get(`${matchPath()}?wait=true`).set(bearer(owner)).expect(200);
     rows = res.body.requirements;
     expect(rows).toHaveLength(2);
     const dashboards = rows.find((r) => r.kind === 'experience')!;
@@ -84,10 +84,10 @@ describe('requirement matching', () => {
   });
 
   it('lets staff read it, and only the organization: never another organization or the candidate', async () => {
-    await api().get(matchPath()).set(bearer(reviewer)).expect(200);
-    expect([403, 404]).toContain((await api().get(matchPath()).set(bearer(outsider))).status);
-    expect([403, 404]).toContain((await api().get(matchPath()).set(bearer(candidate))).status);
-    expect((await api().get(matchPath())).status).toBe(401);
+    await api().get(`${matchPath()}?wait=true`).set(bearer(reviewer)).expect(200);
+    expect([403, 404]).toContain((await api().get(`${matchPath()}?wait=true`).set(bearer(outsider))).status);
+    expect([403, 404]).toContain((await api().get(`${matchPath()}?wait=true`).set(bearer(candidate))).status);
+    expect((await api().get(`${matchPath()}?wait=true`)).status).toBe(401);
   });
 
   it('records reviews as a history: confirmed or corrected, by the roles that may, and never changes the application', async () => {
@@ -101,7 +101,7 @@ describe('requirement matching', () => {
     expect(first.body).toMatchObject({ decision: 'confirmed', reviewer_id: owner.id });
     const second = await api().post(`${matchPath()}/reviews`).set(bearer(owner)).send({ requirement_key: key, status: 'partial', proposed_status: 'missing', note: 'Mentioned supplier work in the interview.' }).expect(201);
     expect(second.body.decision).toBe('corrected');
-    const after = (await api().get(matchPath()).set(bearer(owner)).expect(200)).body;
+    const after = (await api().get(`${matchPath()}?wait=true`).set(bearer(owner)).expect(200)).body;
     expect(after.requirements.find((r: Row) => r.key === key).review).toMatchObject({ status: 'partial', decision: 'corrected', note: 'Mentioned supplier work in the interview.' });
     expect(after.reviewed).toBe(1);
     expect((await api().get(`/organizations/${org}/applications/${application}/review`).set(bearer(owner)).expect(200)).body.status).toBe(before);
@@ -119,12 +119,16 @@ describe('requirement matching', () => {
     const mine = (await api().get(`/me/jobs/${job}/match`).set(bearer(candidate)).expect(200)).body;
     expect(mine).toHaveProperty('total');  // calculateMatch's answer is still there
     const contracts = mine.semantic.requirements.find((r: Row) => r.kind === 'competency');
-    expect(contracts.proposal).toMatchObject({ status: 'missing', reason_code: 'negated' });
-    expect(contracts.proposal.evidence_text).toContain('No experience negotiating supplier contracts');
+    // The line says the opposite: never a match. Word comparison reads it as negated (missing); e5, which also relates the
+    // positive lines to it, sends the conflict to a person. Both are the documented rule (matching.py), never "matched".
+    expect([{ status: 'missing', reason_code: 'negated' }, { status: 'needs_review', reason_code: 'contradictory' }])
+      .toContainEqual({ status: contracts.proposal.status, reason_code: contracts.proposal.reason_code });
+    // The negating line is shown either as the evidence (negated) or beside it as the counter-evidence (contradictory).
+    expect(contracts.proposal.reason_code === 'negated' ? contracts.proposal.evidence_text : contracts.proposal.counter_evidence_text).toContain('No experience negotiating supplier contracts');
     const dashboards = mine.semantic.requirements.find((r: Row) => r.kind === 'experience');
     expect(['matched', 'partial']).toContain(dashboards.proposal.status);
     // The organization still sees the profile as it was submitted.
-    const theirs = (await api().get(matchPath()).set(bearer(owner)).expect(200)).body;
+    const theirs = (await api().get(`${matchPath()}?wait=true`).set(bearer(owner)).expect(200)).body;
     expect(theirs.requirements.find((r: Row) => r.kind === 'competency').proposal.reason_code).toBe('missing');
   });
 
@@ -149,7 +153,7 @@ describe('requirement matching', () => {
     });
     expect(res.status).toBeGreaterThanOrEqual(400);
     await api().post(`/applications/${application}/withdraw`).set(bearer(candidate)).expect(201);
-    await api().get(matchPath()).set(bearer(owner)).expect(404);
+    await api().get(`${matchPath()}?wait=true`).set(bearer(owner)).expect(404);
     await api().post(`${matchPath()}/reviews`).set(bearer(owner)).send({ requirement_key: rows[0].key, status: 'matched', proposed_status: 'matched' }).expect(404);
   });
 });

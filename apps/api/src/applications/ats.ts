@@ -88,11 +88,12 @@ export async function jobMatchItems(tx: Tx, orgId: string, jobId: string): Promi
  * EMBEDDING_PROVIDER=e5-local) on the application's own snapshot. Deterministic; its provenance says which backend ran,
  * including a lexical fallback, so a fallback is never shown as the model.
  */
-export async function matchSnapshot(ai: AiClient, items: MatchItem[], snapshot: Prisma.JsonValue | null) {
+export async function matchSnapshot(ai: AiClient, items: MatchItem[], snapshot: Prisma.JsonValue | null, mode: 'full' | 'fast' = 'full') {
   const evidence = evidenceFrom(applicantProfile(snapshot));
   const result = items.length === 0 ? null : await ai.matchRequirements<AiMatch>({
     requirements: items.map((r) => ({ key: r.key, text: [r.text_ar, r.text_en].filter(Boolean).join(' / '), mandatory: r.mandatory, min_years: r.min_years, skill_id: r.skill_id })),
     evidence,
+    mode,
   });
   return { result, evidence };
 }

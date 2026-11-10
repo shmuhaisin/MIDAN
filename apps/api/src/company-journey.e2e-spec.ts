@@ -81,7 +81,7 @@ describe('the company journey', () => {
     appOne = (await api().post(`/jobs/${job}/applications`).set(bearer(one)).send({}).expect(201)).body.id;
     appTwo = (await api().post(`/jobs/${job}/applications`).set(bearer(two)).send({}).expect(201)).body.id;
 
-    const ranking = (await api().get(`${base()}/jobs/${job}/ranking`).set(bearer(owner)).expect(200)).body;
+    const ranking = (await api().get(`${base()}/jobs/${job}/ranking?wait=true`).set(bearer(owner)).expect(200)).body;
     expect(ranking.overall).toEqual({ available: false, reason: 'no_approved_weights' });
     expect(ranking.applicants.map((a: { application_id: string }) => a.application_id).sort()).toEqual([appOne, appTwo].sort());
     const byId = (id: string) => ranking.applicants.find((a: { application_id: string }) => a.application_id === id);
@@ -94,7 +94,7 @@ describe('the company journey', () => {
     expect(low.rank).toBe(low.cv.score === null ? null : high.cv.score === low.cv.score ? 1 : 2);
     expect(byId(appOne).matching.provider).toBeTruthy();
     // The assessment isn't reviewed yet: by that stage, nobody is ranked.
-    const byAssessment = (await api().get(`${base()}/jobs/${job}/ranking?sort=assessment`).set(bearer(owner)).expect(200)).body;
+    const byAssessment = (await api().get(`${base()}/jobs/${job}/ranking?sort=assessment&wait=true`).set(bearer(owner)).expect(200)).body;
     expect(byAssessment.sort).toBe('assessment');
     expect(byAssessment.applicants.every((a: { rank: number | null; assessment_score: number | null }) => a.rank === null && a.assessment_score === null)).toBe(true);
     // Reading the ranking decides nothing.
