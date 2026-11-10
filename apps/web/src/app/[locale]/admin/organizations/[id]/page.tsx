@@ -4,7 +4,8 @@ import { AdminDocumentList, AdminOrganizationActions, ReviewHistory, ReviewStatu
 import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { formatWhen } from '@/lib/format';
-import type { VerificationState } from '@/lib/verification';
+import type { VerificationState } from '@/lib/verification';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Detail = VerificationState & {
   members: { user_id: string; role: string; email: string; display_name: string | null; created_at: string }[];
@@ -14,6 +15,7 @@ type Detail = VerificationState & {
 
 /** One organization for a platform administrator: what it submitted, its documents, the decision controls and the trail. */
 export default async function Page({ params }: { params: Promise<{ locale: string; id: string }> }) {
+  await requirePlatformAdmin();
   const { locale, id } = await params;
   setRequestLocale(locale);
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();

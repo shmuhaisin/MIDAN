@@ -1,14 +1,12 @@
-import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { AdminNav } from '@/components/admin';
-import { apiForPage } from '@/lib/api';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
-/** The API refuses anyone who isn't a platform administrator; this page then doesn't exist for them. */
+/** Only platform administrators: for anyone else /admin doesn't exist (requirePlatformAdmin, then the API's PlatformAdminGuard). */
 export default async function AdminLayout({ children, params }: { children: React.ReactNode; params: Promise<{ locale: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   setRequestLocale(locale);
-  const allowed = await apiForPage<unknown>('/admin/overview');
-  if (!allowed) notFound();
   const t = await getTranslations({ locale, namespace: 'admin' });
   return (
     <div className="flex-1 bg-surface-2/40">

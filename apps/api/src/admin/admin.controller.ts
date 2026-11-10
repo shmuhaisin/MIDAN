@@ -77,6 +77,12 @@ const STATUSES = ['imported', 'updated', 'unchanged', 'duplicate', 'rejected', '
 export class AdminController {
   constructor(private readonly db: DbService) {}
 
+  @Get('session')
+  @ApiOperation({ summary: 'Whether the caller is a platform administrator: 200 if so, 403 otherwise (the guards decide). Reveals no data.' })
+  session() {
+    return { ok: true };
+  }
+
   @Get('overview')
   @ApiOperation({ summary: 'Counts and integration status. Counts come from the database; integrations say only whether they are configured.' })
   async overview(@CurrentUser() user: AuthUser) {

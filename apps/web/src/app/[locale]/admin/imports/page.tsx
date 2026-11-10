@@ -3,11 +3,13 @@ import { Badge } from '@/components/ui';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { formatWhen, number } from '@/lib/format';
-import { Cell, DataTable } from '../admin-kit';
+import { Cell, DataTable } from '../admin-kit';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Run = { id: string; kind: string; status: string; sources: { file: string }[]; stats: { by_status?: Record<string, number> }; started_by: string; started_at: string; failure: string | null };
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: 'admin.imports' });

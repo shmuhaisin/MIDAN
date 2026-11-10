@@ -1,11 +1,13 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ClaimReview, type AdminClaim } from '@/components/admin';
 import { Badge, EmptyState } from '@/components/ui';
-import { api } from '@/lib/api';
+import { api } from '@/lib/api';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 const TONES: Record<string, 'active' | 'danger' | 'neutral' | 'warning'> = { pending: 'warning', approved: 'active', rejected: 'danger', withdrawn: 'neutral' };
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: 'admin.claims' });

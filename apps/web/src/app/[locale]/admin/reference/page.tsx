@@ -1,11 +1,13 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { api } from '@/lib/api';
 import { number } from '@/lib/format';
-import { Cell, DataTable } from '../admin-kit';
+import { Cell, DataTable } from '../admin-kit';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Row = { sector_code: string; technical: number; general: number; priority_flagged: number; priority_listed: number; without_description: number; contexts: number; subsectors: number; job_families: number; source_file: string };
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: 'admin.reference' });

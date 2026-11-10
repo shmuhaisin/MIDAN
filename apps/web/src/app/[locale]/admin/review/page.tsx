@@ -4,12 +4,14 @@ import { EmptyState } from '@/components/ui';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { number } from '@/lib/format';
-import { Cell, DataTable } from '../admin-kit';
+import { Cell, DataTable } from '../admin-kit';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Item = { id: number; run_id: string; kind: string; entity: string; source_file: string | null; source_sheet: string | null; source_row: number | null; original_value: unknown; status: string; issue_kind: string | null; detail: string | null };
 type Listing = { id: string; title_original: string; match_status: string };
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: 'admin.review' });

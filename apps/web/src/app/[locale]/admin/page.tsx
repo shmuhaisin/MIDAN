@@ -5,7 +5,8 @@ import { Icon, type IconName } from '@/components/icons';
 import { Badge } from '@/components/ui';
 import { Masthead } from '@/components/workspace-kit';
 import { api } from '@/lib/api';
-import { number } from '@/lib/format';
+import { number } from '@/lib/format';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Overview = {
   counts: Record<string, number>;
@@ -34,6 +35,7 @@ const GROUPS: { key: string; icon: IconName; lead: [string, string, string?]; re
  * set up. Separate from any organization's settings, and shown only to platform administrators (see the layout).
  */
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: 'admin.overview' });

@@ -3,7 +3,8 @@ import { ListingActions, ListingUpload } from '@/components/admin';
 import { Badge, EmptyState } from '@/components/ui';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
-import { formatWhen } from '@/lib/format';
+import { formatWhen } from '@/lib/format';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Listing = {
   id: string; job_id: string | null; title_original: string | null; title_ar: string | null; title_en: string | null; employer_name_raw: string | null; source_type: string; source_name: string; source_url: string;
@@ -15,6 +16,7 @@ type Listing = {
 const FILTERS = ['', 'pending', 'approved', 'rejected'];
 
 export default async function Page({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ review?: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   const { review = '' } = await searchParams;
   setRequestLocale(locale);

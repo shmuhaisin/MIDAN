@@ -2,7 +2,8 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { AliasForm } from '@/components/admin';
 import { Badge } from '@/components/ui';
 import { api } from '@/lib/api';
-import { number } from '@/lib/format';
+import { number } from '@/lib/format';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Employer = {
   id: string; source_company_id: string; name_ar: string; name_en: string; entity_type: string | null; sector: string | null; official_website: string | null;
@@ -14,6 +15,7 @@ type Employer = {
 };
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: 'admin.employers' });

@@ -4,12 +4,14 @@ import { Badge, EmptyState } from '@/components/ui';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { formatWhen, number } from '@/lib/format';
-import { Cell, DataTable } from '../admin-kit';
+import { Cell, DataTable } from '../admin-kit';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Job = { id: string; kind: string; status: string; attempts: number; max_attempts: number; last_error: string | null; run_after: string; created_at: string; finished_at: string | null };
 const FILTERS = ['', 'failed', 'queued', 'running', 'succeeded'];
 
 export default async function Page({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ status?: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   const { status = '' } = await searchParams;
   setRequestLocale(locale);

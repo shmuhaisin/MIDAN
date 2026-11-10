@@ -3,11 +3,13 @@ import { ResourceForm } from '@/components/admin';
 import { EmptyState } from '@/components/ui';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/format';
-import { Cell, DataTable } from '../admin-kit';
+import { Cell, DataTable } from '../admin-kit';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Resource = { id: string; kind: string; title_ar: string | null; title_en: string | null; provider: string; url: string; verified_on: string; skill_name_ar: string | null; sector_code: string | null };
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: 'admin.learning' });

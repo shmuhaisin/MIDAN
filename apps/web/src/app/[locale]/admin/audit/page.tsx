@@ -3,11 +3,13 @@ import { EmptyState } from '@/components/ui';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { formatWhen } from '@/lib/format';
-import { Cell, DataTable } from '../admin-kit';
+import { Cell, DataTable } from '../admin-kit';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Entry = { id: number; actor_email: string | null; action: string; entity: string; entity_id: string | null; details: Record<string, unknown>; created_at: string };
 
 export default async function Page({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ entity?: string; before?: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   const { entity = '', before = '' } = await searchParams;
   setRequestLocale(locale);

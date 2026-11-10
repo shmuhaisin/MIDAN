@@ -3,12 +3,14 @@ import { AdminGrantForm, EmployerLinkForm } from '@/components/admin';
 import { Badge } from '@/components/ui';
 import { api } from '@/lib/api';
 import { formatDate, number } from '@/lib/format';
-import { Cell, DataTable } from '../admin-kit';
+import { Cell, DataTable } from '../admin-kit';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type User = { id: string; email: string; display_name: string | null; created_at: string; platform_admin: boolean; memberships: { org_id: string; role: string; name_ar: string; name_en: string }[] };
 type Org = { employer_registry_id: string | null; id: string; slug: string; name_ar: string; name_en: string; is_demo: boolean; is_test: boolean; members: number; jobs: number; published_jobs: number; created_at: string };
 
 export default async function Page({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ q?: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   const { q = '' } = await searchParams;
   setRequestLocale(locale);

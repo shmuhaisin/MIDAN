@@ -5,7 +5,8 @@ import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { formatWhen, number } from '@/lib/format';
 import { notFound } from 'next/navigation';
-import { Cell, DataTable } from '../../admin-kit';
+import { Cell, DataTable } from '../../admin-kit';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Sheet = { sheet: string; handling?: string; rows?: number; state?: string };
 type Run = {
@@ -19,6 +20,7 @@ type Record_ = { id: number; entity: string; source_file: string | null; source_
 const FILTERS = ['', 'ambiguous', 'rejected', 'duplicate', 'warning', 'imported', 'updated', 'unchanged'];
 
 export default async function Page({ params, searchParams }: { params: Promise<{ locale: string; id: string }>; searchParams: Promise<{ status?: string }> }) {
+  await requirePlatformAdmin();
   const { locale, id } = await params;
   const { status = '' } = await searchParams;
   setRequestLocale(locale);

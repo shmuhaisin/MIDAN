@@ -5,7 +5,8 @@ import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { formatDate, number } from '@/lib/format';
 import { REVIEW_STATUSES, type ReviewStatus } from '@/lib/verification';
-import { Cell, DataTable } from '../admin-kit';
+import { Cell, DataTable } from '../admin-kit';
+import { requirePlatformAdmin } from '@/lib/platform-admin';
 
 type Row = {
   id: string; slug: string; name_ar: string; name_en: string; is_demo: boolean; is_test: boolean; created_at: string;
@@ -15,6 +16,7 @@ type Row = {
 
 /** Organization applications and accounts. Waiting reviews come first; every count is from the database. */
 export default async function Page({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ status?: string; q?: string }> }) {
+  await requirePlatformAdmin();
   const { locale } = await params;
   const { status, q = '' } = await searchParams;
   setRequestLocale(locale);
