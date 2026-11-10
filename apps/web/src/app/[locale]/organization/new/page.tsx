@@ -1,5 +1,5 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { EmployerAccessRequestForm, type AccessRequest } from '@/components/employer-access';
+import { EmployerAccessRequestForm, type AccessRequest, type SignupChoice } from '@/components/employer-access';
 import { OrganizationForm, type SupportedEmployer } from '@/components/forms';
 import { redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
@@ -16,9 +16,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const session = await getSession();
   if (!session) return redirect({ href: '/login?as=organization', locale });
   if (session.accountType === 'candidate') return redirect({ href: '/dashboard', locale });
-  const [me, request] = await Promise.all([
+  const [me, request, choice] = await Promise.all([
     apiForPage<{ organization_members: { org_id: string }[] }>('/me'),
     apiForPage<AccessRequest | null>('/me/employer-access'),
+    // No request at all after a verified sign-up means provisioning couldn't open it: offer the sign-up choice again.
+    apiForPage<SignupChoice | null>('/me/employer-access/signup-choice'),
   ]);
   const fixture = /^midan\.(test|demo)\..+@example\.com$/.test(session.email ?? '');
   if (me?.organization_members.length && !fixture) return redirect({ href: `/organization/${me.organization_members[0].org_id}`, locale });
@@ -59,7 +61,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           {request.decision_note && <p className="mt-1" dir="auto">{request.decision_note}</p>}
         </div>
       )}
-      <EmployerAccessRequestForm employers={employers} defaultName={session.displayName ?? ''} />
+      <EmployerAccessRequestForm employers={employers} defaultName={session.displayName ?? ''} choice={request ? null : choice} />
     </AuthShell>
   );
 }

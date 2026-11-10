@@ -48,6 +48,13 @@ export class MyEmployerAccessController {
     return rows[0] ?? null;
   }
 
+  @Get('signup-choice')
+  @ApiOperation({ summary: 'The supported employer this verified organization account chose at sign-up, or null. Lets the person retry a request that sign-up provisioning could not open. Grants nothing.' })
+  async signupChoice(@CurrentUser() user: AuthUser) {
+    const rows = await this.db.asUser(user, (tx) => tx.$queryRaw<unknown[]>`select * from public.my_signup_employer_choice()`);
+    return rows[0] ?? null;
+  }
+
   @Post()
   @ApiOperation({ summary: 'Ask for access to one supported employer. Nothing is granted until a platform administrator approves.' })
   request(@CurrentUser() user: AuthUser, @Body() body: AccessRequestDto) {

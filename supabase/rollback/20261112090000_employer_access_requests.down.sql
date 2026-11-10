@@ -1,6 +1,23 @@
 -- Reverses 20261112090000_employer_access_requests. Requests are deleted; memberships granted by approvals stay (they are
--- ordinary memberships). Fails if two workspaces now link the same registry employer (a test and a real one): remove the
--- test one first.
+-- ordinary memberships), and the audit trail of every request and decision stays (audit_logs has no foreign keys).
+--
+-- Preflight: the earlier schema allows one workspace per registry employer, this migration allows one real and one test
+-- workspace. If both exist for an employer, the rollback stops here, before changing anything, and deletes neither
+-- workspace. Manual recovery: docs/testing/MIDAN_EMPLOYER_ACCESS_ROLLBACK.md.
+do $$
+declare v_conflicts text;
+begin
+  select string_agg(employer_registry_id::text, ', ' order by employer_registry_id) into v_conflicts
+  from (select employer_registry_id from public.organizations where employer_registry_id is not null
+        group by employer_registry_id having count(*) > 1) d;
+  if v_conflicts is not null then
+    raise exception 'Rollback of 20261112090000 stopped: these registry employers have more than one linked workspace (a real and a test one): %', v_conflicts
+      using errcode = '23505',
+            hint = 'Nothing was changed. Unlink or remove the test workspace by hand first: docs/testing/MIDAN_EMPLOYER_ACCESS_ROLLBACK.md';
+  end if;
+end $$;
+
+drop function if exists public.my_signup_employer_choice();
 revoke update (role) on public.organization_members from authenticated;
 grant update on public.organization_members to authenticated;
 drop policy if exists "admins insert in test and demo organizations" on public.organization_members;
@@ -84,7 +101,6 @@ drop function if exists public.admin_revoke_employer_access(uuid, text);
 drop function if exists public.admin_decide_employer_access(uuid, text, public.org_role, text);
 drop function if exists public.request_employer_access(uuid, text, text, text, text);
 drop function if exists private.open_employer_access_request(uuid, uuid, text, text, text, text, text, public.org_role, uuid);
-delete from public.audit_logs where entity = 'employer_access_requests';
 drop table if exists public.employer_access_requests;
 
 drop index if exists public.organizations_one_test_workspace_per_employer;

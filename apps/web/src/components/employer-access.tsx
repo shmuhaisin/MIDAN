@@ -20,7 +20,10 @@ export type AccessRequest = {
   org_name_en?: string | null; org_name_ar?: string | null; org_is_test?: boolean | null; decided_by_email?: string | null;
 };
 
-export function EmployerAccessRequestForm({ employers, defaultName }: { employers: SupportedEmployer[]; defaultName: string }) {
+export type SignupChoice = { registry_id: string; job_title: string | null; phone: string | null; verification_note: string | null };
+
+/** `choice`: what the person chose at sign-up, when provisioning couldn't open their request; they only confirm and send. */
+export function EmployerAccessRequestForm({ employers, defaultName, choice }: { employers: SupportedEmployer[]; defaultName: string; choice?: SignupChoice | null }) {
   const t = useTranslations('employerAccess');
   const locale = useLocale();
   const router = useRouter();
@@ -42,18 +45,18 @@ export function EmployerAccessRequestForm({ employers, defaultName }: { employer
       <ErrorText code={error} />
       <label className="block">
         <span className="field-label">{t('employer')}</span>
-        <select name="registry_id" required defaultValue="" className={INPUT}>
+        <select name="registry_id" required defaultValue={choice && employers.some((e) => e.id === choice.registry_id) ? choice.registry_id : ''} className={INPUT}>
           <option value="" disabled>{t('choose')}</option>
           {employers.map((e) => <option key={e.id} value={e.id}>{(locale === 'ar' ? e.name_ar : e.name_en) ?? e.name_en ?? e.name_ar}</option>)}
         </select>
         <span className="mt-1 block text-xs text-muted">{t('employerHint')}</span>
       </label>
       <Field name="representative_name" required minLength={2} maxLength={200} defaultValue={defaultName} label={t('representative')} />
-      <Field name="job_title" required minLength={2} maxLength={200} label={t('jobTitle')} />
-      <Field name="phone" type="tel" maxLength={20} dir="ltr" label={t('phone')} />
+      <Field name="job_title" required minLength={2} maxLength={200} defaultValue={choice?.job_title ?? undefined} label={t('jobTitle')} />
+      <Field name="phone" type="tel" maxLength={20} dir="ltr" defaultValue={choice?.phone ?? undefined} label={t('phone')} />
       <label className="block">
         <span className="field-label">{t('verification')}</span>
-        <textarea name="verification_note" rows={3} maxLength={2000} dir="auto" className={clsx(INPUT, 'h-auto py-2.5')} />
+        <textarea name="verification_note" rows={3} maxLength={2000} dir="auto" defaultValue={choice?.verification_note ?? undefined} className={clsx(INPUT, 'h-auto py-2.5')} />
         <span className="mt-1 block text-xs text-muted">{t('verificationHint')}</span>
       </label>
       <button type="submit" disabled={pending} aria-busy={pending} className={clsx(PRIMARY, 'w-full')}>{t('submit')}</button>

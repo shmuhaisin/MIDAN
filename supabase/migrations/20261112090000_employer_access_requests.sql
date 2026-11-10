@@ -66,11 +66,18 @@ begin
   select * into r from public.employer_access_requests where user_id = p_user and status in ('pending_approval', 'approved');
   if found then return r; end if;  -- idempotent: the open request stands
   select email into v_email from public.users where id = p_user;
+  -- Two concurrent first requests from one person (a double submit, sign-up provisioning racing the app): the unique
+  -- index decides, the loser waits for the winner's commit and returns the winner's request instead of failing.
   insert into public.employer_access_requests (user_id, registry_id, representative_name, job_title, work_email, phone,
     verification_note, source, requested_role, invitation_id)
   values (p_user, p_registry, trim(p_name), trim(p_title), v_email, nullif(trim(coalesce(p_phone, '')), ''),
     nullif(trim(coalesce(p_note, '')), ''), p_source, case when p_role = 'owner' then 'admin' else p_role end, p_invitation)
+  on conflict (user_id) where status in ('pending_approval', 'approved') do nothing
   returning * into r;
+  if r.id is null then
+    select * into r from public.employer_access_requests where user_id = p_user and status in ('pending_approval', 'approved');
+    return r;
+  end if;
   insert into public.audit_logs (actor_id, action, entity, entity_id, details)
   values (p_user, 'request', 'employer_access_requests', r.id::text, jsonb_build_object('registry_id', p_registry, 'source', p_source));
   return r;
@@ -123,7 +130,11 @@ begin
   end if;
 
   -- The employer's workspace: one per registry employer. A fixture administrator's approvals stay in a test workspace.
-  select * into e from public.employer_registry where id = r.registry_id;
+  -- Approvals for the same employer are serialized on its registry row (FOR NO KEY UPDATE: it conflicts with itself but
+  -- not with the key-share locks of new requests referencing the employer, and nothing in the row changes). Under READ
+  -- COMMITTED the workspace lookup below runs after the lock is granted, so it sees a workspace created by the approval
+  -- that held the lock, and reuses it instead of creating a second one and failing on the unique index.
+  select * into e from public.employer_registry where id = r.registry_id for no key update;
   v_test := exists (select 1 from public.users u where u.id = auth.uid() and u.email like 'midan.test.%@example.com');
   select o.id into v_org from public.organizations o
   where o.employer_registry_id = r.registry_id and o.is_test = v_test and not o.is_demo;
@@ -243,8 +254,39 @@ begin
     end if;
   end if;
 exception when others then
+  -- Email confirmation must not fail because provisioning did, so the error is not re-raised. It is recorded (state code
+  -- only, never the metadata), and the verified person recovers in the app: /organization/new offers the request form
+  -- prefilled from their sign-up choice (my_signup_employer_choice), and opening a request is idempotent.
   raise warning 'Provisioning failed for %: %', p_user, sqlerrm;
+  begin
+    insert into public.audit_logs (actor_id, action, entity, entity_id, details)
+    values (p_user, 'provision_failed', 'users', p_user::text, jsonb_build_object('account_type', kind, 'sqlstate', sqlstate));
+  exception when others then
+    null;  -- the audit row is best effort; confirmation still succeeds
+  end;
 end $$;
+
+-- The employer a verified organization account chose at sign-up, for retrying a request that provisioning couldn't open.
+-- Only the caller's own choice, only a registry employer that exists, and nothing is granted or written.
+create function public.my_signup_employer_choice()
+returns table (registry_id uuid, job_title text, phone text, verification_note text)
+language plpgsql stable security definer set search_path = '' as $$
+declare meta jsonb; v_registry uuid;
+begin
+  select u.raw_user_meta_data into meta from auth.users u
+  where u.id = auth.uid() and u.email_confirmed_at is not null and u.raw_user_meta_data ->> 'account_type' = 'organization';
+  if meta is null then return; end if;
+  begin
+    v_registry := (meta ->> 'registry_id')::uuid;
+  exception when others then
+    return;
+  end;
+  if not exists (select 1 from public.employer_registry e where e.id = v_registry) then return; end if;
+  return query select v_registry, nullif(left(trim(meta ->> 'job_title'), 200), ''), nullif(left(trim(meta ->> 'phone'), 20), ''),
+    nullif(left(trim(meta ->> 'verification_note'), 2000), '');
+end $$;
+revoke all on function public.my_signup_employer_choice() from public, anon;
+grant execute on function public.my_signup_employer_choice() to authenticated;
 
 -- Invitations into a real employer workspace open a request; test and demo organizations keep direct joining.
 create or replace function public.accept_organization_invitation(p_invitation uuid) returns uuid
