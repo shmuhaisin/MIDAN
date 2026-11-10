@@ -83,7 +83,7 @@ export class AiClient {
    * Interview questions or the evaluation form for one candidate, written by the live model from the facts given. Like
    * translation, a missing model is a stated reason (`ok: false`), never placeholder content.
    */
-  async interview<T>(kind: 'questions' | 'evaluation-form', body: unknown) {
+  async interview<T>(kind: 'questions' | 'evaluation-form' | 'development-report', body: unknown) {
     let response: Response;
     try {
       response = await fetch(`${process.env.AI_SERVICE_URL}/interview/${kind}`, {

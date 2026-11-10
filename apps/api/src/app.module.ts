@@ -8,6 +8,7 @@ import { ApplicationsController } from './applications/applications.controller';
 import { ApplicationReviewController } from './applications/review.controller';
 import { ApplicationMatchController } from './applications/match.controller';
 import { JobRankingController } from './applications/ranking.controller';
+import { DevelopmentReportController } from './applications/development.controller';
 import { AssistantController } from './assistant/assistant.controller';
 import { BackgroundWorker } from './jobs-queue/worker';
 import { TokenThrottlerGuard } from './common/token-throttler.guard';
@@ -41,7 +42,7 @@ import { MyInvitationsController, TeamController } from './organizations/team.co
   imports: [DbModule, ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }])],
   providers: [AiClient, DailyClient, CalendarClient, CvController, BackgroundWorker, PlatformAdminGuard, { provide: APP_GUARD, useClass: TokenThrottlerGuard }],
   controllers: [
-    HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, ApplicationReviewController, ApplicationMatchController, JobRankingController, AssistantController, MeController,
+    HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, ApplicationReviewController, ApplicationMatchController, JobRankingController, DevelopmentReportController, AssistantController, MeController,
     AssessmentsController, AttemptsController, EvaluationsController, RequirementsController,
     CandidateController, CvController, CareerController, ReferenceController, InterviewsController, InterviewPreparationController, AdminController, AdminEmployerAccessController, MyEmployerAccessController, JobAnalysisController, JobSkillsController,
     TeamController, MyInvitationsController, EmployerClaimsController, OrganizationListingsController,

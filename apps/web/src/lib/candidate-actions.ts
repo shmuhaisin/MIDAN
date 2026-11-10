@@ -223,3 +223,13 @@ export async function saveInterviewFeedback(orgId: string, applicationId: string
 export async function prepareInterview(orgId: string, interviewId: string, kind: 'questions' | 'evaluation_form') {
   return done(() => api(`/organizations/${orgId}/interviews/${interviewId}/preparation`, { method: 'POST', body: { kind } }));
 }
+
+/** A new development report draft from the candidate's own evidence. */
+export async function draftDevelopmentReport(orgId: string, applicationId: string) {
+  return done(() => api(`/organizations/${orgId}/applications/${applicationId}/development-reports`, { method: 'POST', body: {} }));
+}
+
+/** Releases a draft to the candidate, who is told in their notifications. */
+export async function releaseDevelopmentReport(orgId: string, applicationId: string, reportId: string) {
+  return done(() => api(`/organizations/${orgId}/applications/${applicationId}/development-reports/${reportId}/release`, { method: 'POST', body: {} }));
+}

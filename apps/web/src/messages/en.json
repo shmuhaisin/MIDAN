@@ -1809,7 +1809,8 @@
       "organization_rejected": "Your organization's application was not approved",
       "organization_changes_requested": "Your organization's application needs changes",
       "organization_suspended": "Your organization was suspended",
-      "organization_reactivated": "Your organization was reactivated"
+      "organization_reactivated": "Your organization was reactivated",
+      "development_report": "Your development report for {job} is ready"
     },
     "filter": "Show notifications",
     "noneHere": "Nothing here.",
@@ -3900,5 +3901,24 @@
     },
     "prepTitle": "Your preparation for this candidate",
     "openApplicant": "Open the candidate's file and the feedback form"
+  },
+  "developmentReport": {
+    "staffTitle": "Development report for the candidate",
+    "staffNote": "Written from this candidate's own evidence: the requirements their application shows, their reviewed assessment results and the interview ratings. It never includes notes, interviewers' names, other candidates or rankings. Read it, then release it: the candidate is told in their notifications.",
+    "draft": "Draft the report",
+    "draftAgain": "Draft again",
+    "release": "Release to the candidate",
+    "none": "No report yet.",
+    "draftOn": "Draft of {date}, not yet seen by the candidate",
+    "releasedOn": "Released to the candidate on {date}",
+    "earlierReleased": "An earlier version was released on {date}.",
+    "strengths": "What your work shows",
+    "development": "What to develop",
+    "nextSteps": "Next steps",
+    "evidence": "What this report is based on",
+    "shown": "Requirements your application shows",
+    "notShown": "Requirements your application doesn't show yet",
+    "candidateTitle": "Your development report",
+    "candidateNote": "From the organization, based on your application, your assessment and your interview. It doesn't change your application's status."
   }
 }

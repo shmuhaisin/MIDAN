@@ -6,6 +6,7 @@ import { ApplicantStatus } from '@/components/forms';
 import { HiringPanel } from '@/components/hiring-panel';
 import { ApplicationNotes, InterviewFeedback } from '@/components/applicant-review';
 import { formLabels, InterviewPreparation, type Preparation } from '@/components/interview-prep';
+import { DevelopmentReports, type StaffReport } from '@/components/development-report';
 import { ApplicantCvButton } from '@/components/profile';
 import { type MatchData, RequirementMatch } from '@/components/requirement-match';
 import { Badge, statusTone, Timeline } from '@/components/ui';
@@ -71,10 +72,12 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     apiForPage<MatchData>(`/organizations/${orgId}/applications/${applicationId}/match`),
   ]);
   if (!data) notFound();
+  const reports = (await apiForPage<StaffReport[]>(`/organizations/${orgId}/applications/${applicationId}/development-reports`).catch(() => null)) ?? [];
   // Each interview's preparation (questions and form), for staff only. A failure leaves the rest of the page usable.
   const preparations = new Map(await Promise.all(data.interviews.map(async (i) =>
     [i.id, await apiForPage<Preparation>(`/organizations/${orgId}/interviews/${i.id}/preparation`).catch(() => null)] as const)));
   const t = await getTranslations({ locale, namespace: 'applicant' });
+  const tdr = await getTranslations({ locale, namespace: 'developmentReport' });
   const tm = await getTranslations({ locale, namespace: 'match' });
   const ts = await getTranslations({ locale, namespace: 'applicationStatus' });
   const tr = await getTranslations({ locale, namespace: 'review' });
@@ -332,6 +335,10 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
               </ul>
             </Panel>
           )}
+
+          <Panel id="development" title={tdr('staffTitle')}>
+            <DevelopmentReports orgId={orgId} applicationId={applicationId} reports={reports} canManage={canManage} />
+          </Panel>
         </div>
 
         <aside className="space-y-6 xl:sticky xl:top-28 xl:self-start">

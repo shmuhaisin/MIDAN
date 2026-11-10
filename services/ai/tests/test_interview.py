@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from midan_ai import main
-from midan_ai.interview import InterviewRequest, Unavailable, evaluation_form, questions
+from midan_ai.interview import InterviewRequest, Unavailable, development_report, evaluation_form, questions
 from midan_ai.providers import DemoProvider, JsonLLMProvider
 
 
@@ -91,3 +91,16 @@ def test_the_endpoints_answer_503_without_a_model(monkeypatch):
     for path in ("/interview/questions", "/interview/evaluation-form"):
         response = client.post(path, json=body, headers={"x-service-token": "t"})
         assert response.status_code == 503 and response.json()["detail"] == "ai_unavailable:not_configured"
+
+
+P = {"text_ar": "تنظف البيانات بعناية", "text_en": "You clean data carefully", "requirement_key": None, "fact_ids": ["F4"]}
+
+
+def test_the_development_report_cites_facts_and_never_mentions_others():
+    seen = []
+    body = {"strengths": [P], "development": [dict(P, fact_ids=["F2"], requirement_key="requirement:1")], "next_steps": [dict(P, fact_ids=["F2"])]}
+    result = development_report(REQ, model([json.dumps(body)], seen=seen))
+    assert result.development[0].requirement_key == "requirement:1"
+    assert "Never mention other candidates, rankings" in seen[0][0]
+    with pytest.raises(Unavailable):
+        development_report(REQ, model([json.dumps(dict(body, strengths=[dict(P, fact_ids=["F77"])]))] * 2))

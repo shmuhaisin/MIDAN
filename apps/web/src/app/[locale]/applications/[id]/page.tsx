@@ -9,6 +9,7 @@ import { Badge, statusTone, Timeline } from '@/components/ui';
 import { DateTile, LaneHeader, LaneTrack, STAGE_RANK } from '@/components/workspace-kit';
 import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
+import { ReportBody, type ReportContent } from '@/components/development-report';
 import { formatDate, formatWhen, number, pick } from '@/lib/format';
 
 type Attempt = {
@@ -33,6 +34,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const [application, me] = await Promise.all([apiForPage<Application>(`/me/applications/${id}`), apiForPage<Me>('/me')]);
   if (!application) notFound();
+  // The development report the organization released to this candidate, if any. A failure hides only this part.
+  const report = await apiForPage<{ id: string; released_at: string; content: ReportContent } | null>(`/me/applications/${id}/development-report`).catch(() => null);
+  const tdr = await getTranslations({ locale, namespace: 'developmentReport' });
   const t = await getTranslations({ locale, namespace: 'application' });
   const ts = await getTranslations({ locale, namespace: 'applicationStatus' });
   const tj = await getTranslations({ locale, namespace: 'jobs' });
@@ -117,6 +121,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             </section>
           )}
 
+          {report && (
+            <section aria-labelledby="development" className="rounded-[var(--radius-panel)] border border-border bg-surface p-6">
+              <h2 id="development" className="font-display text-xl font-bold">{tdr('candidateTitle')}</h2>
+              <p className="mt-1 mb-4 text-sm text-muted">{tdr('candidateNote')}</p>
+              <ReportBody content={report.content} />
+            </section>
+          )}
           <section aria-labelledby="assessments">
             <h2 id="assessments" className="flex items-center gap-3 font-display text-xl font-bold">{t('assessments')}<span className="num rounded-full bg-surface-2 px-2.5 py-0.5 text-sm font-semibold text-muted">{n(application.assessment_attempts.length)}</span></h2>
             {application.assessment_attempts.length === 0 ? <p className="mt-3 text-muted">{t('noAssessment')}</p> : (
