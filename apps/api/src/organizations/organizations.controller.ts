@@ -10,6 +10,7 @@ import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { COMPANY_TYPES, PROFESSIONAL_FIELDS } from '../common/fields';
 import { requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
+import { type BrandPalette, extractPalette, PALETTE_VERSION, themesFor } from './brand-palette';
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -41,6 +42,35 @@ class BrandingDto {
   @ApiPropertyOptional() @IsOptional() @Matches(/^#[0-9A-Fa-f]{6}$/) accent_color?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(600) welcome_ar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(600) welcome_en?: string;
+}
+
+const HEX_COLOUR = /^#[0-9A-Fa-f]{6}$/;
+class ApprovePaletteDto {
+  @ApiPropertyOptional() @IsOptional() @Matches(HEX_COLOUR) primary?: string;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @ValidateIf((o) => o.secondary !== null) @Matches(HEX_COLOUR) secondary?: string | null;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @ValidateIf((o) => o.accent !== null) @Matches(HEX_COLOUR) accent?: string | null;
+}
+
+/** The colours a person chose, each one of the logo's own; anything else is refused. Unset choices keep the suggestion. */
+function chooseFromLogo(suggested: BrandPalette, body: ApprovePaletteDto) {
+  const fromLogo = new Set([suggested.primary, suggested.secondary, suggested.accent, ...suggested.swatches.map((s) => s.hex)].filter(Boolean).map((h) => h!.toLowerCase()));
+  for (const chosen of [body.primary, body.secondary, body.accent]) {
+    if (chosen && !fromLogo.has(chosen.toLowerCase())) throw new UnprocessableEntityException('Choose colours from the logo');
+  }
+  return {
+    primary: (body.primary ?? suggested.primary).toLowerCase(),
+    secondary: body.secondary === undefined ? suggested.secondary : body.secondary?.toLowerCase() ?? null,
+    accent: body.accent === undefined ? suggested.accent : body.accent?.toLowerCase() ?? null,
+  };
+}
+
+/** The logo's palette, or why it couldn't be read: an unreadable image never blocks saving the logo itself. */
+async function readPalette(image: Buffer): Promise<{ palette?: BrandPalette; error?: string }> {
+  try {
+    return { palette: await extractPalette(image) };
+  } catch (error) {
+    return { error: error instanceof Error && /no visible mark/.test(error.message) ? error.message : 'The logo’s colours could not be read' };
+  }
 }
 
 class CompanyTypeDto {
@@ -141,7 +171,69 @@ export class OrganizationsController {
       body: new Uint8Array(file.buffer),
     });
     if (!upload.ok) throw new ServiceUnavailableException('Upload failed');
-    return this.db.asUser(user, (tx) => tx.organization_branding.update({ where: { org_id: orgId }, data: { logo_path: path } }));
+    // The logo's colours become a suggested identity at once; the workspace keeps its approved colours until an owner
+    // or admin approves the new ones. A logo whose colours can't be read is still saved, and the reason is returned.
+    const read = await readPalette(file.buffer);
+    const saved = await this.db.asUser(user, (tx) =>
+      tx.organization_branding.update({
+        where: { org_id: orgId },
+        data: { logo_path: path, ...(read.palette && { palette: read.palette as object, palette_status: 'suggested', palette_logo_path: path }) },
+      }),
+    );
+    return { ...saved, palette_error: read.error ?? null };
+  }
+
+  /** Reads the colours of the logo already uploaded again, for a logo saved before extraction existed or after a fix. */
+  @Post(':orgId/branding/palette/extract')
+  async extractBrandPalette(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string) {
+    const branding = await this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, ['owner', 'admin']);
+      return tx.organization_branding.findUnique({ where: { org_id: orgId } });
+    });
+    if (!branding?.logo_path) throw new UnprocessableEntityException('Upload a logo first');
+    const image = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/organization-assets/${branding.logo_path}`).catch(() => null);
+    if (!image?.ok) throw new ServiceUnavailableException('The logo could not be read from storage');
+    const read = await readPalette(Buffer.from(await image.arrayBuffer()));
+    if (!read.palette) throw new UnprocessableEntityException(read.error);
+    return this.db.asUser(user, (tx) =>
+      tx.organization_branding.update({ where: { org_id: orgId }, data: { palette: read.palette as object, palette_status: 'suggested', palette_logo_path: branding.logo_path } }),
+    );
+  }
+
+  /** The light and dark themes a choice of the logo's colours would give, for the live preview. Saves nothing. */
+  @Post(':orgId/branding/palette/preview')
+  previewBrandPalette(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Body() body: ApprovePaletteDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, ['owner', 'admin']);
+      const branding = await tx.organization_branding.findUnique({ where: { org_id: orgId } });
+      const suggested = branding?.palette as BrandPalette | null;
+      if (!suggested || suggested.version !== PALETTE_VERSION) throw new UnprocessableEntityException('There is no identity read from the logo');
+      const choice = chooseFromLogo(suggested, body);
+      return { ...choice, ...themesFor(choice.primary, choice.accent) };
+    });
+  }
+
+  /**
+   * Approves the identity read from the logo, as suggested or with other colours chosen from the logo's own swatches.
+   * The approved colours then theme the workspace, the job posting and the assessments.
+   */
+  @Post(':orgId/branding/palette/approve')
+  approveBrandPalette(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Body() body: ApprovePaletteDto) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId, ['owner', 'admin']);
+      const branding = await tx.organization_branding.findUnique({ where: { org_id: orgId } });
+      const suggested = branding?.palette as BrandPalette | null;
+      if (!branding || !suggested || suggested.version !== PALETTE_VERSION) throw new UnprocessableEntityException('There is no identity read from the logo to approve');
+      const { primary, secondary, accent } = chooseFromLogo(suggested, body);
+      const palette: BrandPalette = { ...suggested, primary, secondary, accent, ...themesFor(primary, accent) };
+      return tx.organization_branding.update({
+        where: { org_id: orgId },
+        data: {
+          palette: palette as object, applied_palette: palette as object, palette_status: 'approved', palette_approved_at: new Date(), palette_approved_by: user.id,
+          primary_color: primary, secondary_color: secondary, accent_color: accent ?? secondary ?? primary,
+        },
+      });
+    });
   }
 
   @Get(':orgId/jobs')
