@@ -153,7 +153,7 @@ export class InterviewsController {
       // Defense in depth: the database trigger enforces this too, including writes outside this controller.
       assertInterviewCandidateShortlisted(application.status);
       const duplicate = await tx.interviews.findFirst({
-        where: { application_id: applicationId, org_id: orgId, scheduled_at: when, status: { not: 'cancelled' } },
+        where: { application_id: applicationId, org_id: orgId, scheduled_at: when, status: { in: ['invited', 'accepted', 'reschedule_requested'] } },
         select: { id: true },
       });
       if (duplicate) throw new ConflictException('An active interview already exists for this application at this time');
