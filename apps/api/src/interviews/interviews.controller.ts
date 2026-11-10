@@ -147,7 +147,7 @@ export class InterviewsController {
   @Post('organizations/:orgId/applications/:applicationId/interviews')
   async schedule(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('applicationId', ParseUUIDPipe) applicationId: string, @Body() body: ScheduleDto) {
     const when = futureInterviewTime(body.scheduled_at);
-    let created: Awaited<ReturnType<DbService['asUser']>>;
+    let created: { id: string };
     try {
       created = await this.db.asUser(user, async (tx) => {
       await requireRole(tx, user, orgId, BUILDERS);
