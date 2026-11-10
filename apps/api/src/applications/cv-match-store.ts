@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { AiClient } from '../ai/ai.client';
 import { applicantProfile } from '../common/applicant';
 import { AuthUser, DbService } from '../db/db.service';
-import { evidenceFrom, type AiMatch, type MatchItem } from './ats';
+import { evidenceFrom, type AiMatch, type CvReview, type MatchItem } from './ats';
 
 /** Waits for one background evaluation, which runs the configured matcher (the hybrid reranker included). */
 const BACKGROUND_TIMEOUT_MS = Number(process.env.CV_MATCH_TIMEOUT_MS) || 300_000;
@@ -12,6 +12,8 @@ const BACKGROUND_TIMEOUT_MS = Number(process.env.CV_MATCH_TIMEOUT_MS) || 300_000
 const CONCURRENCY = 1;
 /** A stored fallback result is evaluated again with the full matcher after this long. */
 const RETRY_FALLBACK_MS = 10 * 60_000;
+/** A stage 3 review the model couldn't write (rate limit, quota, outage) is tried again after this long. */
+const RETRY_REVIEW_MS = Number(process.env.CV_REVIEW_RETRY_MS) || 10 * 60_000;
 
 export type StoredState =
   | { state: 'ready'; result: AiMatch; computed_at: Date }
@@ -33,6 +35,7 @@ export class CvMatchStore {
   private readonly logger = new Logger(CvMatchStore.name);
   private readonly pending = new Map<string, { state: 'computing' } | { state: 'unavailable'; reason: string; at: number }>();
   private readonly queue: (() => Promise<void>)[] = [];
+  private readonly reviewing = new Set<string>();
   private running = 0;
 
   constructor(private readonly db: DbService, private readonly ai: AiClient) {}
@@ -71,6 +74,10 @@ export class CvMatchStore {
         // a while; the stored e5 result stays on screen meanwhile.
         const stale = row.result.provenance?.fallback && Date.now() - new Date(row.computed_at).getTime() > RETRY_FALLBACK_MS;
         if (stale && !this.pending.has(a.id)) this.schedule(user, orgId, a.id, items, a.profile_snapshot, fingerprint);
+        // Stage 3: written once the match is stored; one the model couldn't write is tried again after a while.
+        const review = row.result.review;
+        const reviewDue = !review || (review.state === 'unavailable' && Date.now() - new Date(review.at).getTime() > RETRY_REVIEW_MS);
+        if (!stale && reviewDue && !this.reviewing.has(a.id)) this.scheduleReview(user, orgId, a.id, items, a.profile_snapshot, row.result, fingerprint);
         continue;
       }
       const p = this.pending.get(a.id);
@@ -91,6 +98,41 @@ export class CvMatchStore {
     this.pending.set(id, { state: 'computing' });
     this.queue.push(() => this.compute(user, orgId, id, items, snapshot, fingerprint));
     this.drain();
+  }
+
+  private scheduleReview(user: AuthUser, orgId: string, id: string, items: MatchItem[], snapshot: Prisma.JsonValue | null, result: AiMatch, fingerprint: string) {
+    this.reviewing.add(id);
+    this.queue.push(async () => {
+      try {
+        const review = await this.review(items, snapshot, result);
+        await this.db.asUser(user, (tx) => tx.$executeRaw`
+          update public.application_cv_matches set result = jsonb_set(result, '{review}', ${JSON.stringify(review)}::jsonb)
+          where application_id = ${id}::uuid and fingerprint = ${fingerprint}`);
+      } catch (error) {
+        this.logger.warn(`CV review for ${id} not stored: ${error instanceof Error ? error.message : 'unknown'}`);
+      } finally {
+        this.reviewing.delete(id);
+      }
+    });
+    this.drain();
+  }
+
+  /** ATS stage 3 on a stored match: the model's reading per requirement, or why it couldn't be written. Never a score. */
+  private async review(items: MatchItem[], snapshot: Prisma.JsonValue | null, result: AiMatch): Promise<CvReview> {
+    const proposals = new Map(result.matches.map((m) => [m.key, m]));
+    const requirements = items.filter((r) => proposals.has(r.key)).map((r) => ({
+      key: r.key, text: [r.text_ar, r.text_en].filter(Boolean).join(' / '), mandatory: r.mandatory, min_years: r.min_years,
+      status: proposals.get(r.key)!.status, evidence_id: proposals.get(r.key)!.evidence_id,
+    }));
+    const at = new Date().toISOString();
+    if (requirements.length === 0) return { state: 'unavailable', reason: 'no_requirements', at };
+    try {
+      const out = await this.ai.reviewCv<Omit<Extract<CvReview, { state: 'ready' }>, 'state' | 'at'>>({ requirements, evidence: evidenceFrom(applicantProfile(snapshot)) });
+      return { state: 'ready', ...out, at };
+    } catch (error) {
+      const reason = (error as { response?: { reason?: string } })?.response?.reason ?? (error instanceof Error ? error.message : 'unavailable');
+      return { state: 'unavailable', reason, at };
+    }
   }
 
   private drain() {

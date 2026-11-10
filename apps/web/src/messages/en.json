@@ -3489,7 +3489,25 @@
       "needs_review": "Unclear"
     },
     "evaluating": "MIDAN is evaluating this CV against the job's approved requirements in the background. This takes up to a few minutes; refresh the page to see the result.",
-    "evaluationUnavailable": "The CV evaluation isn't available right now. It will be tried again automatically; refresh in a minute."
+    "evaluationUnavailable": "The CV evaluation isn't available right now. It will be tried again automatically; refresh in a minute.",
+    "ai": {
+      "title": "AI reading",
+      "ready": "Each requirement also has the AI's reading of the evidence ({model}). It doesn't change the status or the score. For a person to check: {review}.",
+      "pending": "The AI's reading of the evidence is being written.",
+      "unavailable": "The AI's reading of the evidence isn't available right now. The status and score above don't depend on it.",
+      "confidence": "confidence {value}%",
+      "manual": "A person should check",
+      "experience": "Relevant experience",
+      "missing": "Not shown",
+      "disagrees": "This reading differs from MIDAN's matching status. The status and score stay as matched; a person decides.",
+      "reading": {
+        "confirmed": "Confirmed match",
+        "partial": "Partial match",
+        "missing": "Missing",
+        "insufficient_evidence": "Insufficient evidence",
+        "needs_manual_review": "Needs manual review"
+      }
+    }
   },
   "assistant": {
     "eyebrow": "Ask MIDAN",

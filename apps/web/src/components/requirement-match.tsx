@@ -12,6 +12,14 @@ export type RequirementRow = {
   key: string; kind: string; text_ar: string | null; text_en: string | null; mandatory: boolean; min_years: number | null;
   proposal: { status: MatchStatus; score: number; evidence_text: string | null; evidence_source: string | null; counter_evidence_text?: string | null; reason_code: string; reason_params: Record<string, number> } | null;
   review?: { status: MatchStatus; decision: 'confirmed' | 'corrected'; note: string | null; created_at: string } | null;
+  /** ATS stage 3: the model's reading of the evidence. Shown beside the matcher's status; it never changes the score. */
+  ai_review?: AiReading | null;
+};
+export type AiReading = {
+  reading: 'confirmed' | 'partial' | 'missing' | 'insufficient_evidence' | 'needs_manual_review';
+  evidence: { id: string; source: string; text: string }[];
+  relevant_experience_en: string; relevant_experience_ar: string; explanation_en: string; explanation_ar: string;
+  missing_en: string; missing_ar: string; confidence: number; agrees: boolean; manual_review: boolean;
 };
 export type MatchData = {
   requirements: RequirementRow[];
@@ -21,6 +29,7 @@ export type MatchData = {
   provenance: { provider: string; model_version: string; fallback?: string } | null;
   /** The stored evaluation's state: computing in the background, ready, or unavailable (with a retry later). */
   evaluation?: 'ready' | 'computing' | 'unavailable' | 'none';
+  ai_review?: { state: 'ready'; counts: Record<string, number>; provenance: { provider?: string; model_version?: string } } | { state: 'pending' } | { state: 'unavailable'; reason: string } | null;
 };
 
 const STATUSES: MatchStatus[] = ['matched', 'partial', 'missing', 'needs_review'];
@@ -70,6 +79,13 @@ export function RequirementMatch({ orgId, applicationId, data, canReview }: { or
           {(data.summary?.mandatory_missing ?? 0) > 0 && <p className="mt-1 text-sm font-medium text-warning">{t('mandatoryMissing', { count: data.summary!.mandatory_missing })}</p>}
         </div>
       </div>
+      {data.ai_review && (
+        <p role="status" className="text-sm text-muted">
+          {data.ai_review.state === 'ready'
+            ? t('ai.ready', { model: data.ai_review.provenance.model_version ?? '', review: n(data.ai_review.counts.manual_review ?? 0) })
+            : data.ai_review.state === 'pending' ? t('ai.pending') : t('ai.unavailable')}
+        </p>
+      )}
       <ol className="divide-y divide-border border-y border-border">
         {data.requirements.map((r) => <Row key={r.key} orgId={orgId} applicationId={applicationId} row={r} canReview={canReview} />)}
       </ol>
@@ -119,6 +135,7 @@ function Row({ orgId, applicationId, row, canReview }: { orgId: string; applicat
           </blockquote>
         )}
         <p className="mt-2 text-sm text-muted">{reason}{row.proposal && row.proposal.reason_code !== 'listed_skill' && row.proposal.reason_code !== 'too_short' ? ` ${t('similarity', { score: number(locale, Math.round(row.proposal.score * 100)) })}` : ''}</p>
+        {row.ai_review && <AiReadingView reading={row.ai_review} />}
         {row.review?.note && <p className="mt-1 text-sm" dir="auto"><span className="font-semibold">{t('noteLabel')}: </span>{row.review.note}</p>}
         {canReview && (
           <div className="mt-3">
@@ -150,6 +167,38 @@ function Row({ orgId, applicationId, row, canReview }: { orgId: string; applicat
         )}
       </div>
     </li>
+  );
+}
+
+/** ATS stage 3 for one requirement: the model's reading, the experience it rests on, what's missing, and whether a person should check it. */
+function AiReadingView({ reading }: { reading: AiReading }) {
+  const t = useTranslations('match');
+  const locale = useLocale();
+  const say = (en: string, ar: string) => pick(locale, ar || en, en || ar);
+  const experience = say(reading.relevant_experience_en, reading.relevant_experience_ar);
+  const missing = say(reading.missing_en, reading.missing_ar);
+  return (
+    <div className="mt-3 rounded-[var(--radius-control)] border border-border bg-surface-2/40 p-3 text-sm">
+      <p className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted">{t('ai.title')}</span>
+        <span className="font-semibold">{t(`ai.reading.${reading.reading}`)}</span>
+        <span className="num text-xs text-muted">{t('ai.confidence', { value: number(locale, Math.round(reading.confidence * 100)) })}</span>
+        {reading.manual_review && <span className="chip border-info/40 bg-info-surface text-xs text-info">{t('ai.manual')}</span>}
+      </p>
+      <p className="mt-1.5 leading-relaxed" dir="auto">{say(reading.explanation_en, reading.explanation_ar)}</p>
+      {experience && <p className="mt-1 text-muted" dir="auto"><span className="font-semibold text-fg">{t('ai.experience')}: </span>{experience}</p>}
+      {missing && <p className="mt-1 text-muted" dir="auto"><span className="font-semibold text-fg">{t('ai.missing')}: </span>{missing}</p>}
+      {reading.evidence.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {reading.evidence.map((e) => (
+            <li key={e.id} className="border-s-2 border-border-strong ps-3 text-xs leading-relaxed" dir="auto">
+              <span className="font-semibold">{t(`source.${e.source.replace(/[^a-z_]/g, '')}`)}: </span>{e.text}
+            </li>
+          ))}
+        </ul>
+      )}
+      {!reading.agrees && <p className="mt-2 text-xs text-muted">{t('ai.disagrees')}</p>}
+    </div>
   );
 }
 
