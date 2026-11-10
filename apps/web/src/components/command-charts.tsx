@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { useLocale } from 'next-intl';
 import { useEffect, useId, useRef, useState } from 'react';
 import { STAGE_COLORS } from './workspace-kit';
+import { intlLocale } from '@/lib/format';
 
 /**
  * The command center's charts. Hand-drawn SVG, interactive (hover and keyboard focus), mirrored for RTL, with every
@@ -12,7 +13,7 @@ import { STAGE_COLORS } from './workspace-kit';
  * estimates, extrapolates or compares across incompatible data.
  */
 
-const fmt = (locale: string) => new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en');
+const fmt = (locale: string) => new Intl.NumberFormat(intlLocale(locale));
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 
@@ -61,7 +62,7 @@ export function RecruitmentFunnel({ stages, labels }: { stages: FunnelStage[]; l
         <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full overflow-visible">
           <defs>
             <linearGradient id={`${id}-g`} x1={rtl ? '1' : '0'} x2={rtl ? '0' : '1'} y1="0" y2="0">
-              {stages.map((s, i) => <stop key={s.key} offset={`${(i + 0.5) / stages.length}`} stopColor={STAGE_COLORS[i] ?? STAGE_COLORS.at(-1)} />)}
+              {stages.map((s, i) => <stop key={s.key} offset={`${(i + 0.5) / stages.length}`} style={{ stopColor: STAGE_COLORS[i] ?? STAGE_COLORS.at(-1) }} />)}
             </linearGradient>
           </defs>
           {stages.map((s, i) => <line key={s.key} x1={x(i)} x2={x(i)} y1={top - 8} y2={top + band + 8} stroke="var(--border-strong)" strokeDasharray="2 4" />)}
@@ -185,8 +186,8 @@ export function TrendChart({ points, caption, unit, empty }: { points: TrendPoin
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" style={{ height: H }}>
           <defs>
             <linearGradient id={`${id}-a`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor="var(--brand-green)" stopOpacity="0.32" />
-              <stop offset="1" stopColor="var(--brand-green)" stopOpacity="0" />
+              <stop offset="0" style={{ stopColor: 'var(--button)', stopOpacity: 0.32 }} />
+              <stop offset="1" style={{ stopColor: 'var(--button)', stopOpacity: 0 }} />
             </linearGradient>
           </defs>
           {ticks.map((tk) => (
@@ -196,11 +197,11 @@ export function TrendChart({ points, caption, unit, empty }: { points: TrendPoin
             </g>
           ))}
           <motion.path d={area} fill={`url(#${id}-a)`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.9 }} />
-          <motion.path d={line} fill="none" stroke="var(--brand-green)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2, ease: EASE }} />
+          <motion.path d={line} fill="none" style={{ stroke: 'var(--button)' }} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2, ease: EASE }} />
           {points.map((p, i) => (
             <g key={p.key}>
               {i % every === 0 && <text x={xi(i)} y={H - 10} textAnchor="middle" className="fill-[var(--muted)] text-[12px]">{p.label}</text>}
-              <circle cx={xi(i)} cy={yv(p.value)} r={active === i ? 7 : 3.5} fill={active === i ? 'var(--brand-gold)' : 'var(--brand-green)'} stroke="var(--surface)" strokeWidth="2" className="transition-all" />
+              <circle cx={xi(i)} cy={yv(p.value)} r={active === i ? 7 : 3.5} style={{ fill: active === i ? 'var(--gold)' : 'var(--button)', stroke: 'var(--surface)' }} strokeWidth="2" className="transition-all" />
             </g>
           ))}
           {active !== null && <line x1={xi(active)} x2={xi(active)} y1={padTop} y2={H - padBottom} stroke="var(--foreground)" strokeOpacity="0.25" strokeDasharray="3 4" />}
@@ -283,7 +284,7 @@ export function Sparkline({ values }: { values: number[] }) {
   const pts = values.map((v, i) => `${rtl ? W - i * span : i * span},${H - 4 - (v / max) * (H - 8)}`);
   return (
     <svg aria-hidden viewBox={`0 0 ${W} ${H}`} className="h-11 w-40">
-      <motion.polyline points={pts.join(' ')} fill="none" stroke="var(--brand-gold)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2, ease: EASE }} />
+      <motion.polyline points={pts.join(' ')} fill="none" style={{ stroke: 'var(--gold)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2, ease: EASE }} />
     </svg>
   );
 }

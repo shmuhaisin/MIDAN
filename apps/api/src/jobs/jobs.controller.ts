@@ -7,6 +7,12 @@ import { AuthGuard, CurrentUser, OptionalAuthGuard } from '../auth/auth.guard';
 import { listableJobs, viewableJob } from '../common/test-data';
 import { storageFetch } from '../common/storage';
 import { AuthUser, DbService } from '../db/db.service';
+import { withCurrentThemes } from '../organizations/brand-palette';
+
+/** A public job with its organization's approved palette themed by the current rules. */
+function branded<T extends { organizations: { organization_branding: { applied_palette?: unknown } | null } }>(job: T): T {
+  return { ...job, organizations: { ...job.organizations, organization_branding: withCurrentThemes(job.organizations.organization_branding) } };
+}
 
 class ApplyDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(4000)
@@ -33,7 +39,8 @@ const PUBLIC_JOB = {
     select: {
       id: true, slug: true, name_ar: true, name_en: true, is_demo: true,
       // The organization's own branding, as its staff set it (public, like the branded assessment experience).
-      organization_branding: { select: { logo_path: true, primary_color: true } },
+      // With the approved identity read from the logo, so a candidate sees each company's own colours (and only its own).
+      organization_branding: { select: { logo_path: true, primary_color: true, applied_palette: true } },
       // The official registry entity this account was confirmed as, if any. Not a partnership.
       employer_registry: { select: { id: true, source_company_id: true, name_ar: true, name_en: true, verification_status: true, partnership_status: true } },
     },
@@ -112,7 +119,7 @@ export class JobsController {
       ? [{ application_deadline: { sort: 'asc', nulls: 'last' } }, { published_at: 'desc' }, { id: 'asc' }]
       : [{ published_at: 'desc' }, { id: 'asc' }];
     // Without a page, the plain list that other callers already read.
-    if (page === undefined) return this.db.asAnon((tx) => tx.jobs.findMany({ where, select: PUBLIC_JOB, orderBy: { published_at: 'desc' }, take: 100 }));
+    if (page === undefined) return (await this.db.asAnon((tx) => tx.jobs.findMany({ where, select: PUBLIC_JOB, orderBy: { published_at: 'desc' }, take: 100 }))).map(branded);
     const { number, size, skip } = paging(page, pageSize);
     return this.db.asAnon(async (tx) => {
       const [items, total, all] = await Promise.all([
@@ -122,7 +129,7 @@ export class JobsController {
         tx.jobs.findMany({ where: base, select: { location: true, employment_type: true, experience_level: true, organizations: { select: { name_ar: true, name_en: true } } }, take: 1000 }),
       ]);
       return {
-        items, total, page: number, page_size: size,
+        items: items.map(branded), total, page: number, page_size: size,
         facets: {
           locations: distinct(all.map((j) => j.location)),
           employment_types: distinct(all.map((j) => j.employment_type)),
@@ -168,7 +175,7 @@ export class JobsController {
       return { job, assessments: await tx.$queryRaw<unknown[]>`select * from public.job_assessment_overview(${id}::uuid)` };
     });
     if (!result) throw new NotFoundException();
-    return { ...result.job, assessments: result.assessments };
+    return { ...branded(result.job), assessments: result.assessments };
   }
 
   @Post(':id/applications')

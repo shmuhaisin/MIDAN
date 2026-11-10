@@ -56,6 +56,16 @@ export type BrandPalette = {
 
 /** The page surfaces MIDAN draws a workspace on (apps/web globals.css): ivory in light, deep green-black in dark. */
 export const SURFACES = { light: '#f7f4ee', dark: '#0a1f19' } as const;
+/**
+ * Every surface company-coloured text and controls can sit on inside a workspace, per theme (globals.css: background,
+ * surface, surface-2, surface-3 and the success surface chips use). Text must reach 4.5:1 on all of them, not just the
+ * page: a link on a card or a count on a chip is read there.
+ */
+export const SURFACE_RANGE = {
+  light: ['#f7f4ee', '#fdfcf9', '#efece4', '#e4e0d5', '#e3f1ea'],
+  dark: ['#0a1f19', '#0c271e', '#113327', '#184031', '#123a2b'],
+} as const;
+const worst = (c: Rgb, theme: 'light' | 'dark') => Math.min(...SURFACE_RANGE[theme].map((s) => contrast(c, s)));
 
 type Rgb = [number, number, number];
 type Lab = [number, number, number];
@@ -119,8 +129,8 @@ const INK = '#141414';
 const bestOn = (bg: Rgb) => (contrast(bg, WHITE) >= contrast(bg, INK) ? WHITE : INK);
 
 /** A fill (button, badge) whose label reads at 4.5:1 and whose edge stands out from the page at 3:1. */
-function fill(color: Rgb, surface: string, theme: 'light' | 'dark'): { fill: Rgb; on: string } {
-  const good = (c: Rgb) => contrast(c, bestOn(c)) >= 4.5 && contrast(c, surface) >= 3;
+function fill(color: Rgb, theme: 'light' | 'dark'): { fill: Rgb; on: string } {
+  const good = (c: Rgb) => contrast(c, bestOn(c)) >= 4.5 && worst(c, theme) >= 3;
   if (good(color)) return { fill: color, on: bestOn(color) };
   // In light, deepen the colour; in dark, brighten it — the way a designer would adapt the same brand to each.
   const moved = shiftLightness(color, theme === 'light' ? -1 : 1, good);
@@ -139,10 +149,10 @@ export function themesFor(primaryHex: string, accentHex: string | null): { light
   const build = (theme: 'light' | 'dark'): ThemeColors => {
     const surface = SURFACES[theme];
     const surfaceRgb = parseHex(surface);
-    const p = fill(primary, surface, theme);
-    const a = fill(accent, surface, theme);
-    const text = shiftLightness(primary, theme === 'light' ? -1 : 1, (c) => contrast(c, surface) >= 4.5);
-    const keepText = contrast(primary, surface) >= 4.5 ? primary : text;
+    const p = fill(primary, theme);
+    const a = fill(accent, theme);
+    const text = shiftLightness(primary, theme === 'light' ? -1 : 1, (c) => worst(c, theme) >= 4.5);
+    const keepText = worst(primary, theme) >= 4.5 ? primary : text;
     // Hover keeps the same label colour, so it moves away from it: darker under white text, lighter under dark text.
     const hover = shiftLightness(p.fill, p.on === WHITE ? -1 : 1, (c) => distance(rgbToOklab(c), rgbToOklab(p.fill)) >= 0.04 && contrast(c, p.on) >= 4.5);
     const soft = mix(surfaceRgb, primary, theme === 'light' ? 0.12 : 0.22);
@@ -279,4 +289,19 @@ export async function extractPalette(image: Buffer): Promise<BrandPalette> {
     monochrome,
     ...themesFor(primaryHex, accentHex),
   };
+}
+
+/**
+ * Branding as it's read: the themes of the approved palette (and of a pending suggestion) recomputed from their chosen
+ * colours by the current rules, so an improvement to the contrast rules reaches every company without a data migration.
+ * The chosen colours themselves never change here.
+ */
+export function withCurrentThemes<T extends { palette?: unknown; applied_palette?: unknown } | null>(branding: T): T {
+  if (!branding) return branding;
+  const fresh = (p: unknown) => {
+    const palette = p as BrandPalette | null;
+    if (!palette || palette.version !== PALETTE_VERSION || !/^#[0-9a-f]{6}$/i.test(palette.primary ?? '')) return p;
+    return { ...palette, ...themesFor(palette.primary, palette.accent && /^#[0-9a-f]{6}$/i.test(palette.accent) ? palette.accent : null) };
+  };
+  return { ...branding, palette: fresh(branding.palette), applied_palette: fresh(branding.applied_palette) };
 }

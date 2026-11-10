@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { deadlineState } from '@/lib/deadline';
 import { formatDate, number, pick } from '@/lib/format';
+import { orgAssetUrl, orgTheme, type OrgBranding } from '@/lib/org-theme';
 import { Arrow } from './brand';
 import { Icon } from './icons';
 import { SaveJobButton } from './save-job';
@@ -12,7 +13,7 @@ import { Badge, EmptyState } from './ui';
 
 export type PublicJob = {
   id: string; title_ar: string; title_en: string; location: string | null; is_demo: boolean;
-  organizations: { name_ar: string; name_en: string };
+  organizations: { name_ar: string; name_en: string; organization_branding?: OrgBranding | null };
   sector: string | null; employment_type: string | null; experience_level: string | null; application_deadline: string | null;
   job_skills: { skills: { id: string; name_ar: string; name_en: string } }[];
   job_reference_skills: { reference_skills: { id: string; name_ar: string } }[];
@@ -50,10 +51,9 @@ export function DeadlineNote({ deadline }: { deadline: string | null }) {
   return <span className="text-sm text-muted">{t('deadline', { date })}</span>;
 }
 
-const MONO = ['bg-forest text-ivory', 'bg-accent text-accent-foreground', 'bg-brand-gold text-forest'];
 
 /** One opportunity as a row of the index: who, what, the facts, the skills, and the deadline. */
-function JobRow({ job, index, saved }: { job: PublicJob; index: number; saved: boolean | null }) {
+function JobRow({ job, saved }: { job: PublicJob; saved: boolean | null }) {
   const t = useTranslations('jobs');
   const locale = useLocale();
   const skills = [
@@ -63,10 +63,17 @@ function JobRow({ job, index, saved }: { job: PublicJob; index: number; saved: b
   const facts = [job.location, job.employment_type && t(`employment.${job.employment_type}`), job.experience_level && t(`level.${job.experience_level}`)].filter(Boolean);
   const title = pick(locale, job.title_ar, job.title_en);
   const org = pick(locale, job.organizations.name_ar, job.organizations.name_en);
+  // Each row wears its own company's approved identity and logo; no company's colours reach another's row.
+  const branding = job.organizations.organization_branding;
+  const theme = orgTheme(branding);
+  const logo = orgAssetUrl(branding?.logo_path);
   return (
-    <li className="group relative grid gap-4 px-4 py-6 transition-colors hover:bg-surface-2/50 sm:grid-cols-[3rem_minmax(0,1fr)_auto] sm:gap-5 sm:px-6">
+    <li className={`group relative grid gap-4 px-4 py-6 transition-colors hover:bg-surface-2/50 sm:grid-cols-[3rem_minmax(0,1fr)_auto] sm:gap-5 sm:px-6 ${theme.className}`} style={theme.style}>
       <span aria-hidden className="absolute inset-y-4 start-0 w-0.5 origin-top scale-y-0 bg-gold transition-transform duration-300 group-hover:scale-y-100" />
-      <span aria-hidden className={`grid size-12 place-items-center rounded-[var(--radius-panel)] font-display text-lg font-bold ${MONO[index % 3]}`}>{org.trim().charAt(0)}</span>
+      {logo
+        // eslint-disable-next-line @next/next/no-img-element -- the organization's own upload, from Storage
+        ? <img src={logo} alt="" className="size-12 rounded-[var(--radius-panel)] border border-border bg-surface object-contain p-1" />
+        : <span aria-hidden className="grid size-12 place-items-center rounded-[var(--radius-panel)] bg-[var(--org-primary,var(--surface-2))] font-display text-lg font-bold text-[var(--org-on-primary,var(--muted))]">{org.trim().charAt(0)}</span>}
       <div className="min-w-0">
         <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
           <span className="font-semibold text-foreground">{org}</span>
@@ -166,7 +173,7 @@ export function JobsBrowser({ result, external, filters, demo = false, savedIds 
           <EmptyState title={t('savedEmptyTitle')} body={t('savedEmptyBody')}><Link href="/opportunities" className="btn btn-primary btn-sm">{t('allJobs')}</Link></EmptyState>
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface">
-            {items.map((job, i) => <JobRow key={job.id} job={job} index={i} saved={savedSet ? savedSet.has(job.id) : null} />)}
+            {items.map((job) => <JobRow key={job.id} job={job} saved={savedSet ? savedSet.has(job.id) : null} />)}
           </ul>
         )}
       </div>
@@ -211,7 +218,7 @@ export function JobsBrowser({ result, external, filters, demo = false, savedIds 
         {items.length === 0 ? (
           <EmptyState title={t('emptyTitle')} body={t('emptyBody')}><button type="button" onClick={clear} className="btn btn-secondary btn-sm">{t('clearFilters')}</button></EmptyState>
         ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface">{items.map((job, i) => <JobRow key={job.id} job={job} index={i} saved={savedSet ? savedSet.has(job.id) : null} />)}</ul>
+          <ul className="divide-y divide-border overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface">{items.map((job) => <JobRow key={job.id} job={job} saved={savedSet ? savedSet.has(job.id) : null} />)}</ul>
         )}
         <Pages page={page} pageSize={pageSize} total={total} label={t('jobPages')} href={(n) => hrefFor(filters, demo, { page: n, xpage: external?.page })} />
         {demo && <p className="mt-6 text-sm"><Link href="/opportunities" className="link">{t('backToReal')}</Link></p>}

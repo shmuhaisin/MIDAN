@@ -12,10 +12,11 @@ import { deadlineState } from '@/lib/deadline';
 import { DeadlineNote } from '@/components/jobs-browser';
 import { SaveJobButton } from '@/components/save-job';
 import { getSession } from '@/lib/session';
+import { orgAssetUrl, orgTheme, type OrgBranding } from '@/lib/org-theme';
 
 type Job = {
   id: string; status: string; title_ar: string; title_en: string; description_ar: string | null; description_en: string | null;
-  location: string | null; is_demo: boolean; organizations: { name_ar: string; name_en: string; organization_branding: { logo_path: string | null; primary_color: string | null } | null; employer_registry: { id: string; name_ar: string; name_en: string } | null };
+  location: string | null; is_demo: boolean; organizations: { name_ar: string; name_en: string; organization_branding: OrgBranding & { logo_path: string | null; primary_color: string | null } | null; employer_registry: { id: string; name_ar: string; name_en: string } | null };
   requirements_ar: string | null; requirements_en: string | null;
   employment_type: string | null; application_deadline: string | null; sector: string | null; experience_level: string | null; salary_min: string | null; salary_max: string | null;
   job_reference_skills: { is_required: boolean; reference_skills: { id: string; name_ar: string; description_ar: string | null } }[];
@@ -58,8 +59,9 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const description = pick(locale, job.description_ar ?? '', job.description_en ?? '');
   const org = pick(locale, job.organizations.name_ar, job.organizations.name_en);
   const branding = job.organizations.organization_branding;
-  const logoUrl = branding?.logo_path ? `${process.env.SUPABASE_URL}/storage/v1/object/public/organization-assets/${branding.logo_path}` : null;
-  const brandColor = branding?.primary_color && /^#[0-9A-Fa-f]{6}$/.test(branding.primary_color) ? branding.primary_color : null;
+  const logoUrl = orgAssetUrl(branding?.logo_path);
+  // The company's approved identity colours this page only (src/lib/org-theme.ts); MIDAN's header and footer keep MIDAN's.
+  const theme = orgTheme(branding);
   const requirementsText = pick(locale, job.requirements_ar ?? '', job.requirements_en ?? '');
   const facts = [
     job.location && [t('location'), job.location],
@@ -85,7 +87,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   );
 
   return (
-    <article>
+    <article className={theme.className} style={theme.style}>
+      <div aria-hidden className="h-1.5 bg-[linear-gradient(90deg,var(--org-primary,var(--brand-deep))_0_72%,var(--org-accent,var(--brand-gold))_72%_100%)]" />
       <header className="border-b border-border bg-surface">
         <div className="container-page py-8 lg:py-12">
           <Link href="/opportunities" className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground">
@@ -95,7 +98,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
             {/* The organization's own logo and colour, as its staff set them; its initial when there's none. */}
             {logoUrl
               ? <img src={logoUrl} alt="" className="size-16 shrink-0 rounded-[var(--radius-panel)] border border-border bg-background object-contain p-1" />
-              : <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-[var(--radius-panel)] bg-deep font-display text-2xl font-bold text-mint" style={brandColor ? { backgroundColor: brandColor, color: '#fff' } : undefined}>{org.trim().charAt(0)}</span>}
+              : <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-[var(--radius-panel)] bg-[var(--org-primary,var(--surface-3))] font-display text-2xl font-bold text-[var(--org-on-primary,var(--foreground))]">{org.trim().charAt(0)}</span>}
             <div className="min-w-0 flex-1">
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                 <span className="font-semibold">{org}</span>

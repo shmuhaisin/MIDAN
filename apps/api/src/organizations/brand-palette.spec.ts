@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { contrast, extractPalette, parseHex, rgbToOklab, SURFACES, themesFor } from './brand-palette';
+import { contrast, extractPalette, parseHex, rgbToOklab, SURFACE_RANGE, SURFACES, themesFor } from './brand-palette';
 
 /** A logo drawn from SVG shapes, rendered as PNG by the same library the API decodes with. */
 async function logo(svg: string, background?: string) {
@@ -72,6 +72,11 @@ describe('themesFor', () => {
         expect(contrast(t.primary, surface)).toBeGreaterThanOrEqual(3);
         expect(contrast(t.primary_hover, t.on_primary)).toBeGreaterThanOrEqual(4.5);
         expect(contrast(t.text, surface)).toBeGreaterThanOrEqual(4.5);
+        // On every card, panel and chip surface of the theme too, not just the page.
+        for (const s of SURFACE_RANGE[theme]) {
+          expect(contrast(t.text, s)).toBeGreaterThanOrEqual(4.5);
+          expect(contrast(t.primary, s)).toBeGreaterThanOrEqual(3);
+        }
         expect(contrast(t.accent, t.on_accent)).toBeGreaterThanOrEqual(4.5);
         expect(contrast(t.soft, t.on_soft)).toBeGreaterThanOrEqual(4.5);
         expect(contrast(t.text, t.on_text)).toBeGreaterThanOrEqual(4.5);

@@ -7,8 +7,16 @@ import { Icon } from './icons';
  * Server-safe: no hooks, so pages and client charts can both use it.
  */
 
-/** Stage colours, from the first contact (mint) to the decision (gold). */
-export const STAGE_COLORS = ['#A7E3C2', '#6FC497', '#2E9461', '#1F7A4D', '#0B3D2E', '#D4AF37'];
+/**
+ * Stage colours, from first contact to the decision, built from the theme's own tokens: the soft tint deepening into the
+ * primary, and the accent for hired. MIDAN's colours on MIDAN's pages; inside a workspace with an approved identity, the
+ * company's (globals.css .org-themed); and correct in light and dark either way. Use them as CSS values (style), not as
+ * SVG presentation attributes, which don't resolve var() or color-mix().
+ */
+export const STAGE_COLORS = [
+  ...[18, 38, 58, 80, 100].map((p) => `color-mix(in oklab, var(--button) ${p}%, var(--accent))`),
+  'var(--gold)',
+];
 
 /** Position of each application status on the six stages. Closed statuses have none: their last stage isn't recorded. */
 export const STAGE_RANK: Record<string, number> = {

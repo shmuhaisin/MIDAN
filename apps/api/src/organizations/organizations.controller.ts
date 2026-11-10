@@ -10,7 +10,7 @@ import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { COMPANY_TYPES, PROFESSIONAL_FIELDS } from '../common/fields';
 import { requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
-import { type BrandPalette, extractPalette, PALETTE_VERSION, themesFor } from './brand-palette';
+import { type BrandPalette, extractPalette, PALETTE_VERSION, themesFor, withCurrentThemes } from './brand-palette';
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -128,7 +128,7 @@ export class OrganizationsController {
         tx.organization_members.findFirstOrThrow({ where: { org_id: orgId, user_id: user.id }, select: { role: true } }),
       ]);
       const branding = await tx.organization_branding.findUnique({ where: { org_id: orgId } });
-      return { ...organization, my_role: member.role, branding };
+      return { ...organization, my_role: member.role, branding: withCurrentThemes(branding) };
     });
   }
 
