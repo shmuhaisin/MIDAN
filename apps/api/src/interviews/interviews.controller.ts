@@ -167,7 +167,6 @@ export class InterviewsController {
       });
       return interview;
     });
-    if ('existing' in created) return this.db.asUser(user, (tx) => tx.interviews.findUniqueOrThrow({ where: { id: created.id } }));
     return this.syncCalendar(user, created.id);
   }
 
