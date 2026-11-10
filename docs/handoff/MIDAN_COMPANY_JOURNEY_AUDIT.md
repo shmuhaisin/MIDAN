@@ -128,8 +128,9 @@ together, and nothing is sent after a decision.
   without a model. WORKING.
 
 ## Fix order (to do on this branch)
-1. Publishing requires an approved and published assessment (phase 4), and assessments approved later are assigned to
-   existing applicants (phase 4).
+1. Publishing requires an approved and published assessment (phase 4). (Assigning later approvals automatically was
+   tried and removed: it conflicts with the designed invitation to a chosen assessment, and the publish rule covers new
+   jobs.)
 2. Registry workspaces inherit the registry's sector, entity type and website (phase 1 → phase 3 context). The public job
    shows the organization's logo and colours (phase 1).
 3. Per-job applicant ranking (phase 6): every non-withdrawn applicant, with the CV score from the matching model,
@@ -138,3 +139,5 @@ together, and nothing is sent after a decision.
    existing feedback table and its guards.
 5. Development report (phase 11) through the in-app channel.
 6. Installing the HF model locally (finding 1) and Calendar (finding 3) need the owner.
+
+What was done, and the acceptance results: [MIDAN_COMPANY_JOURNEY_REPORT.md](MIDAN_COMPANY_JOURNEY_REPORT.md).
