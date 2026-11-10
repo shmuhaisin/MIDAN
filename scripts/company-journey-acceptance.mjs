@@ -251,12 +251,13 @@ await step(6, 'Several candidates apply with CVs', async () => {
 });
 
 let ranking;
-await step(7, "The CVs analyzed with the existing Hugging Face model (intfloat/multilingual-e5-base)", async () => {
+await step(7, "The CVs analyzed with the Hugging Face models (multilingual-e5-base, with the bge-reranker-v2-m3 when configured)", async () => {
   need(ctx.apps, 'ctx.apps');
   ranking = await must(call(ctx.rep1.token, 'GET', `/organizations/${ctx.org}/jobs/${ctx.job}/ranking?wait=true`));
   const models = [...new Set(ranking.applicants.map((a) => a.matching?.model_version))];
-  const e5 = ranking.applicants.every((a) => a.matching?.provider === 'e5-local' && !a.matching?.fallback);
-  return { passed: e5, note: `matching backend reported: ${models.join(', ')}${e5 ? '' : ' (the e5 model is not installed on this machine, so the lexical fallback ran and says so)'}` };
+  const fallbacks = [...new Set(ranking.applicants.map((a) => a.matching?.fallback).filter(Boolean))];
+  const hf = ranking.applicants.every((a) => ['e5-local', 'e5-rerank'].includes(a.matching?.provider) && !a.matching?.fallback);
+  return { passed: hf, note: `matching backend reported: ${models.join(', ')}${fallbacks.length ? `; fallback: ${fallbacks.join('; ')}` : ''}` };
 });
 
 await step(8, 'ATS scores the CV and the assessment', async () => {

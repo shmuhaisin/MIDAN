@@ -104,7 +104,37 @@ Matching uses what the candidate approved into their profile, as captured in the
 
 ## 4. Decision
 
-1. **`intfloat/multilingual-e5-base`, local, is the selected backend** where the machine can hold it (`EMBEDDING_PROVIDER=e5-local`).
+**Update (2026-11-10): the hybrid is now the default (`EMBEDDING_PROVIDER=e5-rerank`), by the owner's decision.** e5 retrieves
+each requirement's closest lines (the top 3 sentences and the top 3 brief lines, separately), and the cross-encoder
+`BAAI/bge-reranker-v2-m3` (Apache-2.0) reads each (requirement, line) pair together. The status rule and the score formula
+below are unchanged. When the reranker fails or exceeds `RERANK_BUDGET_S`, e5 alone is used and the provenance says so.
+
+`services/ai/bench/reranker_bench.py` on the same fictional set, Apple M2 with 8 GB, CPU, offline:
+
+| | e5 alone | e5 + bge-reranker-v2-m3 |
+| --- | --- | --- |
+| Top-1 evidence / MRR | 0.667 / 0.779 | 0.889 / 0.944 |
+| AUC all / sentences / skill names / cross-language | 0.907 / 0.925 / 0.905 / 0.919 | 0.956 / 0.984 / 0.962 / 0.966 |
+| At the best-F1 threshold: false positives / false negatives | 26 / 25 | 17 / 21 |
+| One request (1 requirement × 8 lines), warm | under 0.01 s | 0.3 to 0.4 s |
+| Peak memory of the process | about 0.75 GB | about 1.5 GB (the reranker alone) |
+
+(The script's own memory figures are in bytes on macOS, not KB; the figures above come from `/usr/bin/time -l`.)
+
+On the acceptance run's four fictional CVs (`scripts/company-journey-acceptance.mjs`), e5 alone scored 50 to 58% for all four,
+the unrelated marketing CV included (50%). The hybrid scored the telecom analyst 60%, the BI developer and the junior analyst
+50%, and the marketing CV 0%. **Open:** the reranker's `matched` threshold (0.02) was set on the small fictional set, and on
+those CVs a few weak lines confirmed a requirement (an Excel-summaries line for "SQL reports and dashboards", an education
+line for "experience in data analysis"). Changing it is a recalibration that needs the owner's approval.
+
+**Not implemented: stage 3, the structured AI evaluation.** The agreed architecture is embeddings, then the reranker, then a
+model-written, evidence-cited evaluation of each requirement. Stages 1 and 2 run and are verified. Each requirement's status,
+evidence line and source come from the rule in `match()` over the reranker's scores, and its explanation is a fixed sentence
+per status. No language model reads the CV against the requirements, and no "insufficient evidence" status or list of missing
+evidence exists. The hybrid ATS is therefore not complete.
+
+1. **`intfloat/multilingual-e5-base`, local, was the selected backend** before the hybrid, and remains its retrieval stage and
+   fallback (`EMBEDDING_PROVIDER=e5-local` runs it alone).
    - It finds the right evidence line far more often than word comparison: 69% vs 19% top-1, and an MRR of 0.78 vs 0.33.
    - It runs offline with no per-call cost, which keeps CV text on MIDAN's servers.
 2. **Its scores are compressed**, so classification is calibrated conservatively:
@@ -131,13 +161,21 @@ Matching uses what the candidate approved into their profile, as captured in the
 
 | Setting | Values |
 | --- | --- |
-| `EMBEDDING_PROVIDER` | `lexical` (default) \| `e5-local` \| `bge-m3-hosted` |
+| `EMBEDDING_PROVIDER` | `e5-rerank` (selected, in `.env.example`) \| `e5-local` \| `bge-m3-hosted` \| `lexical` (when unset, or when sentence-transformers isn't installed). Set the same value for the API and the AI service: the API keys its stored CV matches on it |
+| `RERANKER_MODEL` | The cross-encoder for `e5-rerank`; default `BAAI/bge-reranker-v2-m3` |
+| `RERANK_BUDGET_S` | Seconds one request may spend reranking before e5 alone is used; default 120 |
 | `HF_HOME` | Where the model files are. The demo keeps them in `.local/hf` (git-ignored) |
 | `HF_HUB_OFFLINE=1` | Never download at runtime |
 | `HF_TOKEN` | Only for `bge-m3-hosted` and the benchmark |
 
 - **Install the extra:** `uv sync --extra matching` in `services/ai`.
 - **The model files** (about 1.1 GB, once): `huggingface_hub.snapshot_download('intfloat/multilingual-e5-base')` with `HF_HOME` set.
+  For `e5-rerank`, also (about 2.1 GB): `snapshot_download('BAAI/bge-reranker-v2-m3', allow_patterns=['*.json', 'model.safetensors', 'sentencepiece.bpe.model', '*.txt'])`.
+- **Container builds:** `services/ai/Dockerfile` installs the `matching` extra with the CPU-only PyTorch build (no CUDA:
+  `pyproject.toml` takes torch from PyTorch's CPU index on Linux) and bakes in both models at pinned revisions through
+  `services/ai/fetch_models.py`, which fails the build unless both load offline by name. The image sets
+  `EMBEDDING_PROVIDER=e5-rerank` and `HF_HUB_OFFLINE=1`. It is about 3.2 GB larger for the models; the AI service needs about
+  2 GB of RAM. **The API's environment must set `EMBEDDING_PROVIDER=e5-rerank` too.**
 - **Health:** the AI service's `/health` reports `matching` with the active backend's name.
 
 ## 6. Tests
