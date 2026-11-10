@@ -128,7 +128,8 @@ if (gen.status >= 300) {
 const version = gen.body.version_id;
 const view = await must(call(rep.token, 'GET', `/organizations/${org}/jobs/${job.id}/assessment`));
 const guide = await must(call(rep.token, 'GET', `/organizations/${org}/assessment-versions/${version}/guide`));
-const provenance = psql(`select row_to_json(p) from (select generation_mode, provider, model_version, prompt_version from public.assessment_versions where id = '${version}') p`);
+// The generation's provenance is kept on its workflow run (assessment_versions.ai_thread_id), not on the version.
+const provenance = psql(`select row_to_json(p) from (select r.mode, r.provider, r.model_version, r.prompt_version from public.assessment_versions v join public.ai_workflow_runs r on r.thread_id = v.ai_thread_id where v.id = '${version}') p`);
 writeFileSync(`${out}/assessment.json`, JSON.stringify({ run: RUN, org, job: job.id, version, seconds, provenance: JSON.parse(provenance || 'null'), view, guide }, null, 2));
 console.log(`Generated in ${seconds}s. Version ${version}. Provenance: ${provenance}`);
 console.log(`Saved to ${out}/assessment.json`);
