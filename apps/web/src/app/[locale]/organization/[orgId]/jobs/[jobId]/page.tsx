@@ -12,6 +12,7 @@ import { AssessmentSwitcher, AssessmentTitle, VersionSettings, EmptyAssessment, 
 
 import { Link, redirect } from '@/i18n/navigation';
 import { api, apiForPage } from '@/lib/api';
+import { JobRanking, type Ranking } from '@/components/job-ranking';
 import { uncoveredItems, type ReviewState } from '@/lib/assessment-review';
 import { ChangeReview, ReviseButton } from '@/components/change-review';
 import { AssessorGuide, QualityPanel, type QualityReport } from '@/components/assessment-intel';
@@ -53,9 +54,9 @@ type Compared = {
   evaluation_results: null | { status: string; overall_score: string | null; skill_scores: { skill_id: string; level: number; skills: { name_ar: string; name_en: string } }[] };
 };
 
-export default async function Page({ params, searchParams }: { params: Promise<{ locale: string; orgId: string; jobId: string }>; searchParams: Promise<{ assessment?: string; step?: string }> }) {
+export default async function Page({ params, searchParams }: { params: Promise<{ locale: string; orgId: string; jobId: string }>; searchParams: Promise<{ assessment?: string; step?: string; rank?: string }> }) {
   const { locale, orgId, jobId } = await params;
-  const { assessment: chosen, step: stepParam } = await searchParams;
+  const { assessment: chosen, step: stepParam, rank } = await searchParams;
   // The job wizard: one section at a time after the job is named. Without ?step the full workspace shows.
   const WIZARD = ['details', 'requirements', 'reference-skills', 'assessment', 'review'] as const;
   const stepNo = Number(stepParam);
@@ -64,12 +65,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   setRequestLocale(locale);
   if (!(await getSession())) return redirect({ href: '/login', locale });
   if (!/^[0-9a-f-]{36}$/.test(orgId) || !/^[0-9a-f-]{36}$/.test(jobId)) notFound();
-  const [org, job, skills, latest, compared, requirements, analysis, custom] = await Promise.all([
+  const [org, job, skills, latest, compared, ranking, requirements, analysis, custom] = await Promise.all([
     apiForPage<{ my_role: string }>(`/organizations/${orgId}`),
     apiForPage<Job>(`/organizations/${orgId}/jobs/${jobId}`),
     api<Skill[]>('/skills'),
     apiForPage<Latest>(`/organizations/${orgId}/jobs/${jobId}/assessment${chosen && /^[0-9a-f-]{36}$/.test(chosen) ? `?assessment=${chosen}` : ''}`),
     apiForPage<Compared[]>(`/organizations/${orgId}/jobs/${jobId}/report`),
+    wizard ? null : apiForPage<Ranking>(`/organizations/${orgId}/jobs/${jobId}/ranking${rank && ['cv', 'assessment', 'interview'].includes(rank) ? `?sort=${rank}` : ''}`).catch(() => null),
     apiForPage<Requirement[]>(`/organizations/${orgId}/jobs/${jobId}/requirements`),
     apiForPage<Analysis | null>(`/organizations/${orgId}/jobs/${jobId}/analyses/latest`),
     apiForPage<CustomSkill[]>(`/organizations/${orgId}/jobs/${jobId}/custom-skills`),
@@ -316,6 +318,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             })}
           </ul>
         )}
+      </section>
+      )}
+
+      {!wizard && (
+      <section aria-labelledby="ranking">
+        <Eyebrow className="mb-2 text-muted"><span id="ranking">{t('ranking')}</span></Eyebrow>
+        {ranking ? <JobRanking locale={locale} orgId={orgId} jobId={jobId} data={ranking} /> : <p className="text-muted">{t('rankingUnavailable')}</p>}
       </section>
       )}
 

@@ -1088,7 +1088,9 @@
     "taskOrder": "Order of “{title}”",
     "moveTaskUp": "Move “{title}” up",
     "moveTaskDown": "Move “{title}” down",
-    "skillsComeNext": "Skills come next, in the Skills step: suggestions read from this description, the sector skills catalog, and your own skills, each with a level."
+    "skillsComeNext": "Skills come next, in the Skills step: suggestions read from this description, the sector skills catalog, and your own skills, each with a level.",
+    "ranking": "Applicant ranking",
+    "rankingUnavailable": "The ranking isn't available right now. Try again in a moment."
   },
   "experience": {
     "poweredBy": "Powered by Midan",
@@ -3827,5 +3829,53 @@
         "revoke": "Revoked"
       }
     }
+  },
+  "ranking": {
+    "lead": "Every active applicant to this job, side by side. Scores update each time an assessment is reviewed, a CV match is confirmed or corrected, or an interview form is submitted.",
+    "noOverall": "There is no overall percentage: MIDAN has no approved rule for weighing the CV, the assessment and the interview against each other, so each stage keeps its own score. Choose the stage to rank by.",
+    "matchedWith": "CV matched against the approved requirements with: {model}",
+    "fallback": "word comparison (the matching model wasn't available)",
+    "sortLabel": "Rank by",
+    "sort": {
+      "cv": "CV match",
+      "assessment": "Assessment",
+      "interview": "Interview"
+    },
+    "empty": "No one has applied yet.",
+    "rank": "Rank",
+    "candidate": "Candidate",
+    "cv": "CV match",
+    "assessment": "Assessment",
+    "interview": "Interview",
+    "strengthsGaps": "Strengths and gaps",
+    "stage": "Stage",
+    "pending": "Pending",
+    "unnamed": "Applicant",
+    "needsReview": "Needs review",
+    "cvBreakdown": "{matched} shown · {partial} partly · {missing} not shown · {review} to check",
+    "cvState": {
+      "unavailable": "Matching unavailable",
+      "no_requirements": "No approved requirements"
+    },
+    "noAssessment": "No assessment",
+    "assessmentState": {
+      "not_assigned": "Not assigned",
+      "invited": "Invited",
+      "in_progress": "In progress",
+      "awaiting_review": "Awaiting review",
+      "submitted": "Awaiting review",
+      "expired": "Expired",
+      "cancelled": "Cancelled"
+    },
+    "rating": "{value} / 4",
+    "forms": "{n, plural, one {# form} other {# forms}}",
+    "interviewState": {
+      "none": "Not interviewed",
+      "scheduled": "Scheduled",
+      "scored": "Scored"
+    },
+    "strengths": "Shows",
+    "gaps": "Not shown",
+    "manual": "Ranking informs; it decides nothing. Shortlisting, rejecting and hiring are always a person's choice."
   }
 }

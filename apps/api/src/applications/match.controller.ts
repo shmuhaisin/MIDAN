@@ -3,9 +3,11 @@ import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags 
 import { IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { AiClient } from '../ai/ai.client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
-import { applicantProfile, type ApplicantProfile } from '../common/applicant';
 import { BUILDERS, requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
+import { jobMatchItems, matchSnapshot } from './ats';
+
+export { evidenceFrom } from './ats';
 
 const STATUSES = ['matched', 'partial', 'missing', 'needs_review'] as const;
 type MatchStatus = (typeof STATUSES)[number];
@@ -16,47 +18,6 @@ class MatchReviewDto {
   @ApiProperty({ enum: STATUSES }) @IsIn(STATUSES) status!: MatchStatus;
   @ApiProperty({ enum: STATUSES, description: "MIDAN's proposal the reviewer saw; equal to status when confirming." }) @IsIn(STATUSES) proposed_status!: MatchStatus;
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) @MaxLength(1000) note?: string;
-}
-
-type Proposal = { key: string; status: MatchStatus; score: number; evidence_id: string | null; evidence_text: string | null; evidence_source: string | null; reason: string };
-type AiMatch = { matches: Proposal[]; summary: { counts: Record<MatchStatus, number>; score: number | null; mandatory_missing: number }; provenance: Record<string, unknown> };
-type Item = Record<string, unknown>;
-
-const text = (...parts: unknown[]) => parts.filter((p) => typeof p === 'string' && p.trim()).join(' — ');
-const list = (value: unknown) => (Array.isArray(value) ? (value as Item[]) : []);
-
-/**
- * The evidence an organization may use: only what the applicant submitted with the application (the snapshot), as short
- * lines with their source. Contact details are never included.
- */
-export function evidenceFrom(profile: ApplicantProfile | null) {
-  if (!profile) return [];
-  const now = new Date().getUTCFullYear();
-  const lines: { id: string; text: string; source: string; skill_id?: string; years?: number }[] = [];
-  const add = (source: string, i: number | string, line: string, extra: { skill_id?: string; years?: number } = {}) => {
-    if (line.trim()) lines.push({ id: `${source}:${i}`, text: line.slice(0, 2000), source, ...extra });
-  };
-  if (profile.headline) add('headline', 0, String(profile.headline));
-  if (typeof profile.summary === 'string') add('summary', 0, profile.summary);
-  list(profile.experience).forEach((e, i) => {
-    const start = typeof e.start_year === 'number' ? e.start_year : null;
-    const end = typeof e.end_year === 'number' ? e.end_year : start ? now : null;
-    // The position itself (title, organization), with its years, then each responsibility as its own line: one long line
-    // per position dilutes the similarity of the sentence that actually shows a requirement. Only the position carries
-    // years, so the years check counts each position once.
-    const duties = typeof e.description === 'string' ? e.description.split('\n').map((d) => d.trim()).filter((d) => d.split(/\s+/).length >= 2) : [];
-    add('experience', i, duties.length > 0 ? text(e.title, e.organization) : text(e.title, e.organization, e.description), start && end ? { years: Math.max(0, end - start) } : {});
-    duties.forEach((d, j) => add('experience', `${i}:${j + 1}`, d));
-  });
-  list(profile.education).forEach((e, i) => add('education', i, text(e.qualification, e.field, e.institution)));
-  list(profile.projects).forEach((p, i) => add('project', i, text(p.title, p.description)));
-  list(profile.courses).forEach((c, i) => add('course', i, text(c.title, c.issuer, c.description)));
-  list(profile.certifications).forEach((c, i) => add('certification', i, text(c.title, c.issuer, c.description)));
-  (profile.skills ?? []).forEach((s, i) => add('skill', i, text(s.name_ar, s.name_en), { skill_id: s.id }));
-  (profile.reference_skills ?? []).forEach((s, i) => add('reference_skill', i, s.name_ar));
-  list(profile.self_reported_skills).forEach((s, i) => add('own_skill', i, String(s)));
-  list(profile.languages).forEach((l, i) => add('language', i, text((l as Item).name, (l as Item).level)));
-  return lines;
 }
 
 /**
@@ -84,52 +45,15 @@ export class ApplicationMatchController {
         select: { id: true, job_id: true, profile_snapshot: true },
       });
       if (!application) throw new NotFoundException();
-      const [requirements, skills, reviews] = await Promise.all([
-        tx.job_requirements.findMany({
-          where: { job_id: application.job_id, org_id: orgId, retired_at: null, review_status: 'approved', requirement_type: { not: 'daily_task' } },
-          orderBy: [{ position: 'asc' }, { created_at: 'asc' }],
-          select: { id: true, requirement_type: true, description_ar: true, description_en: true, is_mandatory: true, min_years: true, skill_id: true },
-        }),
-        tx.job_skills.findMany({
-          where: { job_id: application.job_id, org_id: orgId, is_required: true, review_status: 'approved' },
-          select: { skill_id: true, required_level: true, skills: { select: { name_ar: true, name_en: true } } },
-        }),
+      const [items, reviews] = await Promise.all([
+        jobMatchItems(tx, orgId, application.job_id),
         tx.application_match_reviews.findMany({ where: { application_id: id, org_id: orgId }, orderBy: { created_at: 'desc' } }),
       ]);
-      // The employer's accepted workbook skills and their own skills for this job are requirements too.
-      const [reference, custom] = await Promise.all([
-        tx.job_reference_skills.findMany({
-          where: { job_id: application.job_id, org_id: orgId },
-          select: { reference_skill_id: true, is_required: true, reference_skills: { select: { name_ar: true } } },
-        }),
-        tx.job_custom_skills.findMany({ where: { job_id: application.job_id, org_id: orgId }, select: { id: true, name_ar: true, name_en: true, is_required: true } }),
-      ]);
-      return { application, requirements, skills, reviews, reference, custom };
+      return { application, items, reviews };
     });
 
-    const items = [
-      ...data.requirements.map((r) => ({
-        key: `requirement:${r.id}`, kind: r.requirement_type as string, text_ar: r.description_ar, text_en: r.description_en,
-        mandatory: r.is_mandatory, min_years: r.min_years === null ? null : Number(r.min_years), skill_id: r.skill_id,
-      })),
-      ...data.skills.map((s) => ({
-        key: `skill:${s.skill_id}`, kind: 'skill', text_ar: s.skills.name_ar, text_en: s.skills.name_en,
-        mandatory: true, min_years: null, skill_id: s.skill_id,
-      })),
-      ...data.reference.map((r) => ({
-        key: `reference:${r.reference_skill_id}`, kind: 'skill', text_ar: r.reference_skills.name_ar, text_en: null as string | null,
-        mandatory: r.is_required, min_years: null, skill_id: null as string | null,
-      })),
-      ...data.custom.map((c) => ({
-        key: `custom:${c.id}`, kind: 'skill', text_ar: c.name_ar, text_en: c.name_en,
-        mandatory: c.is_required, min_years: null, skill_id: null as string | null,
-      })),
-    ].filter((r) => r.text_ar || r.text_en);
-    const evidence = evidenceFrom(applicantProfile(data.application.profile_snapshot));
-    const result = items.length === 0 ? null : await this.ai.matchRequirements<AiMatch>({
-      requirements: items.map((r) => ({ key: r.key, text: [r.text_ar, r.text_en].filter(Boolean).join(' / '), mandatory: r.mandatory, min_years: r.min_years, skill_id: r.skill_id })),
-      evidence,
-    });
+    const { items } = data;
+    const { result, evidence } = await matchSnapshot(this.ai, items, data.application.profile_snapshot);
     const latest = new Map<string, (typeof data.reviews)[number]>();
     for (const review of data.reviews) if (!latest.has(review.requirement_key)) latest.set(review.requirement_key, review);
     const proposals = new Map((result?.matches ?? []).map((m) => [m.key, m]));
