@@ -13,6 +13,7 @@ import { ErrorText, useAction } from './forms';
 /** The career workspace's own places, in the order of the journey. */
 const PLACES = [
   ['/development', 'journey'],
+  ['/development/readiness', 'readiness'],
   ['/development/roles', 'roles'],
   ['/development/skills', 'skills'],
   ['/development/learning', 'learning'],

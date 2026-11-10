@@ -30,6 +30,7 @@ import { InterviewPreparationController } from './interviews/preparation.control
 import { CalendarClient, DailyClient } from './interviews/video-and-calendar';
 import { CandidateController } from './me/candidate.controller';
 import { CareerController, ReferenceController } from './me/career.controller';
+import { ReadinessController } from './me/readiness.controller';
 import { CvController } from './me/cv.controller';
 import { MeController } from './me/me.controller';
 import { OrganizationsController } from './organizations/organizations.controller';
@@ -45,7 +46,7 @@ import { MyInvitationsController, TeamController } from './organizations/team.co
   controllers: [
     HealthController, JobsController, SkillsController, OrganizationsController, ApplicationsController, ApplicationReviewController, ApplicationMatchController, JobRankingController, DevelopmentReportController, AssistantController, MeController,
     AssessmentsController, AttemptsController, EvaluationsController, RequirementsController,
-    CandidateController, CvController, CareerController, ReferenceController, InterviewsController, InterviewPreparationController, AdminController, AdminEmployerAccessController, MyEmployerAccessController, JobAnalysisController, JobSkillsController,
+    CandidateController, CvController, CareerController, ReadinessController, ReferenceController, InterviewsController, InterviewPreparationController, AdminController, AdminEmployerAccessController, MyEmployerAccessController, JobAnalysisController, JobSkillsController,
     TeamController, MyInvitationsController, EmployerClaimsController, OrganizationListingsController,
     OrganizationVerificationController, AdminOrganizationsController, TranslationController,
   ],

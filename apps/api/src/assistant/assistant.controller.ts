@@ -6,6 +6,7 @@ import { ArrayMaxSize, IsArray, IsIn, IsOptional, IsString, MaxLength, MinLength
 import { AiClient } from '../ai/ai.client';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { applicantProfile } from '../common/applicant';
+import { evidenceFrom } from '../applications/ats';
 import { requireRole } from '../common/roles';
 import { AuthUser, DbService } from '../db/db.service';
 
@@ -63,7 +64,9 @@ export class AssistantController {
   async candidate(@CurrentUser() user: AuthUser, @Body() body: AskDto) {
     const locale = body.locale ?? 'ar';
     const { facts, links } = await this.db.asUser(user, async (tx) => {
-      const profile = await tx.candidate_profiles.findUnique({ where: { user_id: user.id }, select: { headline: true, time_zone: true, onboarding_completed_at: true, self_reported_skills: true } });
+      const profile = await tx.candidate_profiles.findUnique({ where: { user_id: user.id }, select: {
+        headline: true, time_zone: true, onboarding_completed_at: true, self_reported_skills: true,
+        summary: true, experience: true, education: true, projects: true, courses: true, certifications: true, languages: true } });
       const { pick, when, day, ar, label } = phrasing(locale, profile?.time_zone ?? 'Asia/Riyadh');
       const [applications, interviews, target, plan, practice, unread, listed] = await Promise.all([
         tx.applications.findMany({
@@ -123,6 +126,39 @@ export class AssistantController {
           ? `مهارات في الدور المستهدف بلا دليل بعد (ذات الأولوية أولًا): ${gaps.map((g) => g.name_ar).join('، ')}.`
           : `Target-role skills with no evidence yet (priority first): ${gaps.map((g) => g.name_ar).join(', ')}.` });
       }
+      // The candidate's own CV and profile lines (never contact details), so answers about their CV rest on what it says.
+      for (const line of evidenceFrom(profile as never).slice(0, 25)) facts.push({ id: `cv:${line.id}`, text: `${ar ? 'من الملف' : 'From the profile'} (${line.source}): ${line.text.slice(0, 300)}` });
+      // The latest readiness check (مساري المهني): requirements as MIDAN's matcher read the profile, the evaluation, the roadmap.
+      const [readiness] = await tx.$queryRaw<{ id: string; target_title: string; status: string; plan: { title_ar: string; title_en: string; requirements: { key: string; name_ar: string; name_en: string; importance: string }[] };
+        comparison: { matches: { key: string; status: string }[] }; evaluation: { readiness: string; readiness_ar: string; readiness_en: string; gaps_ar: string[]; gaps_en: string[];
+          questions: { score: number }[]; roadmap: { title_ar: string; title_en: string; weeks: number }[]; recommendations: { resource_id: string }[] } | null }[]>`
+        select id, target_title, status, plan, comparison, evaluation from public.career_readiness where candidate_id = auth.uid() order by created_at desc limit 1`;
+      if (readiness) {
+        const status = new Map(readiness.comparison.matches.map((m) => [m.key, m.status]));
+        const shown = { matched: ar ? 'يظهر' : 'shown', partial: ar ? 'جزئيًا' : 'partly shown', missing: ar ? 'غير موجود' : 'not shown', needs_review: ar ? 'غير واضح' : 'unclear' } as Record<string, string>;
+        facts.push({ id: 'readiness', text: ar
+          ? `فحص الجاهزية لوظيفة ${pick(readiness.plan.title_ar, readiness.plan.title_en)}: المتطلبات وما يظهره الملف: ${readiness.plan.requirements.map((r) => `${r.name_ar} (${shown[status.get(r.key) ?? ''] ?? '—'})`).join('، ')}.`
+          : `Readiness check for ${pick(readiness.plan.title_ar, readiness.plan.title_en)}: requirements and what the profile shows: ${readiness.plan.requirements.map((r) => `${r.name_en} (${shown[status.get(r.key) ?? ''] ?? '—'})`).join(', ')}.` });
+        links.push({ key: 'readiness', href: `/development/readiness?id=${readiness.id}`, label: ar ? 'جاهزيتي' : 'My readiness' });
+        const ev = readiness.evaluation;
+        if (ev) {
+          const earned = ev.questions.reduce((n, q) => n + q.score, 0);
+          facts.push({ id: 'readiness-result', text: ar
+            ? `نتيجة الجاهزية: ${label(ev.readiness)}؛ ${earned} من ${ev.questions.length * 4} نقطة في التقييم. ${ev.readiness_ar} الفجوات: ${ev.gaps_ar.join('، ')}.`
+            : `Readiness result: ${ev.readiness.replace(/_/g, ' ')}; ${earned} of ${ev.questions.length * 4} assessment points. ${ev.readiness_en} Gaps: ${ev.gaps_en.join(', ')}.` });
+          facts.push({ id: 'roadmap', text: ar
+            ? `خطة التطوير: ${ev.roadmap.map((r, i) => `${i + 1}. ${r.title_ar} (${r.weeks} أسابيع)`).join('؛ ')}.`
+            : `Development roadmap: ${ev.roadmap.map((r, i) => `${i + 1}. ${r.title_en} (${r.weeks} weeks)`).join('; ')}.` });
+          const ids = ev.recommendations.map((r) => r.resource_id);
+          if (ids.length) {
+            const resources = await tx.learning_resources.findMany({ where: { id: { in: ids } }, select: { kind: true, title_ar: true, title_en: true, provider: true } });
+            facts.push({ id: 'learning', text: ar
+              ? `دورات وشهادات موثّقة موصى بها: ${resources.map((r) => `${pick(r.title_ar, r.title_en)} (${r.provider})`).join('، ')}.`
+              : `Recommended verified courses and certifications: ${resources.map((r) => `${pick(r.title_ar, r.title_en)} (${r.provider})`).join(', ')}.` });
+          }
+        }
+      }
+      links.push({ key: 'readiness-start', href: '/development/readiness?new=1', label: ar ? 'فحص جاهزية جديد' : 'New readiness check' });
       if (plan.length) facts.push({ id: 'plan', text: ar
         ? `الخطة: ${plan.length} نشاط، منها ${plan.filter((p) => p.status === 'completed').length} مكتمل و${plan.filter((p) => p.status === 'in_progress').length} قيد التنفيذ.`
         : `Plan: ${plan.length} activities, ${plan.filter((p) => p.status === 'completed').length} completed and ${plan.filter((p) => p.status === 'in_progress').length} in progress.` });
@@ -130,7 +166,8 @@ export class AssistantController {
       facts.push({ id: 'unread', text: ar ? `إشعارات غير مقروءة: ${unread}.` : `Unread notifications: ${unread}.` });
       return { facts, links };
     });
-    return this.ai.answerQuestion({ role: 'candidate', locale, question: body.question, facts, links, history: body.history ?? [] });
+    // The AI service takes facts of at most 600 characters.
+    return this.ai.answerQuestion({ role: 'candidate', locale, question: body.question, facts: facts.map((f) => ({ ...f, text: f.text.slice(0, 600) })), links, history: body.history ?? [] });
   }
 
   @Post('organizations/:orgId/assistant')
