@@ -41,16 +41,23 @@ export function SiteFooter() {
           </nav>
         </div>
         <div className="border-t border-mint/15">
-          <p className="container-page py-5 text-sm text-deep-muted">{t('footer.status')}</p>
+          {isTestEnvironment() && <p className="container-page py-5 text-sm text-deep-muted">{t('footer.status')}</p>}
         </div>
       </div>
     </footer>
   );
 }
 
-/** The development notice: visible on every page, never alarming. */
+/**
+ * Whether this deployment is a test environment (registration open to test accounts only). The development notices
+ * appear only there: a real deployment never tells its users it's a demo.
+ */
+export const isTestEnvironment = () => process.env.DEV_TEST_SIGNUP === 'true';
+
+/** The development notice: on every page of a test environment only, never alarming. */
 export function DemoBanner() {
   const t = useTranslations();
+  if (!isTestEnvironment()) return null;
   return (
     <p className="flex items-center justify-center gap-2 border-b border-border bg-surface-2 px-4 py-1.5 text-center text-xs font-medium text-muted">
       <span aria-hidden className="size-1.5 shrink-0 rotate-45 bg-gold" />

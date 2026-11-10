@@ -3093,7 +3093,13 @@
     "count": "{shown} candidates",
     "removeFilter": "Remove filter: {filter}",
     "clearAll": "Clear all",
-    "noMatch": "No candidates match these filters."
+    "noMatch": "No candidates match these filters.",
+    "cvMatch": "CV match",
+    "cvRank": "#{rank} of {total} in this job",
+    "cvNeedsReview": "Needs your review",
+    "cvUnavailable": "Analysis unavailable",
+    "cvNoRequirements": "No approved requirements",
+    "cvNotRanked": "Not analysed yet"
   },
   "orgAssessments": {
     "lead": "Submissions waiting for your review, and how each job's assessments are progressing.",
@@ -3886,7 +3892,9 @@
     },
     "strengths": "Shows",
     "gaps": "Not shown",
-    "manual": "Ranking informs; it decides nothing. Shortlisting, rejecting and hiring are always a person's choice."
+    "manual": "Ranking informs; it decides nothing. Shortlisting, rejecting and hiring are always a person's choice.",
+    "cvRule": "CV match is the share of the job’s approved requirements the CV shows, from MIDAN’s matching model: mandatory requirements count twice, a partly shown one counts half, and anything that needs a person’s review is left out rather than guessed. Your reviews of a match replace the model’s proposal.",
+    "retry": "Try again"
   },
   "interviewPrep": {
     "note": "Proposed by MIDAN for this candidate, from the job's approved requirements, the company's context, the CV match and the reviewed assessment. Use, change or ignore them; the candidate never sees this.",

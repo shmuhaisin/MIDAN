@@ -33,6 +33,8 @@ export async function JobRanking({ locale, orgId, jobId, data }: { locale: strin
   return (
     <div>
       <p className="text-sm text-muted">{t('lead')}</p>
+      {/* How the CV percentage is calculated, so the employer can see why one applicant is above another. */}
+      <p className="mt-2 text-sm text-muted">{t('cvRule')}</p>
       <p className="mt-2 text-sm text-muted">{t('noOverall')}</p>
       {providers.length > 0 && (
         <p className="mt-2 text-xs text-muted">{t('matchedWith', { model: providers.map((p) => (p === 'fallback' ? t('fallback') : p)).join(', ') })}</p>
@@ -73,7 +75,13 @@ export async function JobRanking({ locale, orgId, jobId, data }: { locale: strin
                         <span className="font-semibold">{a.cv.score === null ? t('needsReview') : `${number(locale, a.cv.score)}%`}</span>
                         <span className="block text-xs text-muted">{t('cvBreakdown', { matched: number(locale, a.cv.counts.matched), partial: number(locale, a.cv.counts.partial), missing: number(locale, a.cv.counts.missing), review: number(locale, a.cv.counts.needs_review) })}</span>
                       </>
-                    ) : <span className="text-muted">{t(`cvState.${a.cv.status}`)}</span>}
+                    ) : (
+                      <span className="text-muted">
+                        {t(`cvState.${a.cv.status}`)}
+                        {/* The analysis runs on every read: asking again is simply reading the ranking again. */}
+                        {a.cv.status === 'unavailable' && <Link href={`/organization/${orgId}/jobs/${jobId}?rank=${data.sort}#ranking`} className="link ms-2 text-xs">{t('retry')}</Link>}
+                      </span>
+                    )}
                   </td>
                   <td className="px-2 py-2.5">
                     {a.assessments.length === 0 ? <span className="text-muted">{t('noAssessment')}</span> : a.assessments.map((s) => (

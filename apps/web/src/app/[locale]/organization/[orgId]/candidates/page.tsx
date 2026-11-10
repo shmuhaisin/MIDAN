@@ -8,6 +8,8 @@ import { Masthead, StageMeter, STAGE_COLORS } from '@/components/workspace-kit';
 import { canReopenApplications } from '@/lib/application-status';
 import { Link, redirect } from '@/i18n/navigation';
 import { number, pick } from '@/lib/format';
+import { apiForPage } from '@/lib/api';
+import type { Ranking } from '@/components/job-ranking';
 import { canManageJobs, orgBasics, PIPELINE, stageOf } from '@/lib/org-data';
 import { getSession } from '@/lib/session';
 
@@ -39,6 +41,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     return true;
   };
   const shown = applications.filter((a) => matches(a));
+  // The CV match of each applicant shown, from the same ranking the job page uses: MIDAN's matching model (Hugging Face
+  // e5) against the job's approved requirements, with the team's reviews applied. One request per job, at most twelve.
+  const jobIds = [...new Set(shown.map((a) => a.jobs.id ?? a.job_id).filter((id): id is string => Boolean(id)))].slice(0, 12);
+  const rankings = await Promise.all(jobIds.map((id) => apiForPage<Ranking>(`/organizations/${orgId}/jobs/${id}/ranking?sort=cv`).catch(() => null)));
+  const cvOf = new Map<string, { row: Ranking['applicants'][number]; total: number; jobId: string }>();
+  rankings.forEach((r, i) => r?.applicants.forEach((row) => cvOf.set(row.application_id, { row, total: r.applicants.length, jobId: jobIds[i] })));
   const pool = applications.filter((a) => matches(a, true));
   const active = [query.q && ['q', `“${query.q}”`], query.job && ['job', pick(locale, jobs.find((j) => j.id === query.job)?.title_ar ?? '', jobs.find((j) => j.id === query.job)?.title_en ?? '')], query.stage && ['stage', query.stage === 'closed' ? tc('closed') : to(`stage.${query.stage}`)], query.status && ['status', ts(query.status)]].filter(Boolean) as [string, string][];
   const withParams = (patch: Record<string, string | undefined>) => {
@@ -105,9 +113,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <EmptyState title={applications.length === 0 ? t('noApplicants') : tc('noMatch')} />
       ) : (
         <div className="overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface">
-          <div className="hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_14rem] gap-6 border-b border-border bg-surface-2/40 px-6 py-3 lg:grid">
+          <div className="hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_8rem_minmax(0,1fr)_14rem] gap-6 border-b border-border bg-surface-2/40 px-6 py-3 lg:grid">
             <span className="text-xs font-semibold text-muted">{t('candidate')}</span>
             <span className="text-xs font-semibold text-muted">{t('job')}</span>
+            <span className="text-xs font-semibold text-muted">{tc('cvMatch')}</span>
             <span className="text-xs font-semibold text-muted">{tc('stage')}</span>
             <span className="text-xs font-semibold text-muted">{t('status')}</span>
           </div>
@@ -115,7 +124,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             {shown.map((a) => {
               const name = a.users.candidate_profiles?.full_name ?? a.users.email;
               return (
-                <li key={a.id} className="grid gap-3 px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_14rem] lg:items-center lg:gap-6">
+                <li key={a.id} className="grid gap-3 px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_8rem_minmax(0,1fr)_14rem] lg:items-center lg:gap-6">
                   <div className="flex min-w-0 items-center gap-3">
                     <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--brand-mint)_40%,var(--surface))] font-display font-bold text-forest dark:text-mint">{name.trim().charAt(0).toUpperCase()}</span>
                     <div className="min-w-0">
@@ -124,6 +133,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                     </div>
                   </div>
                   <p className="truncate text-sm">{pick(locale, a.jobs.title_ar, a.jobs.title_en)}</p>
+                  <CvCell entry={cvOf.get(a.id)} orgId={orgId} labels={{
+                    label: tc('cvMatch'), rank: (rank: number, total: number) => tc('cvRank', { rank: n(rank), total: n(total) }), needsReview: tc('cvNeedsReview'),
+                    unavailable: tc('cvUnavailable'), none: tc('cvNoRequirements'), notRanked: tc('cvNotRanked'),
+                  }} n={n} />
                   <p className="flex flex-wrap items-center gap-3 text-sm">
                     <StageMeter status={a.status} label={ts(a.status)} />
                     <span className={clsx(a.status === 'rejected' || a.status === 'withdrawn' ? 'text-muted' : 'font-medium')}>{ts(a.status)}</span>
@@ -136,5 +149,30 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         </div>
       )}
     </div>
+  );
+}
+
+/** The CV match for one applicant: the percentage and where it ranks in its job, or plainly why there isn't one. */
+function CvCell({ entry, orgId, labels, n }: {
+  entry?: { row: Ranking['applicants'][number]; total: number; jobId: string };
+  orgId: string;
+  labels: { label: string; rank: (rank: number, total: number) => string; needsReview: string; unavailable: string; none: string; notRanked: string };
+  n: (v: number) => string;
+}) {
+  if (!entry) return <p className="text-sm text-muted"><span className="lg:sr-only">{labels.label}: </span>{labels.notRanked}</p>;
+  const { row, total, jobId } = entry;
+  const cv = row.cv;
+  return (
+    <p className="text-sm">
+      <span className="lg:sr-only">{labels.label}: </span>
+      {cv.status === 'scored'
+        ? cv.score === null
+          ? <span className="text-muted">{labels.needsReview}</span>
+          : <span className="num font-semibold">{n(cv.score)}%</span>
+        : <span className="text-muted">{cv.status === 'no_requirements' ? labels.none : labels.unavailable}</span>}
+      {row.rank !== null && (
+        <Link href={`/organization/${orgId}/jobs/${jobId}?rank=cv#ranking`} className="block text-xs text-muted hover:text-foreground">{labels.rank(row.rank, total)}</Link>
+      )}
+    </p>
   );
 }
