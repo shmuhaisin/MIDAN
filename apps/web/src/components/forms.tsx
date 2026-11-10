@@ -5,11 +5,10 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useLocale, useTranslations } from 'next-intl';
 import { createContext, useActionState, useContext, useEffect, useId, useState, useTransition } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
-import { applyToJob, createJob, createOrganization, saveBranding, setApplicationStatus, setJobStatus, uploadLogo, withdrawApplication } from '@/lib/actions';
+import { applyToJob, createJob, createOrganization, setApplicationStatus, setJobStatus, withdrawApplication } from '@/lib/actions';
 import { statusOptions } from '@/lib/application-status';
 import { changePassword, requestPasswordReset, resetPassword, signIn, signUp, startGoogleSignIn, type FormState } from '@/lib/auth-actions';
-import { PROFESSIONAL_FIELDS, resolveHumaidan } from '@/lib/humaidan';
-import { Arrow, Humaidan } from './brand';
+import { Arrow } from './brand';
 import { BilingualPair } from './bilingual';
 
 export const INPUT = 'input';
@@ -49,7 +48,8 @@ export function Submit({ children, className }: { children: React.ReactNode; cla
   );
 }
 
-export function ErrorText({ code }: { code?: string }) {
+/** A translated error, and beneath it what the server actually said when there's something more specific to show. */
+export function ErrorText({ code, detail }: { code?: string; detail?: string }) {
   const t = useTranslations('errors');
   return (
     <AnimatePresence>
@@ -62,7 +62,10 @@ export function ErrorText({ code }: { code?: string }) {
           className="flex items-start gap-2.5 rounded-[var(--radius-control)] border border-error/30 bg-error-surface px-3.5 py-2.5 text-sm text-foreground"
         >
           <svg aria-hidden viewBox="0 0 20 20" className="mt-0.5 size-4 shrink-0 text-error"><path fill="currentColor" d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm-.9 4h1.8v5.2H9.1zm0 6.6h1.8v1.8H9.1z" /></svg>
-          <span>{t(code)}</span>
+          <span>
+            {t.has(code) ? t(code) : t('generic')}
+            {detail && <span className="mt-1 block text-xs text-muted"><span>{t('serverSaid')} </span><bdi dir="auto">{detail}</bdi></span>}
+          </span>
         </motion.p>
       )}
     </AnimatePresence>
@@ -264,88 +267,6 @@ export function RegisterForm({ audience, employers = [] }: { audience: 'candidat
       </p>
       <AudienceSwitch href={org ? '/register' : '/register?as=organization'} label={t(org ? 'toCandidateRegister' : 'toOrgRegister')} />
     </ActionForm>
-  );
-}
-
-export function BrandingForm({ orgId, branding, logoUrl, canEdit }: {
-  orgId: string;
-  logoUrl: string | null;
-  canEdit: boolean;
-  branding: { industry: string | null; primary_color: string | null; accent_color: string | null; welcome_ar: string | null; welcome_en: string | null } | null;
-}) {
-  const t = useTranslations('branding');
-  const tf = useTranslations('fields');
-  const [state, action] = useActionState<FormState, FormData>(saveBranding.bind(null, orgId), {});
-  const [industry, setIndustry] = useState(branding?.industry ?? '');
-  const [uploading, start] = useTransition();
-  const [logoError, setLogoError] = useState<string>();
-  return (
-    <div className="grid gap-10 lg:grid-cols-[1fr_16rem]">
-      <div className="space-y-8">
-        {!canEdit && <p className="callout text-sm font-medium">{t('readOnly')}</p>}
-        <div>
-          <p className="text-sm font-medium">{t('logo')}</p>
-          <div className="mt-2 flex items-center gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {logoUrl && <img src={logoUrl} alt={t('logo')} className="h-14 w-auto max-w-40 rounded object-contain" />}
-            {canEdit && (
-              <label className={clsx('btn btn-secondary btn-sm cursor-pointer has-focus-visible:outline-2 has-focus-visible:outline-primary', uploading && 'opacity-60')}>
-                <input
-                  type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={uploading}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    if (file.size > 2 * 1024 * 1024) return setLogoError('too_large');
-                    const form = new FormData();
-                    form.append('file', file);
-                    start(async () => setLogoError((await uploadLogo(orgId, form)).error));
-                  }}
-                />
-                {uploading ? t('uploading') : t('uploadLogo')}
-              </label>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-muted">{t('logoHint')}</p>
-          <ErrorText code={logoError} />
-        </div>
-        <ActionForm action={action}>
-          <fieldset disabled={!canEdit} className="space-y-4">
-            <ErrorText code={state.error} />
-            <label className="block">
-              <span className="field-label">{t('industry')}</span>
-              <select name="industry" value={industry} onChange={(e) => setIndustry(e.target.value)} className={INPUT}>
-                <option value="" disabled>{t('notSet')}</option>
-                {PROFESSIONAL_FIELDS.map((f) => <option key={f} value={f}>{tf(f)}</option>)}
-              </select>
-              <span className="mt-1 block text-xs text-muted">{t('industryHint')}</span>
-            </label>
-            <div className="grid grid-cols-2 gap-4">
-              <Field name="primary_color" type="color" label={t('primaryColor')} defaultValue={branding?.primary_color ?? '#0F5B46'} className={clsx(INPUT, 'p-1')} />
-              <Field name="accent_color" type="color" label={t('accentColor')} defaultValue={branding?.accent_color ?? '#1F7A5C'} className={clsx(INPUT, 'p-1')} />
-            </div>
-            <label className="block">
-              <span className="field-label">{t('welcomeAr')}</span>
-              <textarea name="welcome_ar" dir="rtl" rows={2} maxLength={600} defaultValue={branding?.welcome_ar ?? ''} className={clsx(INPUT, 'h-auto py-2.5')} />
-            </label>
-            <label className="block">
-              <span className="field-label">{t('welcomeEn')}</span>
-              <textarea name="welcome_en" dir="ltr" rows={2} maxLength={600} defaultValue={branding?.welcome_en ?? ''} className={clsx(INPUT, 'h-auto py-2.5')} />
-            </label>
-            {canEdit && (
-              <div className="flex items-center gap-4">
-                <Submit>{t('save')}</Submit>
-                {state.ok && <span role="status" className="font-semibold text-primary">{t('saved')}</span>}
-              </div>
-            )}
-          </fieldset>
-        </ActionForm>
-      </div>
-      <aside className="rounded-lg bg-surface p-5 lg:self-start">
-        <p className="font-semibold">{t('preview')}</p>
-        <div className="mx-auto mt-3 w-40"><Humaidan outfit={resolveHumaidan(null, industry)} sizes="160px" /></div>
-        <p className="mt-3 text-xs text-muted">{t('previewNote')}</p>
-      </aside>
-    </div>
   );
 }
 

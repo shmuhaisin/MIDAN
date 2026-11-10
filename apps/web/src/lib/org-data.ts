@@ -8,7 +8,7 @@ import { apiForPage } from './api';
 
 export type Org = {
   id: string; name_ar: string; name_en: string; my_role: string; is_demo?: boolean;
-  branding: { logo_path: string | null; primary_color: string | null; accent_color: string | null; industry?: string | null; welcome_ar?: string | null; welcome_en?: string | null } | null;
+  branding: { logo_path: string | null; primary_color: string | null; accent_color: string | null; industry?: string | null; welcome_ar?: string | null; welcome_en?: string | null; palette_status?: string | null } | null;
 };
 export type OrgJob = { id: string; title_ar: string; title_en: string; status: string; slug?: string; created_at?: string };
 export type OrgApplication = {

@@ -2,7 +2,8 @@ import { getTranslations } from 'next-intl/server';
 import { OrgNav } from '@/components/org-shell';
 import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
-import { pick, readableOnWhite } from '@/lib/format';
+import { pick } from '@/lib/format';
+import { orgAssetUrl, orgTheme, type OrgBranding } from '@/lib/org-theme';
 import { getSession } from '@/lib/session';
 
 type Org = {
@@ -11,10 +12,8 @@ type Org = {
   my_role: string;
   is_demo?: boolean;
   verification_status?: string;
-  branding: { logo_path: string | null; primary_color: string | null; accent_color: string | null } | null;
+  branding: OrgBranding | null;
 };
-
-const HEX = /^#[0-9a-f]{6}$/i;
 
 /**
  * The employer workspace. One platform, one design system: the organization's own identity (logo, name, two colours) is
@@ -32,17 +31,13 @@ export default async function OrganizationLayout({ children, params }: { childre
   const to = await getTranslations({ locale, namespace: 'org' });
   const tv = await getTranslations({ locale, namespace: 'verification' });
   const name = pick(locale, org.name_ar, org.name_en);
-  const primary = org.branding?.primary_color && HEX.test(org.branding.primary_color) ? org.branding.primary_color : null;
-  const accent = org.branding?.accent_color && HEX.test(org.branding.accent_color) ? org.branding.accent_color : null;
-  const logo = org.branding?.logo_path ? `${process.env.SUPABASE_URL}/storage/v1/object/public/organization-assets/${org.branding.logo_path}` : null;
-  const style = {
-    ...(primary && { '--org-primary': primary, '--org-on-primary': readableOnWhite(primary) ? '#ffffff' : '#0f5b46' }),
-    ...(accent && { '--org-accent': accent }),
-  } as React.CSSProperties;
+  const logo = orgAssetUrl(org.branding?.logo_path);
+  // The company's approved identity themes everything inside this wrapper, in light and dark (src/lib/org-theme.ts).
+  const theme = orgTheme(org.branding);
 
   return (
-    <div style={style} className="flex-1 bg-surface-2/40">
-      <div aria-hidden className="h-1 bg-[linear-gradient(90deg,var(--org-primary,var(--brand-deep))_0_70%,var(--org-accent,var(--brand-gold))_70%_100%)]" />
+    <div style={theme.style} className={`flex-1 bg-surface-2/40 ${theme.className}`} data-org-workspace={orgId}>
+      <div aria-hidden className="h-1.5 bg-[linear-gradient(90deg,var(--org-primary,var(--brand-deep))_0_72%,var(--org-accent,var(--brand-gold))_72%_100%)]" />
       <div className="container-page grid grid-cols-[minmax(0,1fr)] gap-6 py-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10 lg:py-8">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="flex items-center gap-3 lg:flex-col lg:items-start lg:gap-4">

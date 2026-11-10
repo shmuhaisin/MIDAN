@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getLocale } from 'next-intl/server';
 import { redirect } from '@/i18n/navigation';
-import { api, ApiError, errorCode } from './api';
+import { api, ApiError, errorCode, errorDetail } from './api';
 import type { FormState } from './auth-actions';
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -148,7 +148,7 @@ function result(run: () => Promise<unknown>): Promise<FormState> {
       revalidatePath('/', 'layout');
       return { ok: true };
     },
-    (error) => ({ error: errorCode(error) }),
+    (error) => ({ error: errorCode(error), detail: errorDetail(error) }),
   );
 }
 
@@ -315,24 +315,6 @@ export async function evidenceLink(id: string): Promise<{ url?: string; error?: 
 
 export async function setAssessmentField(orgId: string, assessmentId: string, field: string | null) {
   return result(() => api(`/organizations/${orgId}/assessments/${assessmentId}/field`, { method: 'PATCH', body: { professional_field: field } }));
-}
-
-export async function saveBranding(orgId: string, _: FormState, form: FormData): Promise<FormState> {
-  const color = (name: string) => text(form, name) || undefined;
-  return result(() =>
-    api(`/organizations/${orgId}/branding`, {
-      method: 'PATCH',
-      body: {
-        ...(text(form, 'industry') && { industry: text(form, 'industry') }),
-        primary_color: color('primary_color'), accent_color: color('accent_color'),
-        welcome_ar: text(form, 'welcome_ar'), welcome_en: text(form, 'welcome_en'),
-      },
-    }),
-  );
-}
-
-export async function uploadLogo(orgId: string, form: FormData) {
-  return result(() => api(`/organizations/${orgId}/branding/logo`, { method: 'POST', form }));
 }
 
 export type RequirementInput = {

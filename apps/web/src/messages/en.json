@@ -533,7 +533,12 @@
     "invalid_year": "Check the year: it should be a four-digit year.",
     "ai_unavailable": "The AI model isn't available right now, so the task wasn't changed. Try again in a minute, or edit it yourself.",
     "reason_required": "Give a reason. It's recorded and, for decisions, shown to the organization.",
-    "invalid_phone": "Enter a phone number with digits only, 7 to 20 of them."
+    "invalid_phone": "Enter a phone number with digits only, 7 to 20 of them.",
+    "timeout": "The server didn't answer in time, so nothing was changed. What you entered is still here: try again.",
+    "serverSaid": "Details:",
+    "logo_type": "Upload the logo as a PNG, JPEG or WebP image.",
+    "logo_unreadable": "The colours couldn't be read from this logo. Try a PNG with a transparent background, or a larger image.",
+    "palette_not_from_logo": "Choose the colours from your logo."
   },
   "applicationStatus": {
     "submitted": "Submitted",
@@ -2950,14 +2955,14 @@
     "continueSetup": "Continue setup",
     "setup": {
       "profile": {
-        "title": "Complete your organization profile",
-        "body": "Your colors and welcome message appear in candidates' assessments.",
-        "cta": "Open settings"
+        "title": "Add your company details",
+        "body": "Your field and welcome message shape the assessments candidates take.",
+        "cta": "Start setup"
       },
       "logo": {
-        "title": "Add your logo",
-        "body": "It identifies you in your workspace and on assessments.",
-        "cta": "Upload logo"
+        "title": "Upload your logo",
+        "body": "MIDAN reads its colours and themes your workspace with them, once you approve.",
+        "cta": "Add logo"
       },
       "team": {
         "title": "Invite your team",
@@ -3921,5 +3926,124 @@
     "notShown": "Requirements your application doesn't show yet",
     "candidateTitle": "Your development report",
     "candidateNote": "From the organization, based on your application, your assessment and your interview. It doesn't change your application's status."
+  },
+  "companySetup": {
+    "eyebrow": "Set up {org}",
+    "progress": "Step {step} of {total}",
+    "stepsLabel": "Company setup steps",
+    "state": {
+      "done": "done",
+      "current": "current step",
+      "next": "not started"
+    },
+    "optional": "(optional)",
+    "back": "Back",
+    "continue": "Continue",
+    "saving": "Saving…",
+    "saveContinue": "Save and continue",
+    "savedMoving": "Saved. Opening the next step…",
+    "finish": "Finish and open the workspace",
+    "readOnly": "Only an owner or admin of this workspace can change these details. You can still look through them.",
+    "step": {
+      "details": {
+        "name": "Company details",
+        "title": "Tell candidates who you are",
+        "lead": "Your field shapes the assessments MIDAN prepares; the welcome message greets candidates when they start one. It takes a minute."
+      },
+      "identity": {
+        "name": "Logo and identity",
+        "title": "Your logo, and the colours it gives your workspace",
+        "lead": "Upload your logo and MIDAN reads its colours. You see your workspace in them, in light and dark, before anything changes."
+      },
+      "team": {
+        "name": "Team",
+        "title": "Bring in your colleagues",
+        "lead": "Invite the people who recruit with you. You can do this later from the settings."
+      }
+    },
+    "details": {
+      "industry": "Your organization's field",
+      "choose": "Choose a field",
+      "industryHint": "Used to frame assessments around your kind of work.",
+      "industryMissing": "Choose your field to continue.",
+      "companyType": "Type of organization",
+      "companyTypeHint": "Helps MIDAN set the right business context in assessments.",
+      "notSet": "Not set",
+      "welcome_ar": "Welcome message in Arabic",
+      "welcome_en": "Welcome message in English",
+      "welcomeHint": "Shown to candidates when they open your assessments.",
+      "draftNote": "What you type is kept in this browser until it’s saved."
+    },
+    "identity": {
+      "logoTitle": "Company logo",
+      "logoLead": "PNG with a transparent background works best. A white box behind the logo is recognised and ignored.",
+      "logoAlt": "{org} logo",
+      "noLogo": "No logo yet",
+      "upload": "Upload logo",
+      "replace": "Replace logo",
+      "reading": "Uploading and reading colours…",
+      "reread": "Read the colours again",
+      "fileHint": "PNG, JPEG or WebP, up to 2 MB.",
+      "newLogo": "You uploaded a new logo. Its colours replace the earlier identity once you approve them.",
+      "unreadable": "The logo was saved, but its colours couldn't be read. Your workspace keeps MIDAN's colours; you can try another file.",
+      "withoutLogo": "Without a logo, your workspace uses MIDAN's colours. You can add it later from the settings.",
+      "skip": "Skip for now",
+      "title": "Identity read from your logo",
+      "lead": "These are the colours of your logo. MIDAN keeps their hue and adjusts only lightness where text needs it to stay readable.",
+      "leadMono": "Your logo has no colour of its own, so your identity is built on its dark tone.",
+      "statusSuggested": "Suggested — not applied yet",
+      "statusApproved": "Approved and applied",
+      "fromLogo": "Colours found in the logo",
+      "backgroundIgnored": "The background behind the logo ({colour}) was ignored.",
+      "primary": "Main colour (buttons and active items)",
+      "accent": "Accent colour (highlights)",
+      "noAccent": "None",
+      "reset": "Back to the suggestion",
+      "approve": "Use this identity and continue",
+      "contrastNote": "Every text and button colour here meets the WCAG AA contrast minimum in both themes.",
+      "readingColours": "Reading the colours of your logo…"
+    },
+    "team": {
+      "note": "Other representatives of your organization who register and are approved by MIDAN join this same workspace automatically. Invite anyone else here."
+    },
+    "preview": {
+      "light": "Light theme",
+      "dark": "Dark theme",
+      "jobs": "Jobs",
+      "candidates": "Candidates",
+      "interviews": "Interviews",
+      "heading": "Open jobs",
+      "job": "Data Analyst",
+      "jobMeta": "12 applicants · 3 shortlisted",
+      "badge": "Published",
+      "link": "View ranking",
+      "primary": "Create job",
+      "secondary": "Export",
+      "accent": "New"
+    }
+  },
+  "orgSettings": {
+    "title": "Your organization's settings",
+    "lead": "Your identity, details and team, as candidates and colleagues see them.",
+    "readOnly": "Only an owner or admin can change these settings.",
+    "identityTitle": "Identity",
+    "identityLead": "Your logo and the colours read from it theme your workspace, job postings and assessments.",
+    "changeIdentity": "Change logo or colours",
+    "addLogo": "Add your logo",
+    "logoAlt": "Organization logo",
+    "noLogo": "No logo",
+    "colours": "Identity colours",
+    "identityApproved": "Approved and applied to your workspace",
+    "identitySuggested": "Suggested from your logo, waiting for approval",
+    "identityNotRead": "This logo's colours haven't been read yet.",
+    "identityNone": "No logo yet: your workspace uses MIDAN's colours.",
+    "detailsTitle": "Company details",
+    "editDetails": "Edit details",
+    "field": "Field",
+    "companyType": "Type of organization",
+    "welcome": "Welcome message",
+    "notSet": "Not set",
+    "humaidanTitle": "Humaidan in your assessments",
+    "humaidanNote": "Always the same character, in the approved professional outfit for your field."
   }
 }

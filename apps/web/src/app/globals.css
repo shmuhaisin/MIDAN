@@ -114,6 +114,59 @@
   --sun: #dceee5;
 }
 
+/*
+ * A company's approved identity, inside its own workspace, job postings and assessments only (src/lib/org-theme.ts).
+ * The values come from its logo and were made accessible by the API for each theme, so they're mapped onto MIDAN's
+ * tokens as they are: every button, link, active item, focus ring, tint and deep panel follows the company.
+ */
+.org-themed {
+  --org-primary: var(--org-l-primary);
+  --org-on-primary: var(--org-l-on-primary);
+  --org-accent: var(--org-l-accent);
+  --primary: var(--org-l-text);
+  --primary-foreground: var(--org-l-on-text, #ffffff);
+  --button: var(--org-l-primary);
+  --button-hover: var(--org-l-primary-hover);
+  --button-foreground: var(--org-l-on-primary);
+  --focus: var(--org-l-primary);
+  --gold: var(--org-l-accent);
+  --gold-text: var(--org-l-text);
+  --accent: var(--org-l-soft);
+  --accent-foreground: var(--org-l-on-soft);
+  --border: color-mix(in srgb, var(--org-l-text) 14%, transparent);
+  --border-strong: color-mix(in srgb, var(--org-l-text) 34%, transparent);
+  --deep: var(--org-l-deep, var(--brand-deep));
+  --deep-2: var(--org-l-deep-2, var(--deep-2));
+  --deep-muted: var(--org-l-deep-muted, var(--deep-muted));
+  --brand-deep: var(--org-l-deep, #0f5b46);
+  --brand-green: var(--org-l-text);
+  --brand-mint: var(--org-l-tint, #dceee5);
+  --brand-gold: var(--org-l-tint, #dceee5);
+}
+[data-theme='dark'] .org-themed {
+  --org-primary: var(--org-d-primary);
+  --org-on-primary: var(--org-d-on-primary);
+  --org-accent: var(--org-d-accent);
+  --primary: var(--org-d-text);
+  --primary-foreground: var(--org-d-on-text, #141414);
+  --button: var(--org-d-primary);
+  --button-hover: var(--org-d-primary-hover);
+  --button-foreground: var(--org-d-on-primary);
+  --focus: var(--org-d-primary);
+  --gold: var(--org-d-accent);
+  --gold-text: var(--org-d-text);
+  --accent: var(--org-d-soft);
+  --accent-foreground: var(--org-d-on-soft);
+  --border: color-mix(in srgb, var(--org-d-text) 16%, transparent);
+  --border-strong: color-mix(in srgb, var(--org-d-text) 36%, transparent);
+  --deep: var(--org-d-deep, var(--brand-deep));
+  --deep-2: var(--org-d-deep-2, #0a3426);
+  --deep-muted: var(--org-d-deep-muted, #bcd8ca);
+  --brand-deep: var(--org-d-deep, #0f5b46);
+  --brand-green: var(--org-d-text);
+  --brand-mint: var(--org-d-tint, #dceee5);
+  --brand-gold: var(--org-d-tint, #dceee5);
+}
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

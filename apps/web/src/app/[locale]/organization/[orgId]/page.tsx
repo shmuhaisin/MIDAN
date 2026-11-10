@@ -46,16 +46,18 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const drafts = jobs.filter((j) => j.status === 'draft');
 
   const setup = [
-    { key: 'profile', done: Boolean(org.branding?.primary_color || org.branding?.welcome_ar || org.branding?.welcome_en), href: '/settings' },
-    { key: 'logo', done: Boolean(org.branding?.logo_path), href: '/settings' },
-    { key: 'team', done: (team?.members.length ?? 0) + (team?.invitations.length ?? 0) > 1, href: '/settings#team' },
+    // The first three are the guided company setup; each opens its own step.
+    { key: 'profile', done: Boolean(org.branding?.industry), href: '/setup?step=1' },
+    { key: 'logo', done: Boolean(org.branding?.logo_path && org.branding?.palette_status === 'approved'), href: '/setup?step=2' },
+    { key: 'team', done: (team?.members.length ?? 0) + (team?.invitations.length ?? 0) > 1, href: '/setup?step=3' },
     { key: 'job', done: jobs.length > 0, href: '/jobs?new=1' },
     { key: 'publish', done: published.length > 0, href: '/jobs' },
   ];
 
   /* ---- A new organization: a guided start, built from what it has actually done. ---- */
   if (jobs.length === 0 && applications.length === 0) {
-    const doneCount = setup.filter((s) => s.done).length;
+    // The step to do next is the first one not done, whatever order the others were finished in.
+    const next = setup.findIndex((s) => !s.done);
     return (
       <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div>
@@ -66,12 +68,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             <span aria-hidden className="absolute start-[1.05rem] top-4 bottom-4 w-px bg-border-strong" />
             {setup.map((s, i) => (
               <li key={s.key} className="relative grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-4 py-4">
-                <span aria-hidden className={clsx('relative z-10 grid size-9 place-items-center rounded-full text-sm font-bold', s.done ? 'bg-primary text-primary-foreground' : i === doneCount ? 'bg-[var(--button)] text-[var(--button-foreground)] ring-4 ring-gold/25' : 'border border-border-strong bg-background text-muted')}>{s.done ? <Icon name="check" className="size-4" /> : n(i + 1)}</span>
+                <span aria-hidden className={clsx('relative z-10 grid size-9 place-items-center rounded-full text-sm font-bold', s.done ? 'bg-primary text-primary-foreground' : i === next ? 'bg-[var(--button)] text-[var(--button-foreground)] ring-4 ring-gold/25' : 'border border-border-strong bg-background text-muted')}>{s.done ? <Icon name="check" className="size-4" /> : n(i + 1)}</span>
                 <span className="min-w-0">
                   <span className="block font-display text-lg font-bold">{t(`setup.${s.key}.title`)}</span>
                   <span className="block text-sm text-muted">{t(`setup.${s.key}.body`)}</span>
                 </span>
-                {s.done ? <span className="text-sm font-semibold text-success">{t('done')}</span> : <Link href={`/organization/${orgId}${s.href}`} className={clsx('btn btn-sm', i === doneCount ? 'btn-primary' : 'btn-secondary')}>{t(`setup.${s.key}.cta`)}</Link>}
+                {s.done ? <span className="text-sm font-semibold text-success">{t('done')}</span> : <Link href={`/organization/${orgId}${s.href}`} className={clsx('btn btn-sm', i === next ? 'btn-primary' : 'btn-secondary')}>{t(`setup.${s.key}.cta`)}</Link>}
               </li>
             ))}
           </ol>

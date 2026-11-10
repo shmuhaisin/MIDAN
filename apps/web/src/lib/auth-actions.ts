@@ -11,7 +11,8 @@ import { clearSessionCookies, decodeToken, getAccessToken, setSessionCookies } f
 import { authError, confirmationRedirectUrl, confirmationRetryAfter } from './email-confirmation';
 import { ConfirmationResendLimiter } from './email-confirmation-rate-limit';
 
-export type FormState = { error?: string; ok?: boolean; id?: string; retryAfter?: number };
+/** `detail`: what the API actually said, shown beside the translated message (lib/api.ts errorDetail). */
+export type FormState = { error?: string; detail?: string; ok?: boolean; id?: string; retryAfter?: number };
 
 // Per-process abuse guard; Supabase independently enforces project and recipient limits across app instances.
 const resendLimiter = new ConfirmationResendLimiter();
