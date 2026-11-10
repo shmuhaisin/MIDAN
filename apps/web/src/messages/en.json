@@ -897,7 +897,7 @@
     "saved": "Saved",
     "assessment": "Practical assessment",
     "noAssessmentTitle": "Let's build the assessment from the job's responsibilities",
-    "noAssessmentBody": "MIDAN's AI model writes a draft from this job's title, description, requirements and skills: realistic tasks, deliverables, time limits and a weighted rubric. You review and edit it, and nothing is published without your approval. If the model isn't available, MIDAN builds the draft from its templates and labels it so.",
+    "noAssessmentBody": "MIDAN's AI model writes an original business case for this job at your company, from its title, description and approved requirements: realistic tasks, synthetic data, deliverables, time limits and a weighted rubric, in Arabic and English. You review and edit it, and nothing is published without your approval. If the model isn't available, MIDAN says so and writes nothing in its place.",
     "generate": "Generate assessment with AI",
     "generating": "The AI model is writing the draft…",
     "demoLabel": "Demo mode: this draft was built from templates only. Review it carefully.",
