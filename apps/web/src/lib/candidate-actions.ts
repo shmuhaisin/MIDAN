@@ -17,10 +17,11 @@ function done(run: () => Promise<unknown>): Promise<FormState> {
 }
 
 /** Applies, then goes to the application's own page. A repeated click arrives at the same application. */
-export async function submitApplication(jobId: string, coverNote: string): Promise<FormState> {
+export async function submitApplication(jobId: string, coverNote: string, cvDocumentId?: string): Promise<FormState> {
   let id: string;
   try {
-    const made = await api<{ id: string }>(`/jobs/${jobId}/applications`, { method: 'POST', body: coverNote.trim() ? { cover_note: coverNote.trim() } : {} });
+    const body = { ...(coverNote.trim() && { cover_note: coverNote.trim() }), ...(cvDocumentId && { cv_document_id: cvDocumentId }) };
+    const made = await api<{ id: string }>(`/jobs/${jobId}/applications`, { method: 'POST', body });
     id = made.id;
   } catch (error) {
     return { error: errorCode(error) };

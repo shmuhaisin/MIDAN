@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Body, Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Post, Query, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { AuthGuard, CurrentUser, OptionalAuthGuard } from '../auth/auth.guard';
 import { listableJobs, viewableJob } from '../common/test-data';
 import { storageFetch } from '../common/storage';
@@ -17,6 +17,8 @@ function branded<T extends { organizations: { organization_branding: { applied_p
 class ApplyDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(4000)
   cover_note?: string;
+  @ApiPropertyOptional({ description: "One of the candidate's own saved CVs for this application (GET /me/cv/documents). Without it, the profile's CV." })
+  @IsOptional() @IsUUID() cv_document_id?: string;
 }
 
 /** Today's date in Riyadh, as the date the database compares application deadlines with. */
@@ -186,8 +188,12 @@ export class JobsController {
     const { job, existing, cvPath } = await this.db.asUser(user, async (tx) => ({
       job: await tx.jobs.findFirst({ where: { ...viewableJob(id, user.email), status: 'published' }, select: { org_id: true } }),
       existing: await tx.applications.findFirst({ where: { job_id: id, candidate_id: user.id } }),
-      cvPath: (await tx.candidate_profiles.findUnique({ where: { user_id: user.id }, select: { cv_path: true } }))?.cv_path,
+      cvPath: body.cv_document_id
+        ? (await tx.cv_documents.findFirst({ where: { id: body.cv_document_id, candidate_id: user.id }, select: { storage_path: true } }))?.storage_path ?? (false as const)
+        : (await tx.candidate_profiles.findUnique({ where: { user_id: user.id }, select: { cv_path: true } }))?.cv_path,
     }));
+    // A chosen CV must be one of the candidate's own.
+    if (cvPath === false) throw new NotFoundException('CV not found');
     // A second click or a retry gets the same application.
     if (existing) return existing;
     if (!job) throw new NotFoundException();

@@ -1676,7 +1676,8 @@
     "noteOptional": "Optional. The organization reads it with your application.",
     "review": "Review the application",
     "reviewTitle": "Check before you submit",
-    "noNote": "No cover letter"
+    "noNote": "No cover letter",
+    "backToEdit": "Back to edit"
   },
   "application": {
     "nextAssessment": "Next: start the practical assessment before its deadline.",

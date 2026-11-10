@@ -48,6 +48,19 @@ export async function uploadCv(form: FormData) {
   return result(() => api('/me/cv', { method: 'POST', form }));
 }
 
+/** A short-lived link to one of the candidate's own saved CVs, to preview it before applying. */
+export async function cvDocumentLink(id: string): Promise<{ url?: string; error?: string }> {
+  try {
+    return { url: (await api<{ url: string }>(`/me/cv/documents/${id}/url`)).url };
+  } catch (error) {
+    return { error: errorCode(error) };
+  }
+}
+
+export async function deleteCvDocument(id: string) {
+  return result(() => api(`/me/cv/documents/${id}`, { method: 'DELETE' }));
+}
+
 export async function removeCv() {
   return result(() => api('/me/cv', { method: 'DELETE' }));
 }

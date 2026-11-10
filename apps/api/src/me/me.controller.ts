@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Body, Controller, Delete, Get, Headers, NotFoundException, Post, Put, ServiceUnavailableException, UnprocessableEntityException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Post, Put, ServiceUnavailableException, UnprocessableEntityException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { Prisma } from '@prisma/client';
@@ -9,6 +9,9 @@ import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { signedUrl, storageFetch } from '../common/storage';
 import { AuthUser, DbService } from '../db/db.service';
 import { CvController } from './cv.controller';
+
+/** How many CVs a candidate keeps in their own library. */
+const CV_LIBRARY = 5;
 
 const MIN_YEAR = 1950;
 const MAX_YEAR = 2100;
@@ -142,10 +145,63 @@ export class MeController {
       await tx.cv_documents.updateMany({ where: { candidate_id: user.id, is_current: true }, data: { is_current: false } });
       return tx.cv_documents.create({ data: { candidate_id: user.id, storage_path: path, mime_type: file.mimetype, size_bytes: file.size } });
     });
-    if (profile.cv_path) await storageFetch(`object/candidate-documents/${profile.cv_path}`, token, { method: 'DELETE' });
+    // Earlier CVs stay in the candidate's own library (to choose one for an application), at most CV_LIBRARY files: the
+    // oldest beyond that is deleted with what was read from it. Organizations only ever read the copy an application holds.
+    const older = await this.db.asUser(user, (tx) => tx.cv_documents.findMany({
+      where: { candidate_id: user.id, is_current: false }, orderBy: { created_at: 'desc' }, skip: CV_LIBRARY - 1, select: { id: true, storage_path: true },
+    }));
+    for (const old of older) {
+      await storageFetch(`object/candidate-documents/${old.storage_path}`, token, { method: 'DELETE' });
+      await this.db.asUser(user, (tx) => tx.cv_documents.deleteMany({ where: { id: old.id, candidate_id: user.id } }));
+    }
     // Extraction and redaction run from here, inside Midan. The candidate reviews the result before anything is saved.
     const analysis = await this.cv.start(user, token, document.id, path);
     return { cv_path: path, analysis_id: analysis.id };
+  }
+
+  @Get('cv/documents')
+  @ApiOperation({ summary: "The candidate's own CV library, newest first: which one is the profile's CV. No file contents." })
+  cvDocuments(@CurrentUser() user: AuthUser) {
+    return this.db.asUser(user, async (tx) => (await tx.cv_documents.findMany({
+      where: { candidate_id: user.id }, orderBy: { created_at: 'desc' },
+      select: { id: true, mime_type: true, size_bytes: true, is_current: true, created_at: true },
+    })).map((d) => ({ ...d, size_bytes: Number(d.size_bytes) })));
+  }
+
+  @Get('cv/documents/:id/url')
+  @ApiOperation({ summary: "A short-lived link to one of the candidate's own CVs, to preview it." })
+  async cvDocumentUrl(@CurrentUser() user: AuthUser, @Headers('authorization') token: string, @Param('id', ParseUUIDPipe) id: string) {
+    const doc = await this.db.asUser(user, (tx) => tx.cv_documents.findFirst({ where: { id, candidate_id: user.id }, select: { storage_path: true } }));
+    const url = doc ? await signedUrl('candidate-documents', doc.storage_path, token) : null;
+    if (!url) throw new NotFoundException();
+    return { url };
+  }
+
+  @Post('cv/documents/:id/current')
+  @ApiOperation({ summary: "Makes one of the candidate's saved CVs the profile's CV." })
+  async makeCurrent(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.db.asUser(user, async (tx) => {
+      const doc = await tx.cv_documents.findFirst({ where: { id, candidate_id: user.id }, select: { id: true, storage_path: true } });
+      if (!doc) throw new NotFoundException();
+      await tx.cv_documents.updateMany({ where: { candidate_id: user.id, is_current: true }, data: { is_current: false } });
+      await tx.cv_documents.update({ where: { id }, data: { is_current: true } });
+      await tx.candidate_profiles.update({ where: { user_id: user.id }, data: { cv_path: doc.storage_path } });
+      return { id, is_current: true };
+    });
+  }
+
+  @Delete('cv/documents/:id')
+  @ApiOperation({ summary: "Deletes one of the candidate's saved CVs and what was read from it. Applications keep their own copies." })
+  async deleteCvDocument(@CurrentUser() user: AuthUser, @Headers('authorization') token: string, @Param('id', ParseUUIDPipe) id: string) {
+    const doc = await this.db.asUser(user, (tx) => tx.cv_documents.findFirst({ where: { id, candidate_id: user.id }, select: { storage_path: true, is_current: true } }));
+    if (!doc) throw new NotFoundException();
+    const removed = await storageFetch(`object/candidate-documents/${doc.storage_path}`, token, { method: 'DELETE' });
+    if (!removed.ok && removed.status !== 404) throw new ServiceUnavailableException('The file could not be removed');
+    await this.db.asUser(user, async (tx) => {
+      await tx.cv_documents.deleteMany({ where: { id, candidate_id: user.id } });
+      if (doc.is_current) await tx.candidate_profiles.update({ where: { user_id: user.id }, data: { cv_path: null } });
+    });
+    return { removed: true };
   }
 
   @Get('cv/url')

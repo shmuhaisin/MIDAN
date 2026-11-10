@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Arrow } from '@/components/brand';
-import { ApplyPanel } from '@/components/candidate';
+import { ApplyPanel, type CvDocument } from '@/components/candidate';
 import { Icon } from '@/components/icons';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
@@ -26,7 +26,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   await candidateOnly(locale);
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   if (!(await getSession())) return redirect({ href: `/login?next=/opportunities/${id}/apply`, locale });
-  const [job, me, mine] = await Promise.all([apiForPage<Job>(`/jobs/${id}`), apiForPage<Me>('/me'), apiForPage<Mine[]>('/me/applications')]);
+  const [job, me, mine, documents] = await Promise.all([apiForPage<Job>(`/jobs/${id}`), apiForPage<Me>('/me'), apiForPage<Mine[]>('/me/applications'), apiForPage<CvDocument[]>('/me/cv/documents').then((d) => d ?? [])]);
   if (!job || job.status !== 'published') notFound();
   const existing = mine?.find((a) => a.job_id === id);
   if (existing) return redirect({ href: `/applications/${existing.id}`, locale });
@@ -84,7 +84,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
               </ul>
             </div>
           ))}
-          {step(job.assessments.length > 0 ? 3 : 2, t('submit'), 'submit-application', <ApplyPanel jobId={id} hasCv={Boolean(profile.cv_path)} />)}
+          {step(job.assessments.length > 0 ? 3 : 2, t('submit'), 'submit-application', <ApplyPanel jobId={id} documents={documents} />)}
         </div>
       )}
     </section>

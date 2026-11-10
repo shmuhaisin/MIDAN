@@ -9,6 +9,7 @@ import {
   retryAnalysis, saveBasics, saveOnboarding, saveSettings, searchReferenceSkills, setCareerTarget, setOwnSkills, setPlanStatus, setReferenceSkills, shareCvWithApplication, startPractice, submitApplication, updatePractice,
   type CvAnalysis, type ReferenceSkill,
 } from '@/lib/candidate-actions';
+import { cvDocumentLink, uploadCv } from '@/lib/actions';
 import { formatWhen, number, pick, intlLocale } from '@/lib/format';
 import { Arrow } from './brand';
 import { DailyRoom } from './daily-room';
@@ -18,22 +19,88 @@ const SECONDARY = 'btn btn-secondary';
 
 // --- Applying
 
-export function ApplyPanel({ jobId, hasCv }: { jobId: string; hasCv: boolean }) {
+export type CvDocument = { id: string; mime_type: string; size_bytes: number; is_current: boolean; created_at: string };
+
+/**
+ * Applying: choose which of the candidate's own CVs goes with this application (or upload one for it), preview it, add an
+ * optional cover letter, review, then submit. The application keeps its own copy of the chosen file.
+ */
+export function ApplyPanel({ jobId, documents }: { jobId: string; documents: CvDocument[] }) {
   const t = useTranslations('apply');
+  const locale = useLocale();
+  const router = useRouter();
   const [note, setNote] = useState('');
-  const { pending, error, fire } = useAction(() => submitApplication(jobId, note));
+  const [chosen, setChosen] = useState(documents.find((d) => d.is_current)?.id ?? documents[0]?.id ?? '');
+  const [reviewing, setReviewing] = useState(false);
+  const [uploading, startUpload] = useTransition();
+  const [fileError, setFileError] = useState<string>();
+  const { pending, error, fire } = useAction(() => submitApplication(jobId, note, chosen || undefined));
+  useEffect(() => {
+    // After an upload the newest CV (the profile's) is the one chosen for this application.
+    const current = documents.find((d) => d.is_current);
+    if (current) setChosen(current.id);
+  }, [documents]);
+  const label = (d: CvDocument) => `${d.mime_type.includes('pdf') ? 'PDF' : 'Word'} · ${formatWhen(locale, d.created_at, 'Asia/Riyadh')} · ${number(locale, Math.max(1, Math.round(d.size_bytes / 1024)))} KB`;
+  const picked = documents.find((d) => d.id === chosen);
+  function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append('file', file);
+    startUpload(async () => {
+      const res = await uploadCv(form);
+      setFileError(res.error);
+      if (!res.error) router.refresh();
+    });
+    e.target.value = '';
+  }
+  if (reviewing) {
+    return (
+      <div className="space-y-4">
+        <h3 className="font-semibold">{t('reviewTitle')}</h3>
+        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
+          <dt className="text-muted">{t('cv')}</dt><dd>{picked ? label(picked) : t('cvNone')}</dd>
+          <dt className="text-muted">{t('note')}</dt><dd className="whitespace-pre-line"><bdi>{note.trim() || t('noNote')}</bdi></dd>
+        </dl>
+        {!picked && <p className="callout text-sm">{t('noCv')}</p>}
+        <ErrorText code={error} />
+        <div className="flex flex-wrap gap-3">
+          <button type="button" disabled={pending} aria-busy={pending} onClick={fire} className={PRIMARY}>
+            {pending && <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-current border-e-transparent" />}
+            {t('submit')}<Arrow />
+          </button>
+          <button type="button" disabled={pending} onClick={() => setReviewing(false)} className="btn btn-secondary">{t('backToEdit')}</button>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <fieldset className="space-y-2">
+        <legend className="field-label">{t('chooseCv')}</legend>
+        {documents.length === 0 && <p className="text-sm text-muted">{t('noSavedCv')}</p>}
+        {documents.map((d) => (
+          <div key={d.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-border px-3 py-2">
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input type="radio" name="cv" value={d.id} checked={chosen === d.id} onChange={() => setChosen(d.id)} className="size-4 accent-[var(--primary)]" />
+              <span>{label(d)}{d.is_current && <span className="ms-2 text-xs text-muted">{t('profileCv')}</span>}</span>
+            </label>
+            <button type="button" className="link text-sm" onClick={() => openFileLink(() => cvDocumentLink(d.id), setFileError)}>{t('preview')}</button>
+          </div>
+        ))}
+        <label className="block text-sm">
+          <span className="font-medium">{t('uploadForThis')}</span>
+          <input type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" disabled={uploading} onChange={upload} className="mt-1 block text-sm" />
+          {uploading && <span className="mt-1 block text-muted" role="status">{t('uploading')}</span>}
+        </label>
+        <ErrorText code={fileError} />
+      </fieldset>
       <label className="block">
         <span className="field-label">{t('note')}</span>
-        <textarea rows={3} maxLength={4000} value={note} onChange={(e) => setNote(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} />
+        <textarea rows={4} maxLength={4000} value={note} onChange={(e) => setNote(e.target.value)} className={clsx(INPUT, 'h-auto py-2.5')} />
+        <span className="mt-1 block text-xs text-muted">{t('noteOptional')}</span>
       </label>
-      {!hasCv && <p className="callout text-sm">{t('noCv')}</p>}
-      <ErrorText code={error} />
-      <button type="button" disabled={pending} aria-busy={pending} onClick={fire} className={PRIMARY}>
-        {pending && <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-current border-e-transparent" />}
-        {t('submit')}<Arrow />
-      </button>
+      <button type="button" disabled={uploading} onClick={() => setReviewing(true)} className={PRIMARY}>{t('review')}<Arrow /></button>
     </div>
   );
 }
