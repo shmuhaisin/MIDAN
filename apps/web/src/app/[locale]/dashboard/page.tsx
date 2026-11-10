@@ -10,7 +10,7 @@ import { LaneHeader, LaneTrack } from '@/components/workspace-kit';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import type { CvAnalysis } from '@/lib/candidate-actions';
-import { formatWhen, number, pick } from '@/lib/format';
+import { formatWhen, number, pick, intlLocale } from '@/lib/format';
 import { getSession } from '@/lib/session';
 
 type Me = {
@@ -119,15 +119,15 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const flow = t.raw('flow') as string[];
   const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: zone }).format(new Date()));
   const greeting = t(hour < 12 ? 'greeting.morning' : hour < 18 ? 'greeting.afternoon' : 'greeting.evening', { name: name.split(' ')[0] });
-  const rtf = new Intl.RelativeTimeFormat(locale === 'ar' ? 'ar' : 'en', { numeric: 'auto' });
+  const rtf = new Intl.RelativeTimeFormat(intlLocale(locale), { numeric: 'auto' });
   const ago = (iso: string) => {
     const days = Math.round((Date.parse(iso) - now) / DAY);
     return Math.abs(days) < 1 ? rtf.format(Math.round((Date.parse(iso) - now) / 3600000), 'hour') : rtf.format(days, 'day');
   };
   const dayParts = (iso: string) => ({
-    day: new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en', { timeZone: zone, day: 'numeric' }).format(new Date(iso)),
-    month: new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en', { timeZone: zone, month: 'short' }).format(new Date(iso)),
-    time: new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA' : 'en', { timeZone: zone, weekday: 'long', hour: 'numeric', minute: '2-digit' }).format(new Date(iso)),
+    day: new Intl.DateTimeFormat(intlLocale(locale), { timeZone: zone, day: 'numeric' }).format(new Date(iso)),
+    month: new Intl.DateTimeFormat(intlLocale(locale), { timeZone: zone, month: 'short' }).format(new Date(iso)),
+    time: new Intl.DateTimeFormat(intlLocale(locale), { timeZone: zone, weekday: 'long', hour: 'numeric', minute: '2-digit' }).format(new Date(iso)),
   });
 
   /** What the candidate can do on this lane right now, or what is happening without them. */

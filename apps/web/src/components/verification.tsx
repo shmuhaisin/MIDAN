@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { useLocale, useTranslations } from 'next-intl';
 import { useActionState, useId, useRef, useState, useTransition } from 'react';
 import type { FormState } from '@/lib/auth-actions';
-import { formatWhen } from '@/lib/format';
+import { formatWhen, intlLocale } from '@/lib/format';
 import {
   adminOrganizationDocumentLink, decideOrganization, organizationDocumentLink, removeOrganizationDocument, saveOrganizationProfile,
   setOrganizationSuspension, submitOrganizationForReview, uploadOrganizationDocument,
@@ -162,8 +162,8 @@ function ProfileForm({ orgId, state, canManage }: { orgId: string; state: Verifi
 function size(bytes: number, locale: string) {
   const kb = bytes / 1024;
   // A file under a kilobyte would otherwise read "0 KB".
-  if (kb < 1) return `<${new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en').format(1)} KB`;
-  return new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en', { maximumFractionDigits: kb >= 1024 ? 1 : 0 }).format(kb >= 1024 ? kb / 1024 : kb) + (kb >= 1024 ? ' MB' : ' KB');
+  if (kb < 1) return `<${new Intl.NumberFormat(intlLocale(locale)).format(1)} KB`;
+  return new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: kb >= 1024 ? 1 : 0 }).format(kb >= 1024 ? kb / 1024 : kb) + (kb >= 1024 ? ' MB' : ' KB');
 }
 
 export function DocumentList({ documents, open, remove }: {

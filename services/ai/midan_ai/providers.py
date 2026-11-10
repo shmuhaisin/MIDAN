@@ -174,9 +174,24 @@ def _lists_as_lists(model: type[BaseModel], data: Any) -> Any:
     return out
 
 
+# Arabic-Indic (٠-٩) and Eastern Arabic-Indic (۰-۹) digits to 0-9. MIDAN shows English digits everywhere, in Arabic too
+# (owner's requirement, 2026-11-10), and generated Arabic text often uses the others. Digits only: no other character
+# changes, so the reply stays valid JSON and its meaning is untouched.
+LATIN_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+
+
+def latin_digits(complete):
+    """The same completion function, with every reply's digits in English numerals; it keeps `accepts_schema`."""
+    def wrapped(*args, **kwargs):
+        reply = complete(*args, **kwargs)
+        return reply.translate(LATIN_DIGITS) if isinstance(reply, str) else reply
+    wrapped.accepts_schema = getattr(complete, "accepts_schema", False)  # type: ignore[attr-defined]
+    return wrapped
+
+
 class JsonLLMProvider:
     def __init__(self, complete, name: str, attempts: int = 2, pause: float = 1.0, provider: str = "openai"):
-        self._complete = complete
+        self._complete = latin_digits(complete)
         self._attempts = attempts
         self._pause = pause
         self.provenance = Provenance(mode="live", provider=provider, model_version=name, prompt_version=PROMPT_VERSION)

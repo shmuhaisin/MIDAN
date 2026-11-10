@@ -39,8 +39,8 @@ function phrasing(locale: 'ar' | 'en', timeZone = 'Asia/Riyadh') {
   const ar = locale === 'ar';
   const label = (status: string) => LABELS[status]?.[ar ? 0 : 1] ?? status.replace(/_/g, ' ');
   const pick = (a?: string | null, e?: string | null) => (ar ? a || e : e || a) ?? '';
-  const when = (d: Date) => new Intl.DateTimeFormat(ar ? 'ar-SA-u-ca-gregory' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(d);
-  const day = (d: Date) => new Intl.DateTimeFormat(ar ? 'ar-SA-u-ca-gregory' : 'en-GB', { dateStyle: 'medium', timeZone }).format(d);
+  const when = (d: Date) => new Intl.DateTimeFormat(ar ? 'ar-SA-u-nu-latn-ca-gregory' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(d);
+  const day = (d: Date) => new Intl.DateTimeFormat(ar ? 'ar-SA-u-nu-latn-ca-gregory' : 'en-GB', { dateStyle: 'medium', timeZone }).format(d);
   return { ar, pick, when, day, label };
 }
 

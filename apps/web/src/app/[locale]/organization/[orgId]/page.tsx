@@ -7,7 +7,7 @@ import { Icon } from '@/components/icons';
 import { Badge, statusTone } from '@/components/ui';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
-import { number, pick } from '@/lib/format';
+import { number, pick, intlLocale } from '@/lib/format';
 import { canManageJobs, orgBasics, orgInterviews, PIPELINE, weeklyApplications, type OrgInterview } from '@/lib/org-data';
 import { getSession } from '@/lib/session';
 
@@ -88,7 +88,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
   /* ---- The command center ---- */
   const weeks = weeklyApplications(applications, range);
-  const short = (d: Date) => new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en', { day: 'numeric', month: 'short' }).format(d);
+  const short = (d: Date) => new Intl.DateTimeFormat(intlLocale(locale), { day: 'numeric', month: 'short' }).format(d);
   const inRange = weeks.reduce((s, w) => s + w.count, 0);
   const open = applications.filter((a) => a.status in RANK);
   const funnel = PIPELINE.map(([key], i) => ({
@@ -242,15 +242,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               return (
                 <div key={d} className="grid gap-4 px-6 py-5 md:grid-cols-[9rem_minmax(0,1fr)]">
                   <p className="flex items-baseline gap-2 md:flex-col md:gap-0">
-                    <span className="num font-display text-3xl leading-none font-bold">{new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en', { timeZone: items[0].time_zone, day: 'numeric' }).format(first)}</span>
-                    <span className="text-sm text-muted">{new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en', { timeZone: items[0].time_zone, month: 'long' }).format(first)}</span>
-                    <span className="text-sm font-semibold">{new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en', { timeZone: items[0].time_zone, weekday: 'long' }).format(first)}</span>
+                    <span className="num font-display text-3xl leading-none font-bold">{new Intl.DateTimeFormat(intlLocale(locale), { timeZone: items[0].time_zone, day: 'numeric' }).format(first)}</span>
+                    <span className="text-sm text-muted">{new Intl.DateTimeFormat(intlLocale(locale), { timeZone: items[0].time_zone, month: 'long' }).format(first)}</span>
+                    <span className="text-sm font-semibold">{new Intl.DateTimeFormat(intlLocale(locale), { timeZone: items[0].time_zone, weekday: 'long' }).format(first)}</span>
                   </p>
                   <ul className="space-y-2">
                     {items.map((i) => (
                       <li key={i.id}>
                         <Link href={`/interviews/${i.id}`} className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-4 rounded-[var(--radius-control)] px-3 py-2.5 transition-colors hover:bg-surface-2/60">
-                          <span className="num font-semibold">{new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA' : 'en', { timeZone: i.time_zone, hour: 'numeric', minute: '2-digit' }).format(new Date(i.scheduled_at))}</span>
+                          <span className="num font-semibold">{new Intl.DateTimeFormat(intlLocale(locale), { timeZone: i.time_zone, hour: 'numeric', minute: '2-digit' }).format(new Date(i.scheduled_at))}</span>
                           <span className="min-w-0">
                             <span className="block truncate font-semibold">{i.applicant.users.candidate_profiles?.full_name ?? i.applicant.users.email}</span>
                             <span className="block truncate text-sm text-muted">{pick(locale, i.applicant.jobs.title_ar, i.applicant.jobs.title_en)} · {t('minutes', { minutes: n(i.duration_minutes) })}</span>

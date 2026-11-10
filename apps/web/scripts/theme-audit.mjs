@@ -154,7 +154,9 @@ for (const audience of audiences) {
         await page.waitForTimeout(150);
         const actual = await page.evaluate(() => document.documentElement.dataset.theme);
         const failures = await page.evaluate(measure);
-        results.push({ url, theme, locale, status, applied: actual, failures });
+        // English digits everywhere, in Arabic too: any Arabic-Indic digit on screen is a failure.
+        const indic = await page.evaluate(() => (document.body.innerText.match(/[^\n]{0,30}[٠-٩۰-۹][^\n]{0,30}/g) ?? []).slice(0, 5));
+        results.push({ url, theme, locale, status, applied: actual, failures, indic });
         if (SHOTS && locale === 'en') await page.screenshot({ path: `${OUT}/${theme}-${audience.org ? 'employer' : (audience.who ?? 'visitor').toLowerCase()}${path.replace(/[/?=]+/g, '_') || '_home'}.png`, fullPage: true });
       }
       await context.close();
@@ -164,6 +166,8 @@ for (const audience of audiences) {
 await browser.close();
 
 const failing = results.filter((r) => r.failures.length);
+const numerals = results.filter((r) => r.indic?.length);
+for (const r of numerals) console.log(`Arabic-Indic digits  ${r.theme} ${r.url}: ${r.indic.join(' | ')}`);
 const broken = results.filter((r) => r.status !== 200);
 writeFileSync(`${OUT}/report.json`, JSON.stringify(results, null, 2));
 for (const r of failing) {
@@ -175,4 +179,5 @@ for (const r of broken) console.log(`status ${r.status}  ${r.theme} ${r.url}`);
 const wrongTheme = results.filter((r) => r.status === 200 && r.applied !== r.theme);
 for (const r of wrongTheme) console.log(`theme not applied (${r.applied})  ${r.theme} ${r.url}`);
 console.log(`\n${results.length} page renders, ${failing.length} with contrast failures (${failing.reduce((n, r) => n + r.failures.length, 0)} elements), ${broken.length} not 200, ${wrongTheme.length} wrong theme.`);
-process.exit(failing.length || wrongTheme.length ? 1 : 0);
+console.log(`${numerals.length} page renders with Arabic-Indic digits.`);
+process.exit(failing.length || wrongTheme.length || numerals.length ? 1 : 0);

@@ -4,7 +4,7 @@ import { Icon } from '@/components/icons';
 import { Badge, statusTone } from '@/components/ui';
 import { DateTile, Masthead, Panel } from '@/components/workspace-kit';
 import { Link, redirect } from '@/i18n/navigation';
-import { formatWhen, number, pick } from '@/lib/format';
+import { formatWhen, number, pick, intlLocale } from '@/lib/format';
 import { orgBasics, orgInterviews, type OrgInterview } from '@/lib/org-data';
 import { getSession } from '@/lib/session';
 
@@ -29,7 +29,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const upcoming = interviews.filter((i) => !DONE.includes(i.status) && new Date(i.scheduled_at).getTime() >= now - 3600_000);
   const past = interviews.filter((i) => !upcoming.includes(i)).reverse();
   const shortlisted = applications.filter((a) => a.status === 'shortlisted');
-  const lc = locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en';
+  const lc = intlLocale(locale);
   const dayKey = (i: OrgInterview) => new Intl.DateTimeFormat('en-CA', { timeZone: i.time_zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(i.scheduled_at));
   const part = (i: OrgInterview, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(lc, { timeZone: i.time_zone, ...o }).format(new Date(i.scheduled_at));
   const days = [...new Set(upcoming.map(dayKey))];
@@ -76,7 +76,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                       {items.map((i) => (
                         <li key={i.id}>
                           <Link href={`/interviews/${i.id}`} className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-x-4 gap-y-2 rounded-[var(--radius-control)] px-3 py-2.5 transition-colors hover:bg-surface-2/60 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto]">
-                            <span className="num font-semibold">{new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA' : 'en', { timeZone: i.time_zone, hour: 'numeric', minute: '2-digit' }).format(new Date(i.scheduled_at))}</span>
+                            <span className="num font-semibold">{new Intl.DateTimeFormat(intlLocale(locale), { timeZone: i.time_zone, hour: 'numeric', minute: '2-digit' }).format(new Date(i.scheduled_at))}</span>
                             <span className="min-w-0">
                               <span className="block truncate font-semibold">{who(i)}</span>
                               <span className="block truncate text-sm text-muted">{jobTitle(i)} · {t('minutes', { minutes: n(i.duration_minutes) })}</span>

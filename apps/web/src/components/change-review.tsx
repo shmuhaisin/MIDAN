@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { changedFields, compareTasks, weakensCoverage, type Change, type Finding, type ReviewState } from '@/lib/assessment-review';
 import { reviewChanges, reviseVersion } from '@/lib/actions';
-import { pick } from '@/lib/format';
+import { pick, intlLocale } from '@/lib/format';
 import { ErrorText, useAction } from './forms';
 
 const CHECK_CODES = new Set([
@@ -62,7 +62,7 @@ function ChangeItem({ change, titles }: { change: Change; titles: Map<string, st
         {!change.needs_review && <span className="text-xs text-muted">{t('reviewSettingsOnly')}</span>}
       </p>
       <p className="mt-1 text-xs text-muted">
-        {change.actor_name ?? '—'} · {new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(change.created_at))}
+        {change.actor_name ?? '—'} · {new Intl.DateTimeFormat(intlLocale(locale), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(change.created_at))}
         {' · '}{change.details.reason ? t('reviewReason', { reason: change.details.reason }) : t('reviewNoReason')}
       </p>
       {fields.length > 0 && (
@@ -150,7 +150,7 @@ export function ChangeReview({ orgId, state, canReview }: { orgId: string; state
               <li key={r.id}>
                 {t('reviewRecord', {
                   name: r.reviewer_name ?? '—', count: r.change_count, warnings: r.warnings,
-                  time: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(r.reviewed_at)),
+                  time: new Intl.DateTimeFormat(intlLocale(locale), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(r.reviewed_at)),
                 })}
                 {r.note && <span className="text-muted"> · {r.note}</span>}
               </li>

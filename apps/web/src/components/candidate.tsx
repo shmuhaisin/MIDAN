@@ -9,7 +9,7 @@ import {
   retryAnalysis, saveBasics, saveOnboarding, saveSettings, searchReferenceSkills, setCareerTarget, setOwnSkills, setPlanStatus, setReferenceSkills, shareCvWithApplication, startPractice, submitApplication, updatePractice,
   type CvAnalysis, type ReferenceSkill,
 } from '@/lib/candidate-actions';
-import { formatWhen, number, pick } from '@/lib/format';
+import { formatWhen, number, pick, intlLocale } from '@/lib/format';
 import { Arrow } from './brand';
 import { DailyRoom } from './daily-room';
 import { ErrorText, Field, INPUT, openFileLink, PRIMARY, useAction } from './forms';
@@ -771,7 +771,7 @@ export function NotificationsList({ items, timeZone }: { items: { id: string; ki
   const shown = items.filter((n) => matches(n, filter));
   const filters = (['all', 'unread', ...Object.keys(NOTICE_TOPICS)] as (typeof filter)[]).filter((f) => f === 'all' || f === 'unread' || items.some((n) => matches(n, f)));
   // Grouped by the day they arrived, in the reader's time zone.
-  const day = (value: string) => new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en-GB', { dateStyle: 'full', timeZone }).format(new Date(value));
+  const day = (value: string) => new Intl.DateTimeFormat(intlLocale(locale, 'en-GB'), { dateStyle: 'full', timeZone }).format(new Date(value));
   const groups: { day: string; items: typeof items }[] = [];
   for (const n of shown) {
     const d = day(n.created_at);

@@ -4,7 +4,7 @@ import { RecruitmentFunnel, TrendChart } from '@/components/command-charts';
 import { EmptyState } from '@/components/ui';
 import { Masthead, Panel, Segmented, StageBar, STAGE_RANK } from '@/components/workspace-kit';
 import { Link, redirect } from '@/i18n/navigation';
-import { number, pick } from '@/lib/format';
+import { number, pick, intlLocale } from '@/lib/format';
 import { orgBasics, orgInterviews, orgJobReports, PIPELINE, weeklyApplications } from '@/lib/org-data';
 import { getSession } from '@/lib/session';
 
@@ -47,7 +47,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const range = RANGES.find((r) => String(r) === rangeParam) ?? 12;
   const count = (list: typeof applications, ...statuses: string[]) => list.filter((a) => statuses.includes(a.status)).length;
   const weeks = weeklyApplications(applications, range);
-  const short = (d: Date) => new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en', { day: 'numeric', month: 'short' }).format(d);
+  const short = (d: Date) => new Intl.DateTimeFormat(intlLocale(locale), { day: 'numeric', month: 'short' }).format(d);
   const interviewStates = ['invited', 'accepted', 'reschedule_requested', 'completed', 'cancelled', 'no_show'] as const;
   const eyebrow = pick(locale, org.name_ar, org.name_en);
 

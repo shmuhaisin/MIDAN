@@ -10,7 +10,7 @@ import { DateTile, LaneHeader, LaneTrack, STAGE_RANK } from '@/components/worksp
 import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { ReportBody, type ReportContent } from '@/components/development-report';
-import { formatDate, formatWhen, number, pick } from '@/lib/format';
+import { formatDate, formatWhen, number, pick, intlLocale } from '@/lib/format';
 
 type Attempt = {
   id: string; status: string; deadline_at: string | null; expires_at: string | null; submitted_at: string | null; receipt_code: string | null;
@@ -54,7 +54,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const onLane = application.status in STAGE_RANK;
   const at = STAGE_RANK[application.status] ?? 0;
   const experience = (a: Attempt) => `/experience/${job.organizations.slug}/${job.slug}/${a.assessment_versions.id}`;
-  const lc = locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en';
+  const lc = intlLocale(locale);
   const part = (iso: string, tz: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(lc, { timeZone: tz, ...o }).format(new Date(iso));
   const upcoming = application.interviews.find((i) => ['invited', 'accepted', 'reschedule_requested'].includes(i.status) && Date.parse(i.scheduled_at) > Date.now() - 2 * 3600_000);
 

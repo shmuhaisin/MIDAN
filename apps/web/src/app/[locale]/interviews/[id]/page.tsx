@@ -6,7 +6,7 @@ import { InterviewActions, InterviewJoin } from '@/components/candidate';
 import { Link } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
 import { InterviewPreparation, type Preparation } from '@/components/interview-prep';
-import { formatWhen, number, pick } from '@/lib/format';
+import { formatWhen, number, pick, intlLocale } from '@/lib/format';
 
 type Interview = {
   id: string; application_id: string; org_id: string; scheduled_at: string; duration_minutes: number; time_zone: string; instructions_ar: string | null; instructions_en: string | null;
@@ -31,7 +31,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const live = ['invited', 'accepted', 'reschedule_requested'].includes(interview.status);
   const instructions = pick(locale, interview.instructions_ar ?? '', interview.instructions_en ?? '');
   const when = new Date(interview.scheduled_at);
-  const part = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en', { timeZone: zone, ...o }).format(when);
+  const part = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(intlLocale(locale), { timeZone: zone, ...o }).format(when);
   return (
     <article className="container-page py-8 lg:py-10">
       {interview.is_candidate && <Link href={`/applications/${interview.application_id}`} className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground"><Icon name="chevron" className="size-4 rotate-180" />{t('back')}</Link>}

@@ -6,7 +6,7 @@ import { Badge, statusTone } from '@/components/ui';
 import { DateTile, Masthead } from '@/components/workspace-kit';
 import { Link, redirect } from '@/i18n/navigation';
 import { apiForPage } from '@/lib/api';
-import { formatWhen, number, pick } from '@/lib/format';
+import { formatWhen, number, pick, intlLocale } from '@/lib/format';
 import { candidateOnly } from '@/lib/account';
 import { getSession } from '@/lib/session';
 
@@ -32,7 +32,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const upcoming = interviews.filter((i) => !DONE.includes(i.status) && new Date(i.scheduled_at).getTime() >= now - 2 * 3600_000)
     .sort((p, q) => Date.parse(p.scheduled_at) - Date.parse(q.scheduled_at));
   const past = interviews.filter((i) => !upcoming.includes(i));
-  const lc = locale === 'ar' ? 'ar-SA-u-ca-gregory' : 'en';
+  const lc = intlLocale(locale);
   const part = (i: Interview, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(lc, { timeZone: i.time_zone, ...o }).format(new Date(i.scheduled_at));
   const job = (i: Interview) => pick(locale, i.applications.jobs.title_ar, i.applications.jobs.title_en);
   const org = (i: Interview) => pick(locale, i.applications.jobs.organizations.name_ar, i.applications.jobs.organizations.name_en);

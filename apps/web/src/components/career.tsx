@@ -91,7 +91,7 @@ export async function SkillLine({ locale, skill, index, children }: { locale: st
   const t = await getTranslations({ locale, namespace: 'career' });
   return (
     <li className="grid gap-3 px-5 py-5 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:px-6">
-      {index !== undefined && <span aria-hidden className="num hidden font-display text-2xl font-bold text-gold-text sm:block">{number(locale, index + 1).padStart(2, locale === 'ar' ? '٠' : '0')}</span>}
+      {index !== undefined && <span aria-hidden className="num hidden font-display text-2xl font-bold text-gold-text sm:block">{number(locale, index + 1).padStart(2, '0')}</span>}
       <div className="min-w-0">
         <p className="flex flex-wrap items-center gap-2 font-display text-lg leading-snug font-bold">
           <bdi>{skill.name_ar}</bdi>
