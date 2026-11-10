@@ -127,11 +127,13 @@ the unrelated marketing CV included (50%). The hybrid scored the telecom analyst
 those CVs a few weak lines confirmed a requirement (an Excel-summaries line for "SQL reports and dashboards", an education
 line for "experience in data analysis"). Changing it is a recalibration that needs the owner's approval.
 
-**Not implemented: stage 3, the structured AI evaluation.** The agreed architecture is embeddings, then the reranker, then a
-model-written, evidence-cited evaluation of each requirement. Stages 1 and 2 run and are verified. Each requirement's status,
-evidence line and source come from the rule in `match()` over the reranker's scores, and its explanation is a fixed sentence
-per status. No language model reads the CV against the requirements, and no "insufficient evidence" status or list of missing
-evidence exists. The hybrid ATS is therefore not complete.
+**Stage 3, the structured AI evaluation: implemented, not yet verified with a live model.** Stages 1 and 2 decide each
+requirement's status and the CV score with the formula below, and are verified with the real models. Stage 3
+(`services/ai/midan_ai/cv_review.py`, `POST /match/review`, commit `f96b871`) has the live model write, per requirement, a
+reading (confirmed, partial, missing, insufficient evidence, needs manual review), the cited lines, relevant experience, an
+explanation, what is missing and a confidence, beside the score it never changes. It is tested with a fake model only: no
+live model key is configured on this machine, and the session that wrote it hit Groq's daily limit. Without a model the API
+stores "unavailable" and the screen says so. **The hybrid ATS is not complete until stage 3 has run on a live model.**
 
 1. **`intfloat/multilingual-e5-base`, local, was the selected backend** before the hybrid, and remains its retrieval stage and
    fallback (`EMBEDDING_PROVIDER=e5-local` runs it alone).
