@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 3100",
     "lint": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types src/messages/messages.test.ts src/lib/humaidan.test.ts src/lib/application-status.test.ts src/lib/assessment-review.test.ts src/lib/csp.test.ts src/lib/palette.test.ts src/lib/deadline.test.ts src/components/journey/journey-model.test.ts src/lib/verification.test.ts src/lib/translation.test.ts",
+    "test": "node --test --experimental-strip-types src/messages/messages.test.ts src/lib/humaidan.test.ts src/lib/application-status.test.ts src/lib/assessment-review.test.ts src/lib/csp.test.ts src/lib/palette.test.ts src/lib/deadline.test.ts src/components/journey/journey-model.test.ts src/lib/verification.test.ts src/lib/translation.test.ts src/lib/email-confirmation.test.ts",
     "check:bundle": "node scripts/check-bundle-secrets.mjs",
     "test:e2e": "playwright test",
     "test:forms": "playwright test --config playwright.forms.config.ts"
