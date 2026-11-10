@@ -13,6 +13,7 @@
 // 'local-fixture'. Its candidates and data are fictional; the assessment's sample data is synthetic and says so.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { request as httpRequest } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 
@@ -28,16 +29,26 @@ const RUN = Date.now().toString(36);
 const out = `${ROOT}.local/stc-assessment`;
 mkdirSync(out, { recursive: true });
 
-async function call(token, method, path, body) {
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: { ...(token && { authorization: `Bearer ${token}` }), ...(body !== undefined && { 'content-type': 'application/json' }) },
-    body: body === undefined ? undefined : JSON.stringify(body),
+/** node:http, not fetch: generation waits on the model for minutes, past fetch's 300-second limit for response headers. */
+function call(token, method, path, body) {
+  const payload = body === undefined ? undefined : JSON.stringify(body);
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(`${API}${path}`, {
+      method,
+      headers: { ...(token && { authorization: `Bearer ${token}` }), ...(payload !== undefined && { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) }) },
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8');
+        let json = null;
+        try { json = text ? JSON.parse(text) : null; } catch { json = text; }
+        resolve({ status: res.statusCode, body: json });
+      });
+    });
+    req.on('error', reject);
+    req.end(payload);
   });
-  const text = await res.text();
-  let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch { json = text; }
-  return { status: res.status, body: json };
 }
 const must = async (p) => {
   const r = await p;

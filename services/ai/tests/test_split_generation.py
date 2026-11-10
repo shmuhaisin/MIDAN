@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from midan_ai.providers import CASE_PART_NOTE, GUIDE_WRITE_PROMPT, LEVELS_PROMPT, MATERIALS_PROMPT, JsonLLMProvider, LLMError
+from midan_ai.providers import CASE_PROMPT, GUIDE_WRITE_PROMPT, LEVELS_PROMPT, MATERIALS_PROMPT, JsonLLMProvider, LLMError
 from tests.package_fixture import package
 
 
@@ -39,7 +39,7 @@ def test_three_parts_make_one_complete_package():
     provider = _provider([json.dumps(case), json.dumps(filled), json.dumps(guide), json.dumps(levels)], seen)
     draft = provider.generate_assessment({"title_en": "Inventory Analyst"})
     assert [s["schema"][0] for s in seen] == ["AssessmentCase", "AssessmentMaterials", "AssessorGuideDraft", "CriterionLevels"]
-    assert CASE_PART_NOTE in seen[0]["system"] and seen[1]["system"] == MATERIALS_PROMPT
+    assert seen[0]["system"] == CASE_PROMPT and seen[1]["system"] == MATERIALS_PROMPT
     assert seen[2]["system"] == GUIDE_WRITE_PROMPT and seen[3]["system"] == LEVELS_PROMPT
     # The materials come back whole: the stubs' columns and rows as part 2 wrote them.
     assert [m.model_dump(exclude_none=True)["rows"] for m in draft.materials if m.rows] == [m["rows"] for m in full["materials"] if m.get("rows")]
@@ -117,3 +117,9 @@ def test_a_table_without_rows_is_asked_for_again():
     provider = _provider([json.dumps(case), json.dumps(empty), json.dumps(filled), json.dumps(guide), json.dumps(levels)], seen)
     provider.generate_assessment({"title_en": "Inventory Analyst"})
     assert "needs columns and at least 4 rows" in seen[2]["user"]
+
+
+def test_token_estimate_counts_arabic_as_heavier():
+    from midan_ai.providers import estimate_tokens
+    assert estimate_tokens("a" * 400) == 101
+    assert estimate_tokens("ب" * 250) == 101
