@@ -58,7 +58,6 @@ export class JobRankingController {
           orderBy: { created_at: 'asc' },
           select: {
             id: true, status: true, created_at: true, profile_snapshot: true,
-            application_match_reviews: { orderBy: { created_at: 'desc' }, select: { requirement_key: true, status: true } },
             assessment_attempts: {
               select: {
                 id: true, status: true,
@@ -67,11 +66,23 @@ export class JobRankingController {
               },
             },
             interviews: { select: { id: true, status: true, scheduled_at: true } },
-            interview_feedback: { where: { status: 'submitted' }, select: { recommendation: true, competencies: true } },
           },
         }),
       ]);
-      return { job, items, applications };
+      // Neither table is a relation of applications in the schema: read them for these applications at once.
+      const ids = applications.map((a) => a.id);
+      const [reviews, feedback] = await Promise.all([
+        tx.application_match_reviews.findMany({ where: { application_id: { in: ids }, org_id: orgId }, orderBy: { created_at: 'desc' }, select: { application_id: true, requirement_key: true, status: true } }),
+        tx.interview_feedback.findMany({ where: { application_id: { in: ids }, org_id: orgId, status: 'submitted' }, select: { application_id: true, recommendation: true, competencies: true } }),
+      ]);
+      return {
+        job, items,
+        applications: applications.map((a) => ({
+          ...a,
+          application_match_reviews: reviews.filter((r) => r.application_id === a.id),
+          interview_feedback: feedback.filter((f) => f.application_id === a.id),
+        })),
+      };
     });
 
     const live = data.job.assessments.filter((a) => a.assessment_versions.length > 0);
