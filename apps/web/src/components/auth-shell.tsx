@@ -27,7 +27,7 @@ export function AuthShell({ audience, title, lead, children }: { audience: Audie
       <aside aria-hidden className="on-deep deep-grain relative order-first overflow-hidden bg-deep text-deep-foreground lg:order-none">
         {org ? (
           <div className="relative flex h-full flex-col justify-center gap-8 px-6 py-8 lg:px-14 lg:py-16">
-            <span className="max-w-[10rem] rounded-[var(--radius-panel)] bg-ivory p-2 lg:max-w-sm lg:p-4"><Logo decorative className="h-auto w-full" sizes="(min-width: 1024px) 380px, 160px" /></span>
+            <span className="block max-w-[10rem] lg:max-w-sm"><Logo decorative className="h-auto w-full drop-shadow-[0_12px_28px_rgb(0_0_0/0.28)]" sizes="(min-width: 1024px) 380px, 160px" /></span>
             <ul className="hidden space-y-6 lg:block">
               {(t.raw('auth.orgPoints') as string[]).map((point, i) => (
                 <li key={point} className="flex items-baseline gap-4">

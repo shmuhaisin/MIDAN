@@ -158,7 +158,7 @@ function Backdrop({ state }: { state: WorldState }) {
       {state === 'unavailable' && (
         <div className="absolute end-[6%] bottom-[12%] flex w-[min(44%,30rem)] items-end gap-4">
           <span className="w-2/5"><Humaidan sizes="200px" /></span>
-          <span className="mb-6 flex-1 rounded-[var(--radius-panel)] bg-ivory p-3"><Logo decorative className="h-auto w-full" sizes="300px" /></span>
+          <span className="mb-6 flex-1 p-1"><Logo decorative className="h-auto w-full" sizes="300px" /></span>
         </div>
       )}
     </div>

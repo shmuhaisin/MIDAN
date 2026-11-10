@@ -42,7 +42,7 @@ export function PageHero({ ns, art = { kind: 'none' }, children }: { ns: string;
         )}
         {art.kind === 'logo' && (
           <div aria-hidden className="on-deep deep-grain relative mb-14 overflow-hidden rounded-[var(--radius-panel)] bg-deep p-8 lg:col-span-5 lg:mb-20">
-            <span className="relative block rounded-[var(--radius-panel)] bg-ivory p-5"><Logo decorative className="h-auto w-full" sizes="420px" /></span>
+            <span className="relative block p-2"><Logo decorative className="h-auto w-full" sizes="420px" /></span>
             <span className="relative mt-5 block h-px bg-brand-gold/60" />
           </div>
         )}

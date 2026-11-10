@@ -162,7 +162,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         <aside aria-labelledby="decision" className="on-deep flex flex-col rounded-[var(--radius-panel)] bg-deep p-6 text-deep-foreground">
           <h2 id="decision" className="label-caps text-brand-gold!">{t('statusNow')}</h2>
           <p className="mt-2 font-display text-2xl font-bold">{ts(data.status)}</p>
-          <div className="mt-4 [&_select]:bg-ivory [&_select]:text-forest">
+          <div className="select-on-deep mt-4">
             {canManage ? <ApplicantStatus id={data.id} status={data.status} label={t('statusLabel')} canReopen={canReopenApplications(data.my_role ?? undefined)} /> : null}
           </div>
           <p className="mt-4 text-xs leading-relaxed text-deep-muted">{t('decisionsNote')}</p>

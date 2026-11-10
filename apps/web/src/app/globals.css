@@ -195,6 +195,34 @@ body {
   outline-color: var(--brand-mint);
 }
 
+/*
+ * The open list of a <select> is drawn by the browser, and its options inherit the colours of the select they belong
+ * to. A select restyled for a deep panel would then open a list in the panel's colours on the page's theme: dark text
+ * on a dark list, or light on a white one. So options always take the page's theme, whatever the closed select looks
+ * like. Unlayered on purpose: it must win over any utility class.
+ */
+select option,
+select optgroup {
+  background-color: var(--surface);
+  color: var(--foreground);
+}
+select option:checked {
+  background-color: var(--surface-3);
+}
+select option:disabled {
+  color: var(--muted);
+}
+/* A select on a deep panel (both themes): a translucent field in the panel's own colours, never a white box. */
+.select-on-deep select {
+  background-color: rgb(247 244 238 / 0.08);
+  border-color: rgb(220 238 229 / 0.4);
+  color: var(--brand-ivory);
+}
+.select-on-deep select:focus {
+  border-color: var(--brand-mint);
+  box-shadow: 0 0 0 3px rgb(220 238 229 / 0.25);
+}
+
 /* ---------- Base controls: every input looks like MIDAN unless a screen asks otherwise ---------- */
 @layer base {
   :where(input:not([type='checkbox'], [type='radio'], [type='file'], [type='range'], [type='hidden'], [type='color']), select, textarea) {
@@ -380,13 +408,13 @@ body {
   .btn-danger:hover:not(:disabled) {
     background: var(--error-surface);
   }
-  /* For deep surfaces, in both themes */
+  /* For deep surfaces, in both themes. The gold palette was retired (2026-11-10): mint on deep keeps 8:1 contrast. */
   .btn-gold {
-    background: var(--gold);
+    background: var(--brand-mint);
     color: var(--brand-deep);
   }
   .btn-gold:hover:not(:disabled) {
-    background: #e0bf52;
+    background: #c6e2d4;
   }
   .btn-mint {
     background: var(--brand-mint);

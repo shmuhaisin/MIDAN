@@ -123,7 +123,7 @@ export function ChapterPreview() {
   const t = useTranslations('journey');
   return (
     <div className="flex items-center gap-4 rounded-[var(--radius-panel)] border border-border bg-surface/95 p-4 shadow-[var(--shadow)] backdrop-blur">
-      <span className="shrink-0 rounded-[var(--radius-control)] bg-ivory px-2 py-1.5"><Logo decorative className="h-12" sizes="96px" /></span>
+      <span className="shrink-0"><Logo decorative className="h-12" sizes="96px" /></span>
       <ol className="grid flex-1 grid-cols-5 gap-1">
         {[t('arrival'), ...(t.raw('stages') as { short: string }[]).map((s) => s.short)].map((label, i) => (
           <li key={label} className="min-w-0">
