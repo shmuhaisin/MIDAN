@@ -34,7 +34,10 @@ Only what was run is marked tested. "Live" means with the configured model (Groq
    `source_file = 'local-fixture'`.
 3. **Google Calendar**: `GOOGLE_CALENDAR_CLIENT_ID` and `_SECRET` are set; `GOOGLE_CALENDAR_REFRESH_TOKEN` is empty, so no
    real event is created and the screens say so.
-4. **Email**: no SMTP provider is configured; local Auth mails into the gateway's sink (`/__mail`).
+4. **Email**: no SMTP provider is configured; local Auth mails into the gateway's sink (`/__mail`). The branch
+   `fix/midan-employer-access-authorization` chose a verified-sender Brevo SMTP setup but nothing is configured, and
+   external delivery is not proven (`docs/handoffs/MIDAN_EMAIL_DELIVERY_REPAIR.md`, brought over as a file, not merged).
+   Application, shortlist, interview and decision notices are in-app notifications; no email is claimed.
 5. **Daily.co**: `DAILY_API_KEY` is set; the embedded call was not run in this session.
 
 ## Requirement status
@@ -102,6 +105,12 @@ blocked** (code and fake-model tests done; needs Groq quota), **Blocked by confi
 | Reschedule, cancel, notifications, calendar failure reported | Tested against stand-ins | foundation e2e "keeps the appointment until a replacement is set", "reports calendar results as they happened" |
 | Real Google Calendar | Blocked by configuration | refresh token empty |
 | Candidate-specific questions and evaluation form | Implemented earlier; live run blocked | `company-journey.e2e` (refusal without a model) |
+
+### Historical branches (handoff §11, §12)
+`integration/midan-email-cloud-fixes` and `feature/midan-employer-access-control` are fully contained in this branch.
+`fix/midan-employer-access-authorization` has 5 commits outside its history; their code is already here as equivalent
+changes (the fixture-bypass fix in `20261112090000`, throttled resend, `cloud-env.mjs`, the migration verifier). Only its
+two handoff documents were missing; they were copied over. Nothing was merged.
 
 ### Admin and authorization (handoff §12)
 | Requirement | Status | Evidence |
