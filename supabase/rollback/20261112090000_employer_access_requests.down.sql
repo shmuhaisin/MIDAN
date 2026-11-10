@@ -1,6 +1,7 @@
 -- Reverses 20261112090000_employer_access_requests. Requests are deleted; memberships granted by approvals stay (they are
 -- ordinary memberships). Fails if two workspaces now link the same registry employer (a test and a real one): remove the
 -- test one first.
+revoke update (role) on public.organization_members from authenticated;
 grant update on public.organization_members to authenticated;
 drop policy if exists "admins insert in test and demo organizations" on public.organization_members;
 create policy "admins insert" on public.organization_members for insert to authenticated with check (
@@ -63,6 +64,20 @@ begin
   insert into public.organization_members (org_id, user_id, role) values (o.id, auth.uid(), 'owner');
   insert into public.organization_branding (org_id) values (o.id);
   return o;
+end $$;
+
+create or replace function private.guard_last_owner() returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if old.role = 'owner' and (tg_op = 'DELETE' or new.role <> 'owner')
+    and exists (select 1 from public.organizations o where o.id = old.org_id)
+    and not exists (
+      select 1 from public.organization_members m
+      where m.org_id = old.org_id and m.role = 'owner' and m.id <> old.id
+    )
+  then
+    raise exception 'An organization must keep at least one owner' using errcode = '23514';
+  end if;
+  return coalesce(new, old);
 end $$;
 
 drop function if exists public.admin_revoke_employer_access(uuid, text);

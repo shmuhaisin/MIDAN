@@ -164,7 +164,11 @@ begin
   select * into r from public.employer_access_requests where id = p_request for update;
   if not found then raise exception 'Request not found' using errcode = 'P0002'; end if;
   if r.status <> 'approved' then raise exception 'Only approved access can be revoked' using errcode = '23514'; end if;
+  -- A registry employer's workspace may be left without an owner by a revocation: MIDAN manages it, and the next
+  -- approved representative becomes its owner. The flag lasts for this transaction only (see guard_last_owner).
+  perform set_config('midan.admin_revoking', 'on', true);
   delete from public.organization_members where org_id = r.org_id and user_id = r.user_id;
+  perform set_config('midan.admin_revoking', 'off', true);
   update public.employer_access_requests set status = 'revoked', decided_by = auth.uid(), decided_at = now(),
     decision_note = nullif(trim(coalesce(p_note, '')), ''), updated_at = now() where id = r.id returning * into r;
   insert into public.audit_logs (org_id, actor_id, action, entity, entity_id, details)
@@ -173,6 +177,26 @@ begin
 end $$;
 revoke all on function public.admin_revoke_employer_access(uuid, text) from public, anon;
 grant execute on function public.admin_revoke_employer_access(uuid, text) to authenticated;
+
+-- An organization always keeps an owner, except when a platform administrator revokes access in a registry employer's
+-- workspace (the flag is only set inside admin_revoke_employer_access, for its own transaction).
+create or replace function private.guard_last_owner() returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if coalesce(current_setting('midan.admin_revoking', true), 'off') = 'on' and tg_op = 'DELETE'
+     and exists (select 1 from public.organizations o where o.id = old.org_id and o.employer_registry_id is not null) then
+    return old;
+  end if;
+  if old.role = 'owner' and (tg_op = 'DELETE' or new.role <> 'owner')
+    and exists (select 1 from public.organizations o where o.id = old.org_id)
+    and not exists (
+      select 1 from public.organization_members m
+      where m.org_id = old.org_id and m.role = 'owner' and m.id <> old.id
+    )
+  then
+    raise exception 'An organization must keep at least one owner' using errcode = '23514';
+  end if;
+  return coalesce(new, old);
+end $$;
 
 -- 5. Closing the other ways in ------------------------------------------------------------------------------------------
 -- Creating an organization: platform administrators, and the fixture accounts (test organizations are marked is_test by
@@ -232,7 +256,8 @@ begin
   -- Someone else's invitation looks the same as a missing one.
   if not found then raise exception 'Invitation not found' using errcode = 'P0002'; end if;
   select * into o from public.organizations where id = i.org_id;
-  if o.is_test or o.is_demo then
+  -- Sandboxes only: a registry employer's workspace (test or real) is always joined through the administrator.
+  if (o.is_test or o.is_demo) and o.employer_registry_id is null then
     insert into public.organization_members (org_id, user_id, role) values (i.org_id, auth.uid(), i.role) on conflict do nothing;
     update public.organization_invitations set accepted_at = now() where id = i.id;
     insert into public.audit_logs (org_id, actor_id, action, entity, entity_id, details)
@@ -250,10 +275,11 @@ begin
   return i.org_id;
 end $$;
 
--- Members: direct inserts only in test and demo organizations; updates change the role and nothing else.
+-- Members: direct inserts only in test and demo sandboxes, never in a registry employer's workspace (test or real);
+-- updates change the role and nothing else.
 drop policy "admins insert" on public.organization_members;
 create policy "admins insert in test and demo organizations" on public.organization_members for insert to authenticated with check (
-  exists (select 1 from public.organizations o where o.id = org_id and (o.is_test or o.is_demo))
+  exists (select 1 from public.organizations o where o.id = org_id and (o.is_test or o.is_demo) and o.employer_registry_id is null)
   and (private.is_org_member(org_id, array['owner']::public.org_role[])
        or (role <> 'owner' and private.is_org_member(org_id, array['admin']::public.org_role[])))
 );
