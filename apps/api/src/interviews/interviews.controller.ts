@@ -199,6 +199,15 @@ export class InterviewsController {
     return this.syncCalendar(user, id);
   }
 
+  @Get('organizations/:orgId/integrations')
+  @ApiOperation({ summary: "Whether Google Calendar and video are configured on this server, for the organization's staff. Booleans only: never a credential." })
+  integrations(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string) {
+    return this.db.asUser(user, async (tx) => {
+      await requireRole(tx, user, orgId);
+      return { calendar: this.calendar.configured, video: this.daily.configured };
+    });
+  }
+
   @Get('organizations/:orgId/applications/:applicationId/interviews')
   forApplication(@CurrentUser() user: AuthUser, @Param('orgId', ParseUUIDPipe) orgId: string, @Param('applicationId', ParseUUIDPipe) applicationId: string) {
     return this.db.asUser(user, async (tx) => {

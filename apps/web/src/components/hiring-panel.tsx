@@ -55,8 +55,10 @@ function InterviewRow({ orgId, interview, canManage }: { orgId: string; intervie
 /** What the candidate journey needs from the organization side: scheduling a person-to-person interview and issuing a decision. */
 type Member = { user_id: string; email: string | null; display_name: string | null };
 
-export function HiringPanel({ orgId, applicationId, interviews, outcomes, canManage, status, team = [] }: {
+export function HiringPanel({ orgId, applicationId, interviews, outcomes, canManage, status, team = [], calendarConfigured = null }: {
   orgId: string; applicationId: string; interviews: Interview[]; outcomes: Outcome[]; canManage: boolean; status: string;
+  /** Whether the server has Google Calendar credentials. null when it couldn't be read: nothing is claimed either way. */
+  calendarConfigured?: boolean | null;
   /** Members who can be added as interviewers. Whoever schedules always takes part. */
   team?: Member[];
 }) {
@@ -108,6 +110,7 @@ export function HiringPanel({ orgId, applicationId, interviews, outcomes, canMan
         {interviews.length > 0 && <ul className="mt-2 border-t border-border">{interviews.map((i) => <InterviewRow key={i.id} orgId={orgId} interview={i} canManage={canManage} />)}</ul>}
         {canManage && (
           <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={schedule}>
+            {calendarConfigured === false && <p role="note" className="callout text-sm sm:col-span-2">{t('calendarUnavailable')}</p>}
             <label className="block"><span className="field-label">{t('when')}</span><input type="datetime-local" name="when" required className={INPUT} /></label>
             <Field name="duration" type="number" min={5} max={480} required label={t('duration')} defaultValue="30" />
             <Field name="instructions_ar" dir="rtl" maxLength={2000} label={t('instructionsAr')} />

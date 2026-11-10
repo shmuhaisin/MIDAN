@@ -1959,7 +1959,8 @@
     "messageEn": "Message to the candidate in English",
     "issue": "Issue the decision",
     "interviewers": "Interviewers",
-    "interviewersNote": "You take part as the person scheduling. Only participants can join the video room and give feedback."
+    "interviewersNote": "You take part as the person scheduling. Only participants can join the video room and give feedback.",
+    "calendarUnavailable": "Google Calendar isn't connected on this server, so scheduling here sends no calendar event or invitation. The interview is recorded in MIDAN and the candidate is told in their notifications. Send the meeting invitation yourself until the calendar is connected."
   },
   "employers": {
     "title": "Employer directory",

@@ -73,6 +73,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     apiForPage<MatchData>(`/organizations/${orgId}/applications/${applicationId}/match`),
   ]);
   if (!data) notFound();
+  const integrations = await apiForPage<{ calendar: boolean; video: boolean }>(`/organizations/${orgId}/integrations`).catch(() => null);
   const reports = (await apiForPage<StaffReport[]>(`/organizations/${orgId}/applications/${applicationId}/development-reports`).catch(() => null)) ?? [];
   // Each interview's preparation (questions and form), for staff only. A failure leaves the rest of the page usable.
   const preparations = new Map(await Promise.all(data.interviews.map(async (i) =>
@@ -313,7 +314,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
 
           <div className="rounded-[var(--radius-panel)] border border-border bg-surface p-6 lg:p-8">
             <HiringPanel orgId={orgId} applicationId={applicationId} interviews={data.interviews} outcomes={data.hiring_outcomes} canManage={canManage} status={data.status}
-              team={data.team.filter((m) => m.user_id !== data.my_user_id)} />
+              team={data.team.filter((m) => m.user_id !== data.my_user_id)} calendarConfigured={integrations?.calendar ?? null} />
           </div>
 
           {data.interviews.length > 0 && (
